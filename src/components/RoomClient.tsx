@@ -309,13 +309,21 @@ export function RoomClient({
         </div>
       </div>
 
+      {/* Skills panel */}
+      {showSkills && (
+        <SkillPanel
+          roomId={room.id}
+          userId={userId}
+          onClose={() => setShowSkills(false)}
+        />
+      )}
+
       {/* Room settings modal (host only) */}
       {showSettings && (
         <RoomSettings
           roomId={room.id}
           roomName={room.name}
           currentTheme={roomTheme || "default"}
-          currentDiceRules={roomDiceRules || "basic"}
           onClose={() => setShowSettings(false)}
         />
       )}

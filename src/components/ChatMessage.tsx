@@ -72,12 +72,14 @@ export function ChatMessage({
           }`}
         >
           {isDice ? (
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🎲</span>
-              <div>
-                <span className="font-bold font-theme-mono text-sm leading-tight">
-                  {formatDiceResult(diceDetail || content)}
-                </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎲</span>
+                <div>
+                  <span className="font-bold font-theme-mono text-sm leading-tight">
+                    {formatDiceResult(diceDetail || content)}
+                  </span>
+                </div>
               </div>
             </div>
           ) : (
