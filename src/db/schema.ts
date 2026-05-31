@@ -1,7 +1,7 @@
 /**
  * Simple TRPG Chat — Database Schema (Drizzle ORM)
  *
- * Tables: users | rooms | room_members | messages | room_skills
+ * Tables: users | rooms | room_members | messages | room_skills | system_config | host_ai_config
  */
 
 import { sqliteTable, text, integer, unique } from 'drizzle-orm/sqlite-core';
@@ -91,15 +91,33 @@ export const messages = sqliteTable('messages', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
+/** Global system configurations */
+export const systemConfig = sqliteTable('system_config', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+/** Host-specific AI configurations */
+export const hostAiConfig = sqliteTable('host_ai_config', {
+  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  model: text('model').notNull().default('gpt-4o'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
 // ============================================================
 // Relations
 // ============================================================
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   rooms: many(rooms, { relationName: 'hostRooms' }),
   roomMemberships: many(roomMembers),
   messages: many(messages),
   skills: many(roomSkills),
+  aiConfig: one(hostAiConfig),
 }));
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({
@@ -117,6 +135,10 @@ export const roomMembersRelations = relations(roomMembers, ({ one }) => ({
 export const roomSkillsRelations = relations(roomSkills, ({ one }) => ({
   room: one(rooms, { fields: [roomSkills.roomId], references: [rooms.id] }),
   user: one(users, { fields: [roomSkills.userId], references: [users.id] }),
+}));
+
+export const hostAiConfigRelations = relations(hostAiConfig, ({ one }) => ({
+  user: one(users, { fields: [hostAiConfig.userId], references: [users.id] }),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
