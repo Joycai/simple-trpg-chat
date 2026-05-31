@@ -9,7 +9,7 @@ export default async function AdminPage() {
 
   return (
     <div className="flex flex-col gap-8 max-w-4xl mx-auto">
-      <section className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+      <section className="bg-surface p-6 rounded-theme shadow-sm border border-border">
         <h3 className="text-lg font-bold mb-4 border-b border-border pb-2">{t("createUser")}</h3>
         <form action={createUser} className="grid grid-cols-2 gap-4">
           <input name="username" placeholder={t("username")} required className="p-2 border border-border rounded bg-surface" />
@@ -26,7 +26,7 @@ export default async function AdminPage() {
         </form>
       </section>
 
-      <section className="bg-surface p-6 rounded-lg shadow-sm border border-border">
+      <section className="bg-surface p-6 rounded-theme shadow-sm border border-border">
         <h3 className="text-lg font-bold mb-4 border-b border-border pb-2">{t("userList")}</h3>
         <table className="w-full text-left">
           <thead>

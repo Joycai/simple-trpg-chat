@@ -56,10 +56,10 @@ export function ChatInput({ onSendMessage, isHost }: ChatInputProps) {
       )}
 
       {/* Input row */}
-      <div className="flex items-center gap-2 bg-input-bg border border-input-border rounded-lg p-2 shadow-sm">
+      <div className="flex items-center gap-2 bg-input-bg border border-input-border rounded-theme p-2 shadow-sm">
         <button
           onClick={() => setShowDice(!showDice)}
-          className={`px-3 py-2 rounded-lg text-sm font-bold transition ${
+          className={`px-3 py-2 rounded-theme text-sm font-bold transition ${
             showDice ? "bg-accent text-white" : "bg-surface-alt text-text-muted hover:bg-border"
           }`}
           title={t("send")}
@@ -80,7 +80,7 @@ export function ChatInput({ onSendMessage, isHost }: ChatInputProps) {
         <button
           onClick={handleSend}
           disabled={!message.trim()}
-          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white px-4 py-2 rounded-theme text-sm font-bold transition"
         >
           {t("send")}
         </button>

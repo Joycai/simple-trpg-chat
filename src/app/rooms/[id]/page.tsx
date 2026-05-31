@@ -22,9 +22,9 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-bold text-gray-500">房间不存在</h1>
-        <Link href="/" className="text-blue-500 hover:underline">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
+        <h1 className="text-2xl font-bold text-text-muted">房间不存在</h1>
+        <Link href="/" className="text-primary hover:underline">
           返回大厅
         </Link>
       </div>
@@ -49,9 +49,9 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       });
     } else {
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-          <h1 className="text-2xl font-bold text-gray-500">你还没有加入这个房间</h1>
-          <Link href="/" className="text-blue-500 hover:underline">
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
+          <h1 className="text-2xl font-bold text-text-muted">你还没有加入这个房间</h1>
+          <Link href="/" className="text-primary hover:underline">
             返回大厅加入
           </Link>
         </div>

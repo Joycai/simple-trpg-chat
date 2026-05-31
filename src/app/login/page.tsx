@@ -52,7 +52,7 @@ export default function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-surface">
       <form
         onSubmit={handleSubmit}
-        className="p-8 bg-surface rounded-xl shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
+        className="p-8 bg-surface rounded-theme shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
       >
         <div className="text-center mb-2">
           <h1 className="text-2xl font-bold text-text">{t("title")}</h1>
@@ -76,7 +76,7 @@ export default function LoginPage() {
             placeholder={t("usernamePlaceholder")}
             required
             autoComplete="username"
-            className="p-2.5 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
+            className="p-2.5 border border-border rounded-theme outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
             autoFocus
           />
         </div>
@@ -92,14 +92,14 @@ export default function LoginPage() {
             placeholder={t("passwordPlaceholder")}
             required
             autoComplete="current-password"
-            className="p-2.5 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
+            className="p-2.5 border border-border rounded-theme outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
           />
         </div>
 
         <button
           type="submit"
           disabled={isPending}
-          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white p-2.5 rounded-lg font-bold transition text-sm mt-2 flex items-center justify-center gap-2"
+          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white p-2.5 rounded-theme font-bold transition text-sm mt-2 flex items-center justify-center gap-2"
         >
           {isPending ? (
             <>
