@@ -17,12 +17,14 @@ export async function createRoomAction(formData: FormData) {
   }
 
   const name = formData.get("name") as string;
-  const key = (formData.get("key") as string)?.trim();
-
+  const customKey = formData.get("key") as string; // Matching LobbyClient.tsx input name='key'
+  
   if (!name || !name.trim()) throw new Error("Room name is required");
-  if (!key) throw new Error("请设置房间密钥（玩家加入时需要输入）");
 
-  const secretKey = key;
+  // Use custom key if provided, otherwise generate one
+  const secretKey = (customKey && customKey.trim()) 
+    ? customKey.trim() 
+    : crypto.randomBytes(4).toString("hex");
 
   const [newRoom] = await db.insert(rooms).values({
     name: name.trim(),

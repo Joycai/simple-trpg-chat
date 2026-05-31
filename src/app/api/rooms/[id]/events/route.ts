@@ -18,7 +18,11 @@ export async function GET(
 
       const listener = (data: any) => {
         const payload = `data: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(payload));
+        try {
+          controller.enqueue(encoder.encode(payload));
+        } catch {
+          // controller closed, ignore
+        }
       };
 
       const unsubscribe = subscribeToRoom(roomId, listener);
@@ -26,7 +30,17 @@ export async function GET(
       // Send initial heartbeat
       controller.enqueue(encoder.encode(": heartbeat\n\n"));
 
+      // Keep-alive: send heartbeat every 15s to prevent proxy/browser timeout
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(": heartbeat\n\n"));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, 15000);
+
       req.signal.addEventListener("abort", () => {
+        clearInterval(heartbeat);
         unsubscribe();
       });
     },

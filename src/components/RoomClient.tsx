@@ -44,9 +44,9 @@ export function RoomClient({
 }: RoomClientProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [nickname, setNickname] = useState(currentNickname);
+  const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -55,26 +55,49 @@ export function RoomClient({
 
   useEffect(scrollToBottom, [messages]);
 
-  // SSE Subscription
+  // SSE Subscription with enhanced reliability
   useEffect(() => {
-    const eventSource = new EventSource(`/api/rooms/${room.id}/events`);
-    
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      setMessages((prev) => {
-        // Avoid duplicates if SSE and Server Action both update
-        if (prev.some(m => m.id === data.id)) return prev;
-        return [...prev, data];
-      });
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
+
+    const setupSSE = () => {
+      if (eventSource) eventSource.close();
+      
+      setStatus("connecting");
+      eventSource = new EventSource(`/api/rooms/${room.id}/events`);
+
+      eventSource.onopen = () => {
+        setStatus("connected");
+        console.log("🎲 SSE Connected to room", room.id);
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.id) {
+            setMessages((prev) => {
+              if (prev.some(m => m.id === data.id)) return prev;
+              return [...prev, data];
+            });
+          }
+        } catch (e) {
+          // Heartbeat or malformed data
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        setStatus("error");
+        console.error("🎲 SSE Error, retrying in 3s...", err);
+        eventSource?.close();
+        reconnectTimeout = setTimeout(setupSSE, 3000);
+      };
     };
 
-    eventSource.onerror = (err) => {
-      console.error("SSE Error:", err);
-      eventSource.close();
-    };
+    setupSSE();
 
     return () => {
-      eventSource.close();
+      if (eventSource) eventSource.close();
+      clearTimeout(reconnectTimeout);
     };
   }, [room.id]);
 
@@ -84,22 +107,16 @@ export function RoomClient({
     diceDetail?: string,
     isPrivate?: boolean
   ) => {
-    // If it's a dice roll, we use the server-side action instead
-    if (type === "dice" && diceDetail) {
-      try {
+    try {
+      if (type === "dice" && diceDetail) {
         const detail = JSON.parse(diceDetail);
         const faces = parseInt(detail.dice.replace("d", ""));
         await rollDiceAction(room.id, faces, detail.count, isPrivate);
-      } catch (e) {
-        console.error("Dice roll failed:", e);
+      } else {
+        await sendMessageAction(room.id, content, type, diceDetail, isPrivate);
       }
-      return;
-    }
-
-    try {
-      await sendMessageAction(room.id, content, type, diceDetail, isPrivate);
     } catch (e) {
-      console.error("Send message failed:", e);
+      console.error("Action failed:", e);
     }
   };
 
@@ -109,25 +126,35 @@ export function RoomClient({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-white border-b shadow-sm px-4 py-3">
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      <header className="bg-white border-b shadow-sm px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-400 hover:text-gray-600 transition">← 大厅</Link>
+            <Link href="/" className="text-gray-400 hover:text-gray-600 transition text-sm">← 大厅</Link>
             <div>
-              <h2 className="font-bold text-gray-800">{room.name}</h2>
-              <div className="text-xs text-gray-400">房间 #{room.id}</div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-gray-800 leading-none">{room.name}</h2>
+                <div 
+                  className={`w-2 h-2 rounded-full ${
+                    status === 'connected' ? 'bg-green-500' : 
+                    status === 'connecting' ? 'bg-amber-500 animate-pulse' : 
+                    'bg-red-500'
+                  }`} 
+                  title={status}
+                />
+              </div>
+              <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-mono">Room ID: {room.id}</div>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <NicknameEditor currentNickname={nickname} onSave={handleNicknameSave} />
-            {isHost && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-medium">主持人</span>}
+            {isHost && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">GM</span>}
           </div>
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="max-w-4xl mx-auto flex flex-col">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
+        <div className="max-w-4xl mx-auto flex flex-col gap-1">
           {messages.map((msg) => (
             <ChatMessage
               key={msg.id}
@@ -143,7 +170,7 @@ export function RoomClient({
         </div>
       </div>
 
-      <div className="bg-white border-t px-4 py-3">
+      <div className="bg-white border-t px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
           <ChatInput onSendMessage={handleSendMessage} isHost={isHost} />
         </div>

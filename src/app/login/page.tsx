@@ -31,13 +31,18 @@ export default function LoginPage() {
         });
 
         if (result?.error) {
-          setError("用户名或密码错误，请重试");
+          // In NextAuth v5, result.error might be the error type
+          if (result.error === "CredentialsSignin") {
+            setError("用户名或密码错误，请检查后重试");
+          } else {
+            setError(`登录失败: ${result.error}`);
+          }
         } else {
           router.push("/");
           router.refresh();
         }
-      } catch {
-        setError("登录失败，请稍后重试");
+      } catch (err: any) {
+        setError("系统错误，请稍后重试");
       }
     });
   }
@@ -54,7 +59,7 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm text-center">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm text-center animate-pulse">
             ⚠️ {error}
           </div>
         )}
@@ -69,6 +74,7 @@ export default function LoginPage() {
             type="text"
             placeholder="输入用户名"
             required
+            autoComplete="username"
             className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-300 transition text-sm"
             autoFocus
           />
@@ -84,6 +90,7 @@ export default function LoginPage() {
             type="password"
             placeholder="输入密码"
             required
+            autoComplete="current-password"
             className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-300 transition text-sm"
           />
         </div>
@@ -91,9 +98,16 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isPending}
-          className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white p-2.5 rounded-lg font-bold transition text-sm mt-2"
+          className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white p-2.5 rounded-lg font-bold transition text-sm mt-2 flex items-center justify-center gap-2"
         >
-          {isPending ? "登录中..." : "登录"}
+          {isPending ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              登录中...
+            </>
+          ) : (
+            "登录"
+          )}
         </button>
 
         <p className="text-[10px] text-gray-300 text-center mt-2">
