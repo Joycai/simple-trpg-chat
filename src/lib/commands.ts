@@ -92,7 +92,7 @@ async function handleSetSkill(roomId: number, userId: number, args: string): Pro
   }
 
   const summary = updates.map(u => `${u.name} ${u.value}`).join(", ");
-  const msg = await sendMessageAction(roomId, `📋 技能已更新：${summary}`, "system");
+  const msg = await sendMessageAction(roomId, `📋 技能已更新：${summary}`, "system", undefined, true);
 
   return { success: true, isCommand: true, message: msg };
 }

@@ -46,6 +46,14 @@ export function formatDiceResult(diceDetail: string | null): string {
       parts.push(`[${detail.results.join(", ")}]`);
     }
     parts.push(`= ${detail.sum}`);
+
+    // Skill check (.rc) result
+    if (detail.check) {
+      const { skillName, target, roll, success } = detail.check;
+      const label = success ? "✅ 成功" : "❌ 失败";
+      parts.push(`← ${skillName}(${target}) ${label}`);
+    }
+
     return parts.join(" ");
   } catch {
     return diceDetail;
