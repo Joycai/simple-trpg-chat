@@ -26,7 +26,7 @@ export const ROOM_STATUS = ['active', 'closed'] as const;
 export type RoomStatus = (typeof ROOM_STATUS)[number];
 
 /** Available themes */
-export const THEMES = ['default', 'parchment', 'cthulhu'] as const;
+export const THEMES = ['default', 'parchment', 'cthulhu', 'shrine'] as const;
 export type Theme = (typeof THEMES)[number];
 
 /**

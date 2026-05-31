@@ -106,6 +106,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 <option value="default">{tc("themeDefault")}</option>
                 <option value="parchment">{tc("themeParchment")}</option>
                 <option value="cthulhu">{tc("themeCthulhu")}</option>
+                <option value="shrine">{tc("themeShrine")}</option>
               </select>
               <p className="text-xs text-gray-400">{tc("themeHint")}</p>
             </div>

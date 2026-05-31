@@ -55,7 +55,8 @@
     "copyKey": "📋 复制",
     "tip": "💡 在房间卡片上点击\"进入房间\"开始游戏",
     "done": "知道了，进入大厅",
-    "errorKeyRequired": "请设置房间密钥（玩家加入时需要输入）"
+    "errorKeyRequired": "请设置房间密钥（玩家加入时需要输入）",
+    "themeShrine": "⛩️ 远古神社 (和风古木)"
   },
   "room": {
     "notFound": "房间不存在",
@@ -113,7 +114,9 @@
     "parchment": "古旧羊皮卷",
     "parchmentDesc": "复古泛黄，墨迹质感，适合传统西幻跑团",
     "cthulhu": "克苏鲁的呼唤",
-    "cthulhuDesc": "深海绿与诡异紫，不可名状的恐怖氛围"
+    "cthulhuDesc": "深海绿与诡异紫，不可名状的恐怖氛围",
+    "shrine": "远古神社",
+    "shrineDesc": "沉静深棕古木，朱红鸟居点缀，和纸质感的空灵和风氛围"
   },
   "common": {
     "error": "出错了",

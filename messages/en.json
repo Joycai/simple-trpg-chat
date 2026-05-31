@@ -55,7 +55,8 @@
     "copyKey": "📋 Copy",
     "tip": "💡 Click 'Enter Room' on the room card to start",
     "done": "Got it, go to Lobby",
-    "errorKeyRequired": "Room key is required"
+    "errorKeyRequired": "Room key is required",
+    "themeShrine": "⛩️ Ancient Shrine (Wa-fu)"
   },
   "room": {
     "notFound": "Room not found",
@@ -113,7 +114,9 @@
     "parchment": "Aged Parchment",
     "parchmentDesc": "Retro yellowed paper with ink texture",
     "cthulhu": "Call of Cthulhu",
-    "cthulhuDesc": "Deep sea green and eerie purple"
+    "cthulhuDesc": "Deep sea green and eerie purple",
+    "shrine": "Ancient Shrine",
+    "shrineDesc": "Aged dark wood, vermilion accents, and a serene Japanese atmosphere."
   },
   "common": {
     "error": "Error",
