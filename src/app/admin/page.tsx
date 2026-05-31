@@ -1,14 +1,20 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, systemConfig } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { createUser, deleteUser } from "./actions";
+import { AdminAiToggle } from "@/components/AdminAiToggle";
 
 export default async function AdminPage() {
   const t = await getTranslations("admin");
   const allUsers = await db.select().from(users);
+  const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
+  const aiEnabled = aiConfig?.value === "true";
 
   return (
     <div className="flex flex-col gap-8 max-w-4xl mx-auto">
+      <AdminAiToggle initialEnabled={aiEnabled} />
+
       <section className="bg-surface p-6 rounded-theme shadow-sm border border-border">
         <h3 className="text-lg font-bold mb-4 border-b border-border pb-2">{t("createUser")}</h3>
         <form action={createUser} className="grid grid-cols-2 gap-4">

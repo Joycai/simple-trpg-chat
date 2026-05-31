@@ -7,6 +7,7 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { LobbyClient } from "@/components/LobbyClient";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { AiSettingsButton } from "@/components/AiSettingsButton";
 
 export default async function HomePage() {
   const t = await getTranslations("nav");
@@ -49,6 +50,7 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-4">
             <ThemeSwitcher />
+            {isHost && <AiSettingsButton />}
             <div className="h-4 w-px bg-border mx-2 hidden sm:block" />
             <span className="text-sm text-text-muted">
               {user.name || user.username}
