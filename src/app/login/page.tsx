@@ -49,24 +49,24 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-surface">
       <form
         onSubmit={handleSubmit}
-        className="p-8 bg-white rounded-xl shadow-lg flex flex-col gap-4 w-full max-w-sm border"
+        className="p-8 bg-surface rounded-xl shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
       >
         <div className="text-center mb-2">
-          <h1 className="text-2xl font-bold text-gray-800">{t("title")}</h1>
-          <p className="text-sm text-gray-400 mt-1">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-text">{t("title")}</h1>
+          <p className="text-sm text-text-muted mt-1">{t("subtitle")}</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm text-center animate-pulse">
+          <div className="bg-danger/10 border border-danger/30 text-danger px-4 py-2 rounded text-sm text-center animate-pulse">
             ⚠️ {error}
           </div>
         )}
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="username" className="text-xs text-gray-500 font-medium">
+          <label htmlFor="username" className="text-xs text-text-muted font-medium">
             {t("username")}
           </label>
           <input
@@ -76,13 +76,13 @@ export default function LoginPage() {
             placeholder={t("usernamePlaceholder")}
             required
             autoComplete="username"
-            className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-300 transition text-sm"
+            className="p-2.5 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
             autoFocus
           />
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="password" className="text-xs text-gray-500 font-medium">
+          <label htmlFor="password" className="text-xs text-text-muted font-medium">
             {t("password")}
           </label>
           <input
@@ -92,14 +92,14 @@ export default function LoginPage() {
             placeholder={t("passwordPlaceholder")}
             required
             autoComplete="current-password"
-            className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-300 transition text-sm"
+            className="p-2.5 border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
           />
         </div>
 
         <button
           type="submit"
           disabled={isPending}
-          className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white p-2.5 rounded-lg font-bold transition text-sm mt-2 flex items-center justify-center gap-2"
+          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white p-2.5 rounded-lg font-bold transition text-sm mt-2 flex items-center justify-center gap-2"
         >
           {isPending ? (
             <>
@@ -111,7 +111,7 @@ export default function LoginPage() {
           )}
         </button>
 
-        <p className="text-[10px] text-gray-300 text-center mt-2">
+        <p className="text-[10px] text-text-dim text-center mt-2">
           {t("hint")}
         </p>
       </form>

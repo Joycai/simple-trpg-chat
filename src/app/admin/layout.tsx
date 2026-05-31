@@ -10,14 +10,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="bg-slate-800 text-white p-4 flex justify-between items-center">
-        <h2 className="text-xl font-bold text-blue-400">Admin Control Panel</h2>
+      <header className="bg-header-bg text-white p-4 flex justify-between items-center">
+        <h2 className="text-xl font-bold text-primary">Admin Control Panel</h2>
         <nav className="flex gap-4">
           <a href="/admin" className="hover:underline">User Management</a>
-          <a href="/" className="hover:underline text-gray-400 italic">Back to App</a>
+          <a href="/" className="hover:underline text-text-muted italic">Back to App</a>
         </nav>
       </header>
-      <main className="flex-grow p-8 bg-gray-50">{children}</main>
+      <main className="flex-grow p-8 bg-surface">{children}</main>
     </div>
   );
 }

@@ -36,12 +36,12 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <header className="bg-slate-800 text-white p-4">
+      <header className="bg-header-bg text-white p-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold">🎲 Simple TRPG Chat</h1>
             {isAdmin && (
-              <Link href="/admin" className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-700">
+              <Link href="/admin" className="text-xs bg-danger px-2 py-1 rounded hover:brightness-90">
                 {t("admin")}
               </Link>
             )}
@@ -49,11 +49,11 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-4">
             <ThemeSwitcher />
-            <span className="text-sm text-gray-300">
+            <span className="text-sm text-text-dim">
               {user.name || user.username}
               <span
                 className={`ml-2 px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                  isAdmin ? "bg-red-500" : isHost ? "bg-green-500" : "bg-blue-500"
+                  isAdmin ? "bg-danger" : isHost ? "bg-success" : "bg-primary"
                 }`}
               >
                 {user.role}
@@ -65,7 +65,7 @@ export default async function HomePage() {
                 await signOut();
               }}
             >
-              <button className="text-sm text-gray-400 hover:text-white hover:underline transition">
+              <button className="text-sm text-text-muted hover:text-white hover:underline transition">
                 {t("logout")}
               </button>
             </form>
