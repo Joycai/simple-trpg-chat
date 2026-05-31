@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { LobbyClient } from "@/components/LobbyClient";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export default async function HomePage() {
   const t = await getTranslations("nav");
@@ -47,6 +48,7 @@ export default async function HomePage() {
           </div>
 
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             <span className="text-sm text-gray-300">
               {user.name || user.username}
               <span
