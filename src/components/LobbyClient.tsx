@@ -114,7 +114,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="px-4 py-2 text-text-muted hover:text-text-dim"
+                className="px-4 py-2 text-text-muted hover:text-text"
               >
                 {t("cancel")}
               </button>
@@ -187,7 +187,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               <div
                 key={room.id}
                 className={`bg-surface rounded-theme shadow-sm border p-5 transition hover:shadow-md ${
-                  isJoined ? "border-primary/30 bg-primary/10" : ""
+                  isJoined ? "border-primary/30 bg-surface-alt" : ""
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -257,7 +257,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                               setJoinRoomId(null);
                               setJoinKey("");
                             }}
-                            className="flex-1 text-xs text-text-muted hover:text-text-dim py-1"
+                            className="flex-1 text-xs text-text-muted hover:text-text py-1"
                           >
                             {t("cancel")}
                           </button>
@@ -272,7 +272,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                     ) : (
                       <button
                         onClick={() => setJoinRoomId(room.id)}
-                        className="w-full bg-surface-alt hover:bg-surface text-text-dim py-2 rounded-theme font-medium text-sm transition"
+                        className="w-full bg-surface-alt hover:bg-surface text-text py-2 rounded-theme font-medium text-sm transition"
                       >
                         {t("joinWithKey")}
                       </button>
