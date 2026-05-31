@@ -1,12 +1,14 @@
 import { auth, signOut } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { LobbyClient } from "@/components/LobbyClient";
 
 export default async function HomePage() {
+  const t = await getTranslations("nav");
   const session = await auth();
   if (!session) redirect("/login");
 
@@ -39,7 +41,7 @@ export default async function HomePage() {
             <h1 className="text-xl font-bold">🎲 Simple TRPG Chat</h1>
             {isAdmin && (
               <Link href="/admin" className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-700">
-                Admin Panel
+                {t("admin")}
               </Link>
             )}
           </div>
@@ -48,7 +50,7 @@ export default async function HomePage() {
             <span className="text-sm text-gray-300">
               {user.name || user.username}
               <span
-                className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${
+                className={`ml-2 px-2 py-0.5 rounded text-xs font-bold uppercase ${
                   isAdmin ? "bg-red-500" : isHost ? "bg-green-500" : "bg-blue-500"
                 }`}
               >
@@ -61,8 +63,8 @@ export default async function HomePage() {
                 await signOut();
               }}
             >
-              <button className="text-sm text-gray-400 hover:text-white hover:underline">
-                退出
+              <button className="text-sm text-gray-400 hover:text-white hover:underline transition">
+                {t("logout")}
               </button>
             </form>
           </div>
@@ -70,7 +72,7 @@ export default async function HomePage() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 bg-gray-50 p-8">
+      <main className="flex-1 bg-bg p-8">
         <div className="max-w-6xl mx-auto">
           <LobbyClient
             rooms={allRooms as any[]}

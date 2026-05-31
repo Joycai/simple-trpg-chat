@@ -3,8 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useTranslations } from "next-intl";
 
 export default function LoginPage() {
+  const t = useTranslations("login");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -18,7 +20,7 @@ export default function LoginPage() {
     const password = formData.get("password") as string;
 
     if (!username || !password) {
-      setError("请输入用户名和密码");
+      setError(t("errorEmpty"));
       return;
     }
 
@@ -31,18 +33,17 @@ export default function LoginPage() {
         });
 
         if (result?.error) {
-          // In NextAuth v5, result.error might be the error type
           if (result.error === "CredentialsSignin") {
-            setError("用户名或密码错误，请检查后重试");
+            setError(t("errorCredentials"));
           } else {
-            setError(`登录失败: ${result.error}`);
+            setError(t("errorUnknown"));
           }
         } else {
           router.push("/");
           router.refresh();
         }
-      } catch (err: any) {
-        setError("系统错误，请稍后重试");
+      } catch {
+        setError(t("errorUnknown"));
       }
     });
   }
@@ -54,8 +55,8 @@ export default function LoginPage() {
         className="p-8 bg-white rounded-xl shadow-lg flex flex-col gap-4 w-full max-w-sm border"
       >
         <div className="text-center mb-2">
-          <h1 className="text-2xl font-bold text-gray-800">🎲 Simple TRPG Chat</h1>
-          <p className="text-sm text-gray-400 mt-1">登录以继续</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t("title")}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t("subtitle")}</p>
         </div>
 
         {error && (
@@ -66,13 +67,13 @@ export default function LoginPage() {
 
         <div className="flex flex-col gap-1">
           <label htmlFor="username" className="text-xs text-gray-500 font-medium">
-            用户名
+            {t("username")}
           </label>
           <input
             id="username"
             name="username"
             type="text"
-            placeholder="输入用户名"
+            placeholder={t("usernamePlaceholder")}
             required
             autoComplete="username"
             className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-300 transition text-sm"
@@ -82,13 +83,13 @@ export default function LoginPage() {
 
         <div className="flex flex-col gap-1">
           <label htmlFor="password" className="text-xs text-gray-500 font-medium">
-            密码
+            {t("password")}
           </label>
           <input
             id="password"
             name="password"
             type="password"
-            placeholder="输入密码"
+            placeholder={t("passwordPlaceholder")}
             required
             autoComplete="current-password"
             className="p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-300 transition text-sm"
@@ -103,15 +104,15 @@ export default function LoginPage() {
           {isPending ? (
             <>
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-              登录中...
+              {t("submitting")}
             </>
           ) : (
-            "登录"
+            t("submit")
           )}
         </button>
 
         <p className="text-[10px] text-gray-300 text-center mt-2">
-          初始管理员：admin / admin123
+          {t("hint")}
         </p>
       </form>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 interface NicknameEditorProps {
   currentNickname: string;
@@ -8,6 +9,7 @@ interface NicknameEditorProps {
 }
 
 export function NicknameEditor({ currentNickname, onSave }: NicknameEditorProps) {
+  const t = useTranslations("nickname");
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(currentNickname);
   const [saving, setSaving] = useState(false);
@@ -36,8 +38,8 @@ export function NicknameEditor({ currentNickname, onSave }: NicknameEditorProps)
           setValue(currentNickname);
           setEditing(true);
         }}
-        className="text-sm text-gray-500 hover:text-blue-500 underline underline-offset-2 transition"
-        title="点击修改昵称"
+        className="text-sm text-text-muted hover:text-primary underline underline-offset-2 transition"
+        title={t("edit")}
       >
         ✏️ {currentNickname}
       </button>
@@ -54,14 +56,14 @@ export function NicknameEditor({ currentNickname, onSave }: NicknameEditorProps)
           if (e.key === "Enter") handleSave();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="px-2 py-1 border rounded text-sm w-32 outline-none focus:ring-2 focus:ring-blue-300"
+        className="px-2 py-1 border border-border rounded text-sm w-32 outline-none focus:ring-2 focus:ring-primary bg-surface text-text"
         maxLength={20}
         disabled={saving}
       />
       <button
         onClick={handleSave}
         disabled={saving}
-        className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
+        className="text-xs bg-primary text-white px-2 py-1 rounded hover:bg-primary-hover disabled:opacity-50 transition"
       >
         {saving ? "..." : "✓"}
       </button>

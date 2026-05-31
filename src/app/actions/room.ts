@@ -17,19 +17,21 @@ export async function createRoomAction(formData: FormData) {
   }
 
   const name = formData.get("name") as string;
-  const customKey = formData.get("key") as string; // Matching LobbyClient.tsx input name='key'
-  
+  const customKey = formData.get("key") as string;
+  const theme = (formData.get("theme") as "default" | "parchment" | "cthulhu") || "default";
+
   if (!name || !name.trim()) throw new Error("Room name is required");
 
   // Use custom key if provided, otherwise generate one
-  const secretKey = (customKey && customKey.trim()) 
-    ? customKey.trim() 
+  const secretKey = (customKey && customKey.trim())
+    ? customKey.trim()
     : crypto.randomBytes(4).toString("hex");
 
   const [newRoom] = await db.insert(rooms).values({
     name: name.trim(),
     hostId: parseInt((session.user as any).id),
     secretKey,
+    theme,
   }).returning();
 
   // Host automatically joins

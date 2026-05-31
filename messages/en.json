@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "Simple TRPG Chat",
+    "description": "Lightweight web-based TRPG tool — Chat & Dice"
+  },
+  "nav": {
+    "lobby": "← Lobby",
+    "admin": "Admin Panel",
+    "logout": "Logout",
+    "roomId": "Room #{id}"
+  },
+  "login": {
+    "title": "🎲 Simple TRPG Chat",
+    "subtitle": "Login to continue",
+    "username": "Username",
+    "usernamePlaceholder": "Enter username",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "submit": "Login",
+    "submitting": "Logging in...",
+    "hint": "Default admin: admin / admin123",
+    "errorEmpty": "Please enter username and password",
+    "errorCredentials": "Invalid username or password",
+    "errorUnknown": "Login failed, please try again"
+  },
+  "lobby": {
+    "title": "🏠 Room Lobby",
+    "createRoom": "＋ Create Room",
+    "noRooms": "No rooms yet",
+    "noRoomsHint": "Click 'Create Room' to get started!",
+    "enterRoom": "Enter Room →",
+    "joinWithKey": "🔑 Join with Key",
+    "joined": "Joined",
+    "host": "Host",
+    "keyPlaceholder": "Enter key",
+    "join": "Join",
+    "joinFailed": "Join failed",
+    "cancel": "Cancel"
+  },
+  "createRoom": {
+    "title": "Create New Room",
+    "name": "Room Name",
+    "namePlaceholder": "e.g. The Screaming Elevator",
+    "key": "Room Key",
+    "keyPlaceholder": "Set a key for players to join",
+    "keyHint": "Players will need this key to enter",
+    "theme": "Room Theme",
+    "themeHint": "Host can set a unique theme for the room",
+    "themeDefault": "Default (Dark Tabletop)",
+    "themeParchment": "🏺 Aged Parchment",
+    "themeCthulhu": "🦑 Call of Cthulhu",
+    "submit": "Create",
+    "created": "🎉 Room Created!",
+    "keyCopied": "Room Key (Share with players):",
+    "copyKey": "📋 Copy",
+    "tip": "💡 Click 'Enter Room' on the room card to start",
+    "done": "Got it, go to Lobby",
+    "errorKeyRequired": "Room key is required"
+  },
+  "room": {
+    "notFound": "Room not found",
+    "notJoined": "You haven't joined this room",
+    "backToLobby": "Back to Lobby",
+    "backToJoin": "Join from Lobby",
+    "gm": "GM",
+    "host": "Host",
+    "scrollToBottom": "Scroll to latest"
+  },
+  "chat": {
+    "inputPlaceholder": "Type a message...",
+    "send": "Send",
+    "privateRoll": "Private Roll - GM Only",
+    "privateRollHint": "Host made a private roll",
+    "diceNotation": "{count}d{faces}"
+  },
+  "dice": {
+    "title": "Dice",
+    "quantity": "Qty",
+    "roll": "Roll",
+    "private": "Private",
+    "lastResult": "Last Result",
+    "faces": {
+      "d4": "d4",
+      "d6": "d6",
+      "d8": "d8",
+      "d10": "d10",
+      "d12": "d12",
+      "d20": "d20",
+      "d100": "d100"
+    }
+  },
+  "nickname": {
+    "edit": "Edit Nickname",
+    "save": "Save"
+  },
+  "admin": {
+    "title": "Admin Dashboard",
+    "createUser": "Create Account",
+    "username": "Username",
+    "displayName": "Display Name",
+    "password": "Password",
+    "role": "Role",
+    "roleAdmin": "Admin",
+    "roleHost": "Host",
+    "rolePlayer": "Player",
+    "submit": "Create",
+    "userList": "Account List",
+    "delete": "Delete",
+    "noUsers": "No accounts found"
+  },
+  "theme": {
+    "default": "Default",
+    "parchment": "Aged Parchment",
+    "parchmentDesc": "Retro yellowed paper with ink texture",
+    "cthulhu": "Call of Cthulhu",
+    "cthulhuDesc": "Deep sea green and eerie purple"
+  },
+  "common": {
+    "error": "Error",
+    "cancel": "Cancel",
+    "close": "Close"
+  }
+}

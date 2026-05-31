@@ -4,6 +4,8 @@ import { rooms, roomMembers, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
+import { RoomThemeSetter } from "@/components/RoomThemeSetter";
+import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,12 +83,15 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   });
 
   return (
-    <RoomClient
-      room={room as any}
-      messages={visibleMessages as any[]}
-      userId={userId}
-      isHost={isHost}
-      currentNickname={currentNickname}
-    />
+    <>
+      <RoomThemeSetter theme={(room.theme as ThemeId) || "default"} />
+      <RoomClient
+        room={room as any}
+        messages={visibleMessages as any[]}
+        userId={userId}
+        isHost={isHost}
+        currentNickname={currentNickname}
+      />
+    </>
   );
 }
