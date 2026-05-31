@@ -34,14 +34,14 @@ export default async function HomePage() {
   const joinedRoomIds = new Set(memberships.map((m) => m.roomId));
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-bg">
       {/* Header */}
-      <header className="bg-header-bg text-white p-4">
+      <header className="bg-header-bg border-b border-header-border p-4 text-text shadow-sm">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold">🎲 Simple TRPG Chat</h1>
             {isAdmin && (
-              <Link href="/admin" className="text-xs bg-danger px-2 py-1 rounded hover:brightness-90">
+              <Link href="/admin" className="text-xs bg-danger/20 text-danger border border-danger/30 px-2 py-1 rounded hover:bg-danger/30 transition">
                 {t("admin")}
               </Link>
             )}
@@ -49,11 +49,12 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-4">
             <ThemeSwitcher />
-            <span className="text-sm text-text-dim">
+            <div className="h-4 w-px bg-border mx-2 hidden sm:block" />
+            <span className="text-sm text-text-muted">
               {user.name || user.username}
               <span
-                className={`ml-2 px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                  isAdmin ? "bg-danger" : isHost ? "bg-success" : "bg-primary"
+                className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  isAdmin ? "bg-danger/20 text-danger" : isHost ? "bg-success/20 text-success" : "bg-primary/20 text-primary"
                 }`}
               >
                 {user.role}
@@ -65,7 +66,7 @@ export default async function HomePage() {
                 await signOut();
               }}
             >
-              <button className="text-sm text-text-muted hover:text-white hover:underline transition">
+              <button className="text-sm text-text-muted hover:text-text hover:underline transition">
                 {t("logout")}
               </button>
             </form>
@@ -74,7 +75,7 @@ export default async function HomePage() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 bg-bg p-8">
+      <main className="flex-1 p-8">
         <div className="max-w-6xl mx-auto">
           <LobbyClient
             rooms={allRooms as any[]}
