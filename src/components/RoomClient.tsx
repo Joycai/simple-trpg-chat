@@ -230,10 +230,10 @@ export function RoomClient({
               <>
                 <button
                   onClick={() => setShowSettings(true)}
-                  className="text-text-dim hover:text-text transition text-lg"
+                  className="p-1.5 rounded-full hover:bg-surface-alt text-text-dim hover:text-text transition-all duration-200"
                   title="房间设置"
                 >
-                  ⚙️
+                  <span className="text-xl leading-none">⚙️</span>
                 </button>
                 <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">{t("gm")}</span>
               </>
