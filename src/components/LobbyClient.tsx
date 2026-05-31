@@ -181,7 +181,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
+                <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
                   {isJoined && (
                     <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded font-medium">
                       已加入
@@ -193,6 +193,25 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                     </span>
                   )}
                 </div>
+
+                {/* Show key to room owner */}
+                {isOwner && (
+                  <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-md flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs min-w-0">
+                      <span className="text-amber-600 shrink-0">🔑</span>
+                      <span className="text-amber-800 font-mono font-bold truncate select-all">{room.secretKey}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(room.secretKey);
+                      }}
+                      className="text-[10px] text-amber-500 hover:text-amber-700 underline shrink-0 ml-2"
+                      title="复制密钥"
+                    >
+                      复制
+                    </button>
+                  </div>
+                )}
 
                 {(isJoined || isOwner) ? (
                   <Link

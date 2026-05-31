@@ -1,7 +1,15 @@
 import { EventEmitter } from "events";
 
-// Global event emitter for the server instance
-const eventHub = new EventEmitter();
+// Next.js HMR workaround: persist eventHub on globalThis during development
+declare global {
+  var __eventHub: EventEmitter | undefined;
+}
+
+const eventHub = globalThis.__eventHub || new EventEmitter();
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.__eventHub = eventHub;
+}
 
 // Increased limit for rooms/clients
 eventHub.setMaxListeners(1000);
