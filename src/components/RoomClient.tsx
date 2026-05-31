@@ -46,32 +46,60 @@ export function RoomClient({
   const [nickname, setNickname] = useState(currentNickname);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sseRef = useRef<EventSource | null>(null);
+  const statusRef = useRef(status);
 
-  const scrollToBottom = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // Keep ref in sync
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  const forceReconnect = () => {
+    if (sseRef.current) {
+      sseRef.current.close();
     }
-  };
+    setStatus("connecting");
+    const es = new EventSource(`/api/rooms/${room.id}/events`);
+    sseRef.current = es;
 
-  useEffect(scrollToBottom, [messages]);
+    es.onopen = () => {
+      setStatus("connected");
+    };
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.id) {
+          setMessages((prev) => {
+            if (prev.some(m => m.id === data.id)) return prev;
+            return [...prev, data];
+          });
+        }
+      } catch {
+        // heartbeat or malformed event
+      }
+    };
+
+    es.onerror = () => {
+      setStatus("error");
+      es.close();
+    };
+  };
 
   // SSE Subscription with enhanced reliability
   useEffect(() => {
-    let eventSource: EventSource | null = null;
     let reconnectTimeout: NodeJS.Timeout;
 
     const setupSSE = () => {
-      if (eventSource) eventSource.close();
-      
-      setStatus("connecting");
-      eventSource = new EventSource(`/api/rooms/${room.id}/events`);
+      if (sseRef.current) sseRef.current.close();
 
-      eventSource.onopen = () => {
+      setStatus("connecting");
+      const es = new EventSource(`/api/rooms/${room.id}/events`);
+      sseRef.current = es;
+
+      es.onopen = () => {
         setStatus("connected");
-        console.log("🎲 SSE Connected to room", room.id);
       };
 
-      eventSource.onmessage = (event) => {
+      es.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.id) {
@@ -80,15 +108,14 @@ export function RoomClient({
               return [...prev, data];
             });
           }
-        } catch (e) {
-          // Heartbeat or malformed data
+        } catch {
+          // heartbeat or malformed event
         }
       };
 
-      eventSource.onerror = (err) => {
+      es.onerror = () => {
         setStatus("error");
-        console.error("🎲 SSE Error, retrying in 3s...", err);
-        eventSource?.close();
+        es.close();
         reconnectTimeout = setTimeout(setupSSE, 3000);
       };
     };
@@ -96,10 +123,23 @@ export function RoomClient({
     setupSSE();
 
     return () => {
-      if (eventSource) eventSource.close();
+      if (sseRef.current) sseRef.current.close();
       clearTimeout(reconnectTimeout);
     };
   }, [room.id]);
+
+  /**
+   * Check SSE health before any user action.
+   * If disconnected, force an immediate reconnect so messages/rolls
+   * can be received without a page refresh.
+   */
+  const ensureConnected = async () => {
+    if (statusRef.current === "error") {
+      forceReconnect();
+      // Brief wait for SSE to establish before sending message
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  };
 
   const handleSendMessage = async (
     content: string,
@@ -107,6 +147,7 @@ export function RoomClient({
     diceDetail?: string,
     isPrivate?: boolean
   ) => {
+    await ensureConnected();
     try {
       if (type === "dice" && diceDetail) {
         const detail = JSON.parse(diceDetail);
