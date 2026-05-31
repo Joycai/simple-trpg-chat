@@ -49,8 +49,11 @@ export function formatDiceResult(diceDetail: string | null): string {
 
     // Skill check (.rc) result
     if (detail.check) {
-      const { skillName, target, roll, success } = detail.check;
-      const label = success ? "✅ 成功" : "❌ 失败";
+      const { skillName, target, roll, success, grade } = detail.check;
+      let label: string;
+      if (grade === "critical") label = "🟢 大成功！";
+      else if (grade === "fumble") label = "🔴 大失败！";
+      else label = success ? "✅ 成功" : "❌ 失败";
       parts.push(`← ${skillName}(${target}) ${label}`);
     }
 
