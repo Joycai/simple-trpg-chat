@@ -17,9 +17,12 @@ export async function createRoomAction(formData: FormData) {
   }
 
   const name = formData.get("name") as string;
-  if (!name || !name.trim()) throw new Error("Room name is required");
+  const key = (formData.get("key") as string)?.trim();
 
-  const secretKey = crypto.randomBytes(4).toString("hex");
+  if (!name || !name.trim()) throw new Error("Room name is required");
+  if (!key) throw new Error("请设置房间密钥（玩家加入时需要输入）");
+
+  const secretKey = key;
 
   const [newRoom] = await db.insert(rooms).values({
     name: name.trim(),
@@ -35,6 +38,7 @@ export async function createRoomAction(formData: FormData) {
   });
 
   revalidatePath("/");
+  return { roomId: newRoom.id, secretKey };
 }
 
 export async function joinRoomAction(formData: FormData) {

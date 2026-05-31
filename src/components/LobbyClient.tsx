@@ -25,6 +25,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const [joinRoomId, setJoinRoomId] = useState<number | null>(null);
   const [joinKey, setJoinKey] = useState("");
   const [error, setError] = useState("");
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   const handleJoin = async (formData: FormData) => {
     setError("");
@@ -53,28 +54,45 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
       </div>
 
       {/* Create room dialog */}
-      {showCreate && (
+      {showCreate && !createdKey && (
         <div className="bg-white p-6 rounded-lg shadow-lg border border-green-200">
           <h3 className="font-bold text-lg mb-4 text-green-800">创建新房间</h3>
           <form
             action={async (formData) => {
               try {
-                await createRoomAction(formData);
-                setShowCreate(false);
+                const result = await createRoomAction(formData);
+                setCreatedKey(result.secretKey);
               } catch (e: any) {
                 setError(e.message);
               }
             }}
             className="flex flex-col gap-4"
           >
-            <input
-              name="name"
-              placeholder="房间名称"
-              required
-              className="p-2 border rounded outline-none focus:ring-2 focus:ring-green-300"
-              autoFocus
-            />
-            <div className="flex gap-2 justify-end">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="roomName" className="text-xs text-gray-500 font-medium">房间名称</label>
+              <input
+                id="roomName"
+                name="name"
+                placeholder="例如：轰鸣的下行电梯"
+                required
+                className="p-2 border rounded outline-none focus:ring-2 focus:ring-green-300"
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="roomKey" className="text-xs text-gray-500 font-medium">房间密钥</label>
+              <input
+                id="roomKey"
+                name="key"
+                type="text"
+                placeholder="设置一个密钥，分享给玩家加入"
+                required
+                minLength={1}
+                className="p-2 border rounded outline-none focus:ring-2 focus:ring-green-300 font-mono"
+              />
+              <p className="text-xs text-gray-400">玩家加入房间时需要输入此密钥</p>
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
@@ -90,6 +108,39 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Show key confirmation after creation */}
+      {createdKey && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-6 shadow-lg">
+          <h3 className="font-bold text-lg mb-3 text-amber-800">🎉 房间已创建！</h3>
+          <div className="bg-white rounded p-4 border border-amber-200 space-y-3">
+            <div>
+              <span className="text-sm text-gray-500">房间密钥（请分享给玩家）：</span>
+              <div className="mt-1 flex gap-2">
+                <code className="flex-1 block bg-gray-50 border rounded p-2 font-mono font-bold text-lg text-center tracking-widest select-all">
+                  {createdKey}
+                </code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(createdKey)}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded font-bold text-sm"
+                  title="复制密钥"
+                >
+                  📋 复制
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-amber-700">
+              💡 玩家需要输入此密钥才能加入房间。点击"进入房间"开始游戏
+            </p>
+          </div>
+          <button
+            onClick={() => { setShowCreate(false); setCreatedKey(null); }}
+            className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold"
+          >
+            知道了，进入大厅
+          </button>
         </div>
       )}
 
