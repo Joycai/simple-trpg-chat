@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { rollDice } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 const DICE_TYPES = [
   { faces: 4, label: "d4", icon: "🔺" },
@@ -20,6 +21,7 @@ interface DiceRollerProps {
 }
 
 export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
+  const t = useTranslations("dice");
   const [selectedDie, setSelectedDie] = useState(20);
   const [count, setCount] = useState(1);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -53,14 +55,14 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
   const dieInfo = DICE_TYPES.find((d) => d.faces === selectedDie)!;
 
   return (
-    <div className="bg-white border rounded-lg p-4 shadow-lg">
+    <div className="bg-surface border border-border rounded-lg p-4 shadow-lg animate-in fade-in slide-in-from-bottom-2">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h4 className="font-bold text-sm flex items-center gap-2">
+        <h4 className="font-bold text-sm flex items-center gap-2 text-text">
           <span>{dieInfo.icon}</span>
-          <span>骰点面板</span>
+          <span>{t("title")}</span>
         </h4>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">
+        <button onClick={onClose} className="text-text-muted hover:text-text text-lg leading-none transition">
           ×
         </button>
       </div>
@@ -73,8 +75,8 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
             onClick={() => setSelectedDie(die.faces)}
             className={`px-3 py-2 rounded-lg text-sm font-bold transition ${
               selectedDie === die.faces
-                ? "bg-amber-500 text-white shadow-md scale-105"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-accent text-white shadow-md scale-105"
+                : "bg-surface-alt text-text hover:bg-border"
             }`}
           >
             <span className="mr-1">{die.icon}</span>
@@ -88,14 +90,14 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
         <div className="flex items-center gap-1">
           <button
             onClick={() => setCount(Math.max(1, count - 1))}
-            className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 font-bold"
+            className="w-8 h-8 rounded bg-surface-alt hover:bg-border text-text font-bold transition"
           >
             −
           </button>
-          <span className="w-10 text-center font-bold font-mono text-lg">{count}</span>
+          <span className="w-10 text-center font-bold font-mono text-lg text-text">{count}</span>
           <button
             onClick={() => setCount(Math.min(20, count + 1))}
-            className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 font-bold"
+            className="w-8 h-8 rounded bg-surface-alt hover:bg-border text-text font-bold transition"
           >
             +
           </button>
@@ -103,7 +105,7 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
 
         <button
           onClick={handleRoll}
-          className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2"
+          className="flex-1 bg-accent hover:bg-accent-hover text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
         >
           <span>🎲</span>
           <span>
@@ -114,22 +116,22 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
 
       {/* Host-only: private roll */}
       {isHost && (
-        <label className="flex items-center gap-2 text-sm text-gray-600 mb-3 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-text-muted mb-3 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={isPrivate}
             onChange={(e) => setIsPrivate(e.target.checked)}
-            className="rounded"
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
-          <span>🔒 暗骰（仅主持人和自己可见）</span>
+          <span>{t("private")}</span>
         </label>
       )}
 
       {/* Last result */}
       {lastResult && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <div className="text-xs text-amber-600 font-medium mb-1">上次结果</div>
-          <div className="font-mono font-bold text-amber-900">
+        <div className="bg-dice-card-bg border border-dice-card-border rounded-lg p-3">
+          <div className="text-xs text-text-muted font-medium mb-1">{t("lastResult")}</div>
+          <div className="font-mono font-bold text-text">
             {lastResult.notation}: [{lastResult.results.join(", ")}] ={" "}
             <span className="text-xl">{lastResult.sum}</span>
           </div>

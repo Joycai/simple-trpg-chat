@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { DiceRoller } from "./DiceRoller";
+import { useTranslations } from "next-intl";
 
 interface ChatInputProps {
   onSendMessage: (content: string, type: "text" | "dice", diceDetail?: string, isPrivate?: boolean) => void;
@@ -9,6 +10,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSendMessage, isHost }: ChatInputProps) {
+  const t = useTranslations("chat");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,8 +35,8 @@ export function ChatInput({ onSendMessage, isHost }: ChatInputProps) {
   };
 
   const handleDiceRoll = (content: string, diceDetail: string) => {
-    // Extract isPrivate from content
-    const isPrivate = content.startsWith("🔒");
+    // Extract isPrivate from content prefix
+    const isPrivate = content.includes("🔒");
     onSendMessage(content, "dice", diceDetail, isPrivate);
     setShowDice(false);
     inputRef.current?.focus();
@@ -54,13 +56,13 @@ export function ChatInput({ onSendMessage, isHost }: ChatInputProps) {
       )}
 
       {/* Input row */}
-      <div className="flex items-center gap-2 bg-white border rounded-lg p-2 shadow-sm">
+      <div className="flex items-center gap-2 bg-input-bg border border-input-border rounded-lg p-2 shadow-sm">
         <button
           onClick={() => setShowDice(!showDice)}
           className={`px-3 py-2 rounded-lg text-sm font-bold transition ${
-            showDice ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            showDice ? "bg-accent text-white" : "bg-surface-alt text-text-muted hover:bg-border"
           }`}
-          title="骰点面板"
+          title={t("send")}
         >
           🎲
         </button>
@@ -71,16 +73,16 @@ export function ChatInput({ onSendMessage, isHost }: ChatInputProps) {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息..."
-          className="flex-1 p-2 border-0 outline-none text-sm"
+          placeholder={t("inputPlaceholder")}
+          className="flex-1 p-2 border-0 outline-none text-sm bg-transparent text-text"
         />
 
         <button
           onClick={handleSend}
           disabled={!message.trim()}
-          className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white px-4 py-2 rounded-lg text-sm font-bold transition"
         >
-          发送
+          {t("send")}
         </button>
       </div>
     </div>

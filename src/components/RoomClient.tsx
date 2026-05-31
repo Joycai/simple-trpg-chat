@@ -5,6 +5,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { NicknameEditor } from "./NicknameEditor";
 import { sendMessageAction, updateNicknameAction, rollDiceAction } from "@/app/actions/room";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 interface Room {
@@ -13,6 +14,7 @@ interface Room {
   hostId: number;
   secretKey: string;
   status: string;
+  theme: string;
 }
 
 interface Message {
@@ -42,20 +44,56 @@ export function RoomClient({
   isHost,
   currentNickname,
 }: RoomClientProps) {
+  const t = useTranslations("room");
+  const tn = useTranslations("nav");
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [nickname, setNickname] = useState(currentNickname);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
+  const isAtBottomRef = useRef(true);
 
   // Keep ref in sync
   useEffect(() => { statusRef.current = status; }, [status]);
 
-  const forceReconnect = () => {
-    if (sseRef.current) {
-      sseRef.current.close();
+  const scrollToBottom = (smooth = true) => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "instant",
+      });
+      // Force update bottom state
+      isAtBottomRef.current = true;
+      setShowScrollButton(false);
     }
+  };
+
+  // Track if user is at the bottom
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    
+    // Threshold: if within 150px of bottom, consider "at bottom"
+    const threshold = 150; 
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    
+    isAtBottomRef.current = atBottom;
+    setShowScrollButton(!atBottom);
+  };
+
+  // Auto-scroll when new messages arrive
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+      });
+    }
+  }, [messages]);
+
+  const forceReconnect = () => {
+    if (sseRef.current) sseRef.current.close();
     setStatus("connecting");
     const es = new EventSource(`/api/rooms/${room.id}/events`);
     sseRef.current = es;
@@ -109,7 +147,7 @@ export function RoomClient({
             });
           }
         } catch {
-          // heartbeat or malformed event
+          // heartbeat
         }
       };
 
@@ -128,15 +166,9 @@ export function RoomClient({
     };
   }, [room.id]);
 
-  /**
-   * Check SSE health before any user action.
-   * If disconnected, force an immediate reconnect so messages/rolls
-   * can be received without a page refresh.
-   */
   const ensureConnected = async () => {
     if (statusRef.current === "error") {
       forceReconnect();
-      // Brief wait for SSE to establish before sending message
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
   };
@@ -167,51 +199,68 @@ export function RoomClient({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      <header className="bg-white border-b shadow-sm px-4 py-3 shrink-0">
+    <div className="flex flex-col h-screen bg-bg overflow-hidden">
+      <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-400 hover:text-gray-600 transition text-sm">← 大厅</Link>
+            <Link href="/" className="text-text-muted hover:text-text transition text-sm">{tn("lobby")}</Link>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-gray-800 leading-none">{room.name}</h2>
+                <h2 className="font-bold text-text leading-none">{room.name}</h2>
                 <div 
                   className={`w-2 h-2 rounded-full ${
-                    status === 'connected' ? 'bg-green-500' : 
-                    status === 'connecting' ? 'bg-amber-500 animate-pulse' : 
-                    'bg-red-500'
+                    status === 'connected' ? 'bg-success' : 
+                    status === 'connecting' ? 'bg-accent animate-pulse' : 
+                    'bg-danger'
                   }`} 
                   title={status}
                 />
               </div>
-              <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-mono">Room ID: {room.id}</div>
+              <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <NicknameEditor currentNickname={nickname} onSave={handleNicknameSave} />
-            {isHost && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">GM</span>}
+            {isHost && <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">{t("gm")}</span>}
           </div>
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
-        <div className="max-w-4xl mx-auto flex flex-col gap-1">
-          {messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              nickname={msg.nickname}
-              content={msg.content}
-              type={msg.type}
-              diceDetail={msg.diceDetail}
-              isPrivate={msg.isPrivate}
-              createdAt={msg.createdAt}
-              isOwn={msg.userId === userId}
-            />
-          ))}
+      <div className="flex-1 relative">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="absolute inset-0 overflow-y-auto px-4 py-4 scroll-smooth"
+        >
+          <div className="max-w-4xl mx-auto flex flex-col gap-1">
+            {messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                nickname={msg.nickname}
+                content={msg.content}
+                type={msg.type}
+                diceDetail={msg.diceDetail}
+                isPrivate={msg.isPrivate}
+                createdAt={msg.createdAt}
+                isOwn={msg.userId === userId}
+              />
+            ))}
+          </div>
         </div>
+
+        {/* Floating "scroll to bottom" button */}
+        {showScrollButton && (
+          <button
+            onClick={() => scrollToBottom(true)}
+            className="absolute bottom-6 right-8 z-20 bg-scroll-btn hover:opacity-90 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group"
+            title={t("scrollToBottom")}
+          >
+            <span className="text-xl group-hover:animate-bounce">↓</span>
+          </button>
+        )}
       </div>
 
-      <div className="bg-white border-t px-4 py-3 shrink-0">
+      <div className="bg-surface border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
           <ChatInput onSendMessage={handleSendMessage} isHost={isHost} />
         </div>

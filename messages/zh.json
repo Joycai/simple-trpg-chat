@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "Simple TRPG Chat",
+    "description": "轻量化网页跑团工具 — 多人聊天与骰点"
+  },
+  "nav": {
+    "lobby": "← 大厅",
+    "admin": "管理后台",
+    "logout": "退出",
+    "roomId": "房间 #{id}"
+  },
+  "login": {
+    "title": "🎲 Simple TRPG Chat",
+    "subtitle": "登录以继续",
+    "username": "用户名",
+    "usernamePlaceholder": "输入用户名",
+    "password": "密码",
+    "passwordPlaceholder": "输入密码",
+    "submit": "登录",
+    "submitting": "登录中...",
+    "hint": "初始管理员：admin / admin123",
+    "errorEmpty": "请输入用户名和密码",
+    "errorCredentials": "用户名或密码错误，请重试",
+    "errorUnknown": "登录失败，请稍后重试"
+  },
+  "lobby": {
+    "title": "🏠 房间大厅",
+    "createRoom": "＋ 创建房间",
+    "noRooms": "还没有房间",
+    "noRoomsHint": "点击\"创建房间\"开始吧！",
+    "enterRoom": "进入房间 →",
+    "joinWithKey": "🔑 输入密钥加入",
+    "joined": "已加入",
+    "host": "主持人",
+    "keyPlaceholder": "输入密钥",
+    "join": "加入",
+    "joinFailed": "加入失败",
+    "cancel": "取消"
+  },
+  "createRoom": {
+    "title": "创建新房间",
+    "name": "房间名称",
+    "namePlaceholder": "例如：轰鸣的下行电梯",
+    "key": "房间密钥",
+    "keyPlaceholder": "设置一个密钥，分享给玩家加入",
+    "keyHint": "玩家加入房间时需要输入此密钥",
+    "theme": "房间主题",
+    "themeHint": "主持人可为房间设置独立主题风格",
+    "themeDefault": "默认（深色桌面风）",
+    "themeParchment": "🏺 古旧羊皮卷",
+    "themeCthulhu": "🦑 克苏鲁的呼唤",
+    "submit": "创建",
+    "created": "🎉 房间已创建！",
+    "keyCopied": "房间密钥（请复制发给玩家）：",
+    "copyKey": "📋 复制",
+    "tip": "💡 在房间卡片上点击\"进入房间\"开始游戏",
+    "done": "知道了，进入大厅",
+    "errorKeyRequired": "请设置房间密钥（玩家加入时需要输入）"
+  },
+  "room": {
+    "notFound": "房间不存在",
+    "notJoined": "你还没有加入这个房间",
+    "backToLobby": "返回大厅",
+    "backToJoin": "返回大厅加入",
+    "gm": "GM",
+    "host": "主持人",
+    "scrollToBottom": "回到最新消息"
+  },
+  "chat": {
+    "inputPlaceholder": "输入消息...",
+    "send": "发送",
+    "privateRoll": "暗骰 - 仅主持人可见",
+    "privateRollHint": "主持人进行了一次暗骰",
+    "diceNotation": "{count}d{faces}"
+  },
+  "dice": {
+    "title": "骰点",
+    "quantity": "数量",
+    "roll": "投掷",
+    "private": "暗骰",
+    "lastResult": "上次结果",
+    "faces": {
+      "d4": "d4",
+      "d6": "d6",
+      "d8": "d8",
+      "d10": "d10",
+      "d12": "d12",
+      "d20": "d20",
+      "d100": "d100"
+    }
+  },
+  "nickname": {
+    "edit": "编辑昵称",
+    "save": "保存"
+  },
+  "admin": {
+    "title": "Admin 后台",
+    "createUser": "创建账号",
+    "username": "用户名",
+    "displayName": "显示名称",
+    "password": "密码",
+    "role": "角色",
+    "roleAdmin": "管理员",
+    "roleHost": "主持人",
+    "rolePlayer": "玩家",
+    "submit": "创建",
+    "userList": "账号列表",
+    "delete": "删除",
+    "noUsers": "暂无账号"
+  },
+  "theme": {
+    "default": "默认",
+    "parchment": "古旧羊皮卷",
+    "parchmentDesc": "复古泛黄，墨迹质感，适合传统西幻跑团",
+    "cthulhu": "克苏鲁的呼唤",
+    "cthulhuDesc": "深海绿与诡异紫，不可名状的恐怖氛围"
+  },
+  "common": {
+    "error": "出错了",
+    "cancel": "取消",
+    "close": "关闭"
+  }
+}

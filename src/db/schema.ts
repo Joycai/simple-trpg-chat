@@ -25,6 +25,10 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const ROOM_STATUS = ['active', 'closed'] as const;
 export type RoomStatus = (typeof ROOM_STATUS)[number];
 
+/** Available themes */
+export const THEMES = ['default', 'parchment', 'cthulhu'] as const;
+export type Theme = (typeof THEMES)[number];
+
 /**
  * Message types.
  * 'clue' is reserved for the future clue-card feature.
@@ -63,6 +67,7 @@ export const rooms = sqliteTable('rooms', {
   name: text('name').notNull(),
   hostId: integer('host_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   secretKey: text('secret_key').notNull(),
+  theme: text('theme', { enum: THEMES }).notNull().default('default'),
   status: text('status', { enum: ROOM_STATUS }).notNull().default('active'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
@@ -156,34 +161,3 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   room: one(rooms, { fields: [messages.roomId], references: [rooms.id] }),
   user: one(users, { fields: [messages.userId], references: [users.id] }),
 }));
-
-// ============================================================
-// Future Tables (NOT created in MVP — documented for reference)
-// ============================================================
-
-/**
- * clue_cards (FUTURE — not in MVP)
- *
- * Pre-created by Host before or during a session.
- * CREATE TABLE clue_cards (
- *   id INTEGER PRIMARY KEY AUTOINCREMENT,
- *   room_id INTEGER NOT NULL REFERENCES rooms(id),
- *   title TEXT NOT NULL,
- *   content TEXT NOT NULL,
- *   image_url TEXT,
- *   created_at TEXT NOT NULL DEFAULT (datetime('now'))
- * );
- */
-
-/**
- * clue_visibility (FUTURE — not in MVP)
- *
- * Controls which players can see which clues.
- * NULL player_id = visible to all room members.
- * CREATE TABLE clue_visibility (
- *   id INTEGER PRIMARY KEY AUTOINCREMENT,
- *   clue_id INTEGER NOT NULL REFERENCES clue_cards(id),
- *   player_id INTEGER REFERENCES users(id),  -- NULL = all players
- *   revealed_at TEXT NOT NULL DEFAULT (datetime('now'))
- * );
- */
