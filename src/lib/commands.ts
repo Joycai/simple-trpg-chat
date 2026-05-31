@@ -49,7 +49,18 @@ export async function executeCommand(
     return await handleRollCheck(roomId, userId, args);
   }
 
-  return { success: false, isCommand: true, error: "Unknown command" };
+  // --- .help ---
+  if (cmd === "help") {
+    const helpText = `📖 **指令帮助**
+.st 技能名 数值 — 设置技能（支持批量：.st 侦查50聆听60）
+.rc 技能名 — 技能检定（d100 vs 设定值）
+.rd<N> — 投骰（如 .rd100 .rd20 .rd10）
+.help — 显示此帮助`;
+    const msg = await sendMessageAction(roomId, helpText, "system");
+    return { success: true, isCommand: true, message: msg };
+  }
+
+  return { success: false, isCommand: true, error: "Unknown command. Type .help for available commands." };
 }
 
 /** .st: Set/Update Skills */

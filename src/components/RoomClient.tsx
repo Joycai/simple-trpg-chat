@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { NicknameEditor } from "./NicknameEditor";
+import { SkillPanel } from "./SkillPanel";
 import { RoomSettings } from "./RoomSettings";
-import { sendMessageAction, updateNicknameAction, rollDiceAction } from "@/app/actions/room";
+import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
 import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
@@ -38,6 +39,7 @@ interface RoomClientProps {
   isHost: boolean;
   currentNickname: string;
   roomTheme?: ThemeId;
+  roomDiceRules?: string;
 }
 
 export function RoomClient({
@@ -47,6 +49,7 @@ export function RoomClient({
   isHost,
   currentNickname,
   roomTheme,
+  roomDiceRules,
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
@@ -55,6 +58,7 @@ export function RoomClient({
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
@@ -185,6 +189,21 @@ export function RoomClient({
     isPrivate?: boolean
   ) => {
     await ensureConnected();
+
+    /// Command detection: route .st, .rc, .rd<N>, .help to command engine
+    if (content.startsWith(".") && type === "text") {
+      try {
+        const result = await executeCommandAction(room.id, userId, content);
+        if (!result.success && result.error) {
+          // Show error as system message
+          await sendMessageAction(room.id, `❌ ${result.error}`, "system");
+        }
+      } catch (e) {
+        console.error("Command failed:", e);
+      }
+      return;
+    }
+
     try {
       if (type === "dice" && diceDetail) {
         const detail = JSON.parse(diceDetail);
@@ -225,6 +244,14 @@ export function RoomClient({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Skill panel button */}
+            <button
+              onClick={() => setShowSkills(true)}
+              className="p-1.5 rounded-full hover:bg-surface-alt text-text-dim hover:text-text transition-all duration-200"
+              title="技能面板"
+            >
+              📋
+            </button>
             <NicknameEditor currentNickname={nickname} onSave={handleNicknameSave} />
             {isHost && (
               <>
@@ -288,6 +315,7 @@ export function RoomClient({
           roomId={room.id}
           roomName={room.name}
           currentTheme={roomTheme || "default"}
+          currentDiceRules={roomDiceRules || "basic"}
           onClose={() => setShowSettings(false)}
         />
       )}

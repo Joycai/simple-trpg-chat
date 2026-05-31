@@ -203,3 +203,42 @@ export async function getRoomSkills(roomId: number, userId: number) {
     .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)))
     .orderBy(roomSkills.skillName);
 }
+
+// --- Command Engine ---
+
+export async function executeCommandAction(roomId: number, userId: number, content: string) {
+  const { executeCommand } = await import("@/lib/commands");
+  return await executeCommand(roomId, userId, content);
+}
+
+export async function deleteSkillAction(roomId: number, userId: number, skillName: string) {
+  const { roomSkills } = await import("@/db/schema");
+  const { db } = await import("@/db");
+  const { eq, and } = await import("drizzle-orm");
+  
+  await db.delete(roomSkills).where(
+    and(
+      eq(roomSkills.roomId, roomId),
+      eq(roomSkills.userId, userId),
+      eq(roomSkills.skillName, skillName)
+    )
+  );
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+export async function upsertSkillAction(roomId: number, userId: number, skillName: string, skillValue: number) {
+  const { roomSkills } = await import("@/db/schema");
+  const { db } = await import("@/db");
+  const { sql } = await import("drizzle-orm");
+  
+  await db.insert(roomSkills).values({
+    roomId,
+    userId,
+    skillName,
+    skillValue,
+  }).onConflictDoUpdate({
+    target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
+    set: { skillValue, updatedAt: sql`(datetime('now'))` },
+  });
+  revalidatePath(`/rooms/${roomId}`);
+}
