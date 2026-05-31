@@ -1,12 +1,13 @@
 "use server";
 
 import { db } from "@/db";
-import { rooms, roomMembers, messages, users, type Theme } from "@/db/schema";
+import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
 import { broadcastToRoom } from "@/lib/events";
+import { executeCommand } from "@/lib/commands";
 
 // --- Room Actions ---
 
@@ -19,6 +20,7 @@ export async function createRoomAction(formData: FormData) {
   const name = formData.get("name") as string;
   const customKey = formData.get("key") as string;
   const theme = (formData.get("theme") as Theme) || "default";
+  const diceRules = (formData.get("diceRules") as DiceRules) || "basic";
 
   if (!name || !name.trim()) throw new Error("Room name is required");
 
@@ -32,6 +34,7 @@ export async function createRoomAction(formData: FormData) {
     hostId: parseInt((session.user as any).id),
     secretKey,
     theme,
+    diceRules,
   }).returning();
 
   // Host automatically joins
@@ -105,6 +108,26 @@ export async function sendMessageAction(
 
   const userId = parseInt((session.user as any).id);
 
+  // 1. Intercept for Bot Commands if it's a plain text message starting with '.'
+  if (type === "text" && content.startsWith(".")) {
+    const result = await executeCommand(roomId, userId, content);
+    if (result.isCommand) {
+      if (!result.success) {
+        // Broadcast error as system message to the sender only? 
+        // For MVP, broadcast to room or just throw.
+        // Let's broadcast as a temporary system warning.
+        return await db.insert(messages).values({
+          roomId,
+          userId,
+          nickname: "SYSTEM",
+          content: `⚠️ 指令错误: ${result.error}`,
+          type: "system",
+        }).returning();
+      }
+      return result.message; // Already broadcasted inside executeCommand
+    }
+  }
+
   const [member] = await db
     .select()
     .from(roomMembers)
@@ -157,8 +180,9 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   if (!room || room.hostId !== userId) throw new Error("Only the host can change room settings");
 
   const theme = ((formData.get("theme") as string) || "default") as Theme;
+  const diceRules = ((formData.get("diceRules") as string) || "basic") as DiceRules;
 
-  await db.update(rooms).set({ theme }).where(eq(rooms.id, roomId));
+  await db.update(rooms).set({ theme, diceRules }).where(eq(rooms.id, roomId));
   revalidatePath(`/rooms/${roomId}`);
 }
 
@@ -170,4 +194,12 @@ export async function getRoomMessages(roomId: number) {
     .from(messages)
     .where(eq(messages.roomId, roomId))
     .orderBy(messages.createdAt);
+}
+
+export async function getRoomSkills(roomId: number, userId: number) {
+  return await db
+    .select()
+    .from(roomSkills)
+    .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)))
+    .orderBy(roomSkills.skillName);
 }
