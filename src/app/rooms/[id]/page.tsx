@@ -91,6 +91,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         userId={userId}
         isHost={isHost}
         currentNickname={currentNickname}
+        roomTheme={(room.theme as ThemeId) || "default"}
       />
     </>
   );

@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { NicknameEditor } from "./NicknameEditor";
+import { RoomSettings } from "./RoomSettings";
 import { sendMessageAction, updateNicknameAction, rollDiceAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
+import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
 
 interface Room {
@@ -35,6 +37,7 @@ interface RoomClientProps {
   userId: number;
   isHost: boolean;
   currentNickname: string;
+  roomTheme?: ThemeId;
 }
 
 export function RoomClient({
@@ -43,6 +46,7 @@ export function RoomClient({
   userId,
   isHost,
   currentNickname,
+  roomTheme,
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
@@ -50,6 +54,7 @@ export function RoomClient({
   const [nickname, setNickname] = useState(currentNickname);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
@@ -219,9 +224,20 @@ export function RoomClient({
               <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <NicknameEditor currentNickname={nickname} onSave={handleNicknameSave} />
-            {isHost && <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">{t("gm")}</span>}
+            {isHost && (
+              <>
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="text-text-dim hover:text-text transition text-lg"
+                  title="房间设置"
+                >
+                  ⚙️
+                </button>
+                <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">{t("gm")}</span>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -265,6 +281,16 @@ export function RoomClient({
           <ChatInput onSendMessage={handleSendMessage} isHost={isHost} />
         </div>
       </div>
+
+      {/* Room settings modal (host only) */}
+      {showSettings && (
+        <RoomSettings
+          roomId={room.id}
+          roomName={room.name}
+          currentTheme={roomTheme || "default"}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }
