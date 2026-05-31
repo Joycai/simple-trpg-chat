@@ -10,10 +10,11 @@ interface RoomSettingsProps {
   roomId: number;
   roomName: string;
   currentTheme: ThemeId;
+  currentDiceRules?: string;
   onClose: () => void;
 }
 
-export function RoomSettings({ roomId, roomName, currentTheme, onClose }: RoomSettingsProps) {
+export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, onClose }: RoomSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -94,6 +95,20 @@ export function RoomSettings({ roomId, roomName, currentTheme, onClose }: RoomSe
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Dice rules */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-text-dim font-medium">投点规则</label>
+            <select
+              name="diceRules"
+              defaultValue={currentDiceRules || "basic"}
+              className="p-2.5 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
+            >
+              <option value="basic">📊 Basic — 基础骰点</option>
+              <option value="coc7th">🐙 COC 7th — 大成功/大失败判定</option>
+            </select>
+            <p className="text-xs text-text-muted">COC 7th 启用 .rc 检定的 01-05 大成功🟢 / 96-100 大失败🔴</p>
           </div>
 
           {error && (
