@@ -101,37 +101,7 @@ export function RoomClient({
     }
   }, [messages]);
 
-  const forceReconnect = () => {
-    if (sseRef.current) sseRef.current.close();
-    setStatus("connecting");
-    const es = new EventSource(`/api/rooms/${room.id}/events`);
-    sseRef.current = es;
-
-    es.onopen = () => {
-      setStatus("connected");
-    };
-
-    es.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.id) {
-          setMessages((prev) => {
-            if (prev.some(m => m.id === data.id)) return prev;
-            return [...prev, data];
-          });
-        }
-      } catch {
-        // heartbeat or malformed event
-      }
-    };
-
-    es.onerror = () => {
-      setStatus("error");
-      es.close();
-    };
-  };
-
-  // SSE Subscription with enhanced reliability
+  // SSE Subscription with enhanced reliability and filtering
   useEffect(() => {
     let reconnectTimeout: NodeJS.Timeout;
 
@@ -150,6 +120,14 @@ export function RoomClient({
         try {
           const data = JSON.parse(event.data);
           if (data.id) {
+            // --- Privacy Filter ---
+            // If message is private and I'm not the sender:
+            if (data.isPrivate && data.userId !== userId) {
+                // If it's a system message (like .st confirmation), only sender sees it.
+                // If it's a dice roll or text, only sender or Host sees it.
+                if (data.type === "system" || !isHost) return;
+            }
+
             setMessages((prev) => {
               if (prev.some(m => m.id === data.id)) return prev;
               return [...prev, data];
@@ -173,14 +151,7 @@ export function RoomClient({
       if (sseRef.current) sseRef.current.close();
       clearTimeout(reconnectTimeout);
     };
-  }, [room.id]);
-
-  const ensureConnected = async () => {
-    if (statusRef.current === "error") {
-      forceReconnect();
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-  };
+  }, [room.id, userId, isHost]);
 
   const handleSendMessage = async (
     content: string,
@@ -188,15 +159,23 @@ export function RoomClient({
     diceDetail?: string,
     isPrivate?: boolean
   ) => {
-    await ensureConnected();
-
-    /// Command detection: route .st, .rc, .rd<N>, .help to command engine
+    // Command detection: route .st, .rc, .rd<N>, .help to command engine
     if (content.startsWith(".") && type === "text") {
       try {
         const result = await executeCommandAction(room.id, userId, content);
         if (!result.success && result.error) {
-          // Show error as system message
-          await sendMessageAction(room.id, `❌ ${result.error}`, "system");
+          // Show error locally immediately
+          const errorMsg = {
+            id: Date.now(),
+            roomId: room.id,
+            userId,
+            nickname: "SYSTEM",
+            content: `❌ 指令错误: ${result.error}`,
+            type: "system" as const,
+            isPrivate: true, diceDetail: null,
+            createdAt: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, errorMsg]);
         }
       } catch (e) {
         console.error("Command failed:", e);
@@ -243,24 +222,26 @@ export function RoomClient({
               <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Skill panel button */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Skill panel button - more prominent */}
             <button
               onClick={() => setShowSkills(true)}
-              className="p-1.5 rounded-full hover:bg-surface-alt text-text-dim hover:text-text transition-all duration-200"
-              title="技能面板"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
             >
-              📋
+              <span className="text-base">📋</span>
+              <span className="text-xs font-bold hidden sm:inline">技能</span>
             </button>
+            
             <NicknameEditor currentNickname={nickname} onSave={handleNicknameSave} />
+            
             {isHost && (
               <>
                 <button
                   onClick={() => setShowSettings(true)}
-                  className="p-1.5 rounded-full hover:bg-surface-alt text-text-dim hover:text-text transition-all duration-200"
+                  className="p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
                   title="房间设置"
                 >
-                  <span className="text-xl leading-none">⚙️</span>
+                  <span className="text-lg leading-none">⚙️</span>
                 </button>
                 <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">{t("gm")}</span>
               </>
@@ -303,7 +284,7 @@ export function RoomClient({
         )}
       </div>
 
-      <div className="bg-surface border-t border-border px-4 py-3 shrink-0">
+      <div className="bg-white border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
           <ChatInput onSendMessage={handleSendMessage} isHost={isHost} />
         </div>
