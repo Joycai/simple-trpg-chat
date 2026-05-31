@@ -1,35 +1,5 @@
 @import "tailwindcss";
 
-
-/* ---- Ancient Shrine (Wa-fu) ---- */
-[data-theme="shrine"] {
-  --theme-bg: 45 36 30;
-  --theme-surface: 61 48 40;
-  --theme-surface-alt: 31 24 19;
-  --theme-border: 74 60 49;
-  --theme-text: 232 213 196;
-  --theme-text-muted: 158 138 120;
-  --theme-text-dim: 110 90 72;
-  --theme-primary: 201 58 36;
-  --theme-primary-hover: 165 42 24;
-  --theme-accent: 212 175 55;
-  --theme-accent-hover: 184 134 11;
-  --theme-danger: 220 38 38;
-  --theme-success: 34 197 94;
-  --theme-header-bg: 31 24 19;
-  --theme-header-border: 74 60 49;
-  --theme-input-bg: 61 48 40;
-  --theme-input-border: 74 60 49;
-  --theme-dice-card-bg: 61 48 40;
-  --theme-dice-card-border: 74 60 49;
-  --theme-private-border: 212 175 55;
-  --theme-private-bg: 50 40 30;
-  --theme-scroll-btn: 201 58 36;
-  --theme-radius: 0.25rem;
-  --theme-font: 'Crimson Text', serif;
-  --theme-font-mono: 'JetBrains Mono', monospace;
-}
-
 /* ============================================================
    Theme CSS Variables
    Toggled via data-theme attribute on <html>
@@ -123,3 +93,68 @@
   --theme-font-mono: 'JetBrains Mono', monospace;
 }
 
+/* ---- Ancient Shrine (Wa-fu) ---- */
+[data-theme="shrine"] {
+  --theme-bg: 45 36 30;
+  --theme-surface: 61 48 40;
+  --theme-surface-alt: 31 24 19;
+  --theme-border: 74 60 49;
+  --theme-text: 232 213 196;
+  --theme-text-muted: 158 138 120;
+  --theme-text-dim: 110 90 72;
+  --theme-primary: 201 58 36;
+  --theme-primary-hover: 165 42 24;
+  --theme-accent: 212 175 55;
+  --theme-accent-hover: 184 134 11;
+  --theme-danger: 220 38 38;
+  --theme-success: 34 197 94;
+  --theme-header-bg: 31 24 19;
+  --theme-header-border: 74 60 49;
+  --theme-input-bg: 61 48 40;
+  --theme-input-border: 74 60 49;
+  --theme-dice-card-bg: 61 48 40;
+  --theme-dice-card-border: 74 60 49;
+  --theme-private-border: 212 175 55;
+  --theme-private-bg: 50 40 30;
+  --theme-scroll-btn: 201 58 36;
+  --theme-radius: 0.25rem;
+  --theme-font: 'Crimson Text', serif;
+  --theme-font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ============================================================
+   Tailwind @theme — map CSS variables to Tailwind utilities
+   ============================================================ */
+@theme inline {
+  --color-bg: rgb(var(--theme-bg));
+  --color-surface: rgb(var(--theme-surface));
+  --color-surface-alt: rgb(var(--theme-surface-alt));
+  --color-border: rgb(var(--theme-border));
+  --color-text: rgb(var(--theme-text));
+  --color-text-muted: rgb(var(--theme-text-muted));
+  --color-text-dim: rgb(var(--theme-text-dim));
+  --color-primary: rgb(var(--theme-primary));
+  --color-primary-hover: rgb(var(--theme-primary-hover));
+  --color-accent: rgb(var(--theme-accent));
+  --color-accent-hover: rgb(var(--theme-accent-hover));
+  --color-danger: rgb(var(--theme-danger));
+  --color-success: rgb(var(--theme-success));
+  --color-header-bg: rgb(var(--theme-header-bg));
+  --color-header-border: rgb(var(--theme-header-border));
+  --color-input-bg: rgb(var(--theme-input-bg));
+  --color-input-border: rgb(var(--theme-input-border));
+  --color-dice-card-bg: rgb(var(--theme-dice-card-bg));
+  --color-dice-card-border: rgb(var(--theme-dice-card-border));
+  --color-private-border: rgb(var(--theme-private-border));
+  --color-private-bg: rgb(var(--theme-private-bg));
+  --color-scroll-btn: rgb(var(--theme-scroll-btn));
+  --radius-theme: var(--theme-radius);
+  --font-theme: var(--theme-font);
+  --font-theme-mono: var(--theme-font-mono);
+}
+
+body {
+  background: rgb(var(--theme-bg));
+  color: rgb(var(--theme-text));
+  font-family: var(--theme-font);
+}
