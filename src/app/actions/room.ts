@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -101,7 +101,8 @@ export async function sendMessageAction(
   content: string,
   type: "text" | "dice" | "system" = "text",
   diceDetail?: string,
-  isPrivate: boolean = false
+  isPrivate: boolean = false,
+  targetUserId?: number // V3.14: Added targetUserId
 ) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
@@ -113,18 +114,16 @@ export async function sendMessageAction(
     const result = await executeCommand(roomId, userId, content);
     if (result.isCommand) {
       if (!result.success) {
-        // Broadcast error as system message to the sender only? 
-        // For MVP, broadcast to room or just throw.
-        // Let's broadcast as a temporary system warning.
         return await db.insert(messages).values({
           roomId,
           userId,
           nickname: "SYSTEM",
           content: `⚠️ 指令错误: ${result.error}`,
           type: "system",
+          isPrivate: true,
         }).returning();
       }
-      return result.message; // Already broadcasted inside executeCommand
+      return result.message; 
     }
   }
 
@@ -138,6 +137,7 @@ export async function sendMessageAction(
   const [newMessage] = await db.insert(messages).values({
     roomId,
     userId,
+    targetUserId,
     nickname: member.nickname,
     content,
     type,
@@ -212,10 +212,6 @@ export async function executeCommandAction(roomId: number, userId: number, conte
 }
 
 export async function deleteSkillAction(roomId: number, userId: number, skillName: string) {
-  const { roomSkills } = await import("@/db/schema");
-  const { db } = await import("@/db");
-  const { eq, and } = await import("drizzle-orm");
-  
   await db.delete(roomSkills).where(
     and(
       eq(roomSkills.roomId, roomId),
@@ -227,10 +223,6 @@ export async function deleteSkillAction(roomId: number, userId: number, skillNam
 }
 
 export async function upsertSkillAction(roomId: number, userId: number, skillName: string, skillValue: number) {
-  const { roomSkills } = await import("@/db/schema");
-  const { db } = await import("@/db");
-  const { sql } = await import("drizzle-orm");
-  
   await db.insert(roomSkills).values({
     roomId,
     userId,
