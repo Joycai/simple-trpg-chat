@@ -6,6 +6,7 @@ import { ChatInput } from "./ChatInput";
 import { NicknameEditor } from "./NicknameEditor";
 import { SkillPanel } from "./SkillPanel";
 import { RoomSettings } from "./RoomSettings";
+import { InventoryPanel } from "./InventoryPanel";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
 import type { ThemeId } from "@/themes/types";
@@ -40,6 +41,7 @@ interface RoomClientProps {
   currentNickname: string;
   roomTheme?: ThemeId;
   roomDiceRules?: string;
+  players?: any[];
 }
 
 export function RoomClient({
@@ -50,6 +52,7 @@ export function RoomClient({
   currentNickname,
   roomTheme,
   roomDiceRules,
+  players = [],
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
@@ -59,6 +62,7 @@ export function RoomClient({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
@@ -223,7 +227,16 @@ export function RoomClient({
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Skill panel button - more prominent */}
+            {/* Inventory button */}
+            <button
+              onClick={() => setShowInventory(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
+            >
+              <span className="text-base">📦</span>
+              <span className="text-xs font-bold hidden sm:inline">道具</span>
+            </button>
+
+            {/* Skill panel button */}
             <button
               onClick={() => setShowSkills(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
@@ -296,6 +309,17 @@ export function RoomClient({
           roomId={room.id}
           userId={userId}
           onClose={() => setShowSkills(false)}
+        />
+      )}
+
+      {/* Inventory panel */}
+      {showInventory && (
+        <InventoryPanel
+          roomId={room.id}
+          userId={userId}
+          isHost={isHost}
+          players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))}
+          onClose={() => setShowInventory(false)}
         />
       )}
 
