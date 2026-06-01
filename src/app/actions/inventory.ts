@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, aliasedTable } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
@@ -144,7 +144,7 @@ export async function shareItemAction(
 
 /**
  * getMyInventory
- * Fetch items for current user.
+ * Fetch distributions with item data for current user.
  */
 export async function getMyInventory(roomId: number) {
   const session = await auth();
@@ -152,27 +152,23 @@ export async function getMyInventory(roomId: number) {
 
   const userId = parseInt((session.user as any).id);
 
-  const distributions = await db
-    .select({
-      itemId: inventoryDistributions.itemId,
-    })
-    .from(inventoryDistributions)
-    .where(
-      and(
+  // We use findMany with relations for cleaner UI mapping
+  const raw = await db.query.inventoryDistributions.findMany({
+    where: and(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, userId)
-      )
-    );
+    ),
+    with: {
+        item: true,
+        sender: true
+    },
+    orderBy: [desc(inventoryDistributions.createdAt)]
+  });
 
-  if (distributions.length === 0) return [];
-
-  const itemIds = Array.from(new Set(distributions.map(d => d.itemId)));
-
-  return await db
-    .select()
-    .from(inventoryItems)
-    .where(inArray(inventoryItems.id, itemIds))
-    .orderBy(desc(inventoryItems.createdAt));
+  return raw.map(d => ({
+    ...d,
+    fromUsername: d.sender?.displayName || d.sender?.username
+  }));
 }
 
 /**
@@ -190,7 +186,6 @@ export async function getRoomItems(roomId: number) {
  * getDistributionHistory (GM only)
  */
 export async function getDistributionHistory(roomId: number) {
-  // Join distributions with items and users for a clear log
   const raw = await db.query.inventoryDistributions.findMany({
     where: eq(inventoryDistributions.roomId, roomId),
     with: {
@@ -201,5 +196,9 @@ export async function getDistributionHistory(roomId: number) {
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return raw;
+  return raw.map(d => ({
+    ...d,
+    toUsername: d.recipient?.displayName || d.recipient?.username,
+    fromUsername: d.sender?.displayName || d.sender?.username
+  }));
 }
