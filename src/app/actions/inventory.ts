@@ -1,0 +1,205 @@
+"use server";
+
+import { db } from "@/db";
+import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
+import { eq, and, desc, inArray } from "drizzle-orm";
+import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
+import { sendMessageAction } from "./room";
+
+/**
+ * createInventoryItemAction
+ * KP creates a template.
+ */
+export async function createInventoryItemAction(
+  roomId: number,
+  data: {
+    type: "info" | "character" | "item";
+    title: string;
+    content: any;
+    imageUrl?: string;
+  }
+) {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "host") {
+    throw new Error("Unauthorized: Only hosts can create items");
+  }
+
+  const [newItem] = await db.insert(inventoryItems).values({
+    roomId,
+    creatorId: parseInt((session.user as any).id),
+    type: data.type,
+    title: data.title,
+    contentJson: JSON.stringify(data.content),
+    imageUrl: data.imageUrl || null,
+  }).returning();
+
+  revalidatePath(`/rooms/${roomId}`);
+  return newItem;
+}
+
+/**
+ * distributeItemAction
+ * KP distributes to one or all players.
+ */
+export async function distributeItemAction(
+  roomId: number,
+  itemId: number,
+  toUserId: number | "all"
+) {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "host") {
+    throw new Error("Unauthorized");
+  }
+
+  const fromUserId = parseInt((session.user as any).id);
+
+  let targetUserIds: number[] = [];
+  if (toUserId === "all") {
+    const members = await db
+      .select({ userId: roomMembers.userId })
+      .from(roomMembers)
+      .where(eq(roomMembers.roomId, roomId));
+    targetUserIds = members.map((m) => m.userId);
+  } else {
+    targetUserIds = [toUserId];
+  }
+
+  // 1. Batch INSERT distributions
+  const values = targetUserIds.map((tid) => ({
+    roomId,
+    itemId,
+    fromUserId,
+    toUserId: tid,
+    action: "created" as const,
+  }));
+
+  if (values.length === 0) return;
+
+  await db.insert(inventoryDistributions).values(values);
+
+  // 2. Send private notifications
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  
+  for (const tid of targetUserIds) {
+    await sendMessageAction(
+      roomId,
+      `📦 获得了新道具：【${item?.title}】`,
+      "system",
+      undefined,
+      true, // isPrivate
+      tid   // targetUserId
+    );
+  }
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+/**
+ * shareItemAction
+ * Player shares an item with another player.
+ */
+export async function shareItemAction(
+  roomId: number,
+  itemId: number,
+  toUserId: number
+) {
+  const session = await auth();
+  if (!session) throw new Error("Unauthorized");
+
+  const fromUserId = parseInt((session.user as any).id);
+
+  // 1. Verify owner has it
+  const [own] = await db.select().from(inventoryDistributions).where(
+    and(
+      eq(inventoryDistributions.itemId, itemId),
+      eq(inventoryDistributions.toUserId, fromUserId)
+    )
+  );
+  if (!own) throw new Error("You don't have this item");
+
+  // 2. Record distribution
+  await db.insert(inventoryDistributions).values({
+    roomId,
+    itemId,
+    fromUserId,
+    toUserId,
+    action: "shared",
+  });
+
+  // 3. Send private notification to recipient
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  
+  await sendMessageAction(
+    roomId,
+    `🤝 队友分享了一个道具：【${item?.title}】`,
+    "system",
+    undefined,
+    true, // isPrivate
+    toUserId
+  );
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+/**
+ * getMyInventory
+ * Fetch items for current user.
+ */
+export async function getMyInventory(roomId: number) {
+  const session = await auth();
+  if (!session) return [];
+
+  const userId = parseInt((session.user as any).id);
+
+  const distributions = await db
+    .select({
+      itemId: inventoryDistributions.itemId,
+    })
+    .from(inventoryDistributions)
+    .where(
+      and(
+        eq(inventoryDistributions.roomId, roomId),
+        eq(inventoryDistributions.toUserId, userId)
+      )
+    );
+
+  if (distributions.length === 0) return [];
+
+  const itemIds = Array.from(new Set(distributions.map(d => d.itemId)));
+
+  return await db
+    .select()
+    .from(inventoryItems)
+    .where(inArray(inventoryItems.id, itemIds))
+    .orderBy(desc(inventoryItems.createdAt));
+}
+
+/**
+ * getRoomItems (GM only)
+ */
+export async function getRoomItems(roomId: number) {
+  return await db
+    .select()
+    .from(inventoryItems)
+    .where(eq(inventoryItems.roomId, roomId))
+    .orderBy(desc(inventoryItems.createdAt));
+}
+
+/**
+ * getDistributionHistory (GM only)
+ */
+export async function getDistributionHistory(roomId: number) {
+  // Join distributions with items and users for a clear log
+  const raw = await db.query.inventoryDistributions.findMany({
+    where: eq(inventoryDistributions.roomId, roomId),
+    with: {
+        item: true,
+        sender: true,
+        recipient: true
+    },
+    orderBy: [desc(inventoryDistributions.createdAt)]
+  });
+
+  return raw;
+}
