@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers, messages } from "@/db/schema";
+import { rooms, roomMembers, messages, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
@@ -32,6 +32,13 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   }
 
   const isHost = room.hostId === userId;
+
+  // Get all room members (for player list)
+  const members = await db
+    .select()
+    .from(roomMembers)
+    .innerJoin(users, eq(roomMembers.userId, users.id))
+    .where(eq(roomMembers.roomId, roomId));
 
   // Check if user is a member
   const [member] = await db
@@ -87,6 +94,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       <RoomThemeSetter theme={(room.theme as ThemeId) || "default"} />
       <RoomClient
         room={room as any}
+        players={members as any[]}
         messages={visibleMessages as any[]}
         userId={userId}
         isHost={isHost}
