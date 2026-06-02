@@ -78,18 +78,27 @@ export async function distributeItemAction(
 
   await db.insert(inventoryDistributions).values(values);
 
-  // 2. Send private notifications
+  // 2. Send private notifications — differentiated by sender vs recipient
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  
+
+  // Get recipient display names for KP notification
+  const recipients = await db
+    .select({ id: users.id, name: users.displayName })
+    .from(users)
+    .where(inArray(users.id, targetUserIds));
+
   for (const tid of targetUserIds) {
-    await sendMessageAction(
-      roomId,
-      `📦 获得了新道具：【${item?.title}】`,
-      "system",
-      undefined,
-      true, // isPrivate
-      tid   // targetUserId
-    );
+    const recipient = recipients.find((r) => r.id === tid);
+    // Recipient sees receipt notification
+    await sendMessageAction(roomId, `📦 获得了新道具：【${item?.title}】`, "system", undefined, true, tid);
+  }
+
+  // Send KP a separate notification showing who received it
+  if (targetUserIds.length === 1) {
+    const name = recipients[0]?.name || `玩家 #${targetUserIds[0]}`;
+    await sendMessageAction(roomId, `📤 已向 ${name} 发放道具：【${item?.title}】`, "system", undefined, true, fromUserId);
+  } else {
+    await sendMessageAction(roomId, `📤 已向全体成员发放道具：【${item?.title}】`, "system", undefined, true, fromUserId);
   }
 
   revalidatePath(`/rooms/${roomId}`);
@@ -127,17 +136,14 @@ export async function shareItemAction(
     action: "shared",
   });
 
-  // 3. Send private notification to recipient
+  // 3. Send private notifications
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  
-  await sendMessageAction(
-    roomId,
-    `🤝 队友分享了一个道具：【${item?.title}】`,
-    "system",
-    undefined,
-    true, // isPrivate
-    toUserId
-  );
+
+  // Recipient sees shared notification
+  await sendMessageAction(roomId, `🤝 队友分享了一个道具：【${item?.title}】`, "system", undefined, true, toUserId);
+
+  // Sender gets a confirmation
+  await sendMessageAction(roomId, `📤 已向玩家分享道具：【${item?.title}】`, "system", undefined, true, fromUserId);
 
   revalidatePath(`/rooms/${roomId}`);
 }
