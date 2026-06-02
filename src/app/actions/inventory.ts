@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users, rooms } from "@/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, count } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
@@ -214,4 +214,49 @@ export async function getDistributionHistory(roomId: number) {
     toUsername: d.recipient?.displayName || d.recipient?.username,
     fromUsername: d.sender?.displayName || d.sender?.username
   }));
+}
+
+/**
+ * Mark all inventory items as viewed for a user in a room.
+ * Called when the player opens their inventory panel.
+ */
+export async function markInventoryViewedAction(roomId: number) {
+  const session = await auth();
+  if (!session) throw new Error("Unauthorized");
+
+  const userId = parseInt((session.user as any).id);
+
+  await db.update(inventoryDistributions)
+    .set({ viewed: true })
+    .where(
+      and(
+        eq(inventoryDistributions.roomId, roomId),
+        eq(inventoryDistributions.toUserId, userId),
+        eq(inventoryDistributions.viewed, false)
+      )
+    );
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+/**
+ * Get unread inventory count for badge display.
+ */
+export async function getUnreadInventoryCountAction(roomId: number) {
+  const session = await auth();
+  if (!session) return 0;
+
+  const userId = parseInt((session.user as any).id);
+
+  const result = await db.select({ count: count() })
+    .from(inventoryDistributions)
+    .where(
+      and(
+        eq(inventoryDistributions.roomId, roomId),
+        eq(inventoryDistributions.toUserId, userId),
+        eq(inventoryDistributions.viewed, false)
+      )
+    );
+
+  return (result[0]?.count as number) || 0;
 }

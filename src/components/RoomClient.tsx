@@ -8,6 +8,7 @@ import { SkillPanel } from "./SkillPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
+import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { useTranslations } from "next-intl";
 import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
@@ -63,6 +64,7 @@ export function RoomClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [unreadItems, setUnreadItems] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
