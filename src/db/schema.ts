@@ -147,6 +147,7 @@ export const inventoryDistributions = sqliteTable('inventory_distributions', {
   fromUserId: integer('from_user_id').notNull().references(() => users.id),
   toUserId: integer('to_user_id').notNull().references(() => users.id),
   action: text('action', { enum: INVENTORY_ACTIONS }).notNull().default('created'),
+  viewed: integer('viewed', { mode: 'boolean' }).notNull().default(false), // unread badge
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 }, (t) => ({
   idx_to_user_room: index('idx_dist_to_user_room').on(t.toUserId, t.roomId),

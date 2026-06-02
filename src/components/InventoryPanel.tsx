@@ -33,6 +33,8 @@ interface InventoryPanelProps {
   onClose: () => void;
 }
 
+const STORAGE_KEY = "trpg-inventory-last-seen";
+
 export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
   const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
   const [myItems, setMyItems] = useState<any[]>([]);
@@ -40,6 +42,30 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Track "new" items based on last inventory open time
+  const [lastSeenAt, setLastSeenAt] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? parseInt(stored, 10) : 0;
+  });
+
+  // Update "last seen" timestamp on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
+    }
+  }, []);
+
+  const isNewItem = (createdAt: string): boolean => {
+    const itemTime = new Date(createdAt + "Z").getTime();
+    return itemTime > lastSeenAt;
+  };
+
+  const newCount = myItems.filter((d) => {
+    if (!lastSeenAt) return false;
+    return isNewItem(d.createdAt);
+  }).length;
 
   // Create form state
   const [showCreate, setShowCreate] = useState(false);
@@ -278,16 +304,24 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 );
                 return (
                   <div key={t} className="flex flex-col gap-2">
-                    {filtered.map(d => (
-                      <div key={d.id} className="bg-surface-alt rounded-theme p-3 border border-border cursor-pointer hover:border-primary/30 transition"
-                        onClick={() => { setDetailItem((d as any).item); setDetailDist(d); }}>
-                        <div className="text-sm font-bold text-text">{d.item?.title || `#${d.itemId}`}</div>
-                        <div className="text-xs text-text-muted mt-1 line-clamp-2">{d.item ? formatContent(d.item).slice(0, 100) : ""}</div>
-                        {d.fromUserId !== userId && (
-                          <div className="text-[10px] text-text-dim mt-2">来自 {(d as any).fromUsername || `玩家#${d.fromUserId}`}</div>
-                        )}
-                      </div>
-                    ))}
+                    {filtered.map(d => {
+                      const isNew = lastSeenAt > 0 && isNewItem(d.createdAt);
+                      return (
+                        <div key={d.id} className={`relative bg-surface-alt rounded-theme p-3 border cursor-pointer hover:border-primary/30 transition ${isNew ? "border-primary/40 bg-primary/5" : "border-border"}`}
+                          onClick={() => { setDetailItem((d as any).item); setDetailDist(d); }}>
+                          {isNew && (
+                            <span className="absolute -top-2 -right-2 bg-danger text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse">
+                              NEW
+                            </span>
+                          )}
+                          <div className="text-sm font-bold text-text">{d.item?.title || `#${d.itemId}`}</div>
+                          <div className="text-xs text-text-muted mt-1 line-clamp-2">{d.item ? formatContent(d.item).slice(0, 100) : ""}</div>
+                          {d.fromUserId !== userId && (
+                            <div className="text-[10px] text-text-dim mt-2">来自 {(d as any).fromUsername || `玩家#${d.fromUserId}`}</div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
