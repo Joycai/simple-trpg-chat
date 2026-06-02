@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction } from "@/app/actions/inventory";
+import { createInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 
 interface InventoryItem {
@@ -33,8 +33,6 @@ interface InventoryPanelProps {
   onClose: () => void;
 }
 
-const STORAGE_KEY = "trpg-inventory-last-seen";
-
 export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
   const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
   const [myItems, setMyItems] = useState<any[]>([]);
@@ -43,29 +41,10 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Track "new" items based on last inventory open time
-  const [lastSeenAt, setLastSeenAt] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? parseInt(stored, 10) : 0;
-  });
-
-  // Update "last seen" timestamp on mount
+  // Mark all as viewed when opening the panel
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, Date.now().toString());
-    }
-  }, []);
-
-  const isNewItem = (createdAt: string): boolean => {
-    const itemTime = new Date(createdAt + "Z").getTime();
-    return itemTime > lastSeenAt;
-  };
-
-  const newCount = myItems.filter((d) => {
-    if (!lastSeenAt) return false;
-    return isNewItem(d.createdAt);
-  }).length;
+    markInventoryViewedAction(roomId);
+  }, [roomId]);
 
   // Create form state
   const [showCreate, setShowCreate] = useState(false);
@@ -305,7 +284,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 return (
                   <div key={t} className="flex flex-col gap-2">
                     {filtered.map(d => {
-                      const isNew = lastSeenAt > 0 && isNewItem(d.createdAt);
+                      const isNew = d.viewed === false || d.viewed === 0;
                       return (
                         <div key={d.id} className={`relative bg-surface-alt rounded-theme p-3 border cursor-pointer hover:border-primary/30 transition ${isNew ? "border-primary/40 bg-primary/5" : "border-border"}`}
                           onClick={() => { setDetailItem((d as any).item); setDetailDist(d); }}>
