@@ -124,12 +124,17 @@ export function RoomClient({
         try {
           const data = JSON.parse(event.data);
           if (data.id) {
-            // --- Privacy Filter ---
-            // If message is private and I'm not the sender:
-            if (data.isPrivate && data.userId !== userId) {
-                // If it's a system message (like .st confirmation), only sender sees it.
-                // If it's a dice roll or text, only sender or Host sees it.
-                if (data.type === "system" || !isHost) return;
+            // --- Privacy Filter V3.15 ---
+            if (data.isPrivate) {
+              const isSender = data.userId === userId;
+              const isTarget = data.targetUserId === userId;
+              if (data.targetUserId) {
+                // Targeted notification: only sender + target
+                if (!isSender && !isTarget) return;
+              } else {
+                // Generic private: sender + host
+                if (!isSender && !isHost) return;
+              }
             }
 
             setMessages((prev) => {
