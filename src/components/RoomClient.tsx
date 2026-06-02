@@ -73,6 +73,19 @@ export function RoomClient({
   // Keep ref in sync
   useEffect(() => { statusRef.current = status; }, [status]);
 
+  // Fetch unread inventory count on mount and when messages update
+  useEffect(() => {
+    getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
+  }, [room.id]);
+
+  // Refresh badge when new item notification arrives
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.type === "system" && lastMsg.content.includes("道具")) {
+      getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
+    }
+  }, [messages, room.id]);
+
   const scrollToBottom = (smooth = true) => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -236,11 +249,20 @@ export function RoomClient({
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Inventory button */}
             <button
-              onClick={() => setShowInventory(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
+              onClick={() => {
+                setShowInventory(true);
+                markInventoryViewedAction(room.id);
+                setUnreadItems(0);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm relative"
             >
               <span className="text-base">📦</span>
               <span className="text-xs font-bold hidden sm:inline">道具</span>
+              {unreadItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-danger text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-bounce">
+                  {unreadItems > 9 ? "9+" : unreadItems}
+                </span>
+              )}
             </button>
 
             {/* Skill panel button */}
