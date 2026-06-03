@@ -7,6 +7,7 @@ import { NicknameEditor } from "./NicknameEditor";
 import { SkillPanel } from "./SkillPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
+import { BotManager } from "./BotManager";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { useTranslations } from "next-intl";
@@ -64,6 +65,7 @@ export function RoomClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [showBotManager, setShowBotManager] = useState(false);
   const [unreadItems, setUnreadItems] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -247,6 +249,17 @@ export function RoomClient({
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Bot Manager button (host only) */}
+            {isHost && (
+              <button
+                onClick={() => setShowBotManager(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
+              >
+                <span className="text-base">🤖</span>
+                <span className="text-xs font-bold hidden sm:inline">Bot</span>
+              </button>
+            )}
+
             {/* Inventory button */}
             <button
               onClick={() => {
@@ -338,6 +351,15 @@ export function RoomClient({
           roomId={room.id}
           userId={userId}
           onClose={() => setShowSkills(false)}
+        />
+      )}
+
+      {/* Bot Manager modal */}
+      {showBotManager && (
+        <BotManager
+          roomId={room.id}
+          isHost={isHost}
+          onClose={() => setShowBotManager(false)}
         />
       )}
 
