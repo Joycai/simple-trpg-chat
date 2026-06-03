@@ -128,6 +128,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
   const typeLabel = (t: string) => ({ info: "📄 信息", character: "👤 人物", item: "🎒 物品" }[t] || t);
   const typeTabLabel = (t: string) => ({ info: "📄 信息", character: "👤 人物", item: "🎒 物品" }[t] || t);
+  const typeEmoji = (t: string) => ({ info: "📄", character: "👤", item: "🎒" }[t] || "📦");
+  const isNew = (d: any) => d.viewed === false || d.viewed === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex" onClick={onClose}>
@@ -261,7 +263,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               </div>
             </div>
           ) : (
-            /* === PLAYER BACKPACK VIEW === */
+            /* === PLAYER BACKPACK VIEW (RPG Grid) === */
             <div className="flex flex-col gap-4">
               <div className="flex gap-2">
                 {(["info", "character", "item"] as const).map(t => (
@@ -279,28 +281,51 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 });
                 if (tab !== t) return null;
                 if (filtered.length === 0) return (
-                  <div key={t} className="text-center text-text-muted py-8 text-sm">暂无{typeLabel(t)}道具</div>
+                  <div key={t} className="text-center text-text-muted py-12 text-sm">
+                    <div className="text-4xl mb-3 opacity-30">{typeEmoji(t) || '🎒'}</div>
+                    <p>暂无{typeLabel(t)}道具</p>
+                    <p className="text-xs mt-1 opacity-60">等待 KP 发放中...</p>
+                  </div>
                 );
-                return (
-                  <div key={t} className="flex flex-col gap-2">
-                    {filtered.map(d => {
-                      const isNew = d.viewed === false || d.viewed === 0;
-                      return (
-                        <div key={d.id} className={`relative bg-surface-alt rounded-theme p-3 border cursor-pointer hover:border-primary/30 transition ${isNew ? "border-primary/40 bg-primary/5" : "border-border"}`}
-                          onClick={() => { setDetailItem((d as any).item); setDetailDist(d); }}>
-                          {isNew && (
-                            <span className="absolute -top-2 -right-2 bg-danger text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse">
+                
+                // RPG Grid: 4 columns, fill with items + empty slots
+                const GRID_COLS = 4;
+                const totalSlots = Math.max(GRID_COLS, Math.ceil(filtered.length / GRID_COLS) * GRID_COLS);
+                const gridItems = [];
+                for (let i = 0; i < totalSlots; i++) {
+                  const d = i < filtered.length ? filtered[i] : null;
+                  gridItems.push(
+                    <div key={d ? d.id : `empty-${i}`}
+                      className={d 
+                        ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
+                        : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
+                      }
+                      onClick={() => { if (d) { setDetailItem((d as any).item); setDetailDist(d); } }}
+                      title={d ? d.item?.title || "" : ""}
+                    >
+                      {d && (
+                        <>
+                          {isNew(d) && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
                               NEW
                             </span>
                           )}
-                          <div className="text-sm font-bold text-text">{d.item?.title || `#${d.itemId}`}</div>
-                          <div className="text-xs text-text-muted mt-1 line-clamp-2">{d.item ? formatContent(d.item).slice(0, 100) : ""}</div>
-                          {d.fromUserId !== userId && (
-                            <div className="text-[10px] text-text-dim mt-2">来自 {(d as any).fromUsername || `玩家#${d.fromUserId}`}</div>
-                          )}
-                        </div>
-                      );
-                    })}
+                          <span className="text-2xl mb-1">{typeEmoji((d as any).item?.type || "item")}</span>
+                          <span className="text-[10px] font-bold text-text text-center leading-tight line-clamp-2">
+                            {d.item?.title || `#${d.itemId}`}
+                          </span>
+                          <span className="absolute bottom-1 right-1.5 text-[8px] text-text-dim opacity-0 group-hover:opacity-100 transition-opacity">
+                            {d.fromUserId !== userId ? "🎁" : ""}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div key={t} className="grid grid-cols-4 gap-3">
+                    {gridItems}
                   </div>
                 );
               })}
