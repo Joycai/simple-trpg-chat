@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { NicknameEditor } from "./NicknameEditor";
@@ -66,7 +66,31 @@ export function RoomClient({
   const [showSkills, setShowSkills] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [unreadItems, setUnreadItems] = useState(0);
+
+  // Build mention targets (players + bots, excluding self)
+  const mentionTargets = useMemo(() => {
+    return (players || [])
+      .filter((p: any) => {
+        const uid = p.user?.id || p.users?.id;
+        return uid !== userId;
+      })
+      .map((p: any, i: number) => {
+        const user = p.user || p.users || {};
+        const uid = user.id || i;
+        const nick = p.nickname || p.room_members?.nickname || user.displayName || user.username || `player${uid}`;
+        return {
+          id: uid,
+          nickname: nick,
+          isBot: !!user.isBot,
+        };
+      });
+  }, [players, userId]);
+
+  // Count stats
+  const botCount = (players || []).filter((p: any) => (p.user || p.users)?.isBot).length;
+  const playerCount = (players || []).filter((p: any) => !(p.user || p.users)?.isBot).length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
@@ -260,6 +284,16 @@ export function RoomClient({
               </button>
             )}
 
+            {/* Member list button */}
+            <button
+              onClick={() => setShowMembers(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
+              title="在线成员"
+            >
+              <span className="text-base">👥</span>
+              <span className="text-xs font-bold hidden sm:inline">{playerCount + botCount}</span>
+            </button>
+
             {/* Inventory button */}
             <button
               onClick={() => {
@@ -341,7 +375,7 @@ export function RoomClient({
 
       <div className="bg-white border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
-          <ChatInput onSendMessage={handleSendMessage} isHost={isHost} />
+          <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} />
         </div>
       </div>
 
@@ -361,6 +395,50 @@ export function RoomClient({
           isHost={isHost}
           onClose={() => setShowBotManager(false)}
         />
+      )}
+
+      {/* Member list panel */}
+      {showMembers && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMembers(false)}>
+          <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="font-bold text-lg text-text">
+                👥 在线成员
+                <span className="text-sm text-text-muted font-normal ml-2">{playerCount + botCount} 人</span>
+              </h3>
+              <button onClick={() => setShowMembers(false)} className="text-text-muted hover:text-text text-xl">×</button>
+            </div>
+
+            <div className="flex gap-3 mb-4 text-xs">
+              <span className="bg-primary/10 text-primary px-2 py-1 rounded font-medium">👤 玩家 {playerCount}</span>
+              {botCount > 0 && (
+                <span className="bg-accent/10 text-accent px-2 py-1 rounded font-medium">🤖 Bot {botCount}</span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
+              {(players || []).map((p: any, i: number) => {
+                const user = p.users || p.user || {};
+                const nick = p.room_members?.nickname || p.nickname || user.displayName || user.username || `Player`;
+                const isBot = !!user.isBot;
+                const isMe = (p.user?.id || user.id) === userId;
+                return (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
+                    <span>{isBot ? "🤖" : "👤"}</span>
+                    <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>
+                      {nick}{isMe ? "（我）" : ""}
+                    </span>
+                    <span className="text-[10px] text-text-dim font-mono">@{nick}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-[10px] text-text-dim mt-4 pt-3 border-t border-border">
+              输入 @昵称 即可提及对应成员（不能提及自己）
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Inventory panel */}

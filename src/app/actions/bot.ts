@@ -78,6 +78,33 @@ export async function getRoomBotsAction(roomId: number) {
 }
 
 /**
+ * updateBotAction
+ * Update existing bot config.
+ */
+export async function updateBotAction(
+  roomId: number,
+  botUserId: number,
+  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string }
+) {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "host") throw new Error("Unauthorized");
+
+  const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
+  if (!botUser) throw new Error("Bot not found");
+  const existingConfig = JSON.parse(botUser.botConfigJson || "{}");
+
+  await db.update(users).set({
+    displayName: data.name,
+    botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation }),
+  }).where(eq(users.id, botUserId));
+
+  await db.update(roomMembers).set({ nickname: data.nickname })
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+/**
  * deleteBotAction
  * Removes a bot user record.
  */
