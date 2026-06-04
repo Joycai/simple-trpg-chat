@@ -2,6 +2,7 @@
 
 import { formatTime, formatDiceResult } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface ChatMessageProps {
   nickname: string;
@@ -11,6 +12,7 @@ interface ChatMessageProps {
   isPrivate: boolean;
   createdAt: string;
   isOwn: boolean;
+  isBot?: boolean;
 }
 
 export function ChatMessage({
@@ -21,6 +23,7 @@ export function ChatMessage({
   isPrivate,
   createdAt,
   isOwn,
+  isBot = false,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
   if (type === "system") {
@@ -82,6 +85,8 @@ export function ChatMessage({
                 </div>
               </div>
             </div>
+          ) : isBot ? (
+            <MarkdownRenderer content={content} />
           ) : (
             <span className="text-sm whitespace-pre-wrap leading-relaxed">{content}</span>
           )}
