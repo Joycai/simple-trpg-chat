@@ -81,11 +81,12 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   const currentNickname = currentMember?.nickname || user.name || user.username || "Player";
 
-  // Filter messages: non-private messages + own private messages + (if host) all private messages
+  // Filter messages: non-private messages + own private messages + targeted private messages + (if host) all private messages
   const visibleMessages = roomMessages.filter((msg) => {
     if (!msg.isPrivate) return true;
-    if (msg.userId === userId) return true;
-    if (isHost) return true;
+    if (msg.userId === userId) return true; // Sender
+    if (msg.targetUserId === userId) return true; // Recipient
+    if (isHost) return true; // Host
     return false;
   });
 
@@ -99,6 +100,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         userId={userId}
         isHost={isHost}
         currentNickname={currentNickname}
+        characterData={currentMember?.characterData || null}
         roomTheme={(room.theme as ThemeId) || "default"}
         roomDiceRules={(room as any).diceRules || "basic"}
       />
