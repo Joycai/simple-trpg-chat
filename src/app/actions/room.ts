@@ -24,6 +24,7 @@ export async function createRoomAction(formData: FormData) {
 
   if (!name || !name.trim()) throw new Error("Room name is required");
 
+  // Use custom key if provided, otherwise generate one
   const secretKey = (customKey && customKey.trim())
     ? customKey.trim()
     : crypto.randomBytes(4).toString("hex");
@@ -36,6 +37,7 @@ export async function createRoomAction(formData: FormData) {
     diceRules,
   }).returning();
 
+  // Host automatically joins
   await db.insert(roomMembers).values({
     roomId: newRoom.id,
     userId: parseInt((session.user as any).id),
@@ -77,6 +79,28 @@ export async function joinRoomAction(formData: FormData) {
   revalidatePath("/");
 }
 
+// --- Nickname & Character Actions ---
+
+export async function updateCharacterDataAction(roomId: number, characterData: any) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const userId = parseInt((session.user as any).id);
+
+  const [member] = await db
+    .select()
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  const existingData = member?.characterData ? JSON.parse(member.characterData) : {};
+  const newData = { ...existingData, ...characterData };
+
+  await db.update(roomMembers)
+    .set({ characterData: JSON.stringify(newData) })
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
 export async function updateNicknameAction(roomId: number, nickname: string) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
@@ -98,13 +122,14 @@ export async function sendMessageAction(
   type: "text" | "dice" | "system" = "text",
   diceDetail?: string,
   isPrivate: boolean = false,
-  targetUserId?: number
+  targetUserId?: number // V3.14: Added targetUserId
 ) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
   const userId = parseInt((session.user as any).id);
 
+  // 1. Intercept for Bot Commands if it's a plain text message starting with '.'
   if (type === "text" && content.startsWith(".")) {
     const result = await executeCommand(roomId, userId, content);
     if (result.isCommand) {
@@ -144,6 +169,7 @@ export async function sendMessageAction(
 
   // --- AI Bot Activation Check ---
   if (type === "text" && !isPrivate) {
+    // Check if any bot in the room is mentioned
     const roomBots = await db.query.roomMembers.findMany({
       where: eq(roomMembers.roomId, roomId),
       with: { user: true }
@@ -151,6 +177,7 @@ export async function sendMessageAction(
 
     for (const m of roomBots) {
       if (m.user.isBot && (content.includes(`@${m.user.displayName}`) || content.includes(`@${m.nickname}`))) {
+        // Trigger Agent (async)
         import("@/lib/ai_agent").then(({ runAgent }) => runAgent(m.userId, roomId));
       }
     }
@@ -163,8 +190,17 @@ export async function rollDiceAction(roomId: number, faces: number, count: numbe
   const results = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1);
   const sum = results.reduce((a, b) => a + b, 0);
   const notation = `${count}d${faces}`;
-  const detail = JSON.stringify({ dice: `d${faces}`, count, results, sum, notation });
+  
+  const detail = JSON.stringify({
+    dice: `d${faces}`,
+    count,
+    results,
+    sum,
+    notation
+  });
+
   const content = `🎲 ${notation}: [${results.join(", ")}] = ${sum}`;
+  
   return await sendMessageAction(roomId, isPrivate ? `🔒 ${content}` : content, "dice", detail, isPrivate);
 }
 
@@ -173,11 +209,16 @@ export async function rollDiceAction(roomId: number, faces: number, count: numbe
 export async function updateRoomSettingsAction(roomId: number, formData: FormData) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
+
   const userId = parseInt((session.user as any).id);
+
+  // Verify host
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room || room.hostId !== userId) throw new Error("Only host can update settings");
+  if (!room || room.hostId !== userId) throw new Error("Only the host can change room settings");
+
   const theme = ((formData.get("theme") as string) || "default") as Theme;
   const diceRules = ((formData.get("diceRules") as string) || "basic") as DiceRules;
+
   await db.update(rooms).set({ theme, diceRules }).where(eq(rooms.id, roomId));
   revalidatePath(`/rooms/${roomId}`);
 }
@@ -185,11 +226,19 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
 // --- Data Fetching ---
 
 export async function getRoomMessages(roomId: number) {
-  return await db.select().from(messages).where(eq(messages.roomId, roomId)).orderBy(messages.createdAt);
+  return await db
+    .select()
+    .from(messages)
+    .where(eq(messages.roomId, roomId))
+    .orderBy(messages.createdAt);
 }
 
 export async function getRoomSkills(roomId: number, userId: number) {
-  return await db.select().from(roomSkills).where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId))).orderBy(roomSkills.skillName);
+  return await db
+    .select()
+    .from(roomSkills)
+    .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)))
+    .orderBy(roomSkills.skillName);
 }
 
 // --- Command Engine ---
@@ -200,12 +249,23 @@ export async function executeCommandAction(roomId: number, userId: number, conte
 }
 
 export async function deleteSkillAction(roomId: number, userId: number, skillName: string) {
-  await db.delete(roomSkills).where(and(eq(roomSkills.roomId, roomId), eq(roomMembers.userId, userId), eq(roomSkills.skillName, skillName)));
+  await db.delete(roomSkills).where(
+    and(
+      eq(roomSkills.roomId, roomId),
+      eq(roomSkills.userId, userId),
+      eq(roomSkills.skillName, skillName)
+    )
+  );
   revalidatePath(`/rooms/${roomId}`);
 }
 
 export async function upsertSkillAction(roomId: number, userId: number, skillName: string, skillValue: number) {
-  await db.insert(roomSkills).values({ roomId, userId, skillName, skillValue }).onConflictDoUpdate({
+  await db.insert(roomSkills).values({
+    roomId,
+    userId,
+    skillName,
+    skillValue,
+  }).onConflictDoUpdate({
     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
     set: { skillValue, updatedAt: sql`(datetime('now'))` },
   });

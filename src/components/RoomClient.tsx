@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { NicknameEditor } from "./NicknameEditor";
-import { SkillPanel } from "./SkillPanel";
+import { CharacterPanel } from "./CharacterPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
@@ -44,6 +43,7 @@ interface RoomClientProps {
   roomTheme?: ThemeId;
   roomDiceRules?: string;
   players?: any[];
+  characterData?: string | null;
 }
 
 export function RoomClient({
@@ -55,6 +55,7 @@ export function RoomClient({
   roomTheme,
   roomDiceRules,
   players = [],
+  characterData,
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
@@ -63,7 +64,7 @@ export function RoomClient({
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showSkills, setShowSkills] = useState(false);
+  const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -305,17 +306,15 @@ export function RoomClient({
               )}
             </button>
 
-            {/* Skill panel button */}
+            {/* Character panel button */}
             <button
-              onClick={() => setShowSkills(true)}
+              onClick={() => setShowCharacter(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm"
             >
-              <span className="text-base">📋</span>
-              <span className="text-xs font-bold hidden sm:inline">技能</span>
+              <span className="text-base">👤</span>
+              <span className="text-xs font-bold hidden sm:inline">{nickname}</span>
             </button>
-            
-            <NicknameEditor currentNickname={nickname} onSave={handleNicknameSave} />
-            
+
             {isHost && (
               <>
                 <button
@@ -374,11 +373,15 @@ export function RoomClient({
       </div>
 
       {/* Skills panel */}
-      {showSkills && (
-        <SkillPanel
+      {/* Character panel */}
+      {showCharacter && (
+        <CharacterPanel
           roomId={room.id}
           userId={userId}
-          onClose={() => setShowSkills(false)}
+          currentNickname={nickname}
+          characterData={characterData}
+          onClose={() => setShowCharacter(false)}
+          onNicknameChange={(newNick) => setNickname(newNick)}
         />
       )}
 
