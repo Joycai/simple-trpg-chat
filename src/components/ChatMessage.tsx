@@ -58,6 +58,7 @@ export function ChatMessage({
         <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""}`}>
           <span className="text-[11px] font-medium text-text-muted">
             {nickname}
+            {isBot && " 🤖"}
             {isPrivate && ` (🔒 ${t("privateRoll")})`}
           </span>
           <span className="text-[9px] text-text-dim opacity-0 group-hover:opacity-100 transition">{formatTime(createdAt)}</span>
@@ -85,10 +86,8 @@ export function ChatMessage({
                 </div>
               </div>
             </div>
-          ) : isBot ? (
-            <MarkdownRenderer content={content} />
           ) : (
-            <span className="text-sm whitespace-pre-wrap leading-relaxed">{content}</span>
+            <MarkdownRenderer content={content} />
           )}
         </div>
       </div>
