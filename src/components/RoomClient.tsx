@@ -70,27 +70,20 @@ export function RoomClient({
   const [unreadItems, setUnreadItems] = useState(0);
 
   // Build mention targets (players + bots, excluding self)
+  // Drizzle innerJoin produces { room_members: {...}, users: {...} }
   const mentionTargets = useMemo(() => {
     return (players || [])
-      .filter((p: any) => {
-        const uid = p.user?.id || p.users?.id;
-        return uid !== userId;
-      })
-      .map((p: any, i: number) => {
-        const user = p.user || p.users || {};
-        const uid = user.id || i;
-        const nick = p.nickname || p.room_members?.nickname || user.displayName || user.username || `player${uid}`;
-        return {
-          id: uid,
-          nickname: nick,
-          isBot: !!user.isBot,
-        };
-      });
+      .filter((p: any) => p.users?.id !== userId)
+      .map((p: any) => ({
+        id: p.users?.id || 0,
+        nickname: p.room_members?.nickname || p.users?.displayName || `#${p.users?.id}`,
+        isBot: !!p.users?.isBot,
+      }));
   }, [players, userId]);
 
   // Count stats
-  const botCount = (players || []).filter((p: any) => (p.user || p.users)?.isBot).length;
-  const playerCount = (players || []).filter((p: any) => !(p.user || p.users)?.isBot).length;
+  const botCount = (players || []).filter((p: any) => p.users?.isBot).length;
+  const playerCount = (players || []).filter((p: any) => !p.users?.isBot).length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
@@ -356,6 +349,7 @@ export function RoomClient({
                 isPrivate={msg.isPrivate}
                 createdAt={msg.createdAt}
                 isOwn={msg.userId === userId}
+                isBot={!!players.find((p: any) => (p.users?.id || p.user?.id) === msg.userId)?.users?.isBot}
               />
             ))}
           </div>
@@ -418,10 +412,12 @@ export function RoomClient({
 
             <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
               {(players || []).map((p: any, i: number) => {
-                const user = p.users || p.user || {};
-                const nick = p.room_members?.nickname || p.nickname || user.displayName || user.username || `Player`;
-                const isBot = !!user.isBot;
-                const isMe = (p.user?.id || user.id) === userId;
+                // Drizzle innerJoin: { room_members: {...}, users: {...} }
+                const rm = p.room_members;
+                const u = p.users;
+                const nick = rm?.nickname || u?.displayName || u?.username || "#" + (u?.id || i);
+                const isBot = !!u?.isBot;
+                const isMe = u?.id === userId;
                 return (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
                     <span>{isBot ? "🤖" : "👤"}</span>
