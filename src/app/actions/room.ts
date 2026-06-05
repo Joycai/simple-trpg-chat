@@ -319,15 +319,26 @@ export async function getUnreadDMCountAction(roomId: number) {
   if (!session) return {};
   
   const userId = parseInt((session.user as any).id);
-  const { messages } = await import("@/db/schema");
+  const { messages, roomDmReads } = await import("@/db/schema");
   const { db } = await import("@/db");
   const { eq, and, sql, not } = await import("drizzle-orm");
   
-  // Count unread targeted private messages per sender
+  // Get all read timestamps for the current user in this room
+  const readRecords = await db
+    .select()
+    .from(roomDmReads)
+    .where(and(eq(roomDmReads.roomId, roomId), eq(roomDmReads.userId, userId)));
+  
+  const lastReadMap: Record<number, string> = {};
+  for (const record of readRecords) {
+    lastReadMap[record.partnerUserId] = record.lastReadAt;
+  }
+  
+  // Get targeted private messages (DMs) in this room
   const results = await db
     .select({
       senderId: messages.userId,
-      count: sql<number>`count(*)`,
+      createdAt: messages.createdAt,
     })
     .from(messages)
     .where(
@@ -337,17 +348,40 @@ export async function getUnreadDMCountAction(roomId: number) {
         eq(messages.isPrivate, true),
         not(eq(messages.userId, userId)),
       )
-    )
-    .groupBy(messages.userId);
+    );
   
   const counts: Record<number, number> = {};
-  for (const r of results) {
-    counts[r.senderId] = Number(r.count);
+  for (const msg of results) {
+    const senderId = msg.senderId;
+    const lastRead = lastReadMap[senderId];
+    if (!lastRead || msg.createdAt > lastRead) {
+      counts[senderId] = (counts[senderId] || 0) + 1;
+    }
   }
   return counts;
 }
 
 export async function markDMReadAction(roomId: number, senderUserId: number) {
-  // Mark as read — for MVP we rely on UI state, server-side tracking can be added later
+  const session = await auth();
+  if (!session) return;
+  
+  const userId = parseInt((session.user as any).id);
+  const { roomDmReads } = await import("@/db/schema");
+  const { db } = await import("@/db");
+  const { eq, and, sql } = await import("drizzle-orm");
+  
+  await db
+    .insert(roomDmReads)
+    .values({
+      roomId,
+      userId,
+      partnerUserId: senderUserId,
+      lastReadAt: sql`(datetime('now'))`,
+    })
+    .onConflictDoUpdate({
+      target: [roomDmReads.roomId, roomDmReads.userId, roomDmReads.partnerUserId],
+      set: { lastReadAt: sql`(datetime('now'))` },
+    });
+  
   revalidatePath(`/rooms/${roomId}`);
 }

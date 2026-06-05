@@ -4,7 +4,7 @@
     "description": "Lightweight web-based TRPG tool — Chat & Dice"
   },
   "nav": {
-    "lobby": "← Lobby",
+    "lobby": "Lobby",
     "admin": "Admin Panel",
     "logout": "Logout",
     "roomId": "Room #{id}"

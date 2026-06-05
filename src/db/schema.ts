@@ -90,6 +90,21 @@ export const roomSkills = sqliteTable('room_skills', {
   unq: unique().on(t.roomId, t.userId, t.skillName),
 }));
 
+/**
+ * room_dm_reads
+ * 
+ * Stores last read timestamp for each DM conversation (per partner) in a room.
+ */
+export const roomDmReads = sqliteTable('room_dm_reads', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  partnerUserId: integer('partner_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lastReadAt: text('last_read_at').notNull().default(sql`(datetime('now'))`),
+}, (t) => ({
+  unq: unique().on(t.roomId, t.userId, t.partnerUserId),
+}));
+
 export const messages = sqliteTable('messages', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
@@ -187,6 +202,12 @@ export const roomMembersRelations = relations(roomMembers, ({ one }) => ({
 export const roomSkillsRelations = relations(roomSkills, ({ one }) => ({
   room: one(rooms, { fields: [roomSkills.roomId], references: [rooms.id] }),
   user: one(users, { fields: [roomSkills.userId], references: [users.id] }),
+}));
+
+export const roomDmReadsRelations = relations(roomDmReads, ({ one }) => ({
+  room: one(rooms, { fields: [roomDmReads.roomId], references: [rooms.id] }),
+  user: one(users, { fields: [roomDmReads.userId], references: [users.id] }),
+  partner: one(users, { fields: [roomDmReads.partnerUserId], references: [users.id] }),
 }));
 
 export const hostAiConfigRelations = relations(hostAiConfig, ({ one }) => ({

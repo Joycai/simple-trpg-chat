@@ -4,7 +4,7 @@
     "description": "轻量化网页跑团工具 — 多人聊天与骰点"
   },
   "nav": {
-    "lobby": "← 大厅",
+    "lobby": "大厅",
     "admin": "管理后台",
     "logout": "退出",
     "roomId": "房间 #{id}"
