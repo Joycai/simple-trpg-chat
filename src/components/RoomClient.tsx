@@ -9,7 +9,7 @@ import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
-import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction } from "@/app/actions/room";
+import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { useTranslations } from "next-intl";
@@ -75,6 +75,79 @@ export function RoomClient({
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+  const [sidebarWidth, setSidebarWidth] = useState<number>(200);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Merge server counts with locally cleared DMs
+    getUnreadDMCountAction(room.id).then((serverCounts) => {
+      const storageKey = `trpg-dm-cleared-${room.id}`;
+      let cleared: Record<number, boolean> = {};
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) cleared = JSON.parse(raw);
+      } catch {}
+      // For each conversation: take server count UNLESS user already cleared it
+      const merged: Record<number, number> = {};
+      for (const [uid, count] of Object.entries(serverCounts)) {
+        const uidNum = Number(uid);
+        if (!cleared[uidNum]) merged[uidNum] = count as number;
+      }
+      setUnreadCounts(merged);
+    }).catch(() => {});
+    const savedWidth = localStorage.getItem("trpg-sidebar-width");
+    const savedCollapsed = localStorage.getItem("trpg-sidebar-collapsed");
+    if (savedWidth) setSidebarWidth(Number(savedWidth));
+    if (savedCollapsed) setSidebarCollapsed(savedCollapsed === "true");
+  }, [room.id]);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      // Constraint width between 160px and 360px
+      const newWidth = Math.max(160, Math.min(360, startWidth + deltaX));
+      setSidebarWidth(newWidth);
+      localStorage.setItem("trpg-sidebar-width", String(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleTabChange = (tab: "public" | number) => {
+    setActiveTab(tab);
+    if (tab !== "public") {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [tab]: 0,
+      }));
+      // Persist cleared state to localStorage
+      const storageKey = `trpg-dm-cleared-${room.id}`;
+      let cleared: Record<number, boolean> = {};
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) cleared = JSON.parse(raw);
+      } catch {}
+      cleared[tab] = true;
+      localStorage.setItem(storageKey, JSON.stringify(cleared));
+      markDMReadAction(room.id, tab).catch(() => {});
+    }
+  };
 
   // Build mention targets (players + bots, excluding self)
   const mentionTargets = useMemo(() => {
@@ -93,9 +166,13 @@ export function RoomClient({
       userId: p.id,
       nickname: p.nickname,
       isBot: p.isBot,
-      unread: 0,
+      unread: unreadCounts[p.id] || 0,
     }));
-  }, [mentionTargets]);
+  }, [mentionTargets, unreadCounts]);
+
+  const totalUnread = useMemo(() => {
+    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  }, [unreadCounts]);
 
   const botCount = (players || []).filter((p: any) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: any) => !p.users?.isBot).length;
@@ -181,6 +258,13 @@ export function RoomClient({
                 if (!isSender && !isTarget) return;
               } else {
                 if (!isSender && !isHost) return;
+              }
+              // Update unread count if we are the recipient and not currently viewing this conversation
+              if (isTarget && activeTabRef.current !== data.userId) {
+                setUnreadCounts((prev) => ({
+                  ...prev,
+                  [data.userId]: (prev[data.userId] || 0) + 1,
+                }));
               }
             }
             setMessages((prev) => {
@@ -296,7 +380,25 @@ export function RoomClient({
       <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0 z-20 relative">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-muted hover:text-text transition text-sm">{tn("lobby")}</Link>
+            <Link href="/" className="text-text-muted hover:text-text transition text-sm font-medium">{tn("lobby")}</Link>
+            {sidebarCollapsed && (
+              <button
+                onClick={() => {
+                  setSidebarCollapsed(false);
+                  localStorage.setItem("trpg-sidebar-collapsed", "false");
+                }}
+                className="relative p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm flex items-center justify-center gap-1 cursor-pointer"
+                title="展开私聊"
+              >
+                <span className="text-sm">💬</span>
+                <span className="text-xs font-bold hidden sm:inline">私聊</span>
+                {totalUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
+                    {totalUnread > 9 ? "9+" : totalUnread}
+                  </span>
+                )}
+              </button>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-text leading-none">{room.name}</h2>
@@ -347,19 +449,54 @@ export function RoomClient({
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Left Side: Conversation TAB (Task #43) */}
         <ConversationPanel
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           dmConversations={dmConversations}
           onStartDM={() => setShowMembers(true)}
           roomId={room.id}
           userId={userId}
+          width={sidebarWidth}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => {
+            setSidebarCollapsed((prev) => {
+              const val = !prev;
+              localStorage.setItem("trpg-sidebar-collapsed", String(val));
+              return val;
+            });
+          }}
         />
 
+        {/* Resize Handle */}
+        {!sidebarCollapsed && (
+          <div
+            onMouseDown={handleResizeStart}
+            className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-all duration-150 shrink-0 relative z-10 group"
+            title="拖动调整宽度，双击恢复默认"
+            onDoubleClick={() => {
+              setSidebarWidth(200);
+              localStorage.setItem("trpg-sidebar-width", "200");
+            }}
+          >
+            {/* Collapse toggle button on the handle (like VS Code or Notion) */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-4 h-8 bg-surface border border-border hover:border-primary/50 rounded flex items-center justify-center shadow-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-20"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSidebarCollapsed(true);
+                localStorage.setItem("trpg-sidebar-collapsed", "true");
+              }}
+              title="收起侧边栏"
+            >
+              <span className="text-[9px] text-text-muted hover:text-primary select-none">◀</span>
+            </div>
+          </div>
+        )}
+
         {/* Main Content: Chat Area */}
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col relative min-w-0">
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
             <div className="max-w-4xl mx-auto flex flex-col gap-1">
               {tabMessages.map((msg) => (
@@ -395,11 +532,11 @@ export function RoomClient({
           <div className="bg-surface-alt border-t border-border px-4 py-3 shrink-0">
             <div className="max-w-4xl mx-auto">
               {activeTab !== "public" && (
-                <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
-                  <span>🔒 正在与 {dmConversations.find(c => c.userId === activeTab)?.nickname} 私聊中...</span>
-                  <button onClick={() => setActiveTab("public")} className="ml-auto text-text-muted hover:text-accent">退出私聊 ×</button>
-                </div>
-              )}
+                  <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
+                    <span>🔒 正在与 {dmConversations.find(c => c.userId === activeTab)?.nickname} 私聊中...</span>
+                    <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">退出私聊 ×</button>
+                  </div>
+                )}
               <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} />
             </div>
           </div>
@@ -437,11 +574,11 @@ export function RoomClient({
                     <span>{isBot ? "🤖" : "👤"}</span>
                     <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? "（我）" : ""}</span>
                     <div className="flex gap-2">
-                       {!isMe && (
-                         <button 
-                            onClick={() => { setActiveTab(u.id); setShowMembers(false); if (!isHost) markDMReadAction(room.id, u.id); }}
-                            className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition"
-                         >
+                        {!isMe && (
+                          <button 
+                             onClick={() => { handleTabChange(u.id); setShowMembers(false); }}
+                             className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
+                          >
                            🔒 私聊
                          </button>
                        )}
