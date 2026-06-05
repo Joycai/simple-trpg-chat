@@ -9,7 +9,7 @@ import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
-import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
+import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { useTranslations } from "next-intl";
@@ -71,9 +71,9 @@ export function RoomClient({
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
-  const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
 
   // Build mention targets (players + bots, excluding self)
@@ -87,7 +87,7 @@ export function RoomClient({
       }));
   }, [players, userId]);
 
-  // Build DM conversations from mention targets
+  // Build DM conversations
   const dmConversations = useMemo(() => {
     return mentionTargets.map(p => ({
       userId: p.id,
@@ -99,15 +99,20 @@ export function RoomClient({
 
   const botCount = (players || []).filter((p: any) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: any) => !p.users?.isBot).length;
-  // Filter messages by active tab
+
+  // Filter messages by active tab (Task #43)
   const tabMessages = useMemo(() => {
     if (activeTab === "public") {
-      return messages.filter(m => !m.isPrivate || (m.isPrivate && !m.targetUserId));
+      // Show non-private messages
+      return messages.filter(m => !m.isPrivate);
     }
+    // Show private messages between current user and active target
     return messages.filter(m => 
       m.isPrivate && 
-      (m.userId === activeTab || m.targetUserId === activeTab) &&
-      (m.userId === userId || m.targetUserId === userId)
+      (
+        (m.userId === userId && m.targetUserId === activeTab) ||
+        (m.userId === activeTab && m.targetUserId === userId)
+      )
     );
   }, [messages, activeTab, userId]);
 
@@ -155,7 +160,7 @@ export function RoomClient({
         scrollToBottom(false);
       });
     }
-  }, [messages]);
+  }, [tabMessages]); // Re-scroll when switching tabs
 
   useEffect(() => {
     let reconnectTimeout: NodeJS.Timeout;
@@ -205,6 +210,15 @@ export function RoomClient({
     isPrivate?: boolean,
     targetUserId?: number
   ) => {
+    // Override isPrivate and targetUserId if we are in a DM tab
+    let finalIsPrivate = isPrivate;
+    let finalTargetId = targetUserId;
+    
+    if (activeTab !== "public") {
+      finalIsPrivate = true;
+      finalTargetId = activeTab;
+    }
+
     if (content.startsWith(".") && type === "text") {
       try {
         const result = await executeCommandAction(room.id, userId, content);
@@ -224,9 +238,9 @@ export function RoomClient({
       if (type === "dice" && diceDetail) {
         const detail = JSON.parse(diceDetail);
         const faces = parseInt(detail.dice.replace("d", ""));
-        await rollDiceAction(room.id, faces, detail.count, isPrivate);
+        await rollDiceAction(room.id, faces, detail.count, finalIsPrivate);
       } else {
-        await sendMessageAction(room.id, content, type, diceDetail, isPrivate, targetUserId);
+        await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }
     } catch (e) { console.error(e); }
   };
@@ -264,8 +278,8 @@ export function RoomClient({
 
   return (
     <div className="flex flex-col h-screen bg-bg overflow-hidden text-text">
-      <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
+      <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0 z-20 relative">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-text-muted hover:text-text transition text-sm">{tn("lobby")}</Link>
             <div>
@@ -318,36 +332,62 @@ export function RoomClient({
         </div>
       </header>
 
-      <div className="flex-1 relative">
-        <div ref={scrollRef} onScroll={handleScroll} className="absolute inset-0 overflow-y-auto px-4 py-4 scroll-smooth">
-          <div className="max-w-4xl mx-auto flex flex-col gap-1">
-            {messages.map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                nickname={msg.nickname}
-                content={msg.content}
-                type={msg.type as any}
-                diceDetail={msg.diceDetail}
-                isPrivate={msg.isPrivate}
-                createdAt={msg.createdAt}
-                isOwn={msg.userId === userId}
-                userId={userId}
-                onCheckRequest={handleCheckRequest}
-                isBot={!!players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.users?.isBot}
-              />
-            ))}
-          </div>
-        </div>
-        {showScrollButton && (
-          <button onClick={() => scrollToBottom(true)} className="absolute bottom-6 right-8 z-20 bg-scroll-btn hover:opacity-90 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group" title={t("scrollToBottom")}>
-            <span className="text-xl group-hover:animate-bounce">↓</span>
-          </button>
-        )}
-      </div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Side: Conversation TAB (Task #43) */}
+        <ConversationPanel
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          dmConversations={dmConversations}
+          onStartDM={() => setShowMembers(true)}
+          roomId={room.id}
+          userId={userId}
+        />
 
-      <div className="bg-header-bg border-t border-header-border px-4 py-3 shrink-0">
-        <div className="max-w-4xl mx-auto">
-          <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} />
+        {/* Main Content: Chat Area */}
+        <div className="flex-1 flex flex-col relative">
+          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
+            <div className="max-w-4xl mx-auto flex flex-col gap-1">
+              {tabMessages.map((msg) => (
+                <ChatMessage
+                  key={msg.id}
+                  nickname={msg.nickname}
+                  content={msg.content}
+                  type={msg.type as any}
+                  diceDetail={msg.diceDetail}
+                  isPrivate={msg.isPrivate}
+                  createdAt={msg.createdAt}
+                  isOwn={msg.userId === userId}
+                  userId={userId}
+                  onCheckRequest={handleCheckRequest}
+                  isBot={!!players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.users?.isBot}
+                />
+              ))}
+              {tabMessages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-50 py-20">
+                  <span className="text-4xl mb-4">{activeTab === "public" ? "🏠" : "🔒"}</span>
+                  <p>{activeTab === "public" ? "公频尚无消息" : "开始你们的秘密谈话吧"}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {showScrollButton && (
+            <button onClick={() => scrollToBottom(true)} className="absolute bottom-28 right-8 z-10 bg-scroll-btn hover:opacity-90 text-white w-10 h-10 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group" title={t("scrollToBottom")}>
+              <span className="text-xl group-hover:animate-bounce">↓</span>
+            </button>
+          )}
+
+          <div className="bg-surface-alt border-t border-border px-4 py-3 shrink-0">
+            <div className="max-w-4xl mx-auto">
+              {activeTab !== "public" && (
+                <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
+                  <span>🔒 正在与 {dmConversations.find(c => c.userId === activeTab)?.nickname} 私聊中...</span>
+                  <button onClick={() => setActiveTab("public")} className="ml-auto text-text-muted hover:text-accent">退出私聊 ×</button>
+                </div>
+              )}
+              <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -381,12 +421,21 @@ export function RoomClient({
                   <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
                     <span>{isBot ? "🤖" : "👤"}</span>
                     <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? "（我）" : ""}</span>
-                    <span className="text-[10px] text-text-dim font-mono">@{nick}</span>
+                    <div className="flex gap-2">
+                       {!isMe && (
+                         <button 
+                            onClick={() => { setActiveTab(u.id); setShowMembers(false); if (!isHost) markDMReadAction(room.id, u.id); }}
+                            className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition"
+                         >
+                           🔒 私聊
+                         </button>
+                       )}
+                       <span className="text-[10px] text-text-dim font-mono self-center">@{nick}</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <p className="text-[10px] text-text-dim mt-4 pt-3 border-t border-border">输入 @昵称 即可提及对应成员（不能提及自己）</p>
           </div>
         </div>
       )}
