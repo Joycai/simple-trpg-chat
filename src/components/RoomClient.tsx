@@ -240,6 +240,21 @@ export function RoomClient({
         const faces = parseInt(detail.dice.replace("d", ""));
         await rollDiceAction(room.id, faces, detail.count, finalIsPrivate);
       } else {
+        // Optimistic update: show message immediately
+        const optimistic = {
+          id: Date.now(),
+          roomId: room.id,
+          userId,
+          nickname,
+          content,
+          type: type as "text" | "dice" | "system",
+          diceDetail: diceDetail || null,
+          isPrivate: finalIsPrivate,
+          targetUserId: finalTargetId,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, optimistic as any]);
+
         await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }
     } catch (e) { console.error(e); }
