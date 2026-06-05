@@ -7,12 +7,14 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 interface ChatMessageProps {
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system";
+  type: "text" | "dice" | "system" | "check_request";
   diceDetail?: string | null;
   isPrivate: boolean;
   createdAt: string;
   isOwn: boolean;
   isBot?: boolean;
+  userId?: number;
+  onCheckRequest?: (skillName: string, diceType: string) => void;
 }
 
 export function ChatMessage({
@@ -24,8 +26,37 @@ export function ChatMessage({
   createdAt,
   isOwn,
   isBot = false,
+  userId,
+  onCheckRequest,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
+
+  // Check request rendering
+  if (type === "check_request") {
+    let checkInfo: any = null;
+    try { checkInfo = diceDetail ? JSON.parse(diceDetail) : null; } catch {}
+    const isTarget = checkInfo?.checkRequest?.targetUserIds?.includes(userId);
+
+    return (
+      <div className="flex justify-center py-2 animate-in fade-in">
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+          isTarget ? "bg-accent/10 border border-accent/30" : "bg-surface-alt"
+        }`}>
+          <span className="text-sm text-text">{content}</span>
+          {isTarget && onCheckRequest && (
+            <button
+              onClick={() => onCheckRequest(checkInfo.checkRequest.skillName, checkInfo.checkRequest.diceType)}
+              className="bg-accent hover:bg-accent-hover text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
+              title="点击检定"
+            >
+              🎲
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (type === "system") {
     return (
       <div className="flex justify-center py-2 animate-in fade-in">

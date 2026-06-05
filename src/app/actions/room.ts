@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -202,6 +202,46 @@ export async function rollDiceAction(roomId: number, faces: number, count: numbe
   const content = `🎲 ${notation}: [${results.join(", ")}] = ${sum}`;
   
   return await sendMessageAction(roomId, isPrivate ? `🔒 ${content}` : content, "dice", detail, isPrivate);
+}
+
+// --- Host Skill Check Request ---
+
+export async function requestSkillCheckAction(
+  roomId: number,
+  targetUserIds: number[],
+  skillName: string,
+  diceType: string = "d100"
+) {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "host") throw new Error("Only host can request checks");
+
+  const hostId = parseInt((session.user as any).id);
+  const [hostMember] = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
+
+  const hostNick = hostMember?.nickname || (session.user as any).name || "Host";
+
+  // Get target nicknames
+  const targetMembers = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
+  const targetNicks = targetMembers.map(m => m.nickname);
+
+  const content = `🎯 ${hostNick} 要求 ${targetNicks.join("、")} 进行【${skillName}】检定`;
+  const detail = JSON.stringify({
+    checkRequest: { skillName, diceType, targetUserIds, hostNick }
+  });
+
+  const [msg] = await db.insert(messages).values({
+    roomId,
+    userId: hostId,
+    nickname: hostNick,
+    content,
+    type: "check_request",
+    diceDetail: detail,
+  }).returning();
+
+  broadcastToRoom(roomId, msg);
+  return msg;
 }
 
 // --- Room Settings ---

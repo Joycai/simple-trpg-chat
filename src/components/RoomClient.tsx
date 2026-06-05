@@ -7,8 +7,10 @@ import { CharacterPanel } from "./CharacterPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
+import { HostCheckDialog } from "./HostCheckDialog";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
+import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { useTranslations } from "next-intl";
 import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
@@ -68,6 +70,7 @@ export function RoomClient({
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [unreadItems, setUnreadItems] = useState(0);
 
   // Build mention targets (players + bots, excluding self)
@@ -245,6 +248,45 @@ export function RoomClient({
     setNickname(newNickname);
   };
 
+  /** Handle host-initiated skill check request */
+  const handleCheckRequest = (skillName: string, diceType: string) => {
+    // Check if player has the skill
+    getMySkillsAction(room.id).then(async (skills) => {
+      const skill = skills.find((s: any) => s.skillName === skillName);
+      const faces = parseInt(diceType.replace("d", ""));
+
+      if (skill) {
+        // Roll immediately
+        const roll = Math.floor(Math.random() * faces) + 1;
+        const target = skill.skillValue;
+        const success = roll <= target;
+        const grade = success ? "success" : "fail";
+        const detail = JSON.stringify({
+          dice: diceType, count: 1, results: [roll], sum: roll, notation: `1${diceType}`,
+          check: { skillName, target, roll, success, grade }
+        });
+        const content = `🎲 ${skillName}检定：${diceType}=${roll} / ${target} → ${success ? "✅ 成功" : "❌ 失败"}`;
+        await sendMessageAction(room.id, content, "dice", detail);
+      } else {
+        // Prompt for skill value
+        const value = prompt(`你尚未设置技能【${skillName}】。请输入技能数值（1-99）：`, "50");
+        if (value && !isNaN(parseInt(value))) {
+          const v = parseInt(value);
+          await upsertSkillAction(room.id, skillName, v);
+          // Then roll
+          const roll = Math.floor(Math.random() * faces) + 1;
+          const success = roll <= v;
+          const detail = JSON.stringify({
+            dice: diceType, count: 1, results: [roll], sum: roll, notation: `1${diceType}`,
+            check: { skillName, target: v, roll, success, grade: success ? "success" : "fail" }
+          });
+          const content = `🎲 ${skillName}检定：${diceType}=${roll} / ${v} → ${success ? "✅ 成功" : "❌ 失败"}`;
+          await sendMessageAction(room.id, content, "dice", detail);
+        }
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-bg overflow-hidden">
       <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0">
@@ -306,6 +348,18 @@ export function RoomClient({
               )}
             </button>
 
+            {/* Host check request button */}
+            {isHost && (
+              <button
+                onClick={() => setShowCheckDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent hover:text-accent-hover transition-all duration-200 border border-accent/30 shadow-sm"
+                title="发起检定"
+              >
+                <span className="text-base">🎯</span>
+                <span className="text-xs font-bold hidden sm:inline">检定</span>
+              </button>
+            )}
+
             {/* Character panel button */}
             <button
               onClick={() => setShowCharacter(true)}
@@ -343,11 +397,13 @@ export function RoomClient({
                 key={msg.id}
                 nickname={msg.nickname}
                 content={msg.content}
-                type={msg.type}
+                type={msg.type as any}
                 diceDetail={msg.diceDetail}
                 isPrivate={msg.isPrivate}
                 createdAt={msg.createdAt}
                 isOwn={msg.userId === userId}
+                userId={userId}
+                onCheckRequest={handleCheckRequest}
                 isBot={!!players.find((p: any) => (p.users?.id || p.user?.id) === msg.userId)?.users?.isBot}
               />
             ))}
@@ -391,6 +447,15 @@ export function RoomClient({
           roomId={room.id}
           isHost={isHost}
           onClose={() => setShowBotManager(false)}
+        />
+      )}
+
+      {/* Host check request dialog */}
+      {showCheckDialog && (
+        <HostCheckDialog
+          roomId={room.id}
+          players={mentionTargets}
+          onClose={() => setShowCheckDialog(false)}
         />
       )}
 
