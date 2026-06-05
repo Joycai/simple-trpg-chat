@@ -186,11 +186,11 @@ export async function sendMessageAction(
   return newMessage;
 }
 
-export async function rollDiceAction(roomId: number, faces: number, count: number, isPrivate: boolean = false) {
+export async function rollDiceAction(roomId: number, faces: number, count: number, isPrivate: boolean = false, targetUserId?: number) {
   const results = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1);
   const sum = results.reduce((a, b) => a + b, 0);
   const notation = `${count}d${faces}`;
-  
+
   const detail = JSON.stringify({
     dice: `d${faces}`,
     count,
@@ -200,8 +200,8 @@ export async function rollDiceAction(roomId: number, faces: number, count: numbe
   });
 
   const content = `🎲 ${notation}: [${results.join(", ")}] = ${sum}`;
-  
-  return await sendMessageAction(roomId, isPrivate ? `🔒 ${content}` : content, "dice", detail, isPrivate);
+
+  return await sendMessageAction(roomId, isPrivate ? `🔒 ${content}` : content, "dice", detail, isPrivate, targetUserId);
 }
 
 // --- Host Skill Check Request ---

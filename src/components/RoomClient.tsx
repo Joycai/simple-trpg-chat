@@ -254,7 +254,25 @@ export function RoomClient({
               }
             }
             setMessages((prev) => {
-              if (prev.some(m => m.id === data.id)) return prev;
+              // 1. Loose matching for database ID duplication (number or string representation)
+              if (prev.some(m => String(m.id) === String(data.id))) return prev;
+
+              // 2. If this is a message we sent, search for the optimistic placeholder
+              if (data.userId === userId) {
+                const optIndex = prev.findIndex(m => 
+                  m.userId === userId &&
+                  m.content === data.content &&
+                  m.type === data.type &&
+                  m.targetUserId === data.targetUserId &&
+                  typeof m.id === 'number' && m.id > 1000000000000
+                );
+                if (optIndex !== -1) {
+                  const copy = [...prev];
+                  copy[optIndex] = data; // Replace optimistic placeholder with the real message
+                  return copy;
+                }
+              }
+
               return [...prev, data];
             });
           }
@@ -308,9 +326,30 @@ export function RoomClient({
       if (type === "dice" && diceDetail) {
         const detail = JSON.parse(diceDetail);
         const faces = parseInt(detail.dice.replace("d", ""));
-        await rollDiceAction(room.id, faces, detail.count, finalIsPrivate);
+        await rollDiceAction(room.id, faces, detail.count, finalIsPrivate, finalTargetId);
       } else {
-        await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
+        // Optimistic update: show message immediately
+        const optimistic = {
+          id: Date.now(), // 13-digit temporary ID
+          roomId: room.id,
+          userId,
+          nickname,
+          content,
+          type: type as "text" | "dice" | "system",
+          diceDetail: diceDetail || null,
+          isPrivate: finalIsPrivate,
+          targetUserId: finalTargetId,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, optimistic as any]);
+
+        try {
+          await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
+        } catch (err) {
+          // Rollback on failure
+          setMessages((prev) => prev.filter(m => m.id !== optimistic.id));
+          throw err;
+        }
       }
     } catch (e) { console.error(e); }
   };
