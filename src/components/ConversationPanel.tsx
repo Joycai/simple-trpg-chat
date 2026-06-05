@@ -18,6 +18,9 @@ interface ConversationPanelProps {
   onStartDM: () => void;
   roomId: number;
   userId: number;
+  width: number;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 export function ConversationPanel({
@@ -27,90 +30,88 @@ export function ConversationPanel({
   onStartDM,
   roomId,
   userId,
+  width,
+  collapsed,
+  onToggleCollapse,
 }: ConversationPanelProps) {
-  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
-
-  // Load unread counts
-  useEffect(() => {
-    getUnreadDMCountAction(roomId).then(setUnreadCounts).catch(() => {});
-  }, [roomId]);
-
-  // Merge unread counts
-  const conversations = dmConversations.map(c => ({
-    ...c,
-    unread: unreadCounts[c.userId] || 0,
-  }));
-
-  const totalUnread = Object.values(unreadCounts).reduce((a, b) => (a as number) + (b as number), 0) as number;
-  const hasUnreadDM = totalUnread > 0 && activeTab === "public";
+  if (collapsed) return null;
 
   return (
-    <div className="flex flex-col w-16 sm:w-48 bg-surface-alt border-r border-border h-full shrink-0">
-      {/* Public tab */}
-      <button
-        onClick={() => onTabChange("public")}
-        className={`flex items-center gap-2 px-3 py-3 text-sm font-bold transition border-b border-border ${
-          activeTab === "public"
-            ? "bg-primary/10 text-primary border-l-2 border-l-primary"
-            : "text-text-muted hover:text-text hover:bg-surface-alt/80"
-        }`}
-      >
-        <span className="text-lg">🏠</span>
-        <span className="hidden sm:inline truncate">公频</span>
-      </button>
+    <div
+      style={{ width: `${width}px` }}
+      className="flex flex-col bg-surface-alt border-r border-border h-full shrink-0 select-none shadow-sm relative"
+    >
+      {/* Sidebar Header */}
+      <div className="px-3 py-2 flex items-center justify-between border-b border-border bg-surface/50">
+        <span className="text-[10px] font-bold text-text-muted tracking-wider uppercase">聊天通道</span>
+        <button
+          onClick={onToggleCollapse}
+          className="p-1 rounded hover:bg-border text-text-muted hover:text-text transition cursor-pointer text-xs flex items-center justify-center w-5 h-5"
+          title="收起侧边栏"
+        >
+          ◀
+        </button>
+      </div>
 
-      {/* DM conversations */}
-      <div className="flex-1 overflow-y-auto">
-        {conversations.map(conv => (
+      {/* Public Channel Section */}
+      <div className="p-2">
+        <button
+          onClick={() => onTabChange("public")}
+          className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-bold transition-all duration-200 rounded-lg cursor-pointer ${
+            activeTab === "public"
+              ? "bg-primary/10 text-primary shadow-sm"
+              : "text-text-muted hover:text-text hover:bg-surface/60"
+          }`}
+        >
+          <span className="text-base shrink-0">🏠</span>
+          <span className="truncate">公频消息</span>
+        </button>
+      </div>
+
+      <div className="border-t border-border/40 mx-2"></div>
+
+      {/* DM Conversations Section */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {dmConversations.map(conv => (
           <button
             key={conv.userId}
-            onClick={() => {
-              onTabChange(conv.userId);
-              if (conv.unread > 0) markDMReadAction(roomId, conv.userId);
-            }}
-            className={`w-full flex items-center gap-2 px-3 py-3 text-sm transition border-b border-border/30 relative ${
+            onClick={() => onTabChange(conv.userId)}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-all duration-200 rounded-lg relative cursor-pointer ${
               activeTab === conv.userId
-                ? "bg-primary/10 text-primary border-l-2 border-l-primary"
-                : "text-text-muted hover:text-text hover:bg-surface-alt/80"
+                ? "bg-primary/10 text-primary font-bold shadow-sm"
+                : "text-text-muted hover:text-text hover:bg-surface/60"
             }`}
           >
-            <span className="text-lg shrink-0">{conv.isBot ? "🤖" : "👤"}</span>
-            <span className="hidden sm:inline truncate text-xs">{conv.nickname}</span>
+            <span className="text-base shrink-0">{conv.isBot ? "🤖" : "👤"}</span>
+            <span className="truncate text-left flex-1 pr-4">{conv.nickname}</span>
 
             {/* Unread badge */}
             {conv.unread > 0 && (
-              <span className={`absolute top-2 right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-danger text-white text-[9px] font-bold px-1 ${conv.unread > 0 ? "animate-pulse" : ""}`}>
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-danger text-white text-[9px] font-bold px-1 animate-pulse">
                 {conv.unread > 9 ? "9+" : conv.unread}
               </span>
             )}
           </button>
         ))}
 
-        {conversations.length === 0 && (
-          <div className="p-3 text-center text-text-dim text-[10px] hidden sm:block">
-            暂无私聊
+        {dmConversations.length === 0 && (
+          <div className="py-8 text-center text-text-dim text-[10px]">
+            暂无私聊成员
           </div>
         )}
       </div>
 
-      {/* New DM button */}
-      <button
-        onClick={onStartDM}
-        className="flex items-center justify-center gap-1 px-2 py-3 text-xs font-bold text-text-muted hover:text-primary hover:bg-surface-alt border-t border-border transition"
-        title="发起私聊"
-      >
-        <span className="text-base">＋</span>
-        <span className="hidden sm:inline">私聊</span>
-      </button>
-
-      {/* Public channel unread indicator */}
-      {hasUnreadDM && (
-        <div className="absolute bottom-12 left-14 sm:left-50 z-10">
-          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-danger text-white text-[10px] font-bold animate-bounce">
-            {totalUnread > 9 ? "9+" : totalUnread}
-          </span>
-        </div>
-      )}
+      {/* New DM Button */}
+      <div className="p-2 border-t border-border/50 bg-surface/30 shrink-0">
+        <button
+          onClick={onStartDM}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg border border-dashed border-border hover:border-primary/50 transition cursor-pointer"
+          title="发起私聊"
+        >
+          <span className="text-sm">＋</span>
+          <span>发起私聊</span>
+        </button>
+      </div>
     </div>
   );
 }

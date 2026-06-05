@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTheme } from "./ThemeProvider";
 import type { ThemeId } from "@/themes/types";
 
 interface RoomThemeSetterProps {
@@ -9,14 +10,14 @@ interface RoomThemeSetterProps {
 
 /** Sets data-theme on <html> for room-specific theming */
 export function RoomThemeSetter({ theme }: RoomThemeSetterProps) {
+  const { setRoomTheme } = useTheme();
+
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    setRoomTheme(theme);
     return () => {
-      // Revert to default when leaving room
-      const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
-      document.documentElement.setAttribute("data-theme", stored || "default");
+      setRoomTheme(null);
     };
-  }, [theme]);
+  }, [theme, setRoomTheme]);
 
   return null;
 }

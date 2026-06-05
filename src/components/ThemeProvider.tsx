@@ -5,14 +5,18 @@ import type { ThemeId } from "@/themes/types";
 import { THEME_LIST } from "@/themes/types";
 
 interface ThemeContextValue {
-  theme: ThemeId;
+  theme: ThemeId; // User preferred theme
+  activeTheme: ThemeId; // Effective theme (roomTheme || theme)
   setTheme: (theme: ThemeId) => void;
+  setRoomTheme: (theme: ThemeId | null) => void;
   themeList: typeof THEME_LIST;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "default",
+  activeTheme: "default",
   setTheme: () => {},
+  setRoomTheme: () => {},
   themeList: THEME_LIST,
 });
 
@@ -21,39 +25,37 @@ export function useTheme() {
 }
 
 interface ThemeProviderProps {
-  /** Theme from room config (overrides user preference) */
-  roomTheme?: ThemeId | null;
   children: ReactNode;
 }
 
-export function ThemeProvider({ roomTheme, children }: ThemeProviderProps) {
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeId>("default");
+  const [roomTheme, setRoomTheme] = useState<ThemeId | null>(null);
 
-  // Determine effective theme: room theme > stored preference > default
+  // Load stored preference on mount
   useEffect(() => {
-    if (roomTheme) {
-      setThemeState(roomTheme);
-    } else {
-      const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
-      setThemeState(stored || "default");
+    const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
+    if (stored) {
+      setThemeState(stored);
     }
-  }, [roomTheme]);
+  }, []);
 
-  // Apply theme to <html> data-theme attribute (only when NOT in a room)
+  const activeTheme = roomTheme || theme;
+
+  // Apply theme to <html> data-theme attribute
   useEffect(() => {
-    if (!roomTheme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("trpg-theme", theme);
-    }
-  }, [theme, roomTheme]);
+    document.documentElement.setAttribute("data-theme", activeTheme);
+  }, [activeTheme]);
 
   const setTheme = (newTheme: ThemeId) => {
     setThemeState(newTheme);
+    localStorage.setItem("trpg-theme", newTheme);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, themeList: THEME_LIST }}>
+    <ThemeContext.Provider value={{ theme, activeTheme, setTheme, setRoomTheme, themeList: THEME_LIST }}>
       {children}
     </ThemeContext.Provider>
   );
 }
+
