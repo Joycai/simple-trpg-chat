@@ -85,19 +85,10 @@ export function RoomClient({
   }, [activeTab]);
 
   useEffect(() => {
-    // Merge server counts with locally cleared DMs
     getUnreadDMCountAction(room.id).then((serverCounts) => {
-      const storageKey = `trpg-dm-cleared-${room.id}`;
-      let cleared: Record<number, boolean> = {};
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) cleared = JSON.parse(raw);
-      } catch {}
-      // For each conversation: take server count UNLESS user already cleared it
       const merged: Record<number, number> = {};
       for (const [uid, count] of Object.entries(serverCounts)) {
-        const uidNum = Number(uid);
-        if (!cleared[uidNum]) merged[uidNum] = count as number;
+        merged[Number(uid)] = count as number;
       }
       setUnreadCounts(merged);
     }).catch(() => {});
@@ -136,15 +127,6 @@ export function RoomClient({
         ...prev,
         [tab]: 0,
       }));
-      // Persist cleared state to localStorage
-      const storageKey = `trpg-dm-cleared-${room.id}`;
-      let cleared: Record<number, boolean> = {};
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) cleared = JSON.parse(raw);
-      } catch {}
-      cleared[tab] = true;
-      localStorage.setItem(storageKey, JSON.stringify(cleared));
       markDMReadAction(room.id, tab).catch(() => {});
     }
   };
@@ -259,12 +241,16 @@ export function RoomClient({
               } else {
                 if (!isSender && !isHost) return;
               }
-              // Update unread count if we are the recipient and not currently viewing this conversation
-              if (isTarget && activeTabRef.current !== data.userId) {
-                setUnreadCounts((prev) => ({
-                  ...prev,
-                  [data.userId]: (prev[data.userId] || 0) + 1,
-                }));
+              // Update unread count if we are the recipient
+              if (isTarget) {
+                if (activeTabRef.current !== data.userId) {
+                  setUnreadCounts((prev) => ({
+                    ...prev,
+                    [data.userId]: (prev[data.userId] || 0) + 1,
+                  }));
+                } else {
+                  markDMReadAction(room.id, data.userId).catch(() => {});
+                }
               }
             }
             setMessages((prev) => {
@@ -324,21 +310,6 @@ export function RoomClient({
         const faces = parseInt(detail.dice.replace("d", ""));
         await rollDiceAction(room.id, faces, detail.count, finalIsPrivate);
       } else {
-        // Optimistic update: show message immediately
-        const optimistic = {
-          id: Date.now(),
-          roomId: room.id,
-          userId,
-          nickname,
-          content,
-          type: type as "text" | "dice" | "system",
-          diceDetail: diceDetail || null,
-          isPrivate: finalIsPrivate,
-          targetUserId: finalTargetId,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, optimistic as any]);
-
         await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }
     } catch (e) { console.error(e); }
@@ -380,7 +351,7 @@ export function RoomClient({
       <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0 z-20 relative">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-muted hover:text-text transition text-sm font-medium">{tn("lobby")}</Link>
+            <Link href="/" className="text-text-muted hover:text-text transition text-sm font-medium">← {tn("lobby")}</Link>
             {sidebarCollapsed && (
               <button
                 onClick={() => {
