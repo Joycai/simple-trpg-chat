@@ -17,6 +17,8 @@ interface RoomSettingsProps {
 export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, onClose }: RoomSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
+  const [selectedDiceRules, setSelectedDiceRules] = useState<string>(currentDiceRules || "basic");
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -25,8 +27,12 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
     setError("");
 
     try {
-      await updateRoomSettingsAction(roomId, new FormData(e.currentTarget));
-      // Update theme immediately, RoomThemeSetter's effect will persist it
+      const formData = new FormData();
+      formData.set("theme", selectedTheme);
+      formData.set("diceRules", selectedDiceRules);
+      
+      await updateRoomSettingsAction(roomId, formData);
+      
       onClose();
       router.refresh();
     } catch (err: any) {
@@ -61,7 +67,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
                 <label
                   key={theme.id}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                    currentTheme === theme.id
+                    selectedTheme === theme.id
                       ? "border-primary bg-primary/10"
                       : "border-border hover:border-text-muted"
                   }`}
@@ -70,7 +76,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
                     type="radio"
                     name="theme"
                     value={theme.id}
-                    defaultChecked={currentTheme === theme.id}
+                    checked={selectedTheme === theme.id}
+                    onChange={() => setSelectedTheme(theme.id as ThemeId)}
                     className="accent-primary"
                   />
                   <div className="flex-1">
@@ -102,7 +109,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
             <label className="text-xs text-text-dim font-medium">投点规则</label>
             <select
               name="diceRules"
-              defaultValue={currentDiceRules || "basic"}
+              value={selectedDiceRules}
+              onChange={(e) => setSelectedDiceRules(e.target.value)}
               className="p-2.5 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
             >
               <option value="basic">📊 Basic — 基础骰点</option>

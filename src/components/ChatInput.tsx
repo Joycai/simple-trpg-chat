@@ -11,7 +11,7 @@ interface MentionTarget {
 }
 
 interface ChatInputProps {
-  onSendMessage: (content: string, type: "text" | "dice", diceDetail?: string, isPrivate?: boolean) => void;
+  onSendMessage: (content: string, type: "text" | "dice", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
   isHost: boolean;
   mentions?: MentionTarget[];
 }
@@ -22,6 +22,11 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
   const [showDice, setShowDice] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
+  
+  // Private chat states
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [privateTargetId, setPrivateTargetId] = useState<number | null>(null);
+  
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,7 +38,6 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
     const idx = message.lastIndexOf("@");
     if (idx === -1) return null;
     const afterAt = message.slice(idx + 1);
-    // Only trigger if @ is at end or followed by non-space chars
     if (afterAt.includes(" ")) return null;
     return { start: idx, query: afterAt.toLowerCase() };
   }, [message]);
@@ -60,13 +64,17 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
   const handleSend = () => {
     const trimmed = message.trim();
     if (!trimmed) return;
-    onSendMessage(trimmed, "text");
+    
+    onSendMessage(trimmed, "text", undefined, isPrivate, privateTargetId || undefined);
     setMessage("");
+    
+    // Auto-exit private mode after sending (Nagisa's safety logic)
+    setIsPrivate(false);
+    setPrivateTargetId(null);
     inputRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // @mention navigation
     if (filteredMentions.length > 0) {
       if (e.key === "Tab" || (e.key === "Enter" && filteredMentions.length > 0)) {
         e.preventDefault();
@@ -96,9 +104,8 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
   };
 
   const handleDiceRoll = (content: string, diceDetail: string) => {
-    // Extract isPrivate from content prefix
-    const isPrivate = content.includes("🔒");
-    onSendMessage(content, "dice", diceDetail, isPrivate);
+    const isSecret = content.includes("🔒");
+    onSendMessage(content, "dice", diceDetail, isSecret);
     setShowDice(false);
     inputRef.current?.focus();
   };
@@ -137,16 +144,53 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
         </div>
       )}
 
+      {/* Private Chat Target Selector */}
+      {isPrivate && (
+        <div className="absolute bottom-full left-12 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
+          <div className="bg-private-bg border border-private-border rounded-theme shadow-lg p-2 flex items-center gap-2">
+            <span className="text-[10px] font-bold text-accent uppercase tracking-wider ml-1">私聊对象:</span>
+            <select 
+              value={privateTargetId || ""} 
+              onChange={(e) => setPrivateTargetId(Number(e.target.value))}
+              className="bg-surface border border-private-border rounded px-2 py-1 text-xs text-text outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="" disabled>选择成员...</option>
+              {mentions.map(m => (
+                <option key={m.id} value={m.id}>{m.isBot ? "🤖" : "👤"} {m.nickname}</option>
+              ))}
+            </select>
+            <button 
+              onClick={() => { setIsPrivate(false); setPrivateTargetId(null); }}
+              className="text-text-muted hover:text-danger p-1 transition"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input row */}
-      <div className="flex items-center gap-2 bg-input-bg border border-input-border rounded-theme p-2 shadow-sm">
+      <div className={`flex items-center gap-2 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
+        isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
+      }`}>
         <button
           onClick={() => setShowDice(!showDice)}
           className={`px-3 py-2 rounded-theme text-sm font-bold transition ${
             showDice ? "bg-accent text-white" : "bg-surface-alt text-text-muted hover:bg-border"
           }`}
-          title={t("send")}
+          title="投骰子"
         >
           🎲
+        </button>
+
+        <button
+          onClick={() => setIsPrivate(!isPrivate)}
+          className={`px-3 py-2 rounded-theme text-sm transition ${
+            isPrivate ? "bg-private-bg text-accent border border-private-border animate-pulse" : "bg-surface-alt text-text-muted hover:bg-border"
+          }`}
+          title="开启私聊模式"
+        >
+          🔒
         </button>
 
         <input
@@ -155,14 +199,18 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t("inputPlaceholder")}
+          placeholder={isPrivate ? "正在进行悄悄话..." : t("inputPlaceholder")}
           className="flex-1 p-2 border-0 outline-none text-sm bg-transparent text-text"
         />
 
         <button
           onClick={handleSend}
-          disabled={!message.trim()}
-          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white px-4 py-2 rounded-theme text-sm font-bold transition"
+          disabled={!message.trim() || (isPrivate && !privateTargetId)}
+          className={`px-4 py-2 rounded-theme text-sm font-bold transition ${
+            isPrivate 
+              ? "bg-accent hover:bg-accent-hover text-white" 
+              : "bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white"
+          }`}
         >
           {t("send")}
         </button>
