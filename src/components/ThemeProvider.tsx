@@ -39,10 +39,10 @@ export function ThemeProvider({ roomTheme, children }: ThemeProviderProps) {
     }
   }, [roomTheme]);
 
-  // Apply theme to <html> data-theme attribute
+  // Apply theme to <html> data-theme attribute (only when NOT in a room)
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
     if (!roomTheme) {
+      document.documentElement.setAttribute("data-theme", theme);
       localStorage.setItem("trpg-theme", theme);
     }
   }, [theme, roomTheme]);
