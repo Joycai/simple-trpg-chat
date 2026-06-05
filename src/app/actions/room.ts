@@ -311,3 +311,43 @@ export async function upsertSkillAction(roomId: number, userId: number, skillNam
   });
   revalidatePath(`/rooms/${roomId}`);
 }
+
+// --- DM/Conversation Actions ---
+
+export async function getUnreadDMCountAction(roomId: number) {
+  const session = await auth();
+  if (!session) return {};
+  
+  const userId = parseInt((session.user as any).id);
+  const { messages } = await import("@/db/schema");
+  const { db } = await import("@/db");
+  const { eq, and, sql, not } = await import("drizzle-orm");
+  
+  // Count unread targeted private messages per sender
+  const results = await db
+    .select({
+      senderId: messages.userId,
+      count: sql<number>`count(*)`,
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.roomId, roomId),
+        eq(messages.targetUserId, userId),
+        eq(messages.isPrivate, true),
+        not(eq(messages.userId, userId)),
+      )
+    )
+    .groupBy(messages.userId);
+  
+  const counts: Record<number, number> = {};
+  for (const r of results) {
+    counts[r.senderId] = Number(r.count);
+  }
+  return counts;
+}
+
+export async function markDMReadAction(roomId: number, senderUserId: number) {
+  // Mark as read — for MVP we rely on UI state, server-side tracking can be added later
+  revalidatePath(`/rooms/${roomId}`);
+}
