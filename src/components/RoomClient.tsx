@@ -7,6 +7,7 @@ import { CharacterPanel } from "./CharacterPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
+import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
@@ -70,6 +71,7 @@ export function RoomClient({
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
+  const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [unreadItems, setUnreadItems] = useState(0);
@@ -85,8 +87,30 @@ export function RoomClient({
       }));
   }, [players, userId]);
 
+  // Build DM conversations from mention targets
+  const dmConversations = useMemo(() => {
+    return mentionTargets.map(p => ({
+      userId: p.id,
+      nickname: p.nickname,
+      isBot: p.isBot,
+      unread: 0,
+    }));
+  }, [mentionTargets]);
+
   const botCount = (players || []).filter((p: any) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: any) => !p.users?.isBot).length;
+  // Filter messages by active tab
+  const tabMessages = useMemo(() => {
+    if (activeTab === "public") {
+      return messages.filter(m => !m.isPrivate || (m.isPrivate && !m.targetUserId));
+    }
+    return messages.filter(m => 
+      m.isPrivate && 
+      (m.userId === activeTab || m.targetUserId === activeTab) &&
+      (m.userId === userId || m.targetUserId === userId)
+    );
+  }, [messages, activeTab, userId]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);

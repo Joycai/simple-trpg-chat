@@ -14,9 +14,10 @@ interface ChatInputProps {
   onSendMessage: (content: string, type: "text" | "dice", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
   isHost: boolean;
   mentions?: MentionTarget[];
+  isPrivateLocked?: boolean;
 }
 
-export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputProps) {
+export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocked = false }: ChatInputProps) {
   const t = useTranslations("chat");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
@@ -24,10 +25,16 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
   const [mentionIndex, setMentionIndex] = useState(0);
   
   // Private chat states
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(isPrivateLocked);
   const [privateTargetId, setPrivateTargetId] = useState<number | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync isPrivate with isPrivateLocked prop
+  useEffect(() => {
+    setIsPrivate(isPrivateLocked);
+    if (isPrivateLocked) setPrivateTargetId(null); // When locked to a tab, we don't need the local target selector
+  }, [isPrivateLocked]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -65,12 +72,20 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
     const trimmed = message.trim();
     if (!trimmed) return;
     
-    onSendMessage(trimmed, "text", undefined, isPrivate, privateTargetId || undefined);
+    // If not locked to a specific tab, but private mode is toggled, ensure target is selected
+    let finalTargetId = privateTargetId;
+    if (!isPrivateLocked && isPrivate && !finalTargetId) {
+       if (mentions.length > 0) finalTargetId = mentions[0].id;
+    }
+
+    onSendMessage(trimmed, "text", undefined, isPrivate, finalTargetId || undefined);
     setMessage("");
     
-    // Auto-exit private mode after sending (Nagisa's safety logic)
-    setIsPrivate(false);
-    setPrivateTargetId(null);
+    // If not locked, auto-exit private mode after sending
+    if (!isPrivateLocked) {
+      setIsPrivate(false);
+      setPrivateTargetId(null);
+    }
     inputRef.current?.focus();
   };
 
@@ -144,8 +159,8 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
         </div>
       )}
 
-      {/* Private Chat Target Selector */}
-      {isPrivate && (
+      {/* Private Chat Target Selector (Only show if manually toggled, not locked to tab) */}
+      {!isPrivateLocked && isPrivate && (
         <div className="absolute bottom-full left-12 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
           <div className="bg-private-bg border border-private-border rounded-theme shadow-lg p-2 flex items-center gap-2">
             <span className="text-[10px] font-bold text-accent uppercase tracking-wider ml-1">私聊对象:</span>
@@ -183,15 +198,17 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
           🎲
         </button>
 
-        <button
-          onClick={() => setIsPrivate(!isPrivate)}
-          className={`px-3 py-2 rounded-theme text-sm transition ${
-            isPrivate ? "bg-private-bg text-accent border border-private-border animate-pulse" : "bg-surface-alt text-text-muted hover:bg-border"
-          }`}
-          title="开启私聊模式"
-        >
-          🔒
-        </button>
+        {!isPrivateLocked && (
+          <button
+            onClick={() => setIsPrivate(!isPrivate)}
+            className={`px-3 py-2 rounded-theme text-sm transition ${
+              isPrivate ? "bg-private-bg text-accent border border-private-border animate-pulse" : "bg-surface-alt text-text-muted hover:bg-border"
+            }`}
+            title="开启私聊模式"
+          >
+            🔒
+          </button>
+        )}
 
         <input
           ref={inputRef}
@@ -205,7 +222,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [] }: ChatInputPro
 
         <button
           onClick={handleSend}
-          disabled={!message.trim() || (isPrivate && !privateTargetId)}
+          disabled={!message.trim() || (!isPrivateLocked && isPrivate && !privateTargetId)}
           className={`px-4 py-2 rounded-theme text-sm font-bold transition ${
             isPrivate 
               ? "bg-accent hover:bg-accent-hover text-white" 
