@@ -522,6 +522,7 @@ export function RoomClient({
           roomId={room.id}
           roomName={room.name}
           currentTheme={roomTheme || "default"}
+          currentDiceRules={roomDiceRules || "basic"}
           onClose={() => setShowSettings(false)}
         />
       )}
