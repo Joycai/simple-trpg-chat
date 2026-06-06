@@ -39,7 +39,7 @@ export function ConversationPanel({
   return (
     <div
       style={{ width: `${width}px` }}
-      className="flex flex-col bg-surface-alt border-r border-border h-full shrink-0 select-none shadow-sm relative"
+      className="flex flex-col bg-surface-alt border-r border-border h-full shrink-0 select-none shadow-sm relative conv-sidebar"
     >
       {/* Sidebar Header */}
       <div className="px-3 py-2 flex items-center justify-between border-b border-border bg-surface/50">
