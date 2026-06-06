@@ -110,6 +110,19 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               </select>
               <p className="text-xs text-text-muted">{tc("themeHint")}</p>
             </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">规则模版</label>
+              <select
+                id="ruleTemplate"
+                name="ruleTemplate"
+                defaultValue="basic"
+                className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
+              >
+                <option value="basic">🎲 通用 d100</option>
+                <option value="coc7th">🐙 COC 7th</option>
+              </select>
+              <p className="text-xs text-text-muted">COC 7th 将自动初始化 8 属性 + 衍生值</p>
+            </div>
             <div className="flex gap-2 justify-end pt-2">
               <button
                 type="button"
@@ -192,9 +205,14 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               >
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-bold text-text truncate">{room.name}</h3>
-                  <span className="text-[10px] text-text-muted bg-surface-alt px-2 py-0.5 rounded">
-                    #{room.id}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {(room as any).ruleTemplate === "coc7th" && (
+                      <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">🐙 COC 7th</span>
+                    )}
+                    <span className="text-[10px] text-text-muted bg-surface-alt px-2 py-0.5 rounded">
+                      #{room.id}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 mb-2 text-xs text-text-muted">

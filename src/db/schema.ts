@@ -25,6 +25,10 @@ export type Theme = (typeof THEMES)[number];
 export const DICE_RULES = ['basic', 'coc7th'] as const;
 export type DiceRules = (typeof DICE_RULES)[number];
 
+/** Rule templates for character sheet initialization */
+export const RULE_TEMPLATES = ['basic', 'coc7th'] as const;
+export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
+
 export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request'] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
@@ -59,6 +63,7 @@ export const rooms = sqliteTable('rooms', {
   secretKey: text('secret_key').notNull(),
   theme: text('theme', { enum: THEMES }).notNull().default('default'),
   diceRules: text('dice_rules', { enum: DICE_RULES }).notNull().default('basic'),
+  ruleTemplate: text('rule_template', { enum: RULE_TEMPLATES }).notNull().default('basic'),
   status: text('status', { enum: ROOM_STATUS }).notNull().default('active'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
