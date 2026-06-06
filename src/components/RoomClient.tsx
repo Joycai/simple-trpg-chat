@@ -8,6 +8,7 @@ import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { ClueManager } from "./ClueManager";
+import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction } from "@/app/actions/room";
@@ -75,6 +76,7 @@ export function RoomClient({
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showClueManager, setShowClueManager] = useState(false);
+  const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
@@ -425,6 +427,10 @@ export function RoomClient({
                 <span className="text-base">🃏</span>
                 <span className="text-xs font-bold hidden sm:inline">线索</span>
               </button>
+            <button onClick={() => setShowRoomInfo(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="房间信息">
+              <span className="text-base">ℹ️</span>
+              <span className="text-xs font-bold hidden sm:inline">信息</span>
+            </button>
             <button onClick={() => setShowMembers(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="在线成员">
               <span className="text-base">👥</span>
               <span className="text-xs font-bold hidden sm:inline">{playerCount + botCount}</span>
@@ -555,7 +561,7 @@ export function RoomClient({
       </div>
 
       {showCharacter && (
-        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
+        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} ruleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
       )}
       {showBotManager && (
         <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} />
@@ -609,7 +615,10 @@ export function RoomClient({
         <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} />
       )}
       {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} onClose={() => setShowSettings(false)} />
+        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
+      )}
+      {showRoomInfo && (
+        <RoomInfoPanel room={room as any} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
       )}
     </div>
   );

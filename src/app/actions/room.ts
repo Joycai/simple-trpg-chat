@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules } from "@/db/schema";
+import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
@@ -21,6 +21,7 @@ export async function createRoomAction(formData: FormData) {
   const customKey = formData.get("key") as string;
   const theme = (formData.get("theme") as Theme) || "default";
   const diceRules = (formData.get("diceRules") as DiceRules) || "basic";
+  const ruleTemplate = (formData.get("ruleTemplate") as RuleTemplate) || "basic";
 
   if (!name || !name.trim()) throw new Error("Room name is required");
 
@@ -35,6 +36,7 @@ export async function createRoomAction(formData: FormData) {
     secretKey,
     theme,
     diceRules,
+    ruleTemplate,
   }).returning();
 
   // Host automatically joins
@@ -266,8 +268,9 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
 
   const theme = ((formData.get("theme") as string) || "default") as Theme;
   const diceRules = ((formData.get("diceRules") as string) || "basic") as DiceRules;
+  const ruleTemplate = ((formData.get("ruleTemplate") as string) || "basic") as RuleTemplate;
 
-  await db.update(rooms).set({ theme, diceRules }).where(eq(rooms.id, roomId));
+  await db.update(rooms).set({ theme, diceRules, ruleTemplate }).where(eq(rooms.id, roomId));
   revalidatePath(`/rooms/${roomId}`);
 }
 

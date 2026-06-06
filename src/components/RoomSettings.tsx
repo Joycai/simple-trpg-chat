@@ -11,14 +11,16 @@ interface RoomSettingsProps {
   roomName: string;
   currentTheme: ThemeId;
   currentDiceRules?: string;
+  currentRuleTemplate?: string;
   onClose: () => void;
 }
 
-export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, onClose }: RoomSettingsProps) {
+export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, currentRuleTemplate, onClose }: RoomSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
   const [selectedDiceRules, setSelectedDiceRules] = useState<string>(currentDiceRules || "basic");
+  const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -30,6 +32,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
       const formData = new FormData();
       formData.set("theme", selectedTheme);
       formData.set("diceRules", selectedDiceRules);
+      formData.set("ruleTemplate", selectedRuleTemplate);
       
       await updateRoomSettingsAction(roomId, formData);
       
@@ -117,6 +120,21 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
               <option value="coc7th">🐙 COC 7th — 大成功/大失败判定</option>
             </select>
             <p className="text-xs text-text-muted">COC 7th 启用 .rc 检定的 01-05 大成功🟢 / 96-100 大失败🔴</p>
+          </div>
+
+          {/* Rule template */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-text-dim font-medium">规则模版</label>
+            <select
+              name="ruleTemplate"
+              value={selectedRuleTemplate}
+              onChange={(e) => setSelectedRuleTemplate(e.target.value)}
+              className="p-2.5 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
+            >
+              <option value="basic">🎲 通用 d100</option>
+              <option value="coc7th">🐙 COC 7th</option>
+            </select>
+            <p className="text-xs text-text-muted">决定角色卡初始化属性结构</p>
           </div>
 
           {error && (
