@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateNicknameAction, updateCharacterDataAction } from "@/app/actions/room";
+import { updateNicknameAction } from "@/app/actions/room";
+import { saveCharacterDataAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import type { CharacterData, CocAttributes } from "@/lib/character-types";
@@ -26,7 +27,7 @@ type TabId = "attributes" | "skills" | "background";
 
 const COC_ATTR_LABELS: Record<keyof CocAttributes, string> = {
   str: "力量 STR", con: "体质 CON", siz: "体型 SIZ", dex: "敏捷 DEX",
-  app: "外貌 APP", int: "智力 INT", pow: "意志 POW", edu: "教育 EDU",
+  app: "外貌 APP", int: "智力 INT", pow: "意志 POW", edu: "教育 EDU", luck: "幸运 LUCK",
 };
 
 export function CharacterPanel({
@@ -71,14 +72,17 @@ export function CharacterPanel({
   };
 
   const saveCharacterData = async () => {
-    const data: Record<string, any> = {
+    const data: CharacterData = {
       ruleTemplate,
       cocAttributes: cocAttrs,
-      cocDerived: computeCocDerived(cocAttrs),
       bio,
     };
-    await updateCharacterDataAction(roomId, data);
-    router.refresh();
+    try {
+      await saveCharacterDataAction(roomId, data);
+      router.refresh();
+    } catch (e) {
+      console.error("Failed to save character data", e);
+    }
   };
 
   const updateAttr = (key: keyof CocAttributes, value: number) => {

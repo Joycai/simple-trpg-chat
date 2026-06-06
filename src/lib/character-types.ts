@@ -11,14 +11,15 @@
 
 /** COC 7th standard attributes */
 export interface CocAttributes {
-  str: number; // Strength (3D6 * 5)
-  con: number; // Constitution (3D6 * 5)
-  siz: number; // Size (2D6+6 * 5)
-  dex: number; // Dexterity (3D6 * 5)
-  app: number; // Appearance (3D6 * 5)
-  int: number; // Intelligence (2D6+6 * 5)
-  pow: number; // Power (3D6 * 5)
-  edu: number; // Education (2D6+6 * 5)
+  str: number;   // Strength (3D6 * 5)
+  con: number;   // Constitution (3D6 * 5)
+  siz: number;   // Size (2D6+6 * 5)
+  dex: number;   // Dexterity (3D6 * 5)
+  app: number;   // Appearance (3D6 * 5)
+  int: number;   // Intelligence (2D6+6 * 5)
+  pow: number;   // Power (3D6 * 5)
+  edu: number;   // Education (2D6+6 * 5)
+  luck: number;  // Luck (3D6 * 5) — mutable during play
 }
 
 /** Derived values computed from attributes */
@@ -93,7 +94,7 @@ export interface CharacterData {
 
 export const COC_DEFAULT_ATTRIBUTES: CocAttributes = {
   str: 50, con: 50, siz: 50, dex: 50,
-  app: 50, int: 50, pow: 50, edu: 50,
+  app: 50, int: 50, pow: 50, edu: 50, luck: 50,
 };
 
 /** Compute COC 7th derived values from attributes */
@@ -116,5 +117,5 @@ export function computeCocDerived(attrs: CocAttributes): CocDerived {
   if (attrs.dex < attrs.siz && attrs.str < attrs.siz) mov = 7;
   else if (attrs.dex > attrs.siz && attrs.str > attrs.siz) mov = 9;
 
-  return { hp, hpMax: hp, san, sanMax: san, mp, mpMax: mp, mov, db, build, luck: 50 };
+  return { hp, hpMax: hp, san, sanMax: san, mp, mpMax: mp, mov, db, build, luck: attrs.luck };
 }

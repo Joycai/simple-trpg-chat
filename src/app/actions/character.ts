@@ -14,6 +14,23 @@ import {
   computeCocDerived,
 } from "@/lib/character-types";
 
+/** Verify that a user is a member of a room. Returns userId on success. */
+async function requireMembership(roomId: number): Promise<number> {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const userId = parseInt((session.user as any).id);
+
+  const [member] = await db.select({ id: roomMembers.id })
+    .from(roomMembers)
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, userId)
+    ));
+
+  if (!member) throw new Error("Not a member of this room");
+  return userId;
+}
+
 /**
  * Initialize COC 7th character sheet for the current user.
  * Sets default attributes + computed derived values.
