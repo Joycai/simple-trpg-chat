@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { updateNicknameAction } from "@/app/actions/room";
-import { saveCharacterDataAction } from "@/app/actions/character";
+import { initCocCharacterAction, saveCharacterDataAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import type { CharacterData, CocAttributes } from "@/lib/character-types";
@@ -13,6 +13,7 @@ interface CharacterPanelProps {
   userId: number;
   currentNickname: string;
   characterData?: string | null;
+  ruleTemplate?: string;
   onClose: () => void;
   onNicknameChange: (newNick: string) => void;
 }
@@ -35,6 +36,7 @@ export function CharacterPanel({
   userId,
   currentNickname,
   characterData,
+  ruleTemplate: roomRuleTemplate,
   onClose,
   onNicknameChange,
 }: CharacterPanelProps) {
@@ -49,7 +51,23 @@ export function CharacterPanel({
 
   // Character data
   const charData = parseCharData(characterData);
-  const ruleTemplate = charData.ruleTemplate || "basic";
+  const hasExistingData = !!characterData && !!charData.ruleTemplate;
+  const ruleTemplate = charData.ruleTemplate || roomRuleTemplate || "basic";
+  const [initDone, setInitDone] = useState(hasExistingData);
+
+  // Auto-init COC 7th character on first open
+  useEffect(() => {
+    if (initDone) return;
+    if (roomRuleTemplate === "coc7th") {
+      initCocCharacterAction(roomId).then((data) => {
+        setCocAttrs(data.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
+        setInitDone(true);
+        router.refresh();
+      }).catch(() => {});
+    } else {
+      setInitDone(true);
+    }
+  }, [roomRuleTemplate, roomId, initDone]);
   const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
   const derived = computeCocDerived(cocAttrs);
   const [bio, setBio] = useState(charData.bio || "");

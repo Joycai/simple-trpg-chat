@@ -555,7 +555,7 @@ export function RoomClient({
       </div>
 
       {showCharacter && (
-        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
+        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} ruleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
       )}
       {showBotManager && (
         <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} />
