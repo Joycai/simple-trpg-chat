@@ -168,17 +168,25 @@ export async function sendMessageAction(
   broadcastToRoom(roomId, newMessage);
 
   // --- AI Bot Activation Check ---
-  if (type === "text" && !isPrivate) {
-    // Check if any bot in the room is mentioned
-    const roomBots = await db.query.roomMembers.findMany({
-      where: eq(roomMembers.roomId, roomId),
-      with: { user: true }
-    });
-
-    for (const m of roomBots) {
-      if (m.user.isBot && (content.includes(`@${m.user.displayName}`) || content.includes(`@${m.nickname}`))) {
+  if (type === "text") {
+    if (isPrivate && targetUserId) {
+      const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
+      if (targetUser && targetUser.isBot) {
         // Trigger Agent (async)
-        import("@/lib/ai_agent").then(({ runAgent }) => runAgent(m.userId, roomId));
+        import("@/lib/ai_agent").then(({ runAgent }) => runAgent(targetUserId, roomId));
+      }
+    } else if (!isPrivate) {
+      // Check if any bot in the room is mentioned
+      const roomBots = await db.query.roomMembers.findMany({
+        where: eq(roomMembers.roomId, roomId),
+        with: { user: true }
+      });
+
+      for (const m of roomBots) {
+        if (m.user.isBot && (content.includes(`@${m.user.displayName}`) || content.includes(`@${m.nickname}`))) {
+          // Trigger Agent (async)
+          import("@/lib/ai_agent").then(({ runAgent }) => runAgent(m.userId, roomId));
+        }
       }
     }
   }

@@ -328,28 +328,7 @@ export function RoomClient({
         const faces = parseInt(detail.dice.replace("d", ""));
         await rollDiceAction(room.id, faces, detail.count, finalIsPrivate, finalTargetId);
       } else {
-        // Optimistic update: show message immediately
-        const optimistic = {
-          id: Date.now(), // 13-digit temporary ID
-          roomId: room.id,
-          userId,
-          nickname,
-          content,
-          type: type as "text" | "dice" | "system",
-          diceDetail: diceDetail || null,
-          isPrivate: finalIsPrivate,
-          targetUserId: finalTargetId,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, optimistic as any]);
-
-        try {
-          await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
-        } catch (err) {
-          // Rollback on failure
-          setMessages((prev) => prev.filter(m => m.id !== optimistic.id));
-          throw err;
-        }
+        await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }
     } catch (e) { console.error(e); }
   };

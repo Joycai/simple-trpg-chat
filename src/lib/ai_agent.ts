@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig } from "@/db/schema";
-import { eq, and, desc, asc, gt, sql } from "drizzle-orm";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig, roomMembers } from "@/db/schema";
+import { eq, and, desc, gt, sql } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
 
@@ -30,25 +30,39 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
     type: d.item.type
   }));
 
+  // Limit to public messages or private messages involving the bot
   const history = await db.select().from(messages)
-    .where(eq(messages.roomId, roomId))
+    .where(
+      and(
+        eq(messages.roomId, roomId),
+        sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+      )
+    )
     .orderBy(desc(messages.createdAt))
     .limit(20);
 
   const sortedHistory = [...history].reverse();
 
-  const context: any[] = [
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  const diceRules = room?.diceRules || "basic";
+  const rulesExplanation = diceRules === "coc7th"
+    ? "Room Dice Rules: COC 7th edition (d100 rolls: 1-5 is Critical Success (大成功), 96-100 is Fumble/Critical Failure (大失败). Lower results are better in skill checks)."
+    : "Room Dice Rules: Basic (No special success/failure grading for raw dice rolls). Note that in CoC/TRPG culture, rolling 100 on d100 is culturally considered a Fumble (大失败), and 1 is a Critical Success (大成功). Please react appropriately to dice roll results.";
+
+  const context: { role: string; name?: string; content: string; tool_calls?: any; tool_call_id?: string }[] = [
     {
       role: "system",
-      content: `${sysPrompt}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
+      content: `${sysPrompt}\n\n[Room Information]:\n- Room ID: ${roomId}\n- Room Name: ${room?.name || "Unknown"}\n- Dice Rules: ${diceRules}\n- Rule Note: ${rulesExplanation}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
     }
   ];
 
   for (const msg of sortedHistory) {
     if (msg.userId === botUserId) {
-      context.push({ role: "assistant", content: msg.content });
-    } else if (msg.type === "text") {
-      context.push({ role: "user", name: msg.nickname, content: msg.content });
+      const prefix = msg.isPrivate ? "[私聊] " : "";
+      context.push({ role: "assistant", content: `${prefix}${msg.content}` });
+    } else if (["text", "dice", "clue", "system", "check_request"].includes(msg.type)) {
+      const prefix = msg.isPrivate ? "[私聊] " : "";
+      context.push({ role: "user", content: `[${msg.nickname}]: ${prefix}${msg.content}` });
     }
   }
 
@@ -119,8 +133,63 @@ export async function runAgent(botUserId: number, roomId: number) {
     }
   ];
 
-  let currentContext = [...context];
+  const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: any; tool_call_id?: string; function_call?: any }[] = [...context];
   let iterations = 0;
+
+  // Retrieve bot's room nickname first
+  const [member] = await db
+    .select()
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+  
+  const botUser = await db.query.users.findFirst({ where: eq(users.id, botUserId) });
+  const botNickname = member?.nickname || botUser?.displayName || "AI";
+
+  // Limit to public messages or private messages involving the bot to scan history
+  const history = await db.select().from(messages)
+    .where(
+      and(
+        eq(messages.roomId, roomId),
+        sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+      )
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(20);
+  const sortedHistory = [...history].reverse();
+
+  // Check if the triggering context was private and identify the target user
+  let replyIsPrivate = false;
+  let targetUserId: number | null = null;
+
+  for (let i = sortedHistory.length - 1; i >= 0; i--) {
+    const msg = sortedHistory[i];
+    if (msg.userId !== botUserId) {
+      if (msg.isPrivate && msg.targetUserId === botUserId) {
+        replyIsPrivate = true;
+        targetUserId = msg.userId;
+      }
+      break;
+    }
+  }
+
+  if (!targetUserId) {
+    for (let i = sortedHistory.length - 1; i >= 0; i--) {
+      const msg = sortedHistory[i];
+      if (msg.isPrivate) {
+        if (msg.userId === botUserId && msg.targetUserId) {
+          targetUserId = msg.targetUserId;
+          break;
+        } else if (msg.targetUserId === botUserId) {
+          targetUserId = msg.userId;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!targetUserId) {
+    targetUserId = room.hostId;
+  }
 
   while (iterations < 3) {
     iterations++;
@@ -139,13 +208,14 @@ export async function runAgent(botUserId: number, roomId: number) {
 
     if (!assistantMessage.tool_calls) {
       if (assistantMessage.content) {
-        const botUser = await db.query.users.findFirst({ where: eq(users.id, botUserId) });
         const [newMessage] = await db.insert(messages).values({
           roomId,
           userId: botUserId,
-          nickname: botUser?.displayName || "AI",
+          targetUserId: replyIsPrivate ? targetUserId : null,
+          nickname: botNickname,
           content: assistantMessage.content,
-          type: "text"
+          type: "text",
+          isPrivate: replyIsPrivate
         }).returning();
         broadcastToRoom(roomId, newMessage);
       }
@@ -162,16 +232,58 @@ export async function runAgent(botUserId: number, roomId: number) {
           const rollResults = Array.from({ length: args.count }, () => Math.floor(Math.random() * args.faces) + 1);
           const sum = rollResults.reduce((a, b) => a + b, 0);
           const detail = JSON.stringify({ dice: `d${args.faces}`, count: args.count, results: rollResults, sum, isBot: true });
-          const content = `🤖 (AI) 🎲 ${args.count}d${args.faces}: [${rollResults.join(", ")}] = ${sum}`;
+          const content = `🤖 (${botNickname}) 🎲 ${args.count}d${args.faces}: [${rollResults.join(", ")}] = ${sum}`;
           const [newMessage] = await db.insert(messages).values({
-            roomId, userId: botUserId, nickname: "AI", content: args.isPrivate ? `🔒 ${content}` : content,
-            type: "dice", diceDetail: detail, isPrivate: !!args.isPrivate
+            roomId,
+            userId: botUserId,
+            targetUserId: args.isPrivate ? targetUserId : null,
+            nickname: botNickname,
+            content: args.isPrivate ? `🔒 ${content}` : content,
+            type: "dice",
+            diceDetail: detail,
+            isPrivate: !!args.isPrivate
           }).returning();
           broadcastToRoom(roomId, newMessage);
-          result = { success: true, sum };
+
+          // Get the room rules
+          const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+          const roomDiceRules = room?.diceRules || "basic";
+
+          let evaluation = undefined;
+          if (args.faces === 100 && args.count === 1) {
+            if (roomDiceRules === "coc7th") {
+              if (sum <= 5) {
+                evaluation = "Critical Success (大成功)";
+              } else if (sum >= 96) {
+                evaluation = "Fumble (大失败)";
+              }
+            } else {
+              // Even under basic rules, 100 on d100 is culturally/historically a Fumble in CoC/TRPG,
+              // and 1 is a Critical Success.
+              if (sum === 100) {
+                evaluation = "Fumble (大失败) in CoC rules (though current room uses basic rules)";
+              } else if (sum === 1) {
+                evaluation = "Critical Success (大成功) in CoC rules (though current room uses basic rules)";
+              }
+            }
+          }
+
+          result = {
+            success: true,
+            results: rollResults,
+            sum,
+            diceRules: roomDiceRules,
+            ...(evaluation ? { evaluation } : {})
+          };
         } else if (functionName === "send_message") {
           const [newMessage] = await db.insert(messages).values({
-            roomId, userId: botUserId, nickname: "AI", content: args.content, type: "text", isPrivate: !!args.isPrivate
+            roomId,
+            userId: botUserId,
+            targetUserId: args.isPrivate ? targetUserId : null,
+            nickname: botNickname,
+            content: args.content,
+            type: "text",
+            isPrivate: !!args.isPrivate
           }).returning();
           broadcastToRoom(roomId, newMessage);
           result = { success: true };
@@ -179,7 +291,9 @@ export async function runAgent(botUserId: number, roomId: number) {
           const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, args.itemId));
           result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
         }
-      } catch (e: any) { result = { error: e.message }; }
+      } catch (e: unknown) {
+        result = { error: e instanceof Error ? e.message : String(e) };
+      }
 
       currentContext.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
