@@ -7,6 +7,7 @@ import { CharacterPanel } from "./CharacterPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
+import { ClueManager } from "./ClueManager";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction } from "@/app/actions/room";
@@ -73,6 +74,7 @@ export function RoomClient({
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
+  const [showClueManager, setShowClueManager] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
