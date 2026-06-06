@@ -109,8 +109,10 @@ export async function pushClueToChannelAction(
 
 /**
  * Get all clues visible to the current user in the room.
- * Returns clues where visibility.userId IS NULL (public)
- * OR visibility.userId matches the current user.
+ * Returns clues where:
+ * - visibility.userId IS NULL (public), OR
+ * - visibility.userId matches the current user, OR
+ * - the current user is the creator (always sees own clues)
  */
 export async function getVisibleCluesAction(roomId: number) {
   const session = await auth();
@@ -124,11 +126,12 @@ export async function getVisibleCluesAction(roomId: number) {
       visibility: clueVisibility,
     })
     .from(clueCards)
-    .innerJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
+    .leftJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
     .where(
       and(
         eq(clueCards.roomId, roomId),
         or(
+          eq(clueCards.creatorId, userId),
           isNull(clueVisibility.userId),
           eq(clueVisibility.userId, userId)
         )
