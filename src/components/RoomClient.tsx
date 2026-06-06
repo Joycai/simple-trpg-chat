@@ -609,7 +609,7 @@ export function RoomClient({
         <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} />
       )}
       {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} onClose={() => setShowSettings(false)} />
+        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
       )}
     </div>
   );
