@@ -36,10 +36,7 @@ async function requireMembership(roomId: number): Promise<number> {
  * Sets default attributes + computed derived values.
  */
 export async function initCocCharacterAction(roomId: number) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
+  const userId = await requireMembership(roomId);
 
   const attrs = { ...COC_DEFAULT_ATTRIBUTES };
   const derived = computeCocDerived(attrs);
@@ -69,10 +66,7 @@ export async function saveCharacterDataAction(
   roomId: number,
   data: Partial<CharacterData>
 ) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
+  const userId = await requireMembership(roomId);
 
   // Get existing data
   const [member] = await db.select({ characterData: roomMembers.characterData })
@@ -111,10 +105,7 @@ export async function updateCocAttributesAction(
   roomId: number,
   attrs: Partial<CocAttributes>
 ) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
+  const userId = await requireMembership(roomId);
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
@@ -128,7 +119,7 @@ export async function updateCocAttributesAction(
     : { ruleTemplate: "coc7th", cocAttributes: { ...COC_DEFAULT_ATTRIBUTES } };
 
   existing.cocAttributes = { ...(existing.cocAttributes || COC_DEFAULT_ATTRIBUTES), ...attrs };
-  existing.ruleTemplate = "coc7th";
+  existing.ruleTemplate = existing.ruleTemplate || "coc7th";
   existing.cocDerived = computeCocDerived(existing.cocAttributes);
 
   await db.update(roomMembers)
@@ -149,10 +140,7 @@ export async function addCustomAttributeAction(
   roomId: number,
   attr: CustomAttribute
 ) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
+  const userId = await requireMembership(roomId);
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
@@ -193,10 +181,7 @@ export async function removeCustomAttributeAction(
   roomId: number,
   attrName: string
 ) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
+  const userId = await requireMembership(roomId);
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
