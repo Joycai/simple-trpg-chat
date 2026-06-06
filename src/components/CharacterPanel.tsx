@@ -125,9 +125,9 @@ export function CharacterPanel({
               <button onClick={saveCharacterData} className="text-xs text-primary hover:underline ml-2">保存</button>
             </div>
             {/* HP Bar */}
-            <div className="mt-2 h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
+            <div className={`mt-2 h-3 bg-surface-alt rounded-full overflow-hidden border border-border ${maxHp > 0 && hp / maxHp <= 0.25 ? "hp-critical" : ""}`}>
               <div
-                className={`h-full rounded-full transition-all duration-300 ${
+                className={`h-full rounded-full transition-all duration-300 hp-bar-fill ${
                   maxHp > 0 && hp / maxHp > 0.5 ? "bg-success" :
                   maxHp > 0 && hp / maxHp > 0.25 ? "bg-accent" : "bg-danger"
                 }`}
