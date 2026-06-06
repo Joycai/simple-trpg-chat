@@ -211,10 +211,9 @@ export async function removeCustomAttributeAction(
  * Get character data for a user in a room.
  */
 export async function getCharacterDataAction(roomId: number, targetUserId?: number) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  const callerId = await requireMembership(roomId);
 
-  const userId = targetUserId || parseInt((session.user as any).id);
+  const userId = targetUserId || callerId;
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
