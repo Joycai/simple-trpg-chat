@@ -22,6 +22,8 @@ export async function GET(
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      // Per-stream dedup: prevent sending the same message twice (protects against EventEmitter listener accumulation in dev mode)
+      const sentIds = new Set<string>();
 
       const listener = (data: any) => {
         // --- Privacy Filter V3.15 (Targeted notification fix) ---
@@ -35,6 +37,13 @@ export async function GET(
             const isSender = data.userId === userId;
             if (!isSender && !isHost) return;
           }
+        }
+
+        // Dedup: skip if this message was already sent on this stream
+        if (data.id) {
+          const idStr = String(data.id);
+          if (sentIds.has(idStr)) return;
+          sentIds.add(idStr);
         }
 
         const payload = `data: ${JSON.stringify(data)}\n\n`;
