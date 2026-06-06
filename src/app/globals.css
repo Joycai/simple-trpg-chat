@@ -158,3 +158,99 @@ body {
   color: rgb(var(--theme-text));
   font-family: var(--theme-font);
 }
+
+/* ============================================================
+   Theme-Specific: ConversationPanel Sidebar (#51)
+   ============================================================ */
+
+/* ---- Shrine (绘马架) ---- */
+[data-theme="shrine"] .conv-sidebar {
+  background: linear-gradient(180deg, #2d1f14 0%, #3d2b1a 100%);
+  border-right: 2px solid #8B4513;
+}
+[data-theme="shrine"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="shrine"] .conv-tab.active {
+  border-left-color: #c44040;
+  background: linear-gradient(90deg, rgba(196,64,64,0.15), transparent);
+}
+[data-theme="shrine"] .conv-divider {
+  border-color: rgba(139,69,19,0.4);
+}
+
+/* ---- Cthulhu (证物柜) ---- */
+[data-theme="cthulhu"] .conv-sidebar {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-right: 2px solid #334155;
+}
+[data-theme="cthulhu"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="cthulhu"] .conv-tab.active {
+  border-left-color: #5eead4;
+  background: linear-gradient(90deg, rgba(94,234,212,0.1), transparent);
+}
+[data-theme="cthulhu"] .conv-divider {
+  border-color: rgba(51,65,85,0.6);
+}
+
+/* ---- Parchment (皮包格) ---- */
+[data-theme="parchment"] .conv-sidebar {
+  background: linear-gradient(180deg, #f5e6c8 0%, #e8d5a3 100%);
+  border-right: 2px solid #c4a484;
+}
+[data-theme="parchment"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="parchment"] .conv-tab.active {
+  border-left-color: #8b5a2b;
+  background: linear-gradient(90deg, rgba(139,90,43,0.1), transparent);
+}
+[data-theme="parchment"] .conv-divider {
+  border-color: rgba(196,164,132,0.5);
+}
+
+/* ---- Default (科技箱) ---- */
+[data-theme="default"] .conv-sidebar {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  border-right: 2px solid #cbd5e1;
+}
+[data-theme="default"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="default"] .conv-tab.active {
+  border-left-color: #3b82f6;
+  background: linear-gradient(90deg, rgba(59,130,246,0.08), transparent);
+}
+
+/* ============================================================
+   HP Heartbeat Animation (#52)
+   ============================================================ */
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.12); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.12); }
+  56% { transform: scale(1); }
+}
+@keyframes pulse-danger {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+.hp-critical {
+  animation: heartbeat 1.2s ease-in-out infinite, pulse-danger 2s ease-in-out infinite;
+}
+.hp-critical .hp-bar-fill {
+  background: linear-gradient(90deg, #ef4444, #dc2626, #ef4444);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

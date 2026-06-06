@@ -100,6 +100,14 @@ export function RoomClient({
     if (savedCollapsed) setSidebarCollapsed(savedCollapsed === "true");
   }, [room.id]);
 
+  // Periodically prune seenIdsRef to prevent memory leaks in long-running sessions
+  useEffect(() => {
+    if (seenIdsRef.current.size > 500) {
+      // Rebuild from current messages — keeps dedup for visible messages, frees old IDs
+      seenIdsRef.current = new Set(messages.map(m => String(m.id)));
+    }
+  }, [messages.length]);
+
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
