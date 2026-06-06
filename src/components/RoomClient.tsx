@@ -422,7 +422,7 @@ export function RoomClient({
               </button>
             )}
             {isHost && (
-              <button onClick={() => setShowClueManager(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent hover:text-accent-hover transition-all duration-200 border border-accent/40 shadow-sm" title="线索管理">
+              <button onClick={() => setShowClueManager(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="线索管理">
                 <span className="text-base">🃏</span>
                 <span className="text-xs font-bold hidden sm:inline">线索</span>
               </button>

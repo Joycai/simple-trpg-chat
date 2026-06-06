@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { clueCards, clueVisibility, messages } from "@/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
 import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/events";
 
 /**
@@ -40,6 +41,7 @@ export async function createClueAction(
     await db.insert(clueVisibility).values(rows);
   }
 
+  revalidatePath(`/rooms/${roomId}`);
   return clue;
 }
 
