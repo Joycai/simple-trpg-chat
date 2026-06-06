@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { updateNicknameAction } from "@/app/actions/room";
-import { initCocCharacterAction, saveCharacterDataAction } from "@/app/actions/character";
+import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import type { CharacterData, CocAttributes } from "@/lib/character-types";
@@ -72,6 +72,11 @@ export function CharacterPanel({
   const derived = computeCocDerived(cocAttrs);
   const [bio, setBio] = useState(charData.bio || "");
 
+  // Custom attributes
+  const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
+  const [newAttrName, setNewAttrName] = useState("");
+  const [newAttrValue, setNewAttrValue] = useState(10);
+
   // Skills
   const [skills, setSkills] = useState<SkillItem[]>([]);
   const [newSkillName, setNewSkillName] = useState("");
@@ -119,6 +124,33 @@ export function CharacterPanel({
     await deleteSkillAction(roomId, skillId);
     router.refresh();
     getMySkillsAction(roomId).then(setSkills).catch(() => {});
+  };
+
+  const addCustomAttr = async () => {
+    if (!newAttrName.trim()) return;
+    try {
+      await addCustomAttributeAction(roomId, { name: newAttrName.trim(), value: newAttrValue });
+      setCustomAttrs(prev => {
+        const idx = prev.findIndex(a => a.name === newAttrName.trim());
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = { name: newAttrName.trim(), value: newAttrValue };
+          return copy;
+        }
+        return [...prev, { name: newAttrName.trim(), value: newAttrValue }];
+      });
+      setNewAttrName("");
+      setNewAttrValue(10);
+      router.refresh();
+    } catch (e) { console.error(e); }
+  };
+
+  const removeCustomAttr = async (name: string) => {
+    try {
+      await removeCustomAttributeAction(roomId, name);
+      setCustomAttrs(prev => prev.filter(a => a.name !== name));
+      router.refresh();
+    } catch (e) { console.error(e); }
   };
 
   const tabs: { id: TabId; label: string; icon: string }[] = [
@@ -276,6 +308,33 @@ export function CharacterPanel({
               className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm">
               保存属性
             </button>
+
+            {/* Custom Attributes */}
+            <div>
+              <label className="text-xs text-text-dim font-medium mb-2 block">🔧 自定义属性</label>
+              {customAttrs.length > 0 && (
+                <div className="flex flex-col gap-1 mb-2">
+                  {customAttrs.map(attr => (
+                    <div key={attr.name} className="flex items-center gap-2 bg-surface-alt rounded p-2 group">
+                      <span className="flex-1 text-sm text-text">{attr.name}</span>
+                      <span className="text-xs text-text-muted font-mono w-12 text-right">{attr.value}</span>
+                      <button onClick={() => removeCustomAttr(attr.name)}
+                        className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition">🗑</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
+                  placeholder="属性名（如：SAN、MP）" onKeyDown={e => e.key === "Enter" && addCustomAttr()}
+                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text" />
+                <input type="number" min={0} max={999} value={newAttrValue}
+                  onChange={e => setNewAttrValue(parseInt(e.target.value) || 0)}
+                  className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono" />
+                <button onClick={addCustomAttr}
+                  className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold">＋</button>
+              </div>
+            </div>
           </div>
         )}
 
