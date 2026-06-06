@@ -190,39 +190,45 @@ export function CharacterPanel({
                   </div>
                 </div>
 
-                {/* SAN */}
+                {/* COC-only: SAN / MP / LUCK / Attributes / Derived */}
+                {ruleTemplate === "coc7th" && (
                 <div>
-                  <div className="flex justify-between text-xs text-text-muted mb-1">
-                    <span>💜 理智值</span>
-                    <span className="font-mono">{derived.san}/{derived.sanMax}</span>
+                  {/* SAN */}
+                  <div>
+                    <div className="flex justify-between text-xs text-text-muted mb-1">
+                      <span>💜 理智值</span>
+                      <span className="font-mono">{derived.san}/{derived.sanMax}</span>
+                    </div>
+                    <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
+                      <div className="h-full rounded-full transition-all duration-300 bg-purple-500"
+                        style={{ width: `${derived.sanMax > 0 ? Math.min(100, (derived.san / derived.sanMax) * 100) : 0}%` }} />
+                    </div>
                   </div>
-                  <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
-                    <div className="h-full rounded-full transition-all duration-300 bg-purple-500"
-                      style={{ width: `${derived.sanMax > 0 ? Math.min(100, (derived.san / derived.sanMax) * 100) : 0}%` }} />
-                  </div>
-                </div>
 
-                {/* MP */}
-                <div>
-                  <div className="flex justify-between text-xs text-text-muted mb-1">
-                    <span>💙 魔法值</span>
-                    <span className="font-mono">{derived.mp}/{derived.mpMax}</span>
+                  {/* MP */}
+                  <div>
+                    <div className="flex justify-between text-xs text-text-muted mb-1">
+                      <span>💙 魔法值</span>
+                      <span className="font-mono">{derived.mp}/{derived.mpMax}</span>
+                    </div>
+                    <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
+                      <div className="h-full rounded-full transition-all duration-300 bg-blue-500"
+                        style={{ width: `${derived.mpMax > 0 ? Math.min(100, (derived.mp / derived.mpMax) * 100) : 0}%` }} />
+                    </div>
                   </div>
-                  <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
-                    <div className="h-full rounded-full transition-all duration-300 bg-blue-500"
-                      style={{ width: `${derived.mpMax > 0 ? Math.min(100, (derived.mp / derived.mpMax) * 100) : 0}%` }} />
-                  </div>
-                </div>
 
-                {/* LUCK */}
-                <div className="flex justify-between text-xs text-text-muted">
-                  <span>🍀 幸运</span>
-                  <span className="font-mono">{derived.luck}</span>
+                  {/* LUCK */}
+                  <div className="flex justify-between text-xs text-text-muted">
+                    <span>🍀 幸运</span>
+                    <span className="font-mono">{derived.luck}</span>
+                  </div>
                 </div>
+                )}
               </div>
             </div>
 
             {/* COC Attributes */}
+            {ruleTemplate === "coc7th" && (
             <div>
               <label className="text-xs text-text-dim font-medium mb-2 block">🎲 基础属性</label>
               <div className="grid grid-cols-2 gap-2">
@@ -237,8 +243,10 @@ export function CharacterPanel({
                 ))}
               </div>
             </div>
+            )}
 
             {/* Derived */}
+            {ruleTemplate === "coc7th" && (
             <div>
               <label className="text-xs text-text-dim font-medium mb-2 block">📐 衍生值</label>
               <div className="grid grid-cols-3 gap-2 text-xs">
@@ -256,6 +264,13 @@ export function CharacterPanel({
                 </div>
               </div>
             </div>
+            )}
+
+            {ruleTemplate !== "coc7th" && (
+              <p className="text-xs text-text-dim text-center py-2">
+                通用 d100 模式。使用 .st 指令设置技能，或在房间设置中切换到 COC 7th 规则模版。
+              </p>
+            )}
 
             <button onClick={saveCharacterData}
               className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm">
