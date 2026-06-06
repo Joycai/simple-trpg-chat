@@ -47,14 +47,15 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
     router.refresh(); loadClues();
   };
 
-  const handlePush = async () => {
-    if (pushClueId === null || !pushTarget) return;
-    const clue = clues.find(c => c.id === pushClueId);
+  const handlePush = async (clueId: number, target: "all" | number) => {
+    const clue = clues.find(c => c.id === clueId);
     if (!clue) return;
-    const targets = pushTarget === "all" ? undefined : [pushTarget as number];
-    await pushClueToChannelAction(roomId, clue.title, clue.content, undefined, targets);
-    setPushClueId(null); setPushTarget(null);
-    router.refresh();
+    const targets = target === "all" ? undefined : [target as number];
+    try {
+      await pushClueToChannelAction(roomId, clue.title, clue.content, undefined, targets);
+      setPushClueId(null); setPushTarget(null);
+      router.refresh();
+    } catch { /* push failed, keep dialog open */ }
   };
 
   if (loading) return null;
@@ -98,10 +99,10 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
             <div className="bg-accent/10 border border-accent/30 rounded-theme p-4">
               <h4 className="font-bold text-text text-sm mb-3">推送线索到频道</h4>
               <div className="flex flex-col gap-2 mb-3">
-                <button onClick={() => { setPushTarget("all"); handlePush(); }}
+                <button onClick={() => handlePush(pushClueId, "all")}
                   className="bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm">🌐 全员可见</button>
                 {players.map(p => (
-                  <button key={p.id} onClick={() => { setPushTarget(p.id); handlePush(); }}
+                  <button key={p.id} onClick={() => handlePush(pushClueId, p.id)}
                     className="bg-surface hover:bg-surface-alt text-text py-2 px-3 rounded text-sm text-left transition">
                     👤 {p.nickname}
                   </button>
