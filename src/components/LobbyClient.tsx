@@ -110,6 +110,19 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               </select>
               <p className="text-xs text-text-muted">{tc("themeHint")}</p>
             </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">规则模版</label>
+              <select
+                id="ruleTemplate"
+                name="ruleTemplate"
+                defaultValue="basic"
+                className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
+              >
+                <option value="basic">🎲 通用 d100</option>
+                <option value="coc7th">🐙 COC 7th</option>
+              </select>
+              <p className="text-xs text-text-muted">COC 7th 将自动初始化 8 属性 + 衍生值</p>
+            </div>
             <div className="flex gap-2 justify-end pt-2">
               <button
                 type="button"
