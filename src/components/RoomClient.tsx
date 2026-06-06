@@ -64,6 +64,8 @@ export function RoomClient({
   const t = useTranslations("room");
   const tn = useTranslations("nav");
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
+  const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
   const [nickname, setNickname] = useState(currentNickname);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -253,13 +255,18 @@ export function RoomClient({
                 }
               }
             }
+            // Robust dedup: check seenIdsRef first to prevent duplicates from HMR listener accumulation
+            const idStr = String(data.id);
+            if (seenIdsRef.current.has(idStr)) return;
+            seenIdsRef.current.add(idStr);
+
             setMessages((prev) => {
-              // 1. Loose matching for database ID duplication (number or string representation)
-              if (prev.some(m => String(m.id) === String(data.id))) return prev;
+              // 1. Secondary dedup: array-based check (safety net)
+              if (prev.some(m => String(m.id) === idStr)) return prev;
 
               // 2. If this is a message we sent, search for the optimistic placeholder
               if (data.userId === userId) {
-                const optIndex = prev.findIndex(m => 
+                const optIndex = prev.findIndex(m =>
                   m.userId === userId &&
                   m.content === data.content &&
                   m.type === data.type &&
@@ -317,6 +324,7 @@ export function RoomClient({
             type: "system" as const, isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
           };
+          seenIdsRef.current.add(String(errorMsg.id));
           setMessages(prev => [...prev, errorMsg]);
         }
       } catch (e) { console.error(e); }
