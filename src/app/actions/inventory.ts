@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users, rooms } from "@/db/schema";
-import { eq, and, desc, inArray, count } from "drizzle-orm";
+import { eq, and, not, desc, inArray, count } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
@@ -54,10 +54,14 @@ export async function distributeItemAction(
 
   let targetUserIds: number[] = [];
   if (toUserId === "all") {
+    // Exclude the host themselves from "all" distribution
     const members = await db
       .select({ userId: roomMembers.userId })
       .from(roomMembers)
-      .where(eq(roomMembers.roomId, roomId));
+      .where(and(
+        eq(roomMembers.roomId, roomId),
+        not(eq(roomMembers.userId, fromUserId))
+      ));
     targetUserIds = members.map((m) => m.userId);
   } else {
     targetUserIds = [toUserId];
