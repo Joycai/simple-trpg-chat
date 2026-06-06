@@ -1,8 +1,8 @@
 /**
  * Simple TRPG Chat — Database Schema (Drizzle ORM)
  *
- * Tables: users | rooms | room_members | messages | room_skills | system_config | host_ai_config 
- *         | inventory_items | inventory_distributions
+ * Tables: users | rooms | room_members | messages | room_skills | system_config | host_ai_config
+ *         | inventory_items | inventory_distributions | clue_cards | clue_visibility
  */
 
 import { sqliteTable, text, integer, unique, index } from 'drizzle-orm/sqlite-core';
@@ -171,6 +171,39 @@ export const inventoryDistributions = sqliteTable('inventory_distributions', {
   idx_item_id: index('idx_dist_item_id').on(t.itemId),
 }));
 
+/**
+ * clue_cards
+ *
+ * Host-created clue templates. A clue card holds title, content, and an optional
+ * image URL. Visibility is controlled via the clue_visibility table.
+ */
+export const clueCards = sqliteTable('clue_cards', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  creatorId: integer('creator_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  imageUrl: text('image_url'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+});
+
+/**
+ * clue_visibility
+ *
+ * Controls which players can see which clues.
+ * - userId = NULL → visible to ALL players (public clue)
+ * - userId = <id>  → visible only to that specific player
+ */
+export const clueVisibility = sqliteTable('clue_visibility', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  clueId: integer('clue_id').notNull().references(() => clueCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id'), // NULL = public/visible to all
+  revealedAt: text('revealed_at').notNull().default(sql`(datetime('now'))`),
+}, (t) => ({
+  idx_clue_id: index('idx_clue_vis_clue_id').on(t.clueId),
+  idx_user_id: index('idx_clue_vis_user_id').on(t.userId),
+}));
+
 // ============================================================
 // Relations
 // ============================================================
@@ -230,4 +263,15 @@ export const inventoryDistributionsRelations = relations(inventoryDistributions,
   item: one(inventoryItems, { fields: [inventoryDistributions.itemId], references: [inventoryItems.id] }),
   sender: one(users, { fields: [inventoryDistributions.fromUserId], references: [users.id], relationName: 'sender' }),
   recipient: one(users, { fields: [inventoryDistributions.toUserId], references: [users.id], relationName: 'recipient' }),
+}));
+
+export const clueCardsRelations = relations(clueCards, ({ one, many }) => ({
+  room: one(rooms, { fields: [clueCards.roomId], references: [rooms.id] }),
+  creator: one(users, { fields: [clueCards.creatorId], references: [users.id] }),
+  visibility: many(clueVisibility),
+}));
+
+export const clueVisibilityRelations = relations(clueVisibility, ({ one }) => ({
+  clue: one(clueCards, { fields: [clueVisibility.clueId], references: [clueCards.id] }),
+  user: one(users, { fields: [clueVisibility.userId], references: [users.id] }),
 }));
