@@ -140,3 +140,19 @@ export async function checkBotMentionAction(roomId: number, content: string, sen
   }
   return { isMention: false };
 }
+
+/**
+ * Manually trigger a bot to respond in the room.
+ * Only the Host can trigger bots manually.
+ */
+export async function triggerBotAction(roomId: number, botUserId: number) {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "host") {
+    throw new Error("Unauthorized: Only hosts can trigger bots manually");
+  }
+
+  // Async trigger — bot responds in the background
+  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId)).catch(console.error);
+
+  return { success: true };
+}

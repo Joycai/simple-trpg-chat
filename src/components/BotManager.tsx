@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createBotAction, getRoomBotsAction, updateBotAction } from "@/app/actions/bot";
+import { createBotAction, getRoomBotsAction, updateBotAction, triggerBotAction } from "@/app/actions/bot";
 import { getHostAiConfig } from "@/app/actions/ai";
 import { useRouter } from "next/navigation";
 
@@ -142,6 +142,18 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                         <div className="text-sm font-bold text-text">{bot.nickname}</div>
                         <div className="text-[10px] text-text-muted">{bot.config.model || "gpt-4o-mini"} · {bot.config.activation || "@mention"} 激活</div>
                       </div>
+                      {isHost && (
+                        <button
+                          onClick={async () => {
+                            await triggerBotAction(roomId, bot.id);
+                            router.refresh();
+                          }}
+                          className="text-xs text-accent hover:bg-accent/10 px-2 py-1 rounded transition font-bold"
+                          title="手动触发 Bot"
+                        >
+                          ⚡
+                        </button>
+                      )}
                       <button
                         onClick={() => startEdit(bot)}
                         className="text-xs text-text-muted hover:text-primary px-2 py-1 rounded hover:bg-surface transition"
