@@ -130,6 +130,21 @@ export async function runAgent(botUserId: number, roomId: number) {
           required: ["itemId"]
         }
       }
+    },
+    {
+      type: "function",
+      function: {
+        name: "search_history",
+        description: "Search chat history in the current room by keyword. Use this when you need to recall past events, plot points, or information mentioned earlier in the conversation that is beyond your sliding window.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Keyword or phrase to search for" },
+            limit: { type: "integer", description: "Max results to return (default 10, max 20)" }
+          },
+          required: ["query"]
+        }
+      }
     }
   ];
 
@@ -290,6 +305,36 @@ export async function runAgent(botUserId: number, roomId: number) {
         } else if (functionName === "inspect_item") {
           const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, args.itemId));
           result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
+        } else if (functionName === "search_history") {
+          const query = args.query as string;
+          const limit = Math.min(args.limit || 10, 20);
+          // Use SQL LIKE for keyword search on message content
+          const results = await db.select({
+            id: messages.id,
+            nickname: messages.nickname,
+            content: messages.content,
+            type: messages.type,
+            createdAt: messages.createdAt,
+          }).from(messages)
+            .where(
+              and(
+                eq(messages.roomId, roomId),
+                sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                sql`${messages.content} LIKE ${'%' + query + '%'}`
+              )
+            )
+            .orderBy(desc(messages.createdAt))
+            .limit(limit);
+          result = {
+            query,
+            count: results.length,
+            results: results.map(r => ({
+              nickname: r.nickname,
+              content: r.content.slice(0, 300), // Truncate long messages
+              type: r.type,
+              time: r.createdAt,
+            }))
+          };
         }
       } catch (e: unknown) {
         result = { error: e instanceof Error ? e.message : String(e) };
