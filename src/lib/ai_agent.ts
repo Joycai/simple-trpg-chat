@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig, roomMembers } from "@/db/schema";
-import { eq, and, desc, gt, sql } from "drizzle-orm";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
+import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
 
@@ -85,7 +85,13 @@ export async function runAgent(botUserId: number, roomId: number) {
 
   const { context, model } = await buildAgentContext(botUserId, roomId);
 
-  const tools = [
+  // Read enabled tools from bot config
+  const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
+    .from(users).where(eq(users.id, botUserId));
+  const botCfg = botConfig?.botConfigJson ? JSON.parse(botConfig.botConfigJson) : {};
+  const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
+
+  const allTools = [
     {
       type: "function",
       function: {
@@ -130,8 +136,49 @@ export async function runAgent(botUserId: number, roomId: number) {
           required: ["itemId"]
         }
       }
+    },
+    {
+      type: "function",
+      function: {
+        name: "search_history",
+        description: "Search chat history in the current room by keyword. Use this when you need to recall past events, plot points, or information mentioned earlier in the conversation that is beyond your sliding window.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Keyword or phrase to search for" },
+            limit: { type: "integer", description: "Max results to return (default 10, max 20)" }
+          },
+          required: ["query"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "my_inventory",
+        description: "List all items in your inventory. Use this to check what equipment, documents, or items you currently possess.",
+        parameters: { type: "object", properties: {}, required: [] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "my_clues",
+        description: "List all clue cards that have been revealed to you in this room.",
+        parameters: { type: "object", properties: {}, required: [] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "my_character",
+        description: "Check your own character sheet including attributes, HP/SAN/MP, skills, and status.",
+        parameters: { type: "object", properties: {}, required: [] }
+      }
     }
   ];
+  // Filter to only enabled tools for this bot
+  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: any; tool_call_id?: string; function_call?: any }[] = [...context];
   let iterations = 0;
@@ -290,6 +337,100 @@ export async function runAgent(botUserId: number, roomId: number) {
         } else if (functionName === "inspect_item") {
           const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, args.itemId));
           result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
+        } else if (functionName === "search_history") {
+          const query = args.query as string;
+          const limit = Math.min(args.limit || 10, 20);
+          // Use SQL LIKE for keyword search on message content
+          const results = await db.select({
+            id: messages.id,
+            nickname: messages.nickname,
+            content: messages.content,
+            type: messages.type,
+            createdAt: messages.createdAt,
+          }).from(messages)
+            .where(
+              and(
+                eq(messages.roomId, roomId),
+                sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                sql`${messages.content} LIKE ${'%' + query + '%'}`
+              )
+            )
+            .orderBy(desc(messages.createdAt))
+            .limit(limit);
+          result = {
+            query,
+            count: results.length,
+            results: results.map(r => ({
+              nickname: r.nickname,
+              content: r.content.slice(0, 300), // Truncate long messages
+              type: r.type,
+              time: r.createdAt,
+            }))
+          };
+        } else if (functionName === "my_inventory") {
+          const dists = await db.query.inventoryDistributions.findMany({
+            where: and(
+              eq(inventoryDistributions.roomId, roomId),
+              eq(inventoryDistributions.toUserId, botUserId)
+            ),
+            with: { item: true }
+          });
+          result = {
+            count: dists.length,
+            items: dists.map(d => ({
+              id: d.itemId,
+              title: d.item.title,
+              type: d.item.type,
+            }))
+          };
+        } else if (functionName === "my_clues") {
+          const clueRows = await db.select({
+            id: clueCards.id,
+            title: clueCards.title,
+            content: clueCards.content,
+          }).from(clueCards)
+            .innerJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
+            .where(
+              and(
+                eq(clueCards.roomId, roomId),
+                or(
+                  isNull(clueVisibility.userId),
+                  eq(clueVisibility.userId, botUserId)
+                )
+              )
+            );
+          result = {
+            count: clueRows.length,
+            clues: clueRows.map(c => ({
+              id: c.id,
+              title: c.title,
+              content: c.content?.slice(0, 200),
+            }))
+          };
+        } else if (functionName === "my_character") {
+          const [member] = await db.select({
+            characterData: roomMembers.characterData,
+          }).from(roomMembers)
+            .where(and(
+              eq(roomMembers.roomId, roomId),
+              eq(roomMembers.userId, botUserId)
+            ));
+          const skills = await db.select({
+            skillName: roomSkills.skillName,
+            skillValue: roomSkills.skillValue,
+          }).from(roomSkills)
+            .where(and(
+              eq(roomSkills.roomId, roomId),
+              eq(roomSkills.userId, botUserId)
+            ));
+          const charData = member?.characterData ? JSON.parse(member.characterData) : null;
+          result = {
+            hasCharacterSheet: !!charData,
+            attributes: charData?.cocAttributes || null,
+            derived: charData?.cocDerived || null,
+            skills: skills.map(s => ({ name: s.skillName, value: s.skillValue })),
+            customAttributes: charData?.customAttributes || [],
+          };
         }
       } catch (e: unknown) {
         result = { error: e instanceof Error ? e.message : String(e) };

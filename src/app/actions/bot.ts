@@ -13,13 +13,14 @@ import crypto from "crypto";
  * Creates a new AI Bot for a specific room.
  */
 export async function createBotAction(
-  roomId: number, 
+  roomId: number,
   data: {
     name: string;
     nickname: string;
     systemPrompt: string;
     model: string;
     activation: string;
+    enableTools?: string[];
   }
 ) {
   const session = await auth();
@@ -41,6 +42,7 @@ export async function createBotAction(
       systemPrompt: data.systemPrompt,
       model: data.model,
       activation: data.activation,
+      enableTools: data.enableTools || ["send_message", "roll_dice"],
       historicalSummary: "",
       lastSummarizedMsgId: 0
     }),
@@ -137,4 +139,20 @@ export async function checkBotMentionAction(roomId: number, content: string, sen
     }
   }
   return { isMention: false };
+}
+
+/**
+ * Manually trigger a bot to respond in the room.
+ * Only the Host can trigger bots manually.
+ */
+export async function triggerBotAction(roomId: number, botUserId: number) {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "host") {
+    throw new Error("Unauthorized: Only hosts can trigger bots manually");
+  }
+
+  // Async trigger — bot responds in the background
+  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId)).catch(console.error);
+
+  return { success: true };
 }
