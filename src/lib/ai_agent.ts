@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig, roomMembers } from "@/db/schema";
-import { eq, and, desc, gt, sql } from "drizzle-orm";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
+import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
 
@@ -144,6 +144,30 @@ export async function runAgent(botUserId: number, roomId: number) {
           },
           required: ["query"]
         }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "my_inventory",
+        description: "List all items in your inventory. Use this to check what equipment, documents, or items you currently possess.",
+        parameters: { type: "object", properties: {}, required: [] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "my_clues",
+        description: "List all clue cards that have been revealed to you in this room.",
+        parameters: { type: "object", properties: {}, required: [] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "my_character",
+        description: "Check your own character sheet including attributes, HP/SAN/MP, skills, and status.",
+        parameters: { type: "object", properties: {}, required: [] }
       }
     }
   ];
@@ -334,6 +358,70 @@ export async function runAgent(botUserId: number, roomId: number) {
               type: r.type,
               time: r.createdAt,
             }))
+          };
+        } else if (functionName === "my_inventory") {
+          const dists = await db.query.inventoryDistributions.findMany({
+            where: and(
+              eq(inventoryDistributions.roomId, roomId),
+              eq(inventoryDistributions.toUserId, botUserId)
+            ),
+            with: { item: true }
+          });
+          result = {
+            count: dists.length,
+            items: dists.map(d => ({
+              id: d.itemId,
+              title: d.item.title,
+              type: d.item.type,
+            }))
+          };
+        } else if (functionName === "my_clues") {
+          const clueRows = await db.select({
+            id: clueCards.id,
+            title: clueCards.title,
+            content: clueCards.content,
+          }).from(clueCards)
+            .innerJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
+            .where(
+              and(
+                eq(clueCards.roomId, roomId),
+                or(
+                  isNull(clueVisibility.userId),
+                  eq(clueVisibility.userId, botUserId)
+                )
+              )
+            );
+          result = {
+            count: clueRows.length,
+            clues: clueRows.map(c => ({
+              id: c.id,
+              title: c.title,
+              content: c.content?.slice(0, 200),
+            }))
+          };
+        } else if (functionName === "my_character") {
+          const [member] = await db.select({
+            characterData: roomMembers.characterData,
+          }).from(roomMembers)
+            .where(and(
+              eq(roomMembers.roomId, roomId),
+              eq(roomMembers.userId, botUserId)
+            ));
+          const skills = await db.select({
+            skillName: roomSkills.skillName,
+            skillValue: roomSkills.skillValue,
+          }).from(roomSkills)
+            .where(and(
+              eq(roomSkills.roomId, roomId),
+              eq(roomSkills.userId, botUserId)
+            ));
+          const charData = member?.characterData ? JSON.parse(member.characterData) : null;
+          result = {
+            hasCharacterSheet: !!charData,
+            attributes: charData?.cocAttributes || null,
+            derived: charData?.cocDerived || null,
+            skills: skills.map(s => ({ name: s.skillName, value: s.skillValue })),
+            customAttributes: charData?.customAttributes || [],
           };
         }
       } catch (e: unknown) {
