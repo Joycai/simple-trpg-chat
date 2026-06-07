@@ -30,6 +30,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [model, setModel] = useState("");
   const [activation, setActivation] = useState("@mention");
+  const [enableTools, setEnableTools] = useState<string[]>(["send_message", "roll_dice"]);
   const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
 
   // Fetch host AI config to align model default
@@ -57,6 +58,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       systemPrompt: systemPrompt || "你是一个TRPG跑团助手，熟悉COC规则。你需要帮助玩家和主持人推进剧情。",
       model,
       activation,
+      enableTools,
     });
     setShowCreate(false);
     setBotName("");
@@ -200,6 +202,34 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                       <option value="@mention">@提及</option>
                       <option value="manual">手动</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Tool Selection */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim">启用工具</label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { key: "send_message", label: "💬 发送消息" },
+                      { key: "roll_dice", label: "🎲 投骰子" },
+                      { key: "inspect_item", label: "🔍 查看道具" },
+                      { key: "my_inventory", label: "🎒 我的背包" },
+                      { key: "my_clues", label: "🃏 我的线索" },
+                      { key: "my_character", label: "👤 角色状态" },
+                      { key: "search_history", label: "📜 搜索历史" },
+                    ].map(tool => (
+                      <label key={tool.key} className={`flex items-center gap-1.5 p-1.5 rounded text-xs cursor-pointer transition ${
+                        enableTools.includes(tool.key) ? "bg-primary/10 text-primary" : "bg-surface text-text-muted"
+                      }`}>
+                        <input type="checkbox" checked={enableTools.includes(tool.key)}
+                          onChange={e => {
+                            if (e.target.checked) setEnableTools([...enableTools, tool.key]);
+                            else setEnableTools(enableTools.filter(t => t !== tool.key));
+                          }}
+                          className="w-3.5 h-3.5 accent-primary" />
+                        {tool.label}
+                      </label>
+                    ))}
                   </div>
                 </div>
 

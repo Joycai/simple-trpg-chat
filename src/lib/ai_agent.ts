@@ -85,7 +85,13 @@ export async function runAgent(botUserId: number, roomId: number) {
 
   const { context, model } = await buildAgentContext(botUserId, roomId);
 
-  const tools = [
+  // Read enabled tools from bot config
+  const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
+    .from(users).where(eq(users.id, botUserId));
+  const botCfg = botConfig?.botConfigJson ? JSON.parse(botConfig.botConfigJson) : {};
+  const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
+
+  const allTools = [
     {
       type: "function",
       function: {
@@ -171,6 +177,8 @@ export async function runAgent(botUserId: number, roomId: number) {
       }
     }
   ];
+  // Filter to only enabled tools for this bot
+  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: any; tool_call_id?: string; function_call?: any }[] = [...context];
   let iterations = 0;
