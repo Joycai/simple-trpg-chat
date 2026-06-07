@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "tsc": "tsc"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -37,5 +38,16 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "better-sqlite3",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }
