@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { createUser, deleteUser } from "./actions";
 import { AdminAiToggle } from "@/components/AdminAiToggle";
+import { AdminDbConfig } from "@/components/AdminDbConfig";
 
 export default async function AdminPage() {
   const t = await getTranslations("admin");
@@ -14,6 +15,8 @@ export default async function AdminPage() {
   return (
     <div className="flex flex-col gap-8 max-w-4xl mx-auto">
       <AdminAiToggle initialEnabled={aiEnabled} />
+
+      <AdminDbConfig />
 
       <section className="bg-surface p-6 rounded-theme shadow-sm border border-border">
         <h3 className="text-lg font-bold mb-4 border-b border-border pb-2">{t("createUser")}</h3>
