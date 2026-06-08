@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -9,32 +10,34 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/");
   }
 
+  const t = await getTranslations("admin");
+
   return (
     <div className="flex h-screen bg-[#0a0e1a] overflow-hidden">
       {/* Sidebar */}
       <aside className="w-56 bg-[#0f1425] border-r border-purple-500/20 shrink-0 flex flex-col">
         <div className="px-5 py-5 border-b border-purple-500/20">
           <h2 className="text-lg font-bold text-purple-300 tracking-wide">
-            ⚡ Admin Console
+            {t("sidebarTitle")}
           </h2>
-          <p className="text-[10px] text-purple-400/60 mt-1 uppercase tracking-widest">Simple TRPG</p>
+          <p className="text-[10px] text-purple-400/60 mt-1 uppercase tracking-widest">{t("sidebarSubtitle")}</p>
         </div>
 
         <nav className="flex-1 py-4 flex flex-col gap-1 px-3">
-          <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">管理</p>
-          <SidebarLink href="/admin" icon="👥" label="用户管理" />
-          <SidebarLink href="/admin/ai" icon="🤖" label="AI 配置" />
+          <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">{t("sectionManagement")}</p>
+          <SidebarLink href="/admin" icon="👥" label={t("userManagement")} />
+          <SidebarLink href="/admin/ai" icon="🤖" label={t("aiConfig")} />
 
           <div className="border-t border-purple-500/10 my-3" />
 
-          <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">导航</p>
-          <SidebarLink href="/" icon="←" label="返回大厅" />
+          <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">{t("sectionNavigation")}</p>
+          <SidebarLink href="/" icon="←" label={t("backToLobby")} />
         </nav>
 
         <div className="px-4 py-3 border-t border-purple-500/20">
           <div className="flex items-center gap-2 text-xs text-purple-400/60">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            系统运行中
+            {t("systemRunning")}
           </div>
         </div>
       </aside>

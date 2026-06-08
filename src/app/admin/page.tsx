@@ -19,18 +19,18 @@ export default async function AdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-purple-100">{t("title")}</h1>
-          <p className="text-sm text-purple-400/60 mt-1">Admin Console v1.0</p>
+          <h1 className="text-2xl font-bold text-purple-100">{t("userManagement")}</h1>
+          <p className="text-sm text-purple-400/60 mt-1">{t("userManagementDesc")}</p>
         </div>
-        <span className="text-xs text-purple-400/40 font-mono">Admin Console v1.0</span>
+        <span className="text-xs text-purple-400/40 font-mono">{t("versionLabel")}</span>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard label="总用户" value={allUsers.length} color="purple" />
-        <StatCard label="管理员" value={adminCount} color="rose" />
-        <StatCard label="主持人" value={hostCount} color="emerald" />
-        <StatCard label="玩家" value={playerCount} color="blue" />
+        <StatCard label={t("totalUsers")} value={allUsers.length} color="purple" />
+        <StatCard label={t("roleAdmin")} value={adminCount} color="rose" />
+        <StatCard label={t("roleHost")} value={hostCount} color="emerald" />
+        <StatCard label={t("rolePlayer")} value={playerCount} color="blue" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -62,12 +62,12 @@ export default async function AdminPage() {
           {/* AI Status */}
           <div className="mt-4 pt-4 border-t border-purple-500/10">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-purple-400/60">AI 功能</span>
+              <span className="text-purple-400/60">{t("aiFeature")}</span>
               <span className={`px-2 py-0.5 rounded-full font-bold ${aiEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-purple-500/20 text-purple-400"}`}>
-                {aiEnabled ? "已启用" : "已禁用"}
+                {aiEnabled ? t("enabled") : t("disabled")}
               </span>
             </div>
-            <p className="text-[10px] text-purple-400/30 mt-1">在 AI 配置页面管理 AI 设置</p>
+            <p className="text-[10px] text-purple-400/30 mt-1">{t("aiManageHint")}</p>
           </div>
         </section>
 
@@ -76,7 +76,7 @@ export default async function AdminPage() {
           <h3 className="font-bold text-purple-200 mb-4 flex items-center gap-2 text-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             {t("userList")}
-            <span className="text-xs text-purple-400/40 font-normal ml-auto">{allUsers.length} 用户</span>
+            <span className="text-xs text-purple-400/40 font-normal ml-auto">{t("userCount", { count: allUsers.length })}</span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -85,7 +85,7 @@ export default async function AdminPage() {
                   <th className="pb-2.5 font-medium">{t("username")}</th>
                   <th className="pb-2.5 font-medium">{t("displayName")}</th>
                   <th className="pb-2.5 font-medium">{t("role")}</th>
-                  <th className="pb-2.5 font-medium text-right">{t("delete")}</th>
+                  <th className="pb-2.5 font-medium text-right">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody>
