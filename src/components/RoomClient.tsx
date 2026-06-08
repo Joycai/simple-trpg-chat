@@ -8,6 +8,7 @@ import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { ClueManager } from "./ClueManager";
+import { AiImportPanel } from "./AiImportPanel";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
@@ -79,6 +80,7 @@ export function RoomClient({
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showClueManager, setShowClueManager] = useState(false);
+  const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
@@ -567,6 +569,16 @@ export function RoomClient({
               </button>
               {isHost && (
                 <button
+                  onClick={() => setShowAiImport(true)}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
+                  title="AI 智能导入"
+                >
+                  <span className="text-sm sm:text-base leading-none">📥</span>
+                  <span className="hidden sm:inline">导入</span>
+                </button>
+              )}
+              {isHost && (
+                <button
                   onClick={() => setShowBotManager(!showBotManager)}
                   className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
                     showBotManager
@@ -729,6 +741,9 @@ export function RoomClient({
       )}
       {showClueManager && (
         <ClueManager roomId={room.id} isHost={isHost} players={mentionTargets.map(p => ({ id: p.id, nickname: p.nickname }))} onClose={() => setShowClueManager(false)} />
+      )}
+      {showAiImport && (
+        <AiImportPanel roomId={room.id} onClose={() => setShowAiImport(false)} />
       )}
       {showCheckDialog && (
         <HostCheckDialog roomId={room.id} players={mentionTargets} onClose={() => setShowCheckDialog(false)} />
