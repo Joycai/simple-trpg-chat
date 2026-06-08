@@ -23,12 +23,12 @@
 ## Quick Commands
 
 ```bash
-npm run dev          # Start dev server (http://localhost:3000)
-npm run build        # Production build
-npm run lint         # ESLint
-npm run db:push      # Push schema to SQLite (drizzle-kit push)
-npm run db:studio    # Open Drizzle Studio GUI
-npm run db:seed      # Seed database (tsx src/db/seed.ts)
+pnpm dev             # Start dev server (http://localhost:3000)
+pnpm build           # Production build
+pnpm lint            # ESLint
+pnpm db:push         # Push schema to SQLite (drizzle-kit push)
+pnpm db:studio       # Open Drizzle Studio GUI
+pnpm db:seed         # Seed database (tsx src/db/seed.ts)
 ```
 
 ## Project Structure
@@ -98,7 +98,7 @@ sqlite.db                     # SQLite database file (gitignored in prod)
 
 - **ORM**: Drizzle ORM with `better-sqlite3` driver. Schema lives in `src/db/schema.ts`.
 - **Tables**: `users`, `rooms`, `room_members`, `messages`, `room_skills`, `system_config`, `host_ai_config`, `inventory_items`, `inventory_distributions`.
-- **Migrations**: Use `npm run db:push` for schema sync (push-based, no migration files needed for dev).
+- **Migrations**: Use `pnpm db:push` for schema sync (push-based, no migration files needed for dev).
 - **Path alias**: `@/db` → `src/db`.
 
 ### Authentication
