@@ -108,9 +108,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
     loadData();
   };
 
-  const handleShare = async (distributionId: number) => {
+  const handleShare = async (itemId: number) => {
     if (!shareTarget) return;
-    await shareItemAction(roomId, distributionId, shareTarget);
+    try {
+      await shareItemAction(roomId, itemId, shareTarget);
+    } catch (err: any) {
+      alert(err.message || "分享失败");
+    }
     setShareTarget(null);
     setDetailItem(null);
     router.refresh();
@@ -370,7 +374,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                     ) : (
                       <div className="flex gap-2 items-center">
                         <span className="text-sm text-text">共享给 {players.find(p => p.id === shareTarget)?.nickname}？</span>
-                        <button onClick={() => handleShare(detailDist.id)}
+                        <button onClick={() => handleShare(detailDist.itemId)}
                           className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold">确认</button>
                         <button onClick={() => setShareTarget(null)} className="text-xs text-text-muted">取消</button>
                       </div>

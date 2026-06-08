@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { clueCards, clueVisibility, messages } from "@/db/schema";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or, isNull, inArray } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/events";
@@ -57,36 +57,73 @@ export async function pushClueToChannelAction(
   title: string,
   content: string,
   imageUrl?: string,
-  targetUserIds?: number[]
+  targetUserIds?: number[],
+  clueId?: number
 ) {
   const session = await auth();
   if (!session || (session.user as any).role !== "host") {
     throw new Error("Only host can push clues");
   }
 
-  const [clue] = await db.insert(clueCards).values({
-    roomId,
-    creatorId: parseInt((session.user as any).id),
-    title,
-    content,
-    imageUrl: imageUrl || null,
-  }).returning();
+  let clue: any;
+  if (clueId) {
+    const [existingClue] = await db.select().from(clueCards).where(eq(clueCards.id, clueId));
+    if (!existingClue) throw new Error("Clue not found");
+    clue = existingClue;
+  } else {
+    const [newClue] = await db.insert(clueCards).values({
+      roomId,
+      creatorId: parseInt((session.user as any).id),
+      title,
+      content,
+      imageUrl: imageUrl || null,
+    }).returning();
+    clue = newClue;
+  }
 
   const isPublic = !targetUserIds || targetUserIds.length === 0;
 
   if (isPublic) {
-    // Reveal to all (NULL userId = public)
-    await db.insert(clueVisibility).values({
-      clueId: clue.id,
-      userId: null,
-    });
+    // Check if it already has public visibility (userId IS NULL)
+    const [hasPublic] = await db
+      .select()
+      .from(clueVisibility)
+      .where(
+        and(
+          eq(clueVisibility.clueId, clue.id),
+          isNull(clueVisibility.userId)
+        )
+      )
+      .limit(1);
+
+    if (!hasPublic) {
+      // Reveal to all (NULL userId = public)
+      await db.insert(clueVisibility).values({
+        clueId: clue.id,
+        userId: null,
+      });
+    }
   } else {
-    // Reveal to specific players
-    const rows = targetUserIds.map(uid => ({
-      clueId: clue.id,
-      userId: uid,
-    }));
-    await db.insert(clueVisibility).values(rows);
+    // Reveal to specific players, filtering out ones who already have visibility
+    const existingVisibility = await db
+      .select({ userId: clueVisibility.userId })
+      .from(clueVisibility)
+      .where(
+        and(
+          eq(clueVisibility.clueId, clue.id),
+          inArray(clueVisibility.userId, targetUserIds)
+        )
+      );
+    const existingUserIds = new Set(existingVisibility.map((v: any) => v.userId).filter(Boolean));
+    const newTargetUserIds = targetUserIds.filter(uid => !existingUserIds.has(uid));
+
+    if (newTargetUserIds.length > 0) {
+      const rows = newTargetUserIds.map(uid => ({
+        clueId: clue.id,
+        userId: uid,
+      }));
+      await db.insert(clueVisibility).values(rows);
+    }
   }
 
   // Broadcast as clue message
@@ -120,26 +157,39 @@ export async function getVisibleCluesAction(roomId: number) {
 
   const userId = parseInt((session.user as any).id);
 
-  const rows = await db
-    .select({
-      clue: clueCards,
-      visibility: clueVisibility,
-    })
-    .from(clueCards)
-    .leftJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
+  // 1. Get all clueIds that are visible to the current user (either public or specific user)
+  const visibleVisibility = await db
+    .select({ clueId: clueVisibility.clueId })
+    .from(clueVisibility)
     .where(
-      and(
-        eq(clueCards.roomId, roomId),
-        or(
-          eq(clueCards.creatorId, userId),
-          isNull(clueVisibility.userId),
-          eq(clueVisibility.userId, userId)
-        )
+      or(
+        isNull(clueVisibility.userId),
+        eq(clueVisibility.userId, userId)
       )
-    )
+    );
+
+  const clueIds = Array.from(new Set(visibleVisibility.map(v => v.clueId)));
+
+  // 2. Fetch the corresponding clueCards (or clues created by this user)
+  const conditions = [eq(clueCards.roomId, roomId)];
+  if (clueIds.length > 0) {
+    conditions.push(
+      or(
+        eq(clueCards.creatorId, userId),
+        inArray(clueCards.id, clueIds)
+      )!
+    );
+  } else {
+    conditions.push(eq(clueCards.creatorId, userId));
+  }
+
+  const rows = await db
+    .select()
+    .from(clueCards)
+    .where(and(...conditions))
     .orderBy(clueCards.createdAt);
 
-  return rows;
+  return rows.map(clue => ({ clue }));
 }
 
 /**
@@ -159,11 +209,45 @@ export async function revealClueToPlayersAction(
     throw new Error("Must specify at least one target user");
   }
 
-  const rows = targetUserIds.map(uid => ({
+  // 1. Check if clue is already public (NULL userId)
+  const [isPublic] = await db
+    .select()
+    .from(clueVisibility)
+    .where(
+      and(
+        eq(clueVisibility.clueId, clueId),
+        isNull(clueVisibility.userId)
+      )
+    )
+    .limit(1);
+
+  if (isPublic) {
+    return { clueId, revealedTo: [] };
+  }
+
+  // 2. Filter out users who already have visibility
+  const existingVisibility = await db
+    .select({ userId: clueVisibility.userId })
+    .from(clueVisibility)
+    .where(
+      and(
+        eq(clueVisibility.clueId, clueId),
+        inArray(clueVisibility.userId, targetUserIds)
+      )
+    );
+  
+  const existingUserIds = new Set(existingVisibility.map((v: any) => v.userId).filter(Boolean));
+  const newTargetUserIds = targetUserIds.filter(uid => !existingUserIds.has(uid));
+
+  if (newTargetUserIds.length === 0) {
+    return { clueId, revealedTo: [] };
+  }
+
+  const rows = newTargetUserIds.map(uid => ({
     clueId,
     userId: uid,
   }));
   await db.insert(clueVisibility).values(rows);
 
-  return { clueId, revealedTo: targetUserIds };
+  return { clueId, revealedTo: newTargetUserIds };
 }
