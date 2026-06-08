@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers, messages, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
 import { RoomThemeSetter } from "@/components/RoomThemeSetter";
@@ -66,13 +66,6 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     }
   }
 
-  // Get messages
-  const roomMessages = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.roomId, roomId))
-    .orderBy(messages.createdAt);
-
   // Get updated member info
   const [currentMember] = await db
     .select()
@@ -81,14 +74,27 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   const currentNickname = currentMember?.nickname || user.name || user.username || "Player";
 
-  // Filter messages: non-private messages + own private messages + targeted private messages + (if host) all private messages
-  const visibleMessages = roomMessages.filter((msg) => {
-    if (!msg.isPrivate) return true;
-    if (msg.userId === userId) return true; // Sender
-    if (msg.targetUserId === userId) return true; // Recipient
-    if (isHost) return true; // Host
-    return false;
-  });
+  // Get visible messages: SQL-level visibility filter (R8)
+  const visibilityCondition = isHost
+    ? eq(messages.roomId, roomId)
+    : and(
+        eq(messages.roomId, roomId),
+        or(
+          eq(messages.isPrivate, false),
+          eq(messages.userId, userId),
+          eq(messages.targetUserId, userId)
+        )
+      );
+
+  // Load latest 100 messages initially (R8)
+  const roomMessages = await db
+    .select()
+    .from(messages)
+    .where(visibilityCondition)
+    .orderBy(desc(messages.id))
+    .limit(100);
+
+  const visibleMessages = roomMessages.reverse();
 
   return (
     <>

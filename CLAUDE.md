@@ -23,12 +23,12 @@
 ## Quick Commands
 
 ```bash
-npm run dev          # Start dev server (http://localhost:3000)
-npm run build        # Production build
-npm run lint         # ESLint
-npm run db:push      # Push schema to SQLite (drizzle-kit push)
-npm run db:studio    # Open Drizzle Studio GUI
-npm run db:seed      # Seed database (tsx src/db/seed.ts)
+pnpm dev             # Start dev server (http://localhost:3000)
+pnpm build           # Production build
+pnpm lint            # ESLint
+pnpm db:push         # Push schema to SQLite (drizzle-kit push)
+pnpm db:studio       # Open Drizzle Studio GUI
+pnpm db:seed         # Seed database (tsx src/db/seed.ts)
 ```
 
 ## Project Structure
@@ -98,7 +98,7 @@ sqlite.db                     # SQLite database file (gitignored in prod)
 
 - **ORM**: Drizzle ORM with `better-sqlite3` driver. Schema lives in `src/db/schema.ts`.
 - **Tables**: `users`, `rooms`, `room_members`, `messages`, `room_skills`, `system_config`, `host_ai_config`, `inventory_items`, `inventory_distributions`.
-- **Migrations**: Use `npm run db:push` for schema sync (push-based, no migration files needed for dev).
+- **Migrations**: Use `pnpm db:push` for schema sync (push-based, no migration files needed for dev).
 - **Path alias**: `@/db` → `src/db`.
 
 ### Authentication
@@ -157,7 +157,8 @@ sqlite.db                     # SQLite database file (gitignored in prod)
 - **Server Actions**: Place in `src/app/actions/`. Use `"use server"` directive.
 - **Components**: Client components in `src/components/`. Use `"use client"` directive.
 - **Styling**: Tailwind CSS v4 with theme-aware semantic tokens. Do NOT use arbitrary color values — use the CSS variable-backed utilities defined in `globals.css`.
-- **Database queries**: Use Drizzle query builder or relational queries (`db.query.*`).
+- **Database queries**: Use Drizzle query builder. Avoid SQLite-specific methods (`.all()`, `.get()`, `.run()`); use standard async patterns instead.
+- **Database configuration**: `db.config.json` at project root. Default is SQLite. Set `{ "type": "postgresql", "url": "..." }` for PostgreSQL. Copy from `db.config.example.json`.
 - **Error handling**: Server actions return result objects; do not throw from actions.
 - **Types**: Enums and types co-located in schema (`src/db/schema.ts`) and theme types (`src/themes/types.ts`).
 

@@ -2,6 +2,17 @@ import { subscribeToRoom } from "@/lib/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
+// Next.js HMR workaround: persist userConnections on globalThis during development
+declare global {
+  var __userConnections: Map<number, number> | undefined;
+}
+
+const userConnections = globalThis.__userConnections || new Map<number, number>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.__userConnections = userConnections;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,6 +29,13 @@ export async function GET(
 
   const userId = parseInt((session.user as any).id);
   const isHost = (session.user as any).role === "host";
+
+  // SSE Connection limit per user (R5)
+  const currentConnections = userConnections.get(userId) || 0;
+  if (currentConnections >= 3) {
+    return new Response("Too many SSE connections (maximum 3)", { status: 429 });
+  }
+  userConnections.set(userId, currentConnections + 1);
 
   const stream = new ReadableStream({
     start(controller) {
@@ -68,10 +86,23 @@ export async function GET(
         }
       }, 15000);
 
-      req.signal.addEventListener("abort", () => {
+      let closed = false;
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
         clearInterval(heartbeat);
         unsubscribe();
-      });
+        
+        // Decrement connection count
+        const count = userConnections.get(userId) || 1;
+        if (count <= 1) {
+          userConnections.delete(userId);
+        } else {
+          userConnections.set(userId, count - 1);
+        }
+      };
+
+      req.signal.addEventListener("abort", cleanup);
     },
   });
 

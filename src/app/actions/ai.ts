@@ -1,8 +1,8 @@
 "use server";
 
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { systemConfig, hostAiConfig } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
@@ -27,7 +27,7 @@ export async function updateSystemConfig(key: string, value: string) {
     value,
   }).onConflictDoUpdate({
     target: systemConfig.key,
-    set: { value, updatedAt: sql`(datetime('now'))` },
+    set: { value, updatedAt: sqlNow() },
   });
 
   revalidatePath("/admin");
@@ -69,7 +69,7 @@ export async function updateHostAiConfig(data: { apiEndpoint: string; apiKey?: s
     userId,
     apiEndpoint: data.apiEndpoint,
     model: data.model,
-    updatedAt: sql`(datetime('now'))`,
+    updatedAt: sqlNow(),
   };
 
   // Only update key if provided (not just masked placeholder)

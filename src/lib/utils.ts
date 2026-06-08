@@ -1,6 +1,17 @@
 /** Format a timestamp string for display */
-export function formatTime(createdAt: string): string {
-  const date = new Date(createdAt + "Z"); // SQLite stores UTC without TZ
+export function formatTime(createdAt: string | Date): string {
+  if (createdAt instanceof Date) {
+    return formatWithDate(createdAt);
+  }
+  // 如果已经是标准 ISO 格式（包含 T 或 Z），不需要再补 Z
+  const hasTZ = createdAt.includes("T") || createdAt.includes("Z");
+  const date = new Date(hasTZ ? createdAt : createdAt + "Z");
+  
+  if (isNaN(date.getTime())) return "未知时间";
+  return formatWithDate(date);
+}
+
+function formatWithDate(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);

@@ -1,8 +1,8 @@
 "use server";
 
-import { db } from "@/db";
+import { db, sqlBool } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users, rooms } from "@/db/schema";
-import { eq, and, not, desc, inArray, count } from "drizzle-orm";
+import { eq, and, not, desc, inArray, count, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
@@ -62,7 +62,7 @@ export async function distributeItemAction(
         eq(roomMembers.roomId, roomId),
         not(eq(roomMembers.userId, fromUserId))
       ));
-    targetUserIds = members.map((m) => m.userId);
+    targetUserIds = members.map((m: any) => m.userId);
   } else {
     targetUserIds = [toUserId];
   }
@@ -182,7 +182,7 @@ export async function getMyInventory(roomId: number) {
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return raw.map(d => ({
+  return raw.map((d: any) => ({
     ...d,
     fromUsername: d.sender?.displayName || d.sender?.username
   }));
@@ -213,7 +213,7 @@ export async function getDistributionHistory(roomId: number) {
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return raw.map(d => ({
+  return raw.map((d: any) => ({
     ...d,
     toUsername: d.recipient?.displayName || d.recipient?.username,
     fromUsername: d.sender?.displayName || d.sender?.username
@@ -231,12 +231,12 @@ export async function markInventoryViewedAction(roomId: number) {
   const userId = parseInt((session.user as any).id);
 
   await db.update(inventoryDistributions)
-    .set({ viewed: true })
+    .set({ viewed: sqlBool(true) as unknown as boolean })
     .where(
       and(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, userId),
-        eq(inventoryDistributions.viewed, false)
+        sql`${inventoryDistributions.viewed} = ${sqlBool(false)}`
       )
     );
 
@@ -258,7 +258,7 @@ export async function getUnreadInventoryCountAction(roomId: number) {
       and(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, userId),
-        eq(inventoryDistributions.viewed, false)
+        sql`${inventoryDistributions.viewed} = ${sqlBool(false)}`
       )
     );
 
