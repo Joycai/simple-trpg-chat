@@ -146,8 +146,10 @@ export async function runAgent(botUserId: number, roomId: number) {
   // Read enabled tools from bot config
   const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
     .from(users).where(eq(users.id, botUserId));
+
   const botCfg = parseBotConfig(botConfig?.botConfigJson);
-  const enabledTools: string[] = botCfg.enableTools;
+  const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
+
 
   const allTools = [
     {
@@ -402,7 +404,9 @@ export async function runAgent(botUserId: number, roomId: number) {
           result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
         } else if (functionName === "search_history") {
           const query = args.query as string;
+
           const safeQuery = query.replace(/[%_\\]/g, '\\$&');
+
           const limit = Math.min(args.limit || 10, 20);
           // Use SQL LIKE for keyword search on message content
           const results = await db.select({
