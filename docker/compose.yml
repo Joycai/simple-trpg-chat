@@ -1,0 +1,26 @@
+# PostgreSQL for Simple TRPG Chat
+# Start:  podman compose -f docker/compose.yml up -d
+# Stop:   podman compose -f docker/compose.yml down
+# Status: podman compose -f docker/compose.yml ps
+
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: trpg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trpg
+      POSTGRES_PASSWORD: trpg_dev_pwd
+      POSTGRES_DB: simple_trpg_chat
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trpg -d simple_trpg_chat"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
