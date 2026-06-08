@@ -67,6 +67,32 @@ export async function distributeItemAction(
     targetUserIds = [toUserId];
   }
 
+  if (targetUserIds.length === 0) return;
+
+  // Filter out users who already have this item
+  const existing = await db
+    .select({ toUserId: inventoryDistributions.toUserId })
+    .from(inventoryDistributions)
+    .where(
+      and(
+        eq(inventoryDistributions.roomId, roomId),
+        eq(inventoryDistributions.itemId, itemId),
+        inArray(inventoryDistributions.toUserId, targetUserIds)
+      )
+    );
+  const existingUserIds = new Set(existing.map((e: any) => e.toUserId));
+  targetUserIds = targetUserIds.filter((id) => !existingUserIds.has(id));
+
+  if (targetUserIds.length === 0) {
+    // Notify host that everyone already has it
+    const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+    const kpSummary = toUserId === "all"
+      ? `⚠️ 全体成员此前已拥有道具：【${item?.title}】，未重复发放`
+      : `⚠️ 目标玩家此前已拥有道具：【${item?.title}】，未重复发放`;
+    await sendMessageAction(roomId, kpSummary, "system", undefined, true);
+    return;
+  }
+
   const values = targetUserIds.map((tid) => ({
     roomId,
     itemId,
@@ -75,7 +101,6 @@ export async function distributeItemAction(
     action: "created" as const,
   }));
 
-  if (values.length === 0) return;
   await db.insert(inventoryDistributions).values(values);
 
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
@@ -127,6 +152,17 @@ export async function shareItemAction(
     )
   );
   if (!own) throw new Error("You don't have this item");
+
+  // Check if recipient already has it
+  const [hasAlready] = await db.select().from(inventoryDistributions).where(
+    and(
+      eq(inventoryDistributions.itemId, itemId),
+      eq(inventoryDistributions.toUserId, toUserId)
+    )
+  );
+  if (hasAlready) {
+    throw new Error("该玩家已拥有此道具");
+  }
 
   await db.insert(inventoryDistributions).values({
     roomId,

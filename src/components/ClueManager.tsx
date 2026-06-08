@@ -52,7 +52,7 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
     if (!clue) return;
     const targets = target === "all" ? undefined : [target as number];
     try {
-      await pushClueToChannelAction(roomId, clue.title, clue.content, undefined, targets);
+      await pushClueToChannelAction(roomId, clue.title, clue.content, undefined, targets, clue.id);
       setPushClueId(null); setPushTarget(null);
       router.refresh();
     } catch { /* push failed, keep dialog open */ }
