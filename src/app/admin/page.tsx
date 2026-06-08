@@ -19,8 +19,8 @@ export default async function AdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-purple-100">用户管理</h1>
-          <p className="text-sm text-purple-400/60 mt-1">管理系统用户账号和权限</p>
+          <h1 className="text-2xl font-bold text-purple-100">{t("title")}</h1>
+          <p className="text-sm text-purple-400/60 mt-1">Admin Console v1.0</p>
         </div>
         <span className="text-xs text-purple-400/40 font-mono">Admin Console v1.0</span>
       </div>
@@ -85,12 +85,12 @@ export default async function AdminPage() {
                   <th className="pb-2.5 font-medium">{t("username")}</th>
                   <th className="pb-2.5 font-medium">{t("displayName")}</th>
                   <th className="pb-2.5 font-medium">{t("role")}</th>
-                  <th className="pb-2.5 font-medium text-right">操作</th>
+                  <th className="pb-2.5 font-medium text-right">{t("delete")}</th>
                 </tr>
               </thead>
               <tbody>
                 {allUsers.length === 0 ? (
-                  <tr><td colSpan={4} className="py-12 text-center text-purple-400/30 text-sm">暂无用户</td></tr>
+                  <tr><td colSpan={4} className="py-12 text-center text-purple-400/30 text-sm">{t("noUsers")}</td></tr>
                 ) : (
                   allUsers.map((user: any) => (
                     <tr key={user.id} className="border-b border-purple-500/10 last:border-0 hover:bg-purple-500/5 transition">
@@ -108,7 +108,7 @@ export default async function AdminPage() {
                       <td className="py-3 text-right">
                         <form action={deleteUser.bind(null, user.id)} className="inline">
                           <button className="text-rose-400/60 hover:text-rose-400 text-xs transition disabled:opacity-20" disabled={user.username === "admin"}>
-                            {user.username === "admin" ? "—" : "删除"}
+                            {user.username === "admin" ? "—" : t("delete")}
                           </button>
                         </form>
                       </td>
