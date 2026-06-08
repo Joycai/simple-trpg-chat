@@ -35,7 +35,7 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
     .where(
       and(
         eq(messages.roomId, roomId),
-        sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+        sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
       )
     )
     .orderBy(desc(messages.createdAt))
@@ -197,7 +197,7 @@ export async function runAgent(botUserId: number, roomId: number) {
     .where(
       and(
         eq(messages.roomId, roomId),
-        sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+        sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
       )
     )
     .orderBy(desc(messages.createdAt))
@@ -351,7 +351,7 @@ export async function runAgent(botUserId: number, roomId: number) {
             .where(
               and(
                 eq(messages.roomId, roomId),
-                sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
                 sql`${messages.content} LIKE ${'%' + query + '%'}`
               )
             )

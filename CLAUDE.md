@@ -157,7 +157,8 @@ sqlite.db                     # SQLite database file (gitignored in prod)
 - **Server Actions**: Place in `src/app/actions/`. Use `"use server"` directive.
 - **Components**: Client components in `src/components/`. Use `"use client"` directive.
 - **Styling**: Tailwind CSS v4 with theme-aware semantic tokens. Do NOT use arbitrary color values — use the CSS variable-backed utilities defined in `globals.css`.
-- **Database queries**: Use Drizzle query builder or relational queries (`db.query.*`).
+- **Database queries**: Use Drizzle query builder. Avoid SQLite-specific methods (`.all()`, `.get()`, `.run()`); use standard async patterns instead.
+- **Database configuration**: `db.config.json` at project root. Default is SQLite. Set `{ "type": "postgresql", "url": "..." }` for PostgreSQL. Copy from `db.config.example.json`.
 - **Error handling**: Server actions return result objects; do not throw from actions.
 - **Types**: Enums and types co-located in schema (`src/db/schema.ts`) and theme types (`src/themes/types.ts`).
 

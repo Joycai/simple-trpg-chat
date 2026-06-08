@@ -1,6 +1,6 @@
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { roomSkills, rooms, roomMembers, messages } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { rollDiceAction, sendMessageAction } from "@/app/actions/room";
 
 /** Command Execution Result */
@@ -87,7 +87,7 @@ async function handleSetSkill(roomId: number, userId: number, args: string): Pro
       skillValue: item.value,
     }).onConflictDoUpdate({
       target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-      set: { skillValue: item.value, updatedAt: sql`(datetime('now'))` },
+      set: { skillValue: item.value, updatedAt: sqlNow() },
     });
   }
 

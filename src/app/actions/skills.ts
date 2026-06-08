@@ -1,11 +1,11 @@
 "use server";
 
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { roomSkills } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { sql } from "drizzle-orm";
+
 
 export async function getMySkillsAction(roomId: number) {
   const session = await auth();
@@ -26,7 +26,7 @@ export async function upsertSkillAction(roomId: number, skillName: string, skill
     roomId, userId, skillName, skillValue,
   }).onConflictDoUpdate({
     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-    set: { skillValue, updatedAt: sql`(datetime('now'))` },
+    set: { skillValue, updatedAt: sqlNow() },
   });
 
   revalidatePath(`/rooms/${roomId}`);

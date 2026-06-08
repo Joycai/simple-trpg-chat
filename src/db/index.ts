@@ -1,7 +1,9 @@
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
+import { sql } from 'drizzle-orm';
 import * as schema from './schema';
 import path from 'path';
+import fs from 'fs';
 
 // Default SQLite instance (always available, zero-config)
 const sqlite = new Database(path.join(process.cwd(), 'sqlite.db'));
@@ -11,64 +13,76 @@ sqlite.pragma('journal_mode = WAL');
 
 export let db = drizzle(sqlite, { schema });
 
+/** Tracks active dialect so sqlNow() returns correct SQL for each DB. */
+let currentDialect: 'sqlite' | 'postgresql' = 'sqlite';
+
+export function sqlNow() {
+  return currentDialect === 'postgresql' ? sql`NOW()` : sql`(datetime('now'))`;
+}
+
+// ================================================================
+// Database config file (db.config.json at project root)
+// ================================================================
+
+interface DbConfig {
+  type: 'sqlite' | 'postgresql';
+  url?: string;
+}
+
+function readDbConfig(): DbConfig {
+  const configPath = path.join(process.cwd(), 'db.config.json');
+  if (!fs.existsSync(configPath)) {
+    return { type: 'sqlite' };
+  }
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw) as DbConfig;
+    if (!config.type || !['sqlite', 'postgresql'].includes(config.type)) {
+      console.warn('[DB] Invalid db.config.json: type must be "sqlite" or "postgresql". Falling back to SQLite.');
+      return { type: 'sqlite' };
+    }
+    if (config.type === 'postgresql' && !config.url) {
+      console.warn('[DB] db.config.json: type is "postgresql" but url is missing. Falling back to SQLite.');
+      return { type: 'sqlite' };
+    }
+    return config;
+  } catch (e: any) {
+    console.warn(`[DB] Failed to parse db.config.json: ${e.message}. Falling back to SQLite.`);
+    return { type: 'sqlite' };
+  }
+}
+
 /**
  * Initialize the database adapter.
  *
- * By default, uses SQLite with zero configuration.
- * If system_config contains db_type = 'postgresql' with a valid connection
- * string, switches to PostgreSQL dynamically.
+ * Reads db.config.json at project root. If type is "postgresql" with a valid
+ * url, switches from the default SQLite to PostgreSQL, loading the pg-core
+ * schema (schema.pg.ts) dynamically.
  *
- * Call this once at server startup (e.g. in instrumentation.ts or layout.tsx).
+ * Call this once at server startup (e.g. in instrumentation.ts).
  */
 export async function initDb(): Promise<void> {
-  try {
-    // Read db_type from system_config (using SQLite to bootstrap)
-    const configRows = db.select({
-      key: schema.systemConfig.key,
-      value: schema.systemConfig.value,
-    }).from(schema.systemConfig).all();
+  const config = readDbConfig();
 
-    const configMap = new Map(configRows.map(r => [r.key, r.value]));
-    const dbType = configMap.get('db_type');
-    const pgUrl = configMap.get('db_pg_url');
-
-    if (dbType === 'postgresql' && pgUrl) {
+  if (config.type === 'postgresql' && config.url) {
+    try {
       const { drizzle: pgDrizzle } = await import('drizzle-orm/postgres-js');
       const postgres = (await import('postgres')).default;
+      const pgSchema = await import('./schema.pg');
 
-      const client = postgres(pgUrl, {
+      const client = postgres(config.url, {
         max: 10,
         idle_timeout: 20,
         connect_timeout: 10,
       });
 
-      db = pgDrizzle(client, { schema }) as any;
+      currentDialect = 'postgresql';
+      db = pgDrizzle(client, { schema: pgSchema }) as any;
       console.log('[DB] Switched to PostgreSQL');
+    } catch (e: any) {
+      console.error(`[DB] Failed to connect to PostgreSQL: ${e.message}. Using default SQLite.`);
     }
-  } catch {
-    // If anything fails, keep the default SQLite instance
-    console.log('[DB] Using default SQLite');
-  }
-}
-
-/**
- * Test a PostgreSQL connection string.
- * Returns { ok: true } on success, { ok: false, error } on failure.
- */
-export async function testPgConnection(connectionString: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const postgres = (await import('postgres')).default;
-    const client = postgres(connectionString, {
-      max: 1,
-      connect_timeout: 5,
-      idle_timeout: 5,
-    });
-
-    // Try a simple query
-    await client`SELECT 1`;
-    await client.end({ timeout: 3 });
-    return { ok: true };
-  } catch (e: any) {
-    return { ok: false, error: e.message || String(e) };
+  } else {
+    console.log('[DB] Using SQLite');
   }
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -318,7 +318,7 @@ export async function upsertSkillAction(roomId: number, userId: number, skillNam
     skillValue,
   }).onConflictDoUpdate({
     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-    set: { skillValue, updatedAt: sql`(datetime('now'))` },
+    set: { skillValue, updatedAt: sqlNow() },
   });
   revalidatePath(`/rooms/${roomId}`);
 }
@@ -387,11 +387,11 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
       roomId,
       userId,
       partnerUserId: senderUserId,
-      lastReadAt: sql`(datetime('now'))`,
+      lastReadAt: sqlNow(),
     })
     .onConflictDoUpdate({
       target: [roomDmReads.roomId, roomDmReads.userId, roomDmReads.partnerUserId],
-      set: { lastReadAt: sql`(datetime('now'))` },
+      set: { lastReadAt: sqlNow() },
     });
   
   revalidatePath(`/rooms/${roomId}`);
