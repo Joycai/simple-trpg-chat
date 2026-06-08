@@ -1,6 +1,12 @@
+import { db } from "@/db";
+import { systemConfig } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { AdminAiToggle } from "@/components/AdminAiToggle";
 
-export default function AdminAiPage() {
+export default async function AdminAiPage() {
+  const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
+  const aiEnabled = aiConfig?.value === "true";
+
   return (
     <div className="p-6 flex flex-col gap-6 max-w-3xl">
       <div>
@@ -13,7 +19,7 @@ export default function AdminAiPage() {
           <span className="w-2 h-2 rounded-full bg-amber-400" />
           AI 功能开关
         </h3>
-        <AdminAiToggle initialEnabled={false} />
+        <AdminAiToggle initialEnabled={aiEnabled} />
       </section>
 
       <section className="bg-[#0f1425] p-5 rounded-xl border border-purple-500/20 shadow-lg">
