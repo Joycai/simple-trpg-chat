@@ -60,6 +60,7 @@ if (config.type === 'postgresql' && config.url) {
 if (currentDialect === 'sqlite') {
   const sqlite = new Database(path.join(process.cwd(), 'sqlite.db'));
   sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('wal_autocheckpoint = 1000');
   // @ts-ignore
   db = sqliteDrizzle(sqlite, { schema: sqliteSchema });
   console.log('[DB] Synchronously initialized SQLite');

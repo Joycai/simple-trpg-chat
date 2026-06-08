@@ -2,83 +2,93 @@
 
 import { db, sqlNow, sqlBool } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, lt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
 import { broadcastToRoom } from "@/lib/events";
 import { executeCommand } from "@/lib/commands";
+import { rollDice } from "@/lib/utils";
 
 // --- Room Actions ---
 
 export async function createRoomAction(formData: FormData) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Only hosts can create rooms");
+  try {
+    const session = await auth();
+    if (!session || session.user.role !== "host") {
+      return { success: false, error: "Only hosts can create rooms" };
+    }
+
+    const name = formData.get("name") as string;
+    const customKey = formData.get("key") as string;
+    const theme = (formData.get("theme") as Theme) || "default";
+    const diceRules = (formData.get("diceRules") as DiceRules) || "basic";
+    const ruleTemplate = (formData.get("ruleTemplate") as RuleTemplate) || "basic";
+
+    if (!name || !name.trim()) return { success: false, error: "Room name is required" };
+
+    // Use custom key if provided, otherwise generate one
+    const secretKey = (customKey && customKey.trim())
+      ? customKey.trim()
+      : crypto.randomBytes(4).toString("hex");
+
+    const [newRoom] = await db.insert(rooms).values({
+      name: name.trim(),
+      hostId: parseInt(session.user.id),
+      secretKey,
+      theme,
+      diceRules,
+      ruleTemplate,
+    }).returning();
+
+    // Host automatically joins
+    await db.insert(roomMembers).values({
+      roomId: newRoom.id,
+      userId: parseInt(session.user.id),
+      nickname: session.user.name || "Host",
+    });
+
+    revalidatePath("/");
+    return { success: true, roomId: newRoom.id, secretKey };
+  } catch (err: any) {
+    return { success: false, error: err.message || "An error occurred" };
   }
-
-  const name = formData.get("name") as string;
-  const customKey = formData.get("key") as string;
-  const theme = (formData.get("theme") as Theme) || "default";
-  const diceRules = (formData.get("diceRules") as DiceRules) || "basic";
-  const ruleTemplate = (formData.get("ruleTemplate") as RuleTemplate) || "basic";
-
-  if (!name || !name.trim()) throw new Error("Room name is required");
-
-  // Use custom key if provided, otherwise generate one
-  const secretKey = (customKey && customKey.trim())
-    ? customKey.trim()
-    : crypto.randomBytes(4).toString("hex");
-
-  const [newRoom] = await db.insert(rooms).values({
-    name: name.trim(),
-    hostId: parseInt((session.user as any).id),
-    secretKey,
-    theme,
-    diceRules,
-    ruleTemplate,
-  }).returning();
-
-  // Host automatically joins
-  await db.insert(roomMembers).values({
-    roomId: newRoom.id,
-    userId: parseInt((session.user as any).id),
-    nickname: (session.user as any).name || "Host",
-  });
-
-  revalidatePath("/");
-  return { roomId: newRoom.id, secretKey };
 }
 
 export async function joinRoomAction(formData: FormData) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  try {
+    const session = await auth();
+    if (!session) return { success: false, error: "Not authenticated" };
 
-  const roomId = parseInt(formData.get("roomId") as string);
-  const key = (formData.get("key") as string)?.trim();
+    const roomId = parseInt(formData.get("roomId") as string);
+    const key = (formData.get("key") as string)?.trim();
 
-  if (!roomId || !key) throw new Error("Room ID and key are required");
+    if (!roomId || !key) return { success: false, error: "Room ID and key are required" };
 
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) throw new Error("Room not found");
-  if (room.secretKey !== key) throw new Error("Invalid key");
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+    if (!room) return { success: false, error: "Room not found" };
+    if (room.secretKey !== key) return { success: false, error: "Invalid key" };
 
-  const userId = parseInt((session.user as any).id);
+    const userId = parseInt((session.user as any).id);
 
-  const [existing] = await db
-    .select()
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+    const [existing] = await db
+      .select()
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  if (!existing) {
-    await db.insert(roomMembers).values({
-      roomId,
-      userId,
-      nickname: (session.user as any).name || "Player",
-    });
+    if (!existing) {
+      await db.insert(roomMembers).values({
+        roomId,
+        userId,
+        nickname: (session.user as any).name || "Player",
+      });
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "An error occurred" };
   }
-
-  revalidatePath("/");
 }
 
 // --- Nickname & Character Actions ---
@@ -198,9 +208,7 @@ export async function sendMessageAction(
 }
 
 export async function rollDiceAction(roomId: number, faces: number, count: number, isPrivate: boolean = false, targetUserId?: number) {
-  const results = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1);
-  const sum = results.reduce((a, b) => a + b, 0);
-  const notation = `${count}d${faces}`;
+  const { results, sum, notation } = rollDice(faces, count);
 
   const detail = JSON.stringify({
     dice: `d${faces}`,
@@ -396,4 +404,34 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
     });
   
   revalidatePath(`/rooms/${roomId}`);
+}
+
+export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const userId = parseInt((session.user as any).id);
+
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) throw new Error("Room not found");
+  const isHost = room.hostId === userId;
+
+  const visibilityCondition = isHost
+    ? eq(messages.roomId, roomId)
+    : and(
+        eq(messages.roomId, roomId),
+        or(
+          eq(messages.isPrivate, false),
+          eq(messages.userId, userId),
+          eq(messages.targetUserId, userId)
+        )
+      );
+
+  const results = await db
+    .select()
+    .from(messages)
+    .where(and(visibilityCondition, lt(messages.id, beforeMessageId)))
+    .orderBy(desc(messages.id))
+    .limit(limit);
+
+  return results.reverse();
 }

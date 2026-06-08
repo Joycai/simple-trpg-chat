@@ -2,6 +2,7 @@ import { db, sqlNow } from "@/db";
 import { roomSkills, rooms, roomMembers, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { rollDiceAction, sendMessageAction } from "@/app/actions/room";
+import { rollDie } from "@/lib/utils";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -118,7 +119,7 @@ async function handleRollCheck(roomId: number, userId: number, args: string): Pr
   if (!skill) return { success: false, isCommand: true, error: `技能 '${skillName}' 未设置。请先使用 .st 设置。` };
 
   // 3. Roll d100
-  const roll = Math.floor(Math.random() * 100) + 1;
+  const roll = rollDie(100);
   const target = skill.skillValue;
   
   let successLevel = roll <= target ? "成功" : "失败";

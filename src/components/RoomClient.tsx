@@ -11,7 +11,7 @@ import { ClueManager } from "./ClueManager";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
-import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction } from "@/app/actions/room";
+import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { useTranslations } from "next-intl";
@@ -34,7 +34,7 @@ interface Message {
   targetUserId?: number | null;
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system" | "check_request";
+  type: "text" | "dice" | "system" | "clue" | "check_request";
   diceDetail: string | null;
   isPrivate: boolean;
   createdAt: string;
@@ -70,6 +70,8 @@ export function RoomClient({
   const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
   const [nickname, setNickname] = useState(currentNickname);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
+  const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
@@ -218,13 +220,48 @@ export function RoomClient({
     }
   };
 
-  const handleScroll = () => {
+  const handleScroll = async () => {
     const el = scrollRef.current;
     if (!el) return;
     const threshold = 150; 
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     isAtBottomRef.current = atBottom;
     setShowScrollButton(!atBottom);
+
+    // Infinite scroll load more (R8)
+    if (el.scrollTop < 10 && hasMore && !loadingMore && messages.length > 0) {
+      setLoadingMore(true);
+      const oldestId = messages[0].id;
+      try {
+        const older = await loadMoreMessagesAction(room.id, oldestId, 50);
+        if (older.length < 50) {
+          setHasMore(false);
+        }
+        if (older.length > 0) {
+          const prevScrollHeight = el.scrollHeight;
+
+          // Add to seenIdsRef
+          older.forEach(m => seenIdsRef.current.add(String(m.id)));
+
+          setMessages(prev => {
+            const filteredOlder = older.filter(o => !prev.some(p => p.id === o.id));
+            return [...filteredOlder, ...prev];
+          });
+
+          // Adjust scroll position after rendering to keep it stable
+          requestAnimationFrame(() => {
+            if (scrollRef.current) {
+              const delta = scrollRef.current.scrollHeight - prevScrollHeight;
+              scrollRef.current.scrollTop = delta;
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load more messages:", err);
+      } finally {
+        setLoadingMore(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -236,14 +273,25 @@ export function RoomClient({
   }, [tabMessages]); // Re-scroll when switching tabs
 
   useEffect(() => {
+    const abortController = new AbortController();
     let reconnectTimeout: NodeJS.Timeout;
+    let retryCount = 0;
+    const maxRetries = 5;
+
     const setupSSE = () => {
+      if (abortController.signal.aborted) return;
       if (sseRef.current) sseRef.current.close();
       setStatus("connecting");
       const es = new EventSource(`/api/rooms/${room.id}/events`);
       sseRef.current = es;
-      es.onopen = () => setStatus("connected");
+
+      es.onopen = () => {
+        setStatus("connected");
+        retryCount = 0; // Reset retry count on successful connection
+      };
+
       es.onmessage = (event) => {
+        if (abortController.signal.aborted) return;
         try {
           const data = JSON.parse(event.data);
           if (data.id) {
@@ -297,14 +345,27 @@ export function RoomClient({
           }
         } catch { /* */ }
       };
+
       es.onerror = () => {
+        if (abortController.signal.aborted) return;
         setStatus("error");
         es.close();
-        reconnectTimeout = setTimeout(setupSSE, 3000);
+
+        if (retryCount < maxRetries) {
+          const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 16000);
+          console.warn(`SSE connection failed. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/${maxRetries})...`);
+          retryCount++;
+          reconnectTimeout = setTimeout(setupSSE, backoffDelay);
+        } else {
+          console.error("SSE connection failed after maximum retries.");
+        }
       };
     };
+
     setupSSE();
+
     return () => {
+      abortController.abort();
       if (sseRef.current) sseRef.current.close();
       clearTimeout(reconnectTimeout);
     };

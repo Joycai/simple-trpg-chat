@@ -32,12 +32,12 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
 
   const handleJoin = async (formData: FormData) => {
     setError("");
-    try {
-      await joinRoomAction(formData);
+    const result = await joinRoomAction(formData);
+    if (result.success) {
       setJoinRoomId(null);
       setJoinKey("");
-    } catch (e: any) {
-      setError(e.message || t("joinFailed"));
+    } else {
+      setError(result.error || t("joinFailed"));
     }
   };
 
@@ -62,11 +62,12 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
           <h3 className="font-bold text-lg mb-4 text-success">{tc("title")}</h3>
           <form
             action={async (formData) => {
-              try {
-                const result = await createRoomAction(formData);
+              setError("");
+              const result = await createRoomAction(formData);
+              if (result.success && result.secretKey) {
                 setCreatedKey(result.secretKey);
-              } catch (e: any) {
-                setError(e.message);
+              } else if (result.error) {
+                setError(result.error);
               }
             }}
             className="flex flex-col gap-4"
