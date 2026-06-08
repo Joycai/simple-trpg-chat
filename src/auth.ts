@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!credentials?.username || !credentials?.password) return null;
 
         const [user] = await db.select().from(users).where(eq(users.username, credentials.username as string));
-        if (!user) return null;
+        if (!user || user.isBot) return null;
 
         const isPasswordCorrect = await bcrypt.compare(credentials.password as string, user.passwordHash);
         if (!isPasswordCorrect) return null;

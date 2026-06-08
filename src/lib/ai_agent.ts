@@ -69,11 +69,21 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
   return { context, model: config.model || "gpt-4o" };
 }
 
+const agentCooldowns = new Map<number, number>();
+
 /**
  * runAgent
  * Orchestrates the LLM call and Tool execution.
  */
 export async function runAgent(botUserId: number, roomId: number) {
+  const now = Date.now();
+  const lastRun = agentCooldowns.get(botUserId) || 0;
+  if (now - lastRun < 3000) {
+    console.log(`[RateLimit] Bot ${botUserId} skipped due to 3s cooldown`);
+    return;
+  }
+  agentCooldowns.set(botUserId, now);
+
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return;
 
@@ -339,6 +349,7 @@ export async function runAgent(botUserId: number, roomId: number) {
           result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
         } else if (functionName === "search_history") {
           const query = args.query as string;
+          const safeQuery = query.replace(/[%_\\]/g, '\\$&');
           const limit = Math.min(args.limit || 10, 20);
           // Use SQL LIKE for keyword search on message content
           const results = await db.select({
@@ -352,7 +363,7 @@ export async function runAgent(botUserId: number, roomId: number) {
               and(
                 eq(messages.roomId, roomId),
                 sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
-                sql`${messages.content} LIKE ${'%' + query + '%'}`
+                sql`${messages.content} LIKE ${'%' + safeQuery + '%'}`
               )
             )
             .orderBy(desc(messages.createdAt))

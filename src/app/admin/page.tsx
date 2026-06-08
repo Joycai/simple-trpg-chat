@@ -47,7 +47,7 @@ export default async function AdminPage() {
             {allUsers.length === 0 ? (
               <tr><td colSpan={4} className="py-8 text-center text-text-muted">{t("noUsers")}</td></tr>
             ) : (
-              allUsers.map((user) => (
+              allUsers.map((user: any) => (
                 <tr key={user.id} className="border-b border-border last:border-0 hover:bg-surface transition">
                   <td className="py-3 font-mono text-sm">{user.username}</td>
                   <td className="py-3">{user.displayName}</td>

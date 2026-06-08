@@ -51,11 +51,7 @@ export function decrypt(encryptedText: string): string {
 function getEncryptionKey(): Buffer {
   const rawKey = process.env.AI_ENCRYPTION_KEY;
   if (!rawKey) {
-    // For development fallback if not set, but warn
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("AI_ENCRYPTION_KEY environment variable is missing!");
-    }
-    return crypto.scryptSync("dev-secret-key", "salt", 32);
+    throw new Error("AI_ENCRYPTION_KEY environment variable is missing!");
   }
 
   // Ensure it's exactly 32 bytes

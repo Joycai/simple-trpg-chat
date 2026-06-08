@@ -1,6 +1,6 @@
 "use server";
 
-import { db, sqlNow } from "@/db";
+import { db, sqlNow, sqlBool } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -170,7 +170,8 @@ export async function sendMessageAction(
   broadcastToRoom(roomId, newMessage);
 
   // --- AI Bot Activation Check ---
-  if (type === "text") {
+  const [senderUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, userId));
+  if (type === "text" && !senderUser?.isBot) {
     if (isPrivate && targetUserId) {
       const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
       if (targetUser && targetUser.isBot) {
@@ -234,7 +235,7 @@ export async function requestSkillCheckAction(
   // Get target nicknames
   const targetMembers = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
-  const targetNicks = targetMembers.map(m => m.nickname);
+  const targetNicks = targetMembers.map((m: any) => m.nickname);
 
   const content = `🎯 ${hostNick} 要求 ${targetNicks.join("、")} 进行【${skillName}】检定`;
   const detail = JSON.stringify({
@@ -331,7 +332,7 @@ export async function getUnreadDMCountAction(roomId: number) {
   
   const userId = parseInt((session.user as any).id);
   const { messages, roomDmReads } = await import("@/db/schema");
-  const { db } = await import("@/db");
+  const { db, sqlBool } = await import("@/db");
   const { eq, and, sql, not } = await import("drizzle-orm");
   
   // Get all read timestamps for the current user in this room
@@ -356,7 +357,7 @@ export async function getUnreadDMCountAction(roomId: number) {
       and(
         eq(messages.roomId, roomId),
         eq(messages.targetUserId, userId),
-        eq(messages.isPrivate, true),
+        sql`${messages.isPrivate} = ${sqlBool(true)}`,
         not(eq(messages.userId, userId)),
       )
     );
