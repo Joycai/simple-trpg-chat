@@ -83,6 +83,7 @@ export function RoomClient({
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
+  const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
@@ -580,45 +581,40 @@ export function RoomClient({
               )}
             </div>
 
-            {/* Group 3: 房间与系统 (Room & System Group) */}
-            <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+            {/* Group 3: 系统菜单 (System Dropdown) */}
+            <div className="relative">
               <button
-                onClick={() => setShowMembers(!showMembers)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  showMembers
-                    ? "bg-surface text-primary border border-border/10 shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                onClick={() => setShowSystemMenu(!showSystemMenu)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm border ${
+                  showSystemMenu
+                    ? "bg-surface text-primary border-border"
+                    : "bg-surface-alt text-text-muted hover:text-text hover:bg-border border-transparent hover:border-border"
                 }`}
-                title="在线成员"
+                title="系统菜单"
               >
-                <span className="text-sm sm:text-base leading-none">👥</span>
-                <span className="hidden sm:inline">{playerCount + botCount}</span>
+                <span className="text-sm sm:text-base leading-none">☰</span>
+                <span className="hidden sm:inline">系统</span>
               </button>
-              <button
-                onClick={() => setShowRoomInfo(!showRoomInfo)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  showRoomInfo
-                    ? "bg-surface text-primary border border-border/10 shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-surface/30"
-                }`}
-                title="房间信息"
-              >
-                <span className="text-sm sm:text-base leading-none">ℹ️</span>
-                <span className="hidden sm:inline">信息</span>
-              </button>
-              {isHost && (
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    showSettings
-                      ? "bg-surface text-primary border border-border/10 shadow-sm"
-                      : "text-text-muted hover:text-text hover:bg-surface/30"
-                  }`}
-                  title="房间设置"
-                >
-                  <span className="text-sm sm:text-base leading-none">⚙️</span>
-                  <span className="hidden sm:inline">设置</span>
-                </button>
+              {showSystemMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30"
+                  onClick={() => setShowSystemMenu(false)}>
+                  <button onClick={() => { setShowMembers(true); }}
+                    className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                    <span>👥</span> 在线成员 <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
+                  </button>
+                  <button onClick={() => { setShowRoomInfo(true); }}
+                    className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                    <span>ℹ️</span> 房间信息
+                  </button>
+                  {isHost && (
+                    <div className="border-t border-border mt-1 pt-1">
+                      <button onClick={() => { setShowSettings(true); }}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                        <span>⚙️</span> 房间设置
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
