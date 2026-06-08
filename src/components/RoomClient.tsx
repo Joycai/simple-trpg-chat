@@ -11,6 +11,7 @@ import { ClueManager } from "./ClueManager";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
+import { SkillPanel } from "./SkillPanel";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
@@ -81,6 +82,7 @@ export function RoomClient({
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
@@ -447,81 +449,183 @@ export function RoomClient({
 
   return (
     <div className="flex flex-col h-screen bg-bg overflow-hidden text-text">
-      <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-3 shrink-0 z-20 relative">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-muted hover:text-text transition text-sm font-medium">← {tn("lobby")}</Link>
-            {sidebarCollapsed && (
+      <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-stretch md:items-center">
+          <div className="flex items-center justify-between md:justify-start gap-4">
+            <div className="flex items-center gap-3">
+              <Link href="/" className="text-text-muted hover:text-text transition text-sm font-medium">← {tn("lobby")}</Link>
+              {sidebarCollapsed && (
+                <button
+                  onClick={() => {
+                    setSidebarCollapsed(false);
+                    localStorage.setItem("trpg-sidebar-collapsed", "false");
+                  }}
+                  className="relative p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm flex items-center justify-center gap-1 cursor-pointer"
+                  title="展开私聊"
+                >
+                  <span className="text-sm">💬</span>
+                  <span className="text-xs font-bold hidden sm:inline">私聊</span>
+                  {totalUnread > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
+                      {totalUnread > 9 ? "9+" : totalUnread}
+                    </span>
+                  )}
+                </button>
+              )}
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-bold text-text leading-none">{room.name}</h2>
+                  <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
+                </div>
+                <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
+              </div>
+            </div>
+            {isHost && (
+              <span className="md:hidden text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none self-center">
+                {t("gm")}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Group 1: 角色与能力 (Character Group) */}
+            <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+              <button
+                onClick={() => setShowCharacter(!showCharacter)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  showCharacter
+                    ? "bg-surface text-primary border border-border/10 shadow-sm"
+                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                }`}
+                title="角色档案"
+              >
+                <span className="text-sm sm:text-base leading-none">👤</span>
+                <span className="hidden sm:inline">{nickname}</span>
+              </button>
+              <button
+                onClick={() => setShowSkills(!showSkills)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  showSkills
+                    ? "bg-surface text-primary border border-border/10 shadow-sm"
+                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                }`}
+                title="技能面板"
+              >
+                <span className="text-sm sm:text-base leading-none">📋</span>
+                <span className="hidden sm:inline">技能</span>
+              </button>
               <button
                 onClick={() => {
-                  setSidebarCollapsed(false);
-                  localStorage.setItem("trpg-sidebar-collapsed", "false");
+                  setShowInventory(!showInventory);
+                  markInventoryViewedAction(room.id);
+                  setUnreadItems(0);
                 }}
-                className="relative p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm flex items-center justify-center gap-1 cursor-pointer"
-                title="展开私聊"
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer relative ${
+                  showInventory
+                    ? "bg-surface text-primary border border-border/10 shadow-sm"
+                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                }`}
+                title="道具背包"
               >
-                <span className="text-sm">💬</span>
-                <span className="text-xs font-bold hidden sm:inline">私聊</span>
-                {totalUnread > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
-                    {totalUnread > 9 ? "9+" : totalUnread}
+                <span className="text-sm sm:text-base leading-none">📦</span>
+                <span className="hidden sm:inline">道具</span>
+                {unreadItems > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+                    {unreadItems > 9 ? "9+" : unreadItems}
                   </span>
                 )}
               </button>
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-text leading-none">{room.name}</h2>
-                <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
-              </div>
-              <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            {isHost && (
-              <button onClick={() => setShowBotManager(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm">
-                <span className="text-base">🤖</span>
-                <span className="text-xs font-bold hidden sm:inline">Bot</span>
-              </button>
-            )}
-            <button onClick={() => setShowClueManager(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="线索">
-                <span className="text-base">🃏</span>
-                <span className="text-xs font-bold hidden sm:inline">线索</span>
-              </button>
-            <button onClick={() => setShowRoomInfo(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="房间信息">
-              <span className="text-base">ℹ️</span>
-              <span className="text-xs font-bold hidden sm:inline">信息</span>
-            </button>
-            <button onClick={() => setShowMembers(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="在线成员">
-              <span className="text-base">👥</span>
-              <span className="text-xs font-bold hidden sm:inline">{playerCount + botCount}</span>
-            </button>
-            <button onClick={() => { setShowInventory(true); markInventoryViewedAction(room.id); setUnreadItems(0); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm relative">
-              <span className="text-base">📦</span>
-              <span className="text-xs font-bold hidden sm:inline">道具</span>
-              {unreadItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-danger text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-bounce">
-                  {unreadItems > 9 ? "9+" : unreadItems}
-                </span>
-              )}
-            </button>
-            {isHost && (
-              <button onClick={() => setShowCheckDialog(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent hover:text-accent-hover transition-all duration-200 border border-accent/30 shadow-sm" title="发起检定">
-                <span className="text-base">🎯</span>
-                <span className="text-xs font-bold hidden sm:inline">检定</span>
-              </button>
-            )}
-            <button onClick={() => setShowCharacter(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm">
-              <span className="text-base">👤</span>
-              <span className="text-xs font-bold hidden sm:inline">{nickname}</span>
-            </button>
-            {isHost && (
-              <>
-                <button onClick={() => setShowSettings(true)} className="p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm" title="房间设置">
-                  <span className="text-lg leading-none">⚙️</span>
+
+            {/* Group 2: 跑团工具 (TRPG Tools Group) */}
+            <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+              {isHost && (
+                <button
+                  onClick={() => setShowCheckDialog(!showCheckDialog)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showCheckDialog
+                      ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
+                      : "text-accent/90 hover:text-accent hover:bg-accent/10"
+                  }`}
+                  title="发起检定"
+                >
+                  <span className="text-sm sm:text-base leading-none">🎯</span>
+                  <span className="hidden sm:inline">检定</span>
                 </button>
-                <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold">{t("gm")}</span>
-              </>
+              )}
+              <button
+                onClick={() => setShowClueManager(!showClueManager)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  showClueManager
+                    ? "bg-surface text-primary border border-border/10 shadow-sm"
+                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                }`}
+                title="线索列表"
+              >
+                <span className="text-sm sm:text-base leading-none">🃏</span>
+                <span className="hidden sm:inline">线索</span>
+              </button>
+              {isHost && (
+                <button
+                  onClick={() => setShowBotManager(!showBotManager)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showBotManager
+                      ? "bg-surface text-primary border border-border/10 shadow-sm"
+                      : "text-text-muted hover:text-text hover:bg-surface/30"
+                  }`}
+                  title="智能 NPC"
+                >
+                  <span className="text-sm sm:text-base leading-none">🤖</span>
+                  <span className="hidden sm:inline">Bot</span>
+                </button>
+              )}
+            </div>
+
+            {/* Group 3: 房间与系统 (Room & System Group) */}
+            <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+              <button
+                onClick={() => setShowMembers(!showMembers)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  showMembers
+                    ? "bg-surface text-primary border border-border/10 shadow-sm"
+                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                }`}
+                title="在线成员"
+              >
+                <span className="text-sm sm:text-base leading-none">👥</span>
+                <span className="hidden sm:inline">{playerCount + botCount}</span>
+              </button>
+              <button
+                onClick={() => setShowRoomInfo(!showRoomInfo)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  showRoomInfo
+                    ? "bg-surface text-primary border border-border/10 shadow-sm"
+                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                }`}
+                title="房间信息"
+              >
+                <span className="text-sm sm:text-base leading-none">ℹ️</span>
+                <span className="hidden sm:inline">信息</span>
+              </button>
+              {isHost && (
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showSettings
+                      ? "bg-surface text-primary border border-border/10 shadow-sm"
+                      : "text-text-muted hover:text-text hover:bg-surface/30"
+                  }`}
+                  title="房间设置"
+                >
+                  <span className="text-sm sm:text-base leading-none">⚙️</span>
+                  <span className="hidden sm:inline">设置</span>
+                </button>
+              )}
+            </div>
+
+            {isHost && (
+              <span className="hidden md:inline text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">
+                {t("gm")}
+              </span>
             )}
           </div>
         </div>
@@ -680,6 +784,9 @@ export function RoomClient({
       )}
       {showRoomInfo && (
         <RoomInfoPanel room={room as any} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
+      )}
+      {showSkills && (
+        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} />
       )}
     </div>
   );
