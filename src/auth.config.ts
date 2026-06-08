@@ -10,13 +10,22 @@ export const authConfig = {
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
 
+      const isAdmin = (auth?.user as any)?.role === "admin";
+
       if (isOnAdmin) {
-        if (isLoggedIn && (auth?.user as any).role === "admin") return true;
+        if (isLoggedIn && isAdmin) return true;
         return false;
       }
-      
+
       if (isOnLogin && isLoggedIn) {
+        // Admin users go directly to admin panel
+        if (isAdmin) return Response.redirect(new URL("/admin", nextUrl));
         return Response.redirect(new URL("/", nextUrl));
+      }
+
+      // Admin users should not access the lobby — redirect to admin
+      if (isLoggedIn && isAdmin && nextUrl.pathname === "/") {
+        return Response.redirect(new URL("/admin", nextUrl));
       }
 
       return true;
