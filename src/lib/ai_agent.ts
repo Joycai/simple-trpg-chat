@@ -3,6 +3,54 @@ import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiC
 import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
+import { rollDice } from "@/lib/utils";
+import { z } from "zod";
+
+// Zod Schema for Bot Config Validation (R17)
+const BotConfigSchema = z.object({
+  roomId: z.number().optional(),
+  systemPrompt: z.string().optional().default("You are an AI assistant in a TRPG session."),
+  historicalSummary: z.string().optional().default(""),
+  model: z.string().optional().default("gpt-4o"),
+  activation: z.string().optional().default("mention"),
+  enableTools: z.array(z.string()).optional().default(["send_message", "roll_dice"]),
+  lastSummarizedMsgId: z.number().optional().default(0),
+});
+
+type BotConfig = z.infer<typeof BotConfigSchema>;
+
+function parseBotConfig(jsonStr: string | null | undefined): BotConfig {
+  if (!jsonStr) {
+    return BotConfigSchema.parse({});
+  }
+  try {
+    const rawObj = JSON.parse(jsonStr);
+    return BotConfigSchema.parse(rawObj);
+  } catch (err) {
+    console.error("[BotConfig] Failed to parse or validate config, falling back to defaults:", err);
+    return BotConfigSchema.parse({});
+  }
+}
+
+// Fetch helper with exponential backoff and retries (R9)
+async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 3, initialDelay = 1000): Promise<Response> {
+  let delay = initialDelay;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok || attempt === maxRetries) {
+        return response;
+      }
+      console.warn(`[AI API] Attempt ${attempt} failed with status ${response.status}. Retrying in ${delay}ms...`);
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      console.warn(`[AI API] Attempt ${attempt} encountered error: ${error}. Retrying in ${delay}ms...`);
+    }
+    await new Promise(resolve => setTimeout(resolve, delay));
+    delay *= 2;
+  }
+  throw new Error("Failed after maximum retries");
+}
 
 /**
  * buildAgentContext
@@ -12,8 +60,8 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
   const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
   if (!botUser || !botUser.isBot) throw new Error("Bot user not found");
   
-  const config = botUser.botConfigJson ? JSON.parse(botUser.botConfigJson) : {};
-  const sysPrompt = config.systemPrompt || "You are an AI assistant in a TRPG session.";
+  const config = parseBotConfig(botUser.botConfigJson);
+  const sysPrompt = config.systemPrompt;
   const summary = config.historicalSummary || "";
 
   const distributions = await db.query.inventoryDistributions.findMany({
@@ -35,7 +83,7 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
     .where(
       and(
         eq(messages.roomId, roomId),
-        sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+        sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
       )
     )
     .orderBy(desc(messages.createdAt))
@@ -69,11 +117,21 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
   return { context, model: config.model || "gpt-4o" };
 }
 
+const agentCooldowns = new Map<number, number>();
+
 /**
  * runAgent
  * Orchestrates the LLM call and Tool execution.
  */
 export async function runAgent(botUserId: number, roomId: number) {
+  const now = Date.now();
+  const lastRun = agentCooldowns.get(botUserId) || 0;
+  if (now - lastRun < 3000) {
+    console.log(`[RateLimit] Bot ${botUserId} skipped due to 3s cooldown`);
+    return;
+  }
+  agentCooldowns.set(botUserId, now);
+
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return;
 
@@ -88,8 +146,8 @@ export async function runAgent(botUserId: number, roomId: number) {
   // Read enabled tools from bot config
   const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
     .from(users).where(eq(users.id, botUserId));
-  const botCfg = botConfig?.botConfigJson ? JSON.parse(botConfig.botConfigJson) : {};
-  const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
+  const botCfg = parseBotConfig(botConfig?.botConfigJson);
+  const enabledTools: string[] = botCfg.enableTools;
 
   const allTools = [
     {
@@ -197,7 +255,7 @@ export async function runAgent(botUserId: number, roomId: number) {
     .where(
       and(
         eq(messages.roomId, roomId),
-        sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+        sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
       )
     )
     .orderBy(desc(messages.createdAt))
@@ -241,13 +299,19 @@ export async function runAgent(botUserId: number, roomId: number) {
   while (iterations < 3) {
     iterations++;
 
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, messages: currentContext, tools, tool_choice: "auto" })
-    });
+    let response;
+    try {
+      response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({ model, messages: currentContext, tools, tool_choice: "auto" })
+      });
+    } catch (err) {
+      console.error("[runAgent] AI API request failed after retries:", err);
+      break;
+    }
 
-    if (!response.ok) break;
+    if (!response || !response.ok) break;
 
     const data = await response.json();
     const assistantMessage = data.choices[0].message;
@@ -276,8 +340,7 @@ export async function runAgent(botUserId: number, roomId: number) {
 
       try {
         if (functionName === "roll_dice") {
-          const rollResults = Array.from({ length: args.count }, () => Math.floor(Math.random() * args.faces) + 1);
-          const sum = rollResults.reduce((a, b) => a + b, 0);
+          const { results: rollResults, sum } = rollDice(args.faces, args.count);
           const detail = JSON.stringify({ dice: `d${args.faces}`, count: args.count, results: rollResults, sum, isBot: true });
           const content = `🤖 (${botNickname}) 🎲 ${args.count}d${args.faces}: [${rollResults.join(", ")}] = ${sum}`;
           const [newMessage] = await db.insert(messages).values({
@@ -339,6 +402,7 @@ export async function runAgent(botUserId: number, roomId: number) {
           result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
         } else if (functionName === "search_history") {
           const query = args.query as string;
+          const safeQuery = query.replace(/[%_\\]/g, '\\$&');
           const limit = Math.min(args.limit || 10, 20);
           // Use SQL LIKE for keyword search on message content
           const results = await db.select({
@@ -351,8 +415,8 @@ export async function runAgent(botUserId: number, roomId: number) {
             .where(
               and(
                 eq(messages.roomId, roomId),
-                sql`(${messages.isPrivate} = 0 OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
-                sql`${messages.content} LIKE ${'%' + query + '%'}`
+                sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\'`
               )
             )
             .orderBy(desc(messages.createdAt))
@@ -452,8 +516,8 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
   if (!botUser) return;
 
-  const config = botUser.botConfigJson ? JSON.parse(botUser.botConfigJson) : {};
-  const lastId = config.lastSummarizedMsgId || 0;
+  const config = parseBotConfig(botUser.botConfigJson);
+  const lastId = config.lastSummarizedMsgId;
 
   // Count new messages since last summary
   const newMsgs = await db.select().from(messages).where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)));
@@ -471,17 +535,23 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   const msgText = newMsgs.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
   const oldSummary = config.historicalSummary || "";
 
-  const response = await fetch(`${endpoint}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: config.model || "gpt-4o",
-      messages: [
-        { role: "system", content: "You are a TRPG chronicler. Update the existing summary with the new chat log provided. Keep it concise, capturing key events, plot points, and character state changes." },
-        { role: "user", content: `Existing Summary:\n${oldSummary}\n\nNew Chat Log:\n${msgText}\n\nProvide the updated summary:` }
-      ]
-    })
-  });
+  let response;
+  try {
+    response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: config.model || "gpt-4o",
+        messages: [
+          { role: "system", content: "You are a TRPG chronicler. Update the existing summary with the new chat log provided. Keep it concise, capturing key events, plot points, and character state changes." },
+          { role: "user", content: `Existing Summary:\n${oldSummary}\n\nNew Chat Log:\n${msgText}\n\nProvide the updated summary:` }
+        ]
+      })
+    });
+  } catch (err) {
+    console.error("[summarizeHistoryAction] AI API request failed after retries:", err);
+    return;
+  }
 
   if (response.ok) {
     const data = await response.json();

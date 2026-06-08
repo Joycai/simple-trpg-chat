@@ -1,74 +1,75 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { sql } from 'drizzle-orm';
+import * as path from 'path';
+import * as fs from 'fs';
+
+import { drizzle as sqliteDrizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import * as schema from './schema';
-import path from 'path';
+import * as sqliteSchema from './schema';
 
-// Default SQLite instance (always available, zero-config)
-const sqlite = new Database(path.join(process.cwd(), 'sqlite.db'));
+import { drizzle as pgDrizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as pgSchema from './schema.pg';
 
-// Enable WAL mode for better concurrent read performance
-sqlite.pragma('journal_mode = WAL');
+interface DbConfig {
+  type: 'sqlite' | 'postgresql';
+  url?: string;
+}
 
-export let db = drizzle(sqlite, { schema });
-
-/**
- * Initialize the database adapter.
- *
- * By default, uses SQLite with zero configuration.
- * If system_config contains db_type = 'postgresql' with a valid connection
- * string, switches to PostgreSQL dynamically.
- *
- * Call this once at server startup (e.g. in instrumentation.ts or layout.tsx).
- */
-export async function initDb(): Promise<void> {
+function readDbConfig(): DbConfig {
+  const configPath = path.join(process.cwd(), 'db.config.json');
+  if (!fs.existsSync(configPath)) {
+    return { type: 'sqlite' };
+  }
   try {
-    // Read db_type from system_config (using SQLite to bootstrap)
-    const configRows = db.select({
-      key: schema.systemConfig.key,
-      value: schema.systemConfig.value,
-    }).from(schema.systemConfig).all();
-
-    const configMap = new Map(configRows.map(r => [r.key, r.value]));
-    const dbType = configMap.get('db_type');
-    const pgUrl = configMap.get('db_pg_url');
-
-    if (dbType === 'postgresql' && pgUrl) {
-      const { drizzle: pgDrizzle } = await import('drizzle-orm/postgres-js');
-      const postgres = (await import('postgres')).default;
-
-      const client = postgres(pgUrl, {
-        max: 10,
-        idle_timeout: 20,
-        connect_timeout: 10,
-      });
-
-      db = pgDrizzle(client, { schema }) as any;
-      console.log('[DB] Switched to PostgreSQL');
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw) as DbConfig;
+    if (!config.type || !['sqlite', 'postgresql'].includes(config.type)) {
+      return { type: 'sqlite' };
     }
-  } catch {
-    // If anything fails, keep the default SQLite instance
-    console.log('[DB] Using default SQLite');
+    if (config.type === 'postgresql' && !config.url) {
+      return { type: 'sqlite' };
+    }
+    return config;
+  } catch (e: any) {
+    return { type: 'sqlite' };
   }
 }
 
-/**
- * Test a PostgreSQL connection string.
- * Returns { ok: true } on success, { ok: false, error } on failure.
- */
-export async function testPgConnection(connectionString: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const postgres = (await import('postgres')).default;
-    const client = postgres(connectionString, {
-      max: 1,
-      connect_timeout: 5,
-      idle_timeout: 5,
-    });
+export let db: import('drizzle-orm/better-sqlite3').BetterSQLite3Database<typeof sqliteSchema>;
+export let currentDialect: 'sqlite' | 'postgresql' = 'sqlite';
 
-    // Try a simple query
-    await client`SELECT 1`;
-    await client.end({ timeout: 3 });
-    return { ok: true };
+const config = readDbConfig();
+
+if (config.type === 'postgresql' && config.url) {
+  try {
+    const client = postgres(config.url, {
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+    currentDialect = 'postgresql';
+    // @ts-ignore
+    db = pgDrizzle(client, { schema: pgSchema });
+    console.log('[DB] Synchronously initialized PostgreSQL');
   } catch (e: any) {
-    return { ok: false, error: e.message || String(e) };
+    console.error(`[DB] Failed to connect to PostgreSQL: ${e.message}. Using default SQLite.`);
+    currentDialect = 'sqlite'; // fallback
   }
+} 
+
+if (currentDialect === 'sqlite') {
+  const sqlite = new Database(path.join(process.cwd(), 'sqlite.db'));
+  sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('wal_autocheckpoint = 1000');
+  // @ts-ignore
+  db = sqliteDrizzle(sqlite, { schema: sqliteSchema });
+  console.log('[DB] Synchronously initialized SQLite');
+}
+
+export function sqlNow() {
+  return currentDialect === 'postgresql' ? sql`NOW()` : sql`CURRENT_TIMESTAMP`;
+}
+
+export function sqlBool(val: boolean) {
+  return currentDialect === 'postgresql' ? val : (val ? 1 : 0);
 }
