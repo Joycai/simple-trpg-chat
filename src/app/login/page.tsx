@@ -115,6 +115,23 @@ export default function LoginPage() {
           {t("hint")}
         </p>
       </form>
+
+      <footer className="text-center text-xs text-text-dim space-y-1">
+        <p>
+          &copy; {new Date().getFullYear()}{" "}
+          <a href="https://github.com/Joycai/simple-trpg-chat" target="_blank" rel="noopener noreferrer"
+            className="text-primary hover:underline">
+            Simple TRPG Chat
+          </a>
+        </p>
+        {process.env.NEXT_PUBLIC_ICP_BEIAN && (
+          <p className="text-[10px] text-text-dim/50">
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              {process.env.NEXT_PUBLIC_ICP_BEIAN}
+            </a>
+          </p>
+        )}
+      </footer>
     </div>
   );
 }
