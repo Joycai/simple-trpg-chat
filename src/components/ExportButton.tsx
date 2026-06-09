@@ -33,8 +33,9 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(t("exportFail") || e.message || "导出失败");
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      setError(t("exportFail") || errorMsg || "导出失败");
     } finally {
       setExporting(false);
     }
