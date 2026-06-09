@@ -1,28 +1,30 @@
-/* Aged Parchment Theme */
+/* ---- Aged Parchment ---- */
 [data-theme="parchment"] {
   --theme-bg: 253 246 227;
-  --theme-surface: 255 252 242;
-  --theme-surface-alt: 248 239 212;
-  --theme-border: 214 194 152;
-  --theme-text: 62 45 27;
-  --theme-text-muted: 148 121 86;
-  --theme-text-dim: 180 158 120;
-  --theme-primary: 180 130 60;
-  --theme-primary-hover: 140 100 45;
-  --theme-accent: 200 80 30;
-  --theme-accent-hover: 160 60 20;
-  --theme-danger: 200 60 50;
-  --theme-success: 80 130 60;
-  --theme-header-bg: 248 239 212;
-  --theme-header-border: 214 194 152;
-  --theme-input-bg: 253 246 227;
-  --theme-input-border: 214 194 152;
-  --theme-dice-card-bg: 255 248 236;
-  --theme-dice-card-border: 214 194 152;
-  --theme-private-border: 140 100 45;
-  --theme-private-bg: 248 239 212;
-  --theme-scroll-btn: 140 100 45;
+  --theme-surface: 255 251 235;
+  --theme-surface-alt: 248 236 208;
+  --theme-border: 196 164 132;
+  --theme-text: 68 43 23;
+  --theme-text-muted: 156 127 89;
+  --theme-text-dim: 120 95 65;
+  --theme-primary: 139 90 43;
+  --theme-primary-hover: 101 63 28;
+  --theme-accent: 180 83 38;
+  --theme-accent-hover: 140 62 26;
+  --theme-danger: 180 40 40;
+  --theme-success: 80 130 50;
+  --theme-header-bg: 248 236 208;
+  --theme-header-border: 196 164 132;
+  --theme-input-bg: 255 251 235;
+  --theme-input-border: 196 164 132;
+  --theme-dice-card-bg: 248 236 208;
+  --theme-dice-card-border: 196 164 132;
+  --theme-private-border: 180 83 38;
+  --theme-private-bg: 253 246 227;
+  --theme-scroll-btn: 139 90 43;
   --theme-radius: 0.25rem;
-  --theme-font: 'Georgia', 'Noto Serif SC', serif;
-  --theme-font-mono: 'Courier New', 'Fira Code', monospace;
+  --theme-font: 'Crimson Text', 'Georgia', serif;
+  --theme-font-mono: 'Courier Prime', 'Courier New', monospace;
 }
+
+/* ---- Call of Cthulhu ---- */

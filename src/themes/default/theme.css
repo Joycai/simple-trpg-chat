@@ -1,4 +1,4 @@
-/* Default Theme (Dark Tabletop) */
+/* ---- Default (Dark Tabletop) ---- */
 :root,
 [data-theme="default"] {
   --theme-bg: 249 250 251;
@@ -27,3 +27,4 @@
   --theme-font: 'Inter', 'Geist', sans-serif;
   --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
+
