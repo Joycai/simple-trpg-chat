@@ -9,6 +9,7 @@ import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { ClueManager } from "./ClueManager";
 import { AiImportPanel } from "./AiImportPanel";
+import { Icons } from "./icons";
 import { ExportButton } from "./ExportButton";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
@@ -503,7 +504,7 @@ export function RoomClient({
                 }`}
                 title="角色档案"
               >
-                <span className="text-sm sm:text-base leading-none">👤</span>
+                <Icons.User className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">{nickname}</span>
               </button>
               <button
@@ -515,7 +516,7 @@ export function RoomClient({
                 }`}
                 title="技能面板"
               >
-                <span className="text-sm sm:text-base leading-none">📋</span>
+                <Icons.ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">技能</span>
               </button>
               <button
@@ -531,7 +532,7 @@ export function RoomClient({
                 }`}
                 title="道具背包"
               >
-                <span className="text-sm sm:text-base leading-none">📦</span>
+                <Icons.Package className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">道具</span>
                 {unreadItems > 0 && (
                   <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
@@ -553,7 +554,7 @@ export function RoomClient({
                   }`}
                   title="发起检定"
                 >
-                  <span className="text-sm sm:text-base leading-none">🎯</span>
+                  <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">检定</span>
                 </button>
               )}
@@ -566,7 +567,7 @@ export function RoomClient({
                 }`}
                 title="线索列表"
               >
-                <span className="text-sm sm:text-base leading-none">🃏</span>
+                <Icons.Ticket className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">线索</span>
               </button>
               {isHost && (
@@ -575,7 +576,7 @@ export function RoomClient({
                   className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
                   title="AI 智能导入"
                 >
-                  <span className="text-sm sm:text-base leading-none">📥</span>
+                  <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">导入</span>
                 </button>
               )}
@@ -589,7 +590,7 @@ export function RoomClient({
                   }`}
                   title="智能 NPC"
                 >
-                  <span className="text-sm sm:text-base leading-none">🤖</span>
+                  <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">Bot</span>
                 </button>
               )}
@@ -606,7 +607,7 @@ export function RoomClient({
                 }`}
                 title="系统菜单"
               >
-                <span className="text-sm sm:text-base leading-none">☰</span>
+                <Icons.Menu className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">系统</span>
               </button>
               {showSystemMenu && (
@@ -614,21 +615,21 @@ export function RoomClient({
                   onClick={() => setShowSystemMenu(false)}>
                   <button onClick={() => { setShowMembers(true); }}
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                    <span>👥</span> 在线成员 <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
+                    <Icons.Users className="w-4 h-4" /> 在线成员 <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
                   </button>
                   <button onClick={() => { setShowRoomInfo(true); }}
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                    <span>ℹ️</span> 房间信息
+                    <Icons.Info className="w-4 h-4" /> 房间信息
                   </button>
                   {isHost && (
                     <div className="border-t border-border mt-1 pt-1">
                       <button onClick={() => { setShowExport(true); }}
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <span>📥</span> 导出数据
+                        <Icons.Download className="w-4 h-4" /> 导出数据
                       </button>
                       <button onClick={() => { setShowSettings(true); }}
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <span>⚙️</span> 房间设置
+                        <Icons.Settings className="w-4 h-4" /> 房间设置
                       </button>
                     </div>
                   )}
