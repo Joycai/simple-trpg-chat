@@ -131,7 +131,22 @@
     "sectionNavigation": "Navigation",
     "systemRunning": "System Running",
     "backToLobby": "Back to Lobby",
-    "versionLabel": "Admin Console v1.0"
+    "versionLabel": "Admin Console v1.0",
+    "dashboardTitle": "System Dashboard",
+    "dashboardDesc": "Database status, user stats & system overview",
+    "featureConfig": "Feature Config",
+    "dbType": "Database",
+    "rooms": "Rooms",
+    "roomsCount": "",
+    "bots": "Bots",
+    "botsCount": "",
+    "resetPassword": "Reset Password",
+    "newPassword": "Enter new password",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "passwordTooShort": "Password must be at least 3 characters",
+    "passwordResetOk": "Password reset successfully",
+    "passwordResetFail": "Password reset failed"
   },
   "theme": {
     "default": "Default",
