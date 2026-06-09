@@ -160,7 +160,9 @@
     "exportAction": "导出",
     "exporting": "导出中...",
     "exportFail": "导出失败",
-    "exportHint": "Markdown：适合人工阅读和视频脚本 · JSON：适合程序化回放"
+    "exportHint": "Markdown：适合人工阅读和视频脚本 · JSON：适合程序化回放",
+    "changePassword": "修改密码",
+    "currentPassword": "当前密码"
   },
   "theme": {
     "default": "默认",
