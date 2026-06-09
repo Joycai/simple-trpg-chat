@@ -1,0 +1,28 @@
+[data-theme="cthulhu"] {
+  --theme-bg: 15 23 42;
+  --theme-surface: 30 41 59;
+  --theme-surface-alt: 20 30 48;
+  --theme-border: 55 65 81;
+  --theme-text: 203 213 225;
+  --theme-text-muted: 100 116 139;
+  --theme-text-dim: 71 85 105;
+  --theme-primary: 94 234 212;
+  --theme-primary-hover: 45 212 191;
+  --theme-accent: 167 139 250;
+  --theme-accent-hover: 139 92 246;
+  --theme-danger: 220 38 38;
+  --theme-success: 34 197 94;
+  --theme-header-bg: 20 30 48;
+  --theme-header-border: 55 65 81;
+  --theme-input-bg: 30 41 59;
+  --theme-input-border: 75 85 99;
+  --theme-dice-card-bg: 30 41 59;
+  --theme-dice-card-border: 55 65 81;
+  --theme-private-border: 167 139 250;
+  --theme-private-bg: 40 30 60;
+  --theme-scroll-btn: 94 234 212;
+  --theme-radius: 0;
+  --theme-font: 'Inter', 'Geist', sans-serif;
+  --theme-font-mono: 'JetBrains Mono', monospace;
+}
+

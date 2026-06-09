@@ -1,4 +1,13 @@
-/** Supported theme identifiers */
+/**
+ * Supported theme identifiers.
+ *
+ * ADDING A NEW THEME:
+ * 1. Create directory: src/themes/<id>/
+ * 2. Add theme.css with [data-theme="<id>"] CSS variables block
+ * 3. Add this ID to the ThemeId union type below
+ * 4. Add metadata to THEMES record below
+ * 5. Add @import "../themes/<id>/theme.css" to globals.css
+ */
 export type ThemeId = "default" | "parchment" | "cthulhu" | "shrine";
 
 /** Theme metadata for UI display */
