@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -31,7 +31,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <div className="border-t border-purple-500/10 my-3" />
 
           <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">{t("sectionNavigation")}</p>
-          <SidebarLink href="/" icon="←" label={t("backToLobby")} />
+          <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
+            <button type="submit"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-purple-300/70 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200">
+              <span className="text-base w-5 text-center">🚪</span>
+              <span className="font-medium">{t("logout") || "退出登录"}</span>
+            </button>
+          </form>
         </nav>
 
         <div className="px-4 py-3 border-t border-purple-500/20">
