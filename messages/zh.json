@@ -152,7 +152,15 @@
     "cancel": "取消",
     "passwordTooShort": "密码至少3位",
     "passwordResetOk": "密码已重置",
-    "passwordResetFail": "重置失败"
+    "passwordResetFail": "重置失败",
+    "exportTitle": "📥 导出回放数据",
+    "exportDesc": "导出房间完整消息记录、骰点、技能检定和角色状态快照，用于制作 Replay 视频。",
+    "exportMdDesc": "适合视频脚本和阅读",
+    "exportJsonDesc": "适合程序化回放",
+    "exportAction": "导出",
+    "exporting": "导出中...",
+    "exportFail": "导出失败",
+    "exportHint": "Markdown：适合人工阅读和视频脚本 · JSON：适合程序化回放"
   },
   "theme": {
     "default": "默认",
