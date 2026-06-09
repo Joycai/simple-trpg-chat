@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
@@ -34,5 +35,22 @@ export async function deleteUser(id: number) {
 export async function resetPassword(id: number, newPassword: string) {
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, id));
+  revalidatePath("/admin");
+}
+
+export async function changeOwnPassword(oldPassword: string, newPassword: string) {
+  "use server";
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const userId = parseInt((session.user as any).id);
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) throw new Error("User not found");
+
+  const valid = await bcrypt.compare(oldPassword, user.passwordHash);
+  if (!valid) throw new Error("当前密码错误");
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
   revalidatePath("/admin");
 }

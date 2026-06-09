@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { createUser, deleteUser, resetPassword } from "@/app/admin/actions";
+import { createUser, deleteUser, resetPassword, changeOwnPassword } from "@/app/admin/actions";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -23,6 +23,26 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [newPassword, setNewPassword] = useState("");
   const [resetMsg, setResetMsg] = useState("");
   const [resetStatus, setResetStatus] = useState<"" | "success" | "error">("");
+  // Change own password
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [oldPwd, setOldPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [pwdMsg, setPwdMsg] = useState("");
+  const [pwdStatus, setPwdStatus] = useState<"" | "success" | "error">("");
+
+  const handleChangePwd = async () => {
+    if (!oldPwd || !newPwd) return;
+    if (newPwd.length < 3) { setPwdMsg(t("passwordTooShort")); setPwdStatus("error"); return; }
+    try {
+      await changeOwnPassword(oldPwd, newPwd);
+      setPwdMsg(t("passwordResetOk"));
+      setPwdStatus("success");
+      setOldPwd(""); setNewPwd("");
+    } catch (e: any) {
+      setPwdMsg(e.message || t("passwordResetFail"));
+      setPwdStatus("error");
+    }
+  };
 
   const handleResetPassword = async () => {
     if (!resetTarget || !newPassword.trim()) return;
@@ -45,6 +65,42 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
 
   return (
     <section className="bg-[#0f1425] p-5 rounded-xl border border-purple-500/20 shadow-lg">
+      {/* Change own password */}
+      <div className="mb-4 pb-4 border-b border-purple-500/10">
+        {!showChangePwd ? (
+          <button onClick={() => setShowChangePwd(true)}
+            className="text-xs text-amber-400/70 hover:text-amber-400 transition">
+            🔑 {t("changePassword") || "修改密码"}
+          </button>
+        ) : (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+            <h4 className="text-sm font-bold text-amber-300 mb-2">🔑 {t("changePassword") || "修改密码"}</h4>
+            <div className="flex flex-col gap-2">
+              <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)}
+                placeholder={t("currentPassword") || "当前密码"}
+                className="p-2 bg-[#0a0e1a] border border-amber-500/20 rounded text-purple-100 text-sm" />
+              <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                placeholder={t("newPassword") || "新密码（至少3位）"}
+                className="p-2 bg-[#0a0e1a] border border-amber-500/20 rounded text-purple-100 text-sm"
+                onKeyDown={e => e.key === "Enter" && handleChangePwd()} />
+              <div className="flex gap-2">
+                <button onClick={handleChangePwd}
+                  className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                  {t("confirm") || "确认"}
+                </button>
+                <button onClick={() => { setShowChangePwd(false); setOldPwd(""); setNewPwd(""); setPwdMsg(""); }}
+                  className="text-purple-400/50 hover:text-purple-300 text-sm px-2">
+                  {t("cancel") || "取消"}
+                </button>
+              </div>
+              {pwdMsg && (
+                <p className={`text-xs ${pwdStatus === "error" ? "text-rose-400" : "text-emerald-400"}`}>{pwdMsg}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <h3 className="font-bold text-purple-200 mb-4 flex items-center gap-2 text-sm">
         <span className="w-2 h-2 rounded-full bg-emerald-400" />
         {t("userManagement")}
