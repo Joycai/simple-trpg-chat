@@ -227,6 +227,31 @@ export const db = drizzle(client, { schema });
 3. **多实例部署**：本项目默认使用内存 EventEmitter 做 SSE 广播。如需多实例部署，需改用 Redis 等外部发布/订阅系统替换 `src/lib/events.ts` 中的 EventEmitter
 4. **日志**：生产环境建议配置日志轮转，监控服务状态
 
+### 反向代理下的 Auth.js 配置
+
+使用反向代理时（Nginx/Caddy），必须在 `.env` 中将 `AUTH_URL` 设置为外部可访问的域名，否则登录后会跳转到 `localhost:3000`：
+
+```env
+# ❌ 错误：反向代理后用户会被跳转到 localhost
+AUTH_URL=http://localhost:3000
+
+# ✅ 正确：设为外部域名
+AUTH_URL=https://trpg.yourdomain.com
+```
+
+如果仅用于本地测试，也可在 `.env` 中删除 `AUTH_URL`，框架会自动从请求头中提取 host（需已配置 `trustHost`）。
+
+### Caddy 反向代理配置示例
+
+```caddy
+trpg.yourdomain.com {
+    reverse_proxy 127.0.0.1:3000 {
+        # SSE 需要禁用缓冲
+        header_up -Accept-Encoding
+    }
+}
+```
+
 ### Nginx 反向代理配置示例
 
 ```nginx
