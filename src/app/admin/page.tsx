@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db, currentDialect } from "@/db";
 import { users, systemConfig, rooms } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
@@ -9,8 +9,7 @@ export default async function AdminPage() {
   const allUsers = await db.select().from(users);
   const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
-  const [dbTypeConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "db_type"));
-  const dbType = dbTypeConfig?.value || "sqlite";
+  const dbType = currentDialect;
 
   const adminCount = allUsers.filter(u => u.role === "admin").length;
   const hostCount = allUsers.filter(u => u.role === "host").length;

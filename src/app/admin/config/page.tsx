@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db, currentDialect } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
@@ -8,8 +8,7 @@ export default async function AdminConfigPage() {
   const t = await getTranslations("admin");
   const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
-  const [dbTypeConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "db_type"));
-  const dbType = dbTypeConfig?.value || "sqlite";
+  const dbType = currentDialect;
 
   return (
     <div className="p-6 flex flex-col gap-6 max-w-3xl">
