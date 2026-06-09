@@ -152,7 +152,15 @@
     "cancel": "Cancel",
     "passwordTooShort": "Password must be at least 3 characters",
     "passwordResetOk": "Password reset successfully",
-    "passwordResetFail": "Password reset failed"
+    "passwordResetFail": "Password reset failed",
+    "exportTitle": "📥 Export Replay Data",
+    "exportDesc": "Export room messages, dice rolls, skill checks and character snapshots for replay video production.",
+    "exportMdDesc": "Best for video scripts and reading",
+    "exportJsonDesc": "Best for programmatic replay",
+    "exportAction": "Export",
+    "exporting": "Exporting...",
+    "exportFail": "Export failed",
+    "exportHint": "Markdown: reading & scripts · JSON: programmatic"
   },
   "theme": {
     "default": "Default",
