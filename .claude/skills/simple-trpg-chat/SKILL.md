@@ -25,7 +25,7 @@ A lightweight, web-based TRPG (Tabletop Role-Playing Game) tool built with **Nex
 | CI/CD | GitHub Actions (Node 20/22 matrix) |
 
 ### Repo
-`/Users/caizhengxu/github/simple-trpg-chat`
+This skill is designed to work from the project root directory. All file paths below are relative to the repo root.
 
 ---
 
