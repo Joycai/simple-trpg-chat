@@ -121,6 +121,14 @@ else
 fi
 echo "[✓] AUTH_SECRET generated"
 
+# --- AUTH_URL (always set for production compatibility) ---
+if ! grep -q "^AUTH_URL=" .env 2>/dev/null; then
+  echo "AUTH_URL=${AUTH_URL:-http://localhost:3000}" >> .env
+  echo "[✓] AUTH_URL set"
+else
+  echo "[✓] AUTH_URL already set"
+fi
+
 # --- AI_ENCRYPTION_KEY (optional) ---
 echo ""
 if ask_yn "Enable AI bot features?" "n"; then
