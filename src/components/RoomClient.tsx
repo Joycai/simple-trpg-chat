@@ -9,6 +9,7 @@ import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { ClueManager } from "./ClueManager";
 import { AiImportPanel } from "./AiImportPanel";
+import { ExportButton } from "./ExportButton";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
@@ -86,6 +87,7 @@ export function RoomClient({
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
@@ -620,6 +622,10 @@ export function RoomClient({
                   </button>
                   {isHost && (
                     <div className="border-t border-border mt-1 pt-1">
+                      <button onClick={() => { setShowExport(true); }}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                        <span>📥</span> 导出数据
+                      </button>
                       <button onClick={() => { setShowSettings(true); }}
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                         <span>⚙️</span> 房间设置
@@ -795,6 +801,13 @@ export function RoomClient({
       )}
       {showRoomInfo && (
         <RoomInfoPanel room={room as any} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
+      )}
+      {showExport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowExport(false)}>
+          <div className="max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <ExportButton roomId={room.id} roomName={room.name} />
+          </div>
+        </div>
       )}
       {showSkills && (
         <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} />
