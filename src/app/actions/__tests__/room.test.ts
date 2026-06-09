@@ -76,9 +76,9 @@ import {
 import { db } from "@/db";
 
 describe("Room Server Actions Integration", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     // Run migrations on the in-memory database
-    migrate(db, {
+    await migrate(db, {
       migrationsFolder: path.resolve(__dirname, "../../../../drizzle"),
     });
   });
