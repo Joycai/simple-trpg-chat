@@ -1,6 +1,7 @@
 ---
 name: simple-trpg-chat
-description: Expert knowledge for the Simple TRPG Chat project — a lightweight web-based TRPG tool with Next.js 16, SQLite/PostgreSQL, SSE real-time chat, AI Bot, dice system, inventory, clue cards, character sheets, and multi-theme support.
+description: >-
+  Expert knowledge for the Simple TRPG Chat project — a lightweight web-based TRPG tool built with Next.js 16, Drizzle ORM (SQLite/PostgreSQL), SSE real-time chat, AI Bot Agent, dice system, inventory, clue cards, character sheets, and multi-theme support. Use this skill whenever working on this project's codebase, adding features, fixing bugs, understanding the data model (12 tables), following development conventions (feature branches, PR workflow, pnpm, CI), or navigating the architecture (SSE privacy filter V3.15, Bot-as-User pattern, Server Actions, i18n with next-intl). Also use for questions about core concepts (Room, Bot, Dice, Character, Inventory, Clue, Private Chat, Markdown, Theme) or when troubleshooting common pitfalls.
 ---
 
 # Simple TRPG Chat — Project Knowledge
