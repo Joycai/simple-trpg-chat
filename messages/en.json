@@ -160,7 +160,9 @@
     "exportAction": "Export",
     "exporting": "Exporting...",
     "exportFail": "Export failed",
-    "exportHint": "Markdown: reading & scripts · JSON: programmatic"
+    "exportHint": "Markdown: reading & scripts · JSON: programmatic",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password"
   },
   "theme": {
     "default": "Default",
