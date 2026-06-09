@@ -22,6 +22,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [resetTarget, setResetTarget] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [resetMsg, setResetMsg] = useState("");
+  const [resetStatus, setResetStatus] = useState<"" | "success" | "error">("");
 
   const handleResetPassword = async () => {
     if (!resetTarget || !newPassword.trim()) return;
@@ -31,12 +32,14 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
     }
     try {
       await resetPassword(resetTarget, newPassword.trim());
-      setResetMsg(t("passwordResetOk") || "密码已重置");
+      setResetMsg(t("passwordResetOk"));
+      setResetStatus("success");
       setResetTarget(null);
       setNewPassword("");
       router.refresh();
     } catch {
-      setResetMsg(t("passwordResetFail") || "重置失败");
+      setResetMsg(t("passwordResetFail"));
+      setResetStatus("error");
     }
   };
 
@@ -74,7 +77,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
             </button>
           </div>
           {resetMsg && (
-            <p className={`text-xs mt-2 ${resetMsg.includes("失败") || resetMsg.includes("Fail") ? "text-rose-400" : "text-emerald-400"}`}>
+            <p className={`text-xs mt-2 ${resetStatus === "error" ? "text-rose-400" : "text-emerald-400"}`}>
               {resetMsg}
             </p>
           )}
@@ -120,7 +123,10 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
             </tr>
           </thead>
           <tbody>
-            {allUsers.map((user: any) => (
+            {allUsers.length === 0 ? (
+              <tr><td colSpan={4} className="py-12 text-center text-purple-400/30 text-sm">{t("noUsers")}</td></tr>
+            ) : (
+              allUsers.map((user: any) => (
               <tr key={user.id} className="border-b border-purple-500/10 last:border-0 hover:bg-purple-500/5 transition">
                 <td className="py-3 font-mono text-sm text-purple-200">{user.username}</td>
                 <td className="py-3 text-purple-300 text-sm">{user.displayName}</td>
@@ -151,7 +157,8 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                   </form>
                 </td>
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
       </div>

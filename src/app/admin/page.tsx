@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users, systemConfig, rooms, roomMembers } from "@/db/schema";
+import { users, systemConfig, rooms } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { createUser, deleteUser } from "./actions";

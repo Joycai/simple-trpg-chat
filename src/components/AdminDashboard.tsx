@@ -29,18 +29,18 @@ export function AdminDashboard({
           color={dbType === "postgresql" ? "emerald" : "blue"}
         />
         <StatusBadge
-          label="AI"
+          label={t("aiFeature")}
           value={aiEnabled ? t("enabled") : t("disabled")}
           color={aiEnabled ? "emerald" : "purple"}
         />
         <StatusBadge
           label={t("rooms")}
-          value={`${roomCount} ${t("roomsCount")}`}
+          value={`${roomCount}`}
           color="purple"
         />
         <StatusBadge
-          label="Bot"
-          value={`${botCount} ${t("botsCount")}`}
+          label={t("bots")}
+          value={`${botCount}`}
           color="amber"
         />
       </div>

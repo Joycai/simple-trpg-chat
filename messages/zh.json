@@ -131,7 +131,22 @@
     "sectionNavigation": "导航",
     "systemRunning": "系统运行中",
     "backToLobby": "返回大厅",
-    "versionLabel": "Admin Console v1.0"
+    "versionLabel": "Admin Console v1.0",
+    "dashboardTitle": "系统仪表盘",
+    "dashboardDesc": "数据库状态、用户统计与系统概览",
+    "featureConfig": "功能配置",
+    "dbType": "数据库",
+    "rooms": "房间",
+    "roomsCount": "个",
+    "bots": "Bot",
+    "botsCount": "个",
+    "resetPassword": "重置密码",
+    "newPassword": "输入新密码",
+    "confirm": "确认",
+    "cancel": "取消",
+    "passwordTooShort": "密码至少3位",
+    "passwordResetOk": "密码已重置",
+    "passwordResetFail": "重置失败"
   },
   "theme": {
     "default": "默认",
