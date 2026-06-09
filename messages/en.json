@@ -130,7 +130,7 @@
     "sectionManagement": "Management",
     "sectionNavigation": "Navigation",
     "systemRunning": "System Running",
-    "backToLobby": "Back to Lobby",
+    "logout": "Logout",
     "versionLabel": "Admin Console v1.0",
     "dashboardTitle": "System Dashboard",
     "dashboardDesc": "Database status, user stats & system overview",

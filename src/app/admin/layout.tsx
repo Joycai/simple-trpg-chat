@@ -35,7 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <button type="submit"
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-purple-300/70 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200">
               <span className="text-base w-5 text-center">🚪</span>
-              <span className="font-medium">{t("logout") || "退出登录"}</span>
+              <span className="font-medium">{t("logout")}</span>
             </button>
           </form>
         </nav>

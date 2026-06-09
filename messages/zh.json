@@ -130,7 +130,7 @@
     "sectionManagement": "管理",
     "sectionNavigation": "导航",
     "systemRunning": "系统运行中",
-    "backToLobby": "返回大厅",
+    "logout": "退出登录",
     "versionLabel": "Admin Console v1.0",
     "dashboardTitle": "系统仪表盘",
     "dashboardDesc": "数据库状态、用户统计与系统概览",
