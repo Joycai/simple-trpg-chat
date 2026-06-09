@@ -1,0 +1,28 @@
+/* Call of Cthulhu Theme */
+[data-theme="cthulhu"] {
+  --theme-bg: 15 23 42;
+  --theme-surface: 30 41 59;
+  --theme-surface-alt: 20 31 49;
+  --theme-border: 51 65 85;
+  --theme-text: 226 232 240;
+  --theme-text-muted: 148 163 184;
+  --theme-text-dim: 100 116 139;
+  --theme-primary: 94 234 212;
+  --theme-primary-hover: 45 212 191;
+  --theme-accent: 216 180 254;
+  --theme-accent-hover: 192 132 252;
+  --theme-danger: 248 113 113;
+  --theme-success: 74 222 128;
+  --theme-header-bg: 20 31 49;
+  --theme-header-border: 51 65 85;
+  --theme-input-bg: 15 23 42;
+  --theme-input-border: 51 65 85;
+  --theme-dice-card-bg: 20 40 60;
+  --theme-dice-card-border: 30 60 80;
+  --theme-private-border: 147 51 234;
+  --theme-private-bg: 30 20 55;
+  --theme-scroll-btn: 94 234 212;
+  --theme-radius: 0.5rem;
+  --theme-font: 'Inter', 'Geist', sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}

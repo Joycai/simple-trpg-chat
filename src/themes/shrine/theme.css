@@ -1,0 +1,28 @@
+/* Ancient Shrine Theme (Wa-fu) */
+[data-theme="shrine"] {
+  --theme-bg: 30 22 17;
+  --theme-surface: 40 30 23;
+  --theme-surface-alt: 50 38 30;
+  --theme-border: 100 70 50;
+  --theme-text: 235 225 210;
+  --theme-text-muted: 180 160 140;
+  --theme-text-dim: 140 120 100;
+  --theme-primary: 196 64 64;
+  --theme-primary-hover: 160 40 40;
+  --theme-accent: 220 150 50;
+  --theme-accent-hover: 180 120 30;
+  --theme-danger: 220 50 50;
+  --theme-success: 80 160 60;
+  --theme-header-bg: 40 30 23;
+  --theme-header-border: 100 70 50;
+  --theme-input-bg: 30 22 17;
+  --theme-input-border: 100 70 50;
+  --theme-dice-card-bg: 45 35 28;
+  --theme-dice-card-border: 120 80 55;
+  --theme-private-border: 196 64 64;
+  --theme-private-bg: 45 25 25;
+  --theme-scroll-btn: 196 64 64;
+  --theme-radius: 0.25rem;
+  --theme-font: 'Noto Serif JP', 'Noto Serif SC', serif;
+  --theme-font-mono: 'Courier New', 'Fira Code', monospace;
+}

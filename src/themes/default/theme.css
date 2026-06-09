@@ -1,0 +1,29 @@
+/* Default Theme (Dark Tabletop) */
+:root,
+[data-theme="default"] {
+  --theme-bg: 249 250 251;
+  --theme-surface: 255 255 255;
+  --theme-surface-alt: 243 244 246;
+  --theme-border: 229 231 235;
+  --theme-text: 31 41 55;
+  --theme-text-muted: 156 163 175;
+  --theme-text-dim: 107 114 128;
+  --theme-primary: 59 130 246;
+  --theme-primary-hover: 37 99 235;
+  --theme-accent: 245 158 11;
+  --theme-accent-hover: 217 119 6;
+  --theme-danger: 239 68 68;
+  --theme-success: 34 197 94;
+  --theme-header-bg: 255 255 255;
+  --theme-header-border: 229 231 235;
+  --theme-input-bg: 255 255 255;
+  --theme-input-border: 209 213 219;
+  --theme-dice-card-bg: 238 242 255;
+  --theme-dice-card-border: 199 210 254;
+  --theme-private-border: 167 139 250;
+  --theme-private-bg: 245 243 255;
+  --theme-scroll-btn: 99 102 241;
+  --theme-radius: 0.5rem;
+  --theme-font: 'Inter', 'Geist', sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
