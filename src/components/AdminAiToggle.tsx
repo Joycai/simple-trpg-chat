@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { updateSystemConfig } from "@/app/actions/ai";
 
 interface AdminAiToggleProps {
@@ -8,6 +9,7 @@ interface AdminAiToggleProps {
 }
 
 export function AdminAiToggle({ initialEnabled }: AdminAiToggleProps) {
+  const t = useTranslations("admin");
   const [enabled, setEnabled] = useState(initialEnabled);
   const [saving, setSaving] = useState(false);
 
@@ -28,9 +30,9 @@ export function AdminAiToggle({ initialEnabled }: AdminAiToggleProps) {
     <div className="bg-surface p-6 rounded-theme shadow-sm border">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="font-bold text-text text-lg mb-1">🤖 AI 功能</h3>
+          <h3 className="font-bold text-text text-lg mb-1">🤖 {t("aiFeature")}</h3>
           <p className="text-sm text-text-muted">
-            开启后，主持人可以在设置中配置 OpenAI 兼容 API，用于智能线索整理和导入
+            {t("aiToggleDesc")}
           </p>
         </div>
         <button
