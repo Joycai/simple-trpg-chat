@@ -44,8 +44,10 @@ interface ExportRoomData {
  */
 export async function exportRoomDataAction(roomId: number): Promise<ExportRoomData> {
   const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Only host can export room data");
+  if (!session) throw new Error("Not authenticated");
+  const role = (session.user as any).role;
+  if (role !== "host" && role !== "admin") {
+    throw new Error("Only host or admin can export room data");
   }
 
   // Room info
