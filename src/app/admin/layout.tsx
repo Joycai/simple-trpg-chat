@@ -25,12 +25,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         <nav className="flex-1 py-4 flex flex-col gap-1 px-3">
           <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">{t("sectionManagement")}</p>
-          <SidebarLink href="/admin" icon="👥" label={t("userManagement")} />
-          <SidebarLink href="/admin/ai" icon="🤖" label={t("aiConfig")} />
+          <SidebarLink href="/admin" icon="📊" label={t("dashboard") || "Dashboard"} />
+          <SidebarLink href="/admin/users" icon="👥" label={t("userManagement")} />
+          <SidebarLink href="/admin/config" icon="⚙️" label={t("systemConfig") || "系统配置"} />
 
           <div className="border-t border-purple-500/10 my-3" />
-
-          <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">{t("sectionNavigation")}</p>
           <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
             <button type="submit"
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-purple-300/70 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200">
