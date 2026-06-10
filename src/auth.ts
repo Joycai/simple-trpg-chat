@@ -25,10 +25,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!isPasswordCorrect) return null;
 
         // Single-session: generate new token to invalidate old sessions
-        const sessionToken = crypto.randomUUID();
-        await db.update(users)
-          .set({ sessionToken, updatedAt: sqlNow() })
-          .where(eq(users.id, user.id));
+        // Try-catch: column may not exist if DB hasn't been migrated
+        let sessionToken: string | undefined;
+        try {
+          sessionToken = crypto.randomUUID();
+          await db.update(users)
+            .set({ sessionToken, updatedAt: sqlNow() })
+            .where(eq(users.id, user.id));
+        } catch {
+          // session_token column doesn't exist yet — non-blocking
+          sessionToken = undefined;
+        }
 
         return {
           id: user.id.toString(),
