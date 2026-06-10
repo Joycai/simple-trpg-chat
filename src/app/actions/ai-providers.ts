@@ -115,6 +115,7 @@ export async function getMyProviders() {
     ...maskProviderKey(p),
     isOwner: p.ownerId === userId,
   }));
+
 }
 
 /** Get all providers (admin only, for management) */
@@ -132,10 +133,13 @@ export async function getAllProviders() {
     .where(eq(aiProviders.ownerId, userId))
     .orderBy(aiProviders.name);
 
-  return rows.map(maskProviderKey);
+  const userId = parseInt((session.user as any).id);
+  return rows.map(p => ({
+    ...maskProviderKey(p),
+    isOwner: p.ownerId === userId,
+  }));
 }
 
-/** Get a single provider with decrypted key (for AI calls) */
 export async function getProviderKey(providerId: number): Promise<string> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
