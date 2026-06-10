@@ -1,23 +1,23 @@
 "use server";
 
-import { db, sqlNow } from "@/db";
-import { aiProviders } from "@/db/schema";
+import { db, sqlNow, currentDialect } from "@/db";
+import { aiProviders as sqliteAiProviders } from "@/db/schema";
+import { aiProviders as pgAiProviders } from "@/db/schema.pg";
 import { eq, and, or, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 
+// Use correct schema: PG schema encodes boolean → TRUE/FALSE, not integer 1/0
+const aiProviders = currentDialect === "postgresql" ? pgAiProviders : sqliteAiProviders;
+
 export interface ProviderData {
   name: string;
   apiEndpoint: string;
-  apiKey?: string;       // plain text (new/updated), or undefined to keep existing
+  apiKey?: string;
   model: string;
-  isShared?: boolean;    // admin only
+  isShared?: boolean;
 }
-
-// ============================================================
-// CRUD
-// ============================================================
 
 /** Create a new AI provider (host or admin) */
 export async function createProvider(data: ProviderData) {
@@ -64,8 +64,6 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
     values.apiKeyEncrypted = encrypt(data.apiKey.trim());
   }
-  // Admin: always write isShared (checkbox passes true/false)
-
   if (isAdmin) {
     values.isShared = data.isShared ?? existing.isShared;
   }
@@ -112,12 +110,10 @@ export async function getMyProviders() {
     )
     .orderBy(aiProviders.name);
 
-  // Mask API keys + add ownership metadata
   return rows.map(p => ({
     ...maskProviderKey(p),
     isOwner: p.ownerId === userId,
   }));
-
 }
 
 /** Get all providers (admin only, for management) */
