@@ -144,3 +144,57 @@ body {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ============================================================
+   Skeuomorphic Theme Wiring — applies per-theme variables
+   to actual DOM elements for visible effects.
+   ============================================================ */
+
+/* Surface texture overlay (paper grain / metal rust / washi fiber) */
+.bg-surface,
+.bg-surface-alt,
+section[class*="bg-surface"] {
+  position: relative;
+}
+.bg-surface::before,
+.bg-surface-alt::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--theme-surface-texture);
+  border-radius: inherit;
+  z-index: 0;
+}
+/* Ensure card content stays above texture */
+.bg-surface > *,
+.bg-surface-alt > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Card shadow (angled paper / cold industrial / wooden depth) */
+.shadow-lg,
+.shadow-sm,
+.shadow-md,
+[class*="shadow"] {
+  box-shadow: var(--theme-card-shadow, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+}
+.rounded-theme {
+  border-radius: var(--theme-radius);
+}
+
+/* Theme glow for selected/active elements */
+.filter-tab-active,
+[aria-selected="true"],
+[data-state="active"] {
+  box-shadow: var(--theme-glow);
+}
+
+/* Border mask — applied to elements with .theme-border class */
+.theme-border {
+  -webkit-mask-image: var(--theme-border-mask);
+  mask-image: var(--theme-border-mask);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
