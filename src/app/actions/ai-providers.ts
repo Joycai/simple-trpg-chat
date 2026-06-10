@@ -57,19 +57,20 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (!existing) throw new Error("Provider not found");
   if (existing.ownerId !== userId && !isAdmin) throw new Error("Not authorized");
 
-  const values: Record<string, any> = {};
-  if (data.name?.trim()) values.name = data.name.trim();
-  if (data.apiEndpoint?.trim()) values.apiEndpoint = data.apiEndpoint.trim();
-  if (data.model?.trim()) values.model = data.model.trim();
+  // Build update using Drizzle's typed set
+  const setData: Parameters<typeof db.update<typeof aiProviders>['set']>[0]['set']>[0] = {};
+  if (data.name?.trim()) setData.name = data.name.trim();
+  if (data.apiEndpoint?.trim()) setData.apiEndpoint = data.apiEndpoint.trim();
+  if (data.model?.trim()) setData.model = data.model.trim();
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
-    values.apiKeyEncrypted = encrypt(data.apiKey.trim());
+    setData.apiKeyEncrypted = encrypt(data.apiKey.trim());
   }
   if (isAdmin) {
-    values.isShared = data.isShared != null ? Boolean(data.isShared) : existing.isShared;
+    setData.isShared = data.isShared != null ? Boolean(data.isShared) : existing.isShared;
   }
 
-  const [updated] = await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId)).returning();
-  console.log("[updateProvider DONE]", { providerId, inputIsShared: data.isShared, savedIsShared: values.isShared, dbIsShared: updated?.isShared });
+  const [updated] = await db.update(aiProviders).set(setData).where(eq(aiProviders.id, providerId)).returning();
+  console.log("[updateProvider DONE]", { providerId, inputIsShared: data.isShared, setIsShared: setData.isShared, dbIsShared: updated?.isShared });
   revalidatePath("/");
 }
 
