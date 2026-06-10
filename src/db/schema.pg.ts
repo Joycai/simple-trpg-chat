@@ -50,6 +50,8 @@ export const users = pgTable('users', {
   displayName: text('display_name').notNull(),
   isBot: boolean('is_bot').notNull().default(false),
   botConfigJson: text('bot_config_json'),
+  themePreference: text('theme_preference'),
+  sessionToken: text('session_token'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
