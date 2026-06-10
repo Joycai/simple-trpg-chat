@@ -13,21 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: trpg
-          POSTGRES_PASSWORD: trpg_ci
-          POSTGRES_DB: simple_trpg_chat
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     strategy:
       matrix:
         node-version: [20, 22]
@@ -47,12 +32,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Create db config
-        run: echo '{"type":"postgresql","url":"postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat"}' > db.config.json
-
-      - name: Push schema
-        run: npx drizzle-kit push:pg
 
       - name: Lint (non-blocking)
         run: pnpm lint
