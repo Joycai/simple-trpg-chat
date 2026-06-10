@@ -68,7 +68,8 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
 
   if (isAdmin) {
     const newVal = data.isShared ?? existing.isShared;
-    // PG boolean column requires TRUE/FALSE literal, not integer 1/0
+    // PG boolean column requires TRUE/FALSE — Drizzle encodes as integer 1/0 from SQLite schema
+    // Use raw SQL literal to bypass the integer→boolean type mismatch
     values.isShared = sql`${sql.raw(newVal ? 'TRUE' : 'FALSE')}`;
   }
 
