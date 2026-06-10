@@ -37,7 +37,7 @@
 
   /* === Skeuomorphic: washi paper texture (fine fiber grain) === */
 
-  --theme-surface-texture: repeating-conic-gradient(rgba(200,55,35,0.12) 0% 25%, transparent 0% 50%);
+  --theme-surface-texture: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAI0lEQVR4nGMw11b+D8InzJUlQTQDTAAqKMIAZYjBBFFUgDAACXgXXnW6z+EAAAAASUVORK5CYII=);
 
   /* === Skeuomorphic: torii seal glow (vermilion stamp feedback) === */
   --theme-glow: 0 0 6px rgba(200, 55, 35, 0.35),
