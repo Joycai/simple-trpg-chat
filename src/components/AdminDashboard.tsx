@@ -1,6 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Database, HardDrive } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface AdminDashboardProps {
   dbType: string;
@@ -25,7 +27,7 @@ export function AdminDashboard({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatusBadge
           label={t("dbType")}
-          value={dbType === "postgresql" ? "🐘 PostgreSQL" : "📦 SQLite"}
+          value={dbType === "postgresql" ? <span className="inline-flex items-center gap-1"><Database className="w-3.5 h-3.5" /> PostgreSQL</span> : <span className="inline-flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" /> SQLite</span>}
           color={dbType === "postgresql" ? "emerald" : "blue"}
         />
         <StatusBadge
@@ -79,7 +81,7 @@ function StatCard({ label, value, color }: { label: string; value: number; color
   );
 }
 
-function StatusBadge({ label, value, color }: { label: string; value: string; color: string }) {
+function StatusBadge({ label, value, color }: { label: string; value: ReactNode; color: string }) {
   const colors: Record<string, string> = {
     purple: "border-purple-500/20 bg-purple-500/5 text-purple-300",
     emerald: "border-emerald-500/20 bg-emerald-500/5 text-emerald-300",

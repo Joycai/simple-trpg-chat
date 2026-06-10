@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Bot } from "lucide-react";
 import { updateSystemConfig } from "@/app/actions/ai";
 
 interface AdminAiToggleProps {
@@ -30,7 +31,7 @@ export function AdminAiToggle({ initialEnabled }: AdminAiToggleProps) {
     <div className="bg-surface p-6 rounded-theme shadow-sm border">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="font-bold text-text text-lg mb-1">🤖 {t("aiFeature")}</h3>
+          <h3 className="font-bold text-text text-lg mb-1 inline-flex items-center gap-1.5"><Bot className="w-5 h-5" /> {t("aiFeature")}</h3>
           <p className="text-sm text-text-muted">
             {t("aiToggleDesc")}
           </p>

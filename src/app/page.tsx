@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { LobbyClient } from "@/components/LobbyClient";
+import { Dices } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { AiSettingsButton } from "@/components/AiSettingsButton";
 import { UserDropdown } from "@/components/UserDropdown";
@@ -41,7 +42,7 @@ export default async function HomePage() {
       <header className="bg-header-bg border-b border-header-border p-4 text-text shadow-sm">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold">🎲 Simple TRPG Chat</h1>
+            <h1 className="text-xl font-bold inline-flex items-center gap-1.5"><Dices className="w-5 h-5" /> Simple TRPG Chat</h1>
             {isAdmin && (
               <Link href="/admin" className="text-xs bg-danger/20 text-danger border border-danger/30 px-2 py-1 rounded hover:bg-danger/30 transition">
                 {t("admin")}

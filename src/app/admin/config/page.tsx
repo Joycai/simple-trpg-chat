@@ -3,6 +3,7 @@ import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { AdminAiToggle } from "@/components/AdminAiToggle";
+import { Database, HardDrive } from "lucide-react";
 
 export default async function AdminConfigPage() {
   const t = await getTranslations("admin");
@@ -32,7 +33,9 @@ export default async function AdminConfigPage() {
         </h3>
         <div className="flex items-center justify-between">
           <span className="text-sm text-purple-300/70">{t("dbType") || "数据库类型"}</span>
-          <span className="text-sm font-bold text-purple-200">{dbType === "postgresql" ? "🐘 PostgreSQL" : "📦 SQLite"}</span>
+          <span className="text-sm font-bold text-purple-200 inline-flex items-center gap-1">
+            {dbType === "postgresql" ? <><Database className="w-4 h-4" /> PostgreSQL</> : <><HardDrive className="w-4 h-4" /> SQLite</>}
+          </span>
         </div>
         <p className="text-[10px] text-purple-400/30 mt-2">{t("dbConfigHint") || "数据库类型由 db.config.json 决定，修改后重启服务生效。"}</p>
       </section>
