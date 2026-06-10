@@ -67,10 +67,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   // Admin: always write isShared (checkbox passes true/false)
 
   if (isAdmin) {
-    const newVal = data.isShared ?? existing.isShared;
-    // PG boolean column requires TRUE/FALSE — Drizzle encodes as integer 1/0 from SQLite schema
-    // Use raw SQL literal to bypass the integer→boolean type mismatch
-    values.isShared = sql`${sql.raw(newVal ? 'TRUE' : 'FALSE')}`;
+    values.isShared = data.isShared ?? existing.isShared;
   }
 
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
