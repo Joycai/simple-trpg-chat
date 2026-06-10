@@ -62,12 +62,11 @@ export const authConfig = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token.sub) {
         // Validate single-session token against DB (cached)
-        if (token.sessionToken && token.sub) {
+        if (token.sessionToken) {
           const valid = await isSessionValid(token.sub, token.sessionToken as string);
           if (!valid) {
-            // Session was invalidated by a newer login
             (session as any).invalidated = true;
             return session;
           }
