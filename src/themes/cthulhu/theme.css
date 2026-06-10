@@ -42,7 +42,7 @@
 
   /* === Skeuomorphic: rust-spotted metal texture (CSS-only) === */
 
-  --theme-surface-texture: repeating-conic-gradient(rgba(180,130,255,0.12) 0% 25%, transparent 0% 50%);
+  --theme-surface-texture: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAKklEQVR4nGMQUlD5D8KSQhpgmgFExL26ogGTYIAxtjT9VwYLwJRCVcoBAAcFGCLHv0d1AAAAAElFTkSuQmCC);
 
 
   /* === Asymmetric: 0 all corners (cold, inhuman, industrial) === */

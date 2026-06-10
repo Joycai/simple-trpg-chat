@@ -37,7 +37,7 @@
 
   /* === Skeuomorphic: paper grain texture (CSS-only, no SVG filter) === */
 
-  --theme-surface-texture: repeating-conic-gradient(rgba(139,90,43,0.15) 0% 25%, transparent 0% 50%);
+  --theme-surface-texture: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAM0lEQVR4nGP4+uzE/0s7p/0H0SdW9fxnADFA+PCCJjDNcOfwgv8wwUtbJkJUnFjRDhcEADnKNqA0DJi0AAAAAElFTkSuQmCC);
 
 
   /* === Skeuomorphic: card shadow (angled paper layers) === */
