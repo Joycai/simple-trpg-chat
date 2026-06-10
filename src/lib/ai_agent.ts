@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, hostAiConfig, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
 import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
@@ -135,7 +135,7 @@ export async function runAgent(botUserId: number, roomId: number) {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return;
 
-  const [aiConfig] = await db.select().from(hostAiConfig).where(eq(hostAiConfig.userId, room.hostId));
+  const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.ownerId, room.hostId));
   if (!aiConfig) return;
 
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);
@@ -530,7 +530,7 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
 
   // Get Host AI Config for summarization
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  const [aiConfig] = await db.select().from(hostAiConfig).where(eq(hostAiConfig.userId, room.hostId));
+  const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.ownerId, room.hostId));
   if (!aiConfig) return;
 
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);

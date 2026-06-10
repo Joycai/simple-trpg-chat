@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { hostAiConfig, inventoryItems, clueCards, clueVisibility } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { aiProviders, inventoryItems, clueCards, clueVisibility } from "@/db/schema";
+import { eq, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
@@ -29,14 +29,16 @@ export async function analyzeTextForImportAction(
 
   const userId = parseInt((session.user as any).id);
 
-  // Get host AI config
-  const [config] = await db.select().from(hostAiConfig).where(eq(hostAiConfig.userId, userId));
-  if (!config) {
-    return { success: false, error: "请先在 Host AI 设置中配置 API" };
+  // Get first available AI provider (own or shared)
+  const [provider] = await db.select().from(aiProviders).where(
+    or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
+  ).orderBy(aiProviders.id);
+  if (!provider) {
+    return { success: false, error: "请先在个人设置中添加 AI Provider" };
   }
 
-  const apiKey = decrypt(config.apiKeyEncrypted);
-  const endpoint = config.apiEndpoint;
+  const apiKey = decrypt(provider.apiKeyEncrypted);
+  const endpoint = provider.apiEndpoint;
 
   const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。
 
@@ -62,7 +64,7 @@ export async function analyzeTextForImportAction(
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: config.model,
+        model: provider.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: rawText.slice(0, 5000) },

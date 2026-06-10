@@ -1,7 +1,7 @@
 /**
  * Simple TRPG Chat — Database Schema (Drizzle ORM)
  *
- * Tables: users | rooms | room_members | messages | room_skills | system_config | host_ai_config
+ * Tables: users | rooms | room_members | messages | room_skills | system_config
  *         | inventory_items | inventory_distributions | clue_cards | clue_visibility
  */
 
@@ -132,15 +132,6 @@ export const systemConfig = sqliteTable('system_config', {
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });
 
-/** Host-specific AI configurations */
-export const hostAiConfig = sqliteTable('host_ai_config', {
-  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
-  apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
-  apiKeyEncrypted: text('api_key_encrypted').notNull(),
-  model: text('model').notNull().default('gpt-4o'),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
-});
 
 /**
  * inventory_items
@@ -220,7 +211,6 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   roomMemberships: many(roomMembers),
   messages: many(messages),
   skills: many(roomSkills),
-  aiConfig: one(hostAiConfig),
   sentDistributions: many(inventoryDistributions, { relationName: 'sender' }),
   receivedDistributions: many(inventoryDistributions, { relationName: 'recipient' }),
 }));
@@ -250,9 +240,6 @@ export const roomDmReadsRelations = relations(roomDmReads, ({ one }) => ({
   partner: one(users, { fields: [roomDmReads.partnerUserId], references: [users.id] }),
 }));
 
-export const hostAiConfigRelations = relations(hostAiConfig, ({ one }) => ({
-  user: one(users, { fields: [hostAiConfig.userId], references: [users.id] }),
-}));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
   room: one(rooms, { fields: [messages.roomId], references: [rooms.id] }),

@@ -8,7 +8,6 @@ import Link from "next/link";
 import { LobbyClient } from "@/components/LobbyClient";
 import { Dices } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { AiSettingsButton } from "@/components/AiSettingsButton";
 import { UserDropdown } from "@/components/UserDropdown";
 
 export default async function HomePage() {
@@ -52,7 +51,6 @@ export default async function HomePage() {
 
           <div className="flex items-center gap-4">
             <ThemeSwitcher />
-            {isHost && <AiSettingsButton />}
             <div className="h-4 w-px bg-border mx-2 hidden sm:block" />
             <UserDropdown
               userName={user.name || user.username}
