@@ -41,7 +41,7 @@
                        0 4px 8px rgba(0, 0, 0, 0.4);
 
   /* === Skeuomorphic: rust-spotted metal texture (CSS-only) === */
-  --theme-surface-texture: repeating-conic-gradient(rgba(180,130,255,0.04) 0% 25%, transparent 0% 50%);
+  --theme-surface-texture: repeating-conic-gradient(rgba(180,130,255,0.12) 0% 25%, transparent 0% 50%);
 
   /* === Asymmetric: 0 all corners (cold, inhuman, industrial) === */
   --theme-radius-tl: 0;
