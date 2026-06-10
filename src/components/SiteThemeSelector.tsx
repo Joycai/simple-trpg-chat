@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { setSiteTheme } from "@/app/actions/theme";
 import { THEME_LIST, type ThemeId } from "@/themes/types";
 
@@ -10,7 +10,7 @@ interface SiteThemeSelectorProps {
 }
 
 export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
-  const t = useTranslations("admin");
+  const router = useRouter();
   const [theme, setTheme] = useState<ThemeId>(currentTheme);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -21,9 +21,11 @@ export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
     setMsg("");
     try {
       await setSiteTheme(newTheme);
-      setMsg(t("passwordResetOk") || "已保存");
+      setMsg("主题已更新");
+      // Refresh to apply the new site theme to the admin panel
+      router.refresh();
     } catch {
-      setMsg(t("passwordResetFail") || "保存失败");
+      setMsg("保存失败，请重试");
     }
     setSaving(false);
   };
