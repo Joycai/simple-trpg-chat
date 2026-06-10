@@ -67,7 +67,9 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   // Admin: always write isShared (checkbox passes true/false)
 
   if (isAdmin) {
-    values.isShared = data.isShared ?? existing.isShared;
+    const newVal = data.isShared ?? existing.isShared;
+    // PG boolean requires TRUE/FALSE — bypass Drizzle type encoding
+    values.isShared = sql`${sql.raw(newVal ? 'TRUE' : 'FALSE')}`;
   }
 
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
