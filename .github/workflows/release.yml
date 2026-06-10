@@ -61,8 +61,8 @@ jobs:
         run: |
           mkdir -p dist
           cp -r .next/standalone/* dist/
-          cp -r .next/static dist/.next/static 2>/dev/null || true
-          cp -r public dist/public 2>/dev/null || true
+          cp -r .next/static dist/.next/static
+          cp -r public dist/public
           tar -czf simple-trpg-chat.tar.gz -C dist .
 
       - name: Get timestamp
