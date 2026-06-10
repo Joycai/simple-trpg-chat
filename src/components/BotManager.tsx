@@ -105,6 +105,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
     setModel(bot.config.model || "gpt-4o-mini");
     setActivation(bot.config.activation || "@mention");
     setEnableTools(bot.config.enableTools || ["send_message", "roll_dice"]);
+    if (bot.config.providerId) setProviderId(bot.config.providerId);
     setShowCreate(false);
   };
 
