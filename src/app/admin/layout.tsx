@@ -2,7 +2,7 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { BarChart3, Users, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         <nav className="flex-1 py-4 flex flex-col gap-1 px-3">
           <p className="text-[10px] text-purple-400/40 uppercase tracking-widest px-2 mb-1">{t("sectionManagement")}</p>
-          <SidebarLink href="/admin" icon={<BarChart3 className="w-4 h-4" />} label={t("dashboard") || "Dashboard"} />
+          <SidebarLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label={t("dashboard") || "Dashboard"} />
           <SidebarLink href="/admin/users" icon={<Users className="w-4 h-4" />} label={t("userManagement")} />
           <SidebarLink href="/admin/config" icon={<Settings className="w-4 h-4" />} label={t("systemConfig") || "系统配置"} />
 
