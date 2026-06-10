@@ -1,27 +1,51 @@
+/* ---- Ancient Shrine — 拟物化和风神社 ---- */
 [data-theme="shrine"] {
-  --theme-bg: 45 36 30;
-  --theme-surface: 61 48 40;
-  --theme-surface-alt: 31 24 19;
-  --theme-border: 74 60 49;
-  --theme-text: 232 213 196;
-  --theme-text-muted: 158 138 120;
-  --theme-text-dim: 110 90 72;
-  --theme-primary: 201 58 36;
+  /* === Core palette: ebony wood + torii red === */
+  --theme-bg: 40 32 26;
+  --theme-surface: 55 43 35;
+  --theme-surface-alt: 28 21 16;
+  --theme-border: 70 55 44;
+  --theme-text: 228 208 185;
+  --theme-text-muted: 155 135 115;
+  --theme-text-dim: 108 90 72;
+  --theme-primary: 200 55 35;
   --theme-primary-hover: 165 42 24;
-  --theme-accent: 212 175 55;
-  --theme-accent-hover: 184 134 11;
-  --theme-danger: 220 38 38;
-  --theme-success: 34 197 94;
-  --theme-header-bg: 31 24 19;
-  --theme-header-border: 74 60 49;
-  --theme-input-bg: 61 48 40;
-  --theme-input-border: 74 60 49;
-  --theme-dice-card-bg: 61 48 40;
-  --theme-dice-card-border: 74 60 49;
-  --theme-private-border: 212 175 55;
-  --theme-private-bg: 50 40 30;
-  --theme-scroll-btn: 201 58 36;
+  --theme-accent: 205 170 50;
+  --theme-accent-hover: 180 140 20;
+  --theme-danger: 220 40 40;
+  --theme-success: 38 180 85;
+  --theme-header-bg: 28 21 16;
+  --theme-header-border: 70 55 44;
+  --theme-input-bg: 55 43 35;
+  --theme-input-border: 70 55 44;
+  --theme-dice-card-bg: 55 43 35;
+  --theme-dice-card-border: 70 55 44;
+  --theme-private-border: 200 55 35;
+  --theme-private-bg: 45 28 22;
+  --theme-scroll-btn: 200 55 35;
+
+  /* === Typography === */
   --theme-radius: 0.25rem;
-  --theme-font: 'Crimson Text', serif;
-  --theme-font-mono: 'JetBrains Mono', monospace;
+  --theme-font: 'Crimson Text', 'Georgia', serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* === Skeuomorphic: asymmetric corner (joinery precision) === */
+  --theme-radius-tl: 2px;
+  --theme-radius-tr: 4px;
+  --theme-radius-br: 2px;
+  --theme-radius-bl: 4px;
+
+  /* === Skeuomorphic: washi paper texture (fine fiber grain) === */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='washi'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95 0.15' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23washi)' opacity='0.05'/%3E%3C/svg%3E");
+
+  /* === Skeuomorphic: torii seal glow (vermilion stamp feedback) === */
+  --theme-glow: 0 0 6px rgba(200, 55, 35, 0.35),
+               0 0 16px rgba(200, 55, 35, 0.12);
+
+  /* === Skeuomorphic: wooden depth shadow === */
+  --theme-card-shadow: 0 2px 4px rgba(0, 0, 0, 0.3),
+                       0 6px 12px rgba(0, 0, 0, 0.2);
+
+  /* === Skeuomorphic: wood grain frame (joinery + grain lines) === */
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0' y='2' width='200' height='16' rx='2' fill='none' stroke='%23806040' stroke-width='2'/%3E%3Cline x1='4' y1='8' x2='40' y2='7.5' stroke='%23705030' stroke-width='0.5' opacity='0.3'/%3E%3Cline x1='60' y1='9' x2='100' y2='8.5' stroke='%23705030' stroke-width='0.4' opacity='0.25'/%3E%3Cline x1='120' y1='7' x2='170' y2='7.5' stroke='%23705030' stroke-width='0.5' opacity='0.3'/%3E%3Cline x1='10' y1='13' x2='50' y2='13' stroke='%23705030' stroke-width='0.4' opacity='0.2'/%3E%3Cline x1='150' y1='12' x2='190' y2='12.5' stroke='%23705030' stroke-width='0.3' opacity='0.2'/%3E%3C/svg%3E");
 }
