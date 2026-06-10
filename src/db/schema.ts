@@ -1,15 +1,16 @@
 /**
- * Simple TRPG Chat — Database Schema (Drizzle ORM)
+ * Simple TRPG Chat — PostgreSQL Schema (Drizzle ORM)
  *
+ * Mirror of schema.ts for PostgreSQL dialect.
  * Tables: users | rooms | room_members | messages | room_skills | system_config
- *         | inventory_items | inventory_distributions | clue_cards | clue_visibility
+ *         | clue_cards | clue_visibility
  */
 
-import { sqliteTable, text, integer, unique, index } from 'drizzle-orm/sqlite-core';
-import { relations, sql } from 'drizzle-orm';
+import { pgTable, text, integer, serial, boolean, timestamp, unique, index } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
 // ============================================================
-// Enums
+// Enums (shared with schema.ts)
 // ============================================================
 
 export const USER_ROLES = ['admin', 'host', 'player'] as const;
@@ -21,182 +22,145 @@ export type RoomStatus = (typeof ROOM_STATUS)[number];
 export const THEMES = ['default', 'parchment', 'cthulhu', 'shrine'] as const;
 export type Theme = (typeof THEMES)[number];
 
-/** Pluggable dice rules */
 export const DICE_RULES = ['basic', 'coc7th'] as const;
 export type DiceRules = (typeof DICE_RULES)[number];
 
-/** Rule templates for character sheet initialization */
 export const RULE_TEMPLATES = ['basic', 'coc7th'] as const;
 export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
 
 export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request'] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
-/** Inventory item types */
 export const INVENTORY_ITEM_TYPES = ['info', 'character', 'item'] as const;
 export type InventoryItemType = (typeof INVENTORY_ITEM_TYPES)[number];
 
-/** Inventory distribution actions */
 export const INVENTORY_ACTIONS = ['created', 'shared'] as const;
 export type InventoryAction = (typeof INVENTORY_ACTIONS)[number];
+
+export const DEVICE_TYPES = ['mobile', 'desktop', 'tablet', 'unknown'] as const;
+export type DeviceType = (typeof DEVICE_TYPES)[number];
 
 // ============================================================
 // Tables
 // ============================================================
 
-export const users = sqliteTable('users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: text('role', { enum: USER_ROLES }).notNull().default('player'),
+  role: text('role').notNull().default('player'),
   displayName: text('display_name').notNull(),
-  isBot: integer('is_bot', { mode: 'boolean' }).notNull().default(false),
-  botConfigJson: text('bot_config_json'), // SysPrompt, Model, Activation, Summary
-  themePreference: text('theme_preference'), // nullable: null = use site default
-  sessionToken: text('session_token'), // Single-session: updated on login, verified in JWT
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  isBot: boolean('is_bot').notNull().default(false),
+  botConfigJson: text('bot_config_json'),
+  themePreference: text('theme_preference'),
+  sessionToken: text('session_token'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-export const rooms = sqliteTable('rooms', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const rooms = pgTable('rooms', {
+  id: serial('id').primaryKey(),
   name: text('name').notNull(),
   hostId: integer('host_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   secretKey: text('secret_key').notNull(),
-  theme: text('theme', { enum: THEMES }).notNull().default('default'),
-  diceRules: text('dice_rules', { enum: DICE_RULES }).notNull().default('basic'),
-  ruleTemplate: text('rule_template', { enum: RULE_TEMPLATES }).notNull().default('basic'),
-  status: text('status', { enum: ROOM_STATUS }).notNull().default('active'),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  theme: text('theme').notNull().default('default'),
+  diceRules: text('dice_rules').notNull().default('basic'),
+  ruleTemplate: text('rule_template').notNull().default('basic'),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-export const roomMembers = sqliteTable('room_members', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const roomMembers = pgTable('room_members', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   nickname: text('nickname').notNull(),
-  joinedAt: text('joined_at').notNull().default(sql`(datetime('now'))`),
-  characterData: text('character_data'), // Reserved for complex cards
+  joinedAt: timestamp('joined_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  characterData: text('character_data'),
 });
 
-/**
- * room_skills
- * 
- * Stores user skills per room. 
- * Managed via .st command or Skill Panel.
- */
-export const roomSkills = sqliteTable('room_skills', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const roomSkills = pgTable('room_skills', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   skillName: text('skill_name').notNull(),
   skillValue: integer('skill_value').notNull(),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   unq: unique().on(t.roomId, t.userId, t.skillName),
 }));
 
-/**
- * room_dm_reads
- * 
- * Stores last read timestamp for each DM conversation (per partner) in a room.
- */
-export const roomDmReads = sqliteTable('room_dm_reads', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const roomDmReads = pgTable('room_dm_reads', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   partnerUserId: integer('partner_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  lastReadAt: text('last_read_at').notNull().default(sql`(datetime('now'))`),
+  lastReadAt: timestamp('last_read_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   unq: unique().on(t.roomId, t.userId, t.partnerUserId),
 }));
 
-export const messages = sqliteTable('messages', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const messages = pgTable('messages', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  targetUserId: integer('target_user_id'), // V3.14: Support for private distribution/share notifications
+  targetUserId: integer('target_user_id'),
   nickname: text('nickname').notNull(),
   content: text('content').notNull(),
-  type: text('type', { enum: MESSAGE_TYPES }).notNull().default('text'),
-  diceDetail: text('dice_detail'), // JSON
-  isPrivate: integer('is_private', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  type: text('type').notNull().default('text'),
+  diceDetail: text('dice_detail'),
+  isPrivate: boolean('is_private').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-/** Global system configurations */
-export const systemConfig = sqliteTable('system_config', {
+export const systemConfig = pgTable('system_config', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 
-/**
- * inventory_items
- * 
- * Templates created by Host/GM.
- */
-export const inventoryItems = sqliteTable('inventory_items', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const inventoryItems = pgTable('inventory_items', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   creatorId: integer('creator_id').notNull().references(() => users.id),
-  type: text('item_type', { enum: INVENTORY_ITEM_TYPES }).notNull(),
+  type: text('item_type').notNull(),
   title: text('title').notNull(),
-  contentJson: text('content_json').notNull(), // Type-specific content
-  imageUrl: text('image_url'), // Reserved extension point
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  contentJson: text('content_json').notNull(),
+  imageUrl: text('image_url'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-/**
- * inventory_distributions
- * 
- * Tracks which player has which item.
- * Supports "KP -> Player" and "Player -> Player" flow.
- */
-export const inventoryDistributions = sqliteTable('inventory_distributions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const inventoryDistributions = pgTable('inventory_distributions', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   itemId: integer('item_id').notNull().references(() => inventoryItems.id, { onDelete: 'cascade' }),
   fromUserId: integer('from_user_id').notNull().references(() => users.id),
   toUserId: integer('to_user_id').notNull().references(() => users.id),
-  action: text('action', { enum: INVENTORY_ACTIONS }).notNull().default('created'),
-  viewed: integer('viewed', { mode: 'boolean' }).notNull().default(false), // unread badge, nullable for migration safety
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  action: text('action').notNull().default('created'),
+  viewed: boolean('viewed').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idx_to_user_room: index('idx_dist_to_user_room').on(t.toUserId, t.roomId),
   idx_item_id: index('idx_dist_item_id').on(t.itemId),
 }));
 
-/**
- * clue_cards
- *
- * Host-created clue templates. A clue card holds title, content, and an optional
- * image URL. Visibility is controlled via the clue_visibility table.
- */
-export const clueCards = sqliteTable('clue_cards', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const clueCards = pgTable('clue_cards', {
+  id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   creatorId: integer('creator_id').notNull().references(() => users.id),
   title: text('title').notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-/**
- * clue_visibility
- *
- * Controls which players can see which clues.
- * - userId = NULL → visible to ALL players (public clue)
- * - userId = <id>  → visible only to that specific player
- */
-export const clueVisibility = sqliteTable('clue_visibility', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const clueVisibility = pgTable('clue_visibility', {
+  id: serial('id').primaryKey(),
   clueId: integer('clue_id').notNull().references(() => clueCards.id, { onDelete: 'cascade' }),
-  userId: integer('user_id'), // NULL = public/visible to all
-  revealedAt: text('revealed_at').notNull().default(sql`(datetime('now'))`),
+  userId: integer('user_id'),
+  revealedAt: timestamp('revealed_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idx_clue_id: index('idx_clue_vis_clue_id').on(t.clueId),
   idx_user_id: index('idx_clue_vis_user_id').on(t.userId),
@@ -271,19 +235,16 @@ export const clueVisibilityRelations = relations(clueVisibility, ({ one }) => ({
 }));
 
 // ============================================================
-// Login History
+// Login History (#114)
 // ============================================================
 
-export const DEVICE_TYPES = ['mobile', 'desktop', 'tablet', 'unknown'] as const;
-export type DeviceType = (typeof DEVICE_TYPES)[number];
-
-export const loginHistory = sqliteTable('login_history', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const loginHistory = pgTable('login_history', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   ipAddress: text('ip_address').notNull(),
   userAgent: text('user_agent'),
-  deviceType: text('device_type', { enum: DEVICE_TYPES }).notNull().default('unknown'),
-  loginAt: text('login_at').notNull().default(sql`(datetime('now'))`),
+  deviceType: text('device_type').notNull().default('unknown'),
+  loginAt: timestamp('login_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idxUserLogin: index('idx_login_history_user').on(t.userId, t.loginAt),
 }));
@@ -293,19 +254,19 @@ export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
 }));
 
 // ============================================================
-// AI Providers (replaces host_ai_config)
+// AI Providers (#118)
 // ============================================================
 
-export const aiProviders = sqliteTable('ai_providers', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const aiProviders = pgTable('ai_providers', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   model: text('model').notNull().default('gpt-4o'),
-  isShared: integer('is_shared', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  isShared: boolean('is_shared').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
