@@ -22,75 +22,73 @@ export function AdminDashboard({
   const t = useTranslations("admin");
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 p-6">
       {/* System Status */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatusBadge
           label={t("dbType")}
           value={dbType === "postgresql" ? <span className="inline-flex items-center gap-1"><Database className="w-3.5 h-3.5" /> PostgreSQL</span> : <span className="inline-flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" /> SQLite</span>}
-          color={dbType === "postgresql" ? "emerald" : "blue"}
+          accent="primary"
         />
         <StatusBadge
           label={t("aiFeature")}
           value={aiEnabled ? t("enabled") : t("disabled")}
-          color={aiEnabled ? "emerald" : "purple"}
+          accent={aiEnabled ? "success" : "muted"}
         />
         <StatusBadge
           label={t("rooms")}
           value={`${roomCount}`}
-          color="purple"
+          accent="accent"
         />
         <StatusBadge
           label={t("bots")}
           value={`${botCount}`}
-          color="amber"
+          accent="accent"
         />
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard label={t("totalUsers")} value={totalUsers} color="purple" />
-        <StatCard label={t("roleAdmin")} value={adminCount} color="rose" />
-        <StatCard label={t("roleHost")} value={hostCount} color="emerald" />
-        <StatCard label={t("rolePlayer")} value={playerCount} color="blue" />
+        <StatCard label={t("totalUsers")} value={totalUsers} accent="primary" />
+        <StatCard label={t("roleAdmin")} value={adminCount} accent="danger" />
+        <StatCard label={t("roleHost")} value={hostCount} accent="success" />
+        <StatCard label={t("rolePlayer")} value={playerCount} accent="accent" />
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  const colors: Record<string, string> = {
-    purple: "border-purple-500/30 bg-purple-500/5",
-    rose: "border-rose-500/30 bg-rose-500/5",
-    emerald: "border-emerald-500/30 bg-emerald-500/5",
-    blue: "border-blue-500/30 bg-blue-500/5",
-    amber: "border-amber-500/30 bg-amber-500/5",
+function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
+  const borders: Record<string, string> = {
+    primary: "border-primary/30 bg-primary/5",
+    danger: "border-danger/30 bg-danger/5",
+    success: "border-success/30 bg-success/5",
+    accent: "border-accent/30 bg-accent/5",
   };
-  const textColors: Record<string, string> = {
-    purple: "text-purple-400",
-    rose: "text-rose-400",
-    emerald: "text-emerald-400",
-    blue: "text-blue-400",
-    amber: "text-amber-400",
+  const texts: Record<string, string> = {
+    primary: "text-primary",
+    danger: "text-danger",
+    success: "text-success",
+    accent: "text-accent",
   };
   return (
-    <div className={`rounded-xl border p-4 ${colors[color] || colors.purple}`}>
-      <div className="text-xs text-purple-400/50 mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${textColors[color] || textColors.purple}`}>{value}</div>
+    <div className={`rounded-xl border p-4 ${borders[accent] || borders.primary}`}>
+      <div className="text-xs text-text-dim mb-1">{label}</div>
+      <div className={`text-2xl font-bold ${texts[accent] || texts.primary}`}>{value}</div>
     </div>
   );
 }
 
-function StatusBadge({ label, value, color }: { label: string; value: ReactNode; color: string }) {
-  const colors: Record<string, string> = {
-    purple: "border-purple-500/20 bg-purple-500/5 text-purple-300",
-    emerald: "border-emerald-500/20 bg-emerald-500/5 text-emerald-300",
-    blue: "border-blue-500/20 bg-blue-500/5 text-blue-300",
-    amber: "border-amber-500/20 bg-amber-500/5 text-amber-300",
+function StatusBadge({ label, value, accent }: { label: string; value: ReactNode; accent: string }) {
+  const styles: Record<string, string> = {
+    primary: "border-primary/20 bg-primary/5 text-primary",
+    success: "border-success/20 bg-success/5 text-success",
+    muted: "border-border bg-surface-alt text-text-muted",
+    accent: "border-accent/20 bg-accent/5 text-accent",
   };
   return (
-    <div className={`rounded-lg border p-3 ${colors[color] || colors.purple}`}>
-      <div className="text-[10px] text-purple-400/40 uppercase mb-0.5">{label}</div>
+    <div className={`rounded-lg border p-3 ${styles[accent] || styles.primary}`}>
+      <div className="text-[10px] text-text-dim uppercase mb-0.5">{label}</div>
       <div className="text-sm font-bold">{value}</div>
     </div>
   );
