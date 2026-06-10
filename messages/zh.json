@@ -40,7 +40,8 @@
     "filterMine": "我的房间",
     "filterJoined": "已加入",
     "noOwnRooms": "还没有创建过房间",
-    "noJoinedRooms": "还没有加入过房间"
+    "noJoinedRooms": "还没有加入过房间",
+    "logout": "退出登录"
   },
   "createRoom": {
     "title": "创建新房间",

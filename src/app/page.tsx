@@ -1,4 +1,4 @@
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -8,6 +8,7 @@ import Link from "next/link";
 import { LobbyClient } from "@/components/LobbyClient";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { AiSettingsButton } from "@/components/AiSettingsButton";
+import { UserDropdown } from "@/components/UserDropdown";
 
 export default async function HomePage() {
   const t = await getTranslations("nav");
@@ -52,26 +53,11 @@ export default async function HomePage() {
             <ThemeSwitcher />
             {isHost && <AiSettingsButton />}
             <div className="h-4 w-px bg-border mx-2 hidden sm:block" />
-            <span className="text-sm text-text-muted">
-              {user.name || user.username}
-              <span
-                className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  isAdmin ? "bg-danger/20 text-danger" : isHost ? "bg-success/20 text-success" : "bg-primary/20 text-primary"
-                }`}
-              >
-                {user.role}
-              </span>
-            </span>
-            <form
-              action={async () => {
-                "use server";
-                await signOut();
-              }}
-            >
-              <button className="text-sm text-text-muted hover:text-text hover:underline transition">
-                {t("logout")}
-              </button>
-            </form>
+            <UserDropdown
+              userName={user.name || user.username}
+              userRole={user.role}
+              roleLabel={isAdmin ? "Admin" : isHost ? "Host" : "Player"}
+            />
           </div>
         </div>
       </header>
