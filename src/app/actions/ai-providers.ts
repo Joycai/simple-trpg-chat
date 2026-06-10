@@ -57,15 +57,21 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (!existing) throw new Error("Provider not found");
   if (existing.ownerId !== userId && !isAdmin) throw new Error("Not authorized");
 
-  await db.update(aiProviders)
-    .set({
-      ...(data.name?.trim() ? { name: data.name.trim() } : {}),
-      ...(data.apiEndpoint?.trim() ? { apiEndpoint: data.apiEndpoint.trim() } : {}),
-      ...(data.model?.trim() ? { model: data.model.trim() } : {}),
-      ...(data.apiKey?.trim() && !data.apiKey.includes("***") ? { apiKeyEncrypted: encrypt(data.apiKey.trim()) } : {}),
-      ...(isAdmin ? { isShared: data.isShared != null ? (data.isShared ? 1 : 0) : (existing.isShared ? 1 : 0) } : {}),
-    } as any)
-    .where(eq(aiProviders.id, providerId));
+  const vals: any = {};
+  if (data.name?.trim()) vals.name = data.name.trim();
+  if (data.apiEndpoint?.trim()) vals.apiEndpoint = data.apiEndpoint.trim();
+  if (data.model?.trim()) vals.model = data.model.trim();
+  if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
+    vals.apiKeyEncrypted = encrypt(data.apiKey.trim());
+  }
+  if (Object.keys(vals).length > 0) {
+    await db.update(aiProviders).set(vals).where(eq(aiProviders.id, providerId));
+  }
+
+  // Use raw SQL for isShared — Drizzle ORM encodes boolean incorrectly for PG
+  if (isAdmin && data.isShared !== undefined) {
+    await db.run(sql\`UPDATE ai_providers SET is_shared = ${data.isShared ? 1 : 0} WHERE id = ${providerId}\`);
+  }
 
   revalidatePath("/");
 }
