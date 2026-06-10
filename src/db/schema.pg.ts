@@ -243,3 +243,42 @@ export const clueVisibilityRelations = relations(clueVisibility, ({ one }) => ({
   clue: one(clueCards, { fields: [clueVisibility.clueId], references: [clueCards.id] }),
   user: one(users, { fields: [clueVisibility.userId], references: [users.id] }),
 }));
+
+// ============================================================
+// Login History (#114)
+// ============================================================
+
+export const loginHistory = pgTable('login_history', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  ipAddress: text('ip_address').notNull(),
+  userAgent: text('user_agent'),
+  deviceType: text('device_type').notNull().default('unknown'),
+  loginAt: timestamp('login_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  idxUserLogin: index('idx_login_history_user').on(t.userId, t.loginAt),
+}));
+
+export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
+  user: one(users, { fields: [loginHistory.userId], references: [users.id] }),
+}));
+
+// ============================================================
+// AI Providers (#118)
+// ============================================================
+
+export const aiProviders = pgTable('ai_providers', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  model: text('model').notNull().default('gpt-4o'),
+  isShared: boolean('is_shared').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
+  owner: one(users, { fields: [aiProviders.ownerId], references: [users.id] }),
+}));
