@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createBotAction, getRoomBotsAction, updateBotAction, triggerBotAction } from "@/app/actions/bot";
-import { getHostAiConfig } from "@/app/actions/ai";
+import { getMyProviders } from "@/app/actions/ai-providers";
 import { useRouter } from "next/navigation";
 
 interface BotInfo {
@@ -32,11 +32,18 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
   const [activation, setActivation] = useState("@mention");
   const [enableTools, setEnableTools] = useState<string[]>(["send_message", "roll_dice"]);
   const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
+  const [providers, setProviders] = useState<any[]>([]);
+  const [providerId, setProviderId] = useState<number | null>(null);
 
-  // Fetch host AI config to align model default
   useEffect(() => {
-    getHostAiConfig().then(cfg => {
-      if (cfg?.model) setModel(cfg.model);
+    getMyProviders().then(list => {
+      setProviders(list);
+      if (list.length > 0) {
+        setProviderId(list[0].id);
+        setModel(list[0].model || "gpt-4o");
+      } else {
+        setModel("gpt-4o-mini");
+      }
     }).catch(() => setModel("gpt-4o-mini"));
   }, []);
 
@@ -199,13 +206,29 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                     className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none font-mono" />
                 </div>
 
+                {providers.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-text-dim">AI Provider</label>
+                    <select value={providerId || ""} onChange={e => {
+                      const pid = parseInt(e.target.value);
+                      setProviderId(pid);
+                      const p = providers.find(x => x.id === pid);
+                      if (p) setModel(p.model || "gpt-4o");
+                    }} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm">
+                      {providers.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.model})</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-text-muted">选择 AI 模型提供商，模型将自动填充</p>
+                  </div>
+                )}
+
                 <div className="flex gap-3">
                   <div className="flex-1 flex flex-col gap-1.5">
                     <label className="text-xs text-text-dim">模型</label>
                     <input value={model} onChange={e => setModel(e.target.value)}
                       placeholder="如 gpt-4o / deepseek-chat / claude-3-opus"
                       className="p-2 border border-input-border bg-input-bg rounded text-text text-sm font-mono" />
-                    <p className="text-[10px] text-text-muted">默认对齐 Host AI 配置的模型，可手动修改</p>
                   </div>
                   <div className="flex-1 flex flex-col gap-1.5">
                     <label className="text-xs text-text-dim">激活方式</label>
