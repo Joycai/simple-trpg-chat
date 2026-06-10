@@ -26,13 +26,14 @@ export function useTheme() {
 
 interface ThemeProviderProps {
   children: ReactNode;
+  initialTheme?: ThemeId;
 }
 
-export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<ThemeId>("default");
+export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
+  const [theme, setThemeState] = useState<ThemeId>(initialTheme || "default");
   const [roomTheme, setRoomTheme] = useState<ThemeId | null>(null);
 
-  // Load stored preference on mount
+  // Load stored user preference on mount (overrides site default)
   useEffect(() => {
     const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
     if (stored) {
