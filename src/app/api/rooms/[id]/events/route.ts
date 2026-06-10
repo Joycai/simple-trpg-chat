@@ -5,12 +5,17 @@ import { subscribeToRoom } from "@/lib/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
-// Next.js HMR workaround: persist userConnections on globalThis during development
-declare global {
-  var __userConnections: Map<number, number> | undefined;
+interface ActiveConnection {
+  controller: ReadableStreamDefaultController;
+  cleanup: () => void;
 }
 
-const userConnections = globalThis.__userConnections || new Map<number, number>();
+// Next.js HMR workaround: persist userConnections on globalThis during development
+declare global {
+  var __userConnections: Map<number, Set<ActiveConnection>> | undefined;
+}
+
+const userConnections = globalThis.__userConnections || new Map<number, Set<ActiveConnection>>();
 // Always persist — production needs shared state
 globalThis.__userConnections = userConnections;
 
@@ -31,15 +36,43 @@ export async function GET(
   const userId = parseInt((session.user as any).id);
   const isHost = (session.user as any).role === "host";
 
+  // Get or initialize active connections set for this user
+  let connections = userConnections.get(userId);
+  if (!connections) {
+    connections = new Set();
+    userConnections.set(userId, connections);
+  }
+
+  // Active validation: ping all existing connections to prune any dead/closed ones
+  const pingEncoder = new TextEncoder();
+  for (const conn of Array.from(connections)) {
+    try {
+      // Send a protocol-compliant keep-alive comment payload
+      conn.controller.enqueue(pingEncoder.encode(":\n\n"));
+    } catch (err) {
+      // If enqueue throws, the stream controller is closed/errored; prune it
+      conn.cleanup();
+    }
+  }
+
   // SSE Connection limit per user (R5)
-  const currentConnections = userConnections.get(userId) || 0;
-  if (currentConnections >= 3) {
+  if (connections.size >= 3) {
     return new Response("Too many SSE connections (maximum 3)", { status: 429 });
   }
-  userConnections.set(userId, currentConnections + 1);
+
+  const connRecord: ActiveConnection = {
+    controller: null as any,
+    cleanup: () => {}
+  };
+
+  let cleanup: () => void = () => {};
 
   const stream = new ReadableStream({
     start(controller) {
+      connRecord.controller = controller;
+      connRecord.cleanup = cleanup;
+      connections!.add(connRecord);
+
       const encoder = new TextEncoder();
       // Per-stream dedup: prevent sending the same message twice (protects against EventEmitter listener accumulation in dev mode)
       const sentIds = new Set<string>();
@@ -88,23 +121,27 @@ export async function GET(
       }, 15000);
 
       let closed = false;
-      const cleanup = () => {
+      cleanup = () => {
         if (closed) return;
         closed = true;
         clearInterval(heartbeat);
         unsubscribe();
         
         // Decrement connection count
-        const count = userConnections.get(userId) || 1;
-        if (count <= 1) {
-          userConnections.delete(userId);
-        } else {
-          userConnections.set(userId, count - 1);
+        const conns = userConnections.get(userId);
+        if (conns) {
+          conns.delete(connRecord);
+          if (conns.size === 0) {
+            userConnections.delete(userId);
+          }
         }
       };
 
       req.signal.addEventListener("abort", cleanup);
     },
+    cancel() {
+      cleanup();
+    }
   });
 
   return new Response(stream, {
