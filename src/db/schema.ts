@@ -53,6 +53,7 @@ export const users = sqliteTable('users', {
   isBot: integer('is_bot', { mode: 'boolean' }).notNull().default(false),
   botConfigJson: text('bot_config_json'), // SysPrompt, Model, Activation, Summary
   themePreference: text('theme_preference'), // nullable: null = use site default
+  sessionToken: text('session_token'), // Single-session: updated on login, verified in JWT
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });
