@@ -37,7 +37,7 @@ export async function createProvider(data: ProviderData) {
     apiEndpoint: data.apiEndpoint.trim(),
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
     model: data.model || "gpt-4o",
-    isShared: isAdmin ? (data.isShared ?? false) : false,
+    isShared: isAdmin ? (data.isShared ? 1 : 0) : 0,
     updatedAt: sqlNow(),
   }).returning();
 
@@ -63,7 +63,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
       ...(data.apiEndpoint?.trim() ? { apiEndpoint: data.apiEndpoint.trim() } : {}),
       ...(data.model?.trim() ? { model: data.model.trim() } : {}),
       ...(data.apiKey?.trim() && !data.apiKey.includes("***") ? { apiKeyEncrypted: encrypt(data.apiKey.trim()) } : {}),
-      ...(isAdmin ? { isShared: data.isShared != null ? Boolean(data.isShared) : existing.isShared } : {}),
+      ...(isAdmin ? { isShared: data.isShared != null ? (data.isShared ? 1 : 0) : (existing.isShared ? 1 : 0) } : {}),
     } as any)
     .where(eq(aiProviders.id, providerId));
 
@@ -103,7 +103,7 @@ export async function getMyProviders() {
     .where(
       or(
         eq(aiProviders.ownerId, userId),
-        eq(aiProviders.isShared, true),
+        eq(aiProviders.isShared, 1),
       )
     )
     .orderBy(aiProviders.name);
