@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { changeOwnPassword } from "@/app/admin/actions";
 import { getMyLoginHistory } from "@/app/actions/login-history";
 import { getMyProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
+import { testAiConnection } from "@/app/actions/ai";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 
 interface UserSettingsPanelProps {
@@ -35,6 +36,17 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [provKey, setProvKey] = useState("");
   const [provModel, setProvModel] = useState("gpt-4o");
   const [provMsg, setProvMsg] = useState("");
+  const [testing, setTesting] = useState(false);
+
+  const handleTestConnection = async () => {
+    if (!provEndpoint.trim() || !provKey.trim()) { setProvMsg("请填写 API 地址和密钥"); return; }
+    setTesting(true); setProvMsg("");
+    try {
+      const result = await testAiConnection(provEndpoint.trim(), provKey.trim(), provModel || "gpt-4o");
+      setProvMsg(result.success ? "✨ 连接成功！" : `❌ ${result.error}`);
+    } catch (e: any) { setProvMsg(`❌ ${e.message}`); }
+    setTesting(false);
+  };
 
   useEffect(() => {
     if (tab === "history") {
@@ -167,8 +179,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-text">{p.name}</span>
-                        {p.isShared && <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded">🌍 共享</span>}
-                        {!p.isOwner && !p.isShared && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">🔒 私有</span>}
+                        {p.isShared ? <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded">🌍 共享</span> : !p.isOwner ? <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">🔒 私有</span> : null}
                       </div>
                       <div className="text-xs text-text-muted truncate">{p.model} · {p.apiEndpoint}</div>
                       <div className="text-xs text-text-dim font-mono">{p.apiKeyEncrypted}</div>
@@ -199,6 +210,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                   <input value={provModel} onChange={e => setProvModel(e.target.value)} placeholder="模型（如：gpt-4o）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
                   {provMsg && <p className={`text-xs ${provMsg === "已保存" ? "text-success" : "text-danger"}`}>{provMsg}</p>}
                   <div className="flex gap-2">
+                    <button onClick={handleTestConnection} disabled={testing}
+                      className="py-1.5 px-3 bg-surface-alt text-text-muted rounded text-sm hover:text-text disabled:opacity-50">
+                      {testing ? "测试中..." : "🔌 测试"}
+                    </button>
                     <button onClick={handleSaveProvider} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium">保存</button>
                     <button onClick={() => { setShowAddProvider(false); setProvMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded text-sm">取消</button>
                   </div>

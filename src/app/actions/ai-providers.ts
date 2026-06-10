@@ -110,7 +110,7 @@ export async function getMyProviders() {
     )
     .orderBy(aiProviders.name);
 
-  // Mask API keys + add ownership metadata for client safety
+  // Mask API keys + add ownership metadata
   return rows.map(p => ({
     ...maskProviderKey(p),
     isOwner: p.ownerId === userId,

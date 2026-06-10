@@ -33,6 +33,32 @@ export async function updateSystemConfig(key: string, value: string) {
 }
 
 // ============================================================
-// DEPRECATED — host_ai_config replaced by ai_providers (#118-#122)
-// Kept for backward compat: testAiConnection is still used
+// Connection Test — still used by provider forms
 // ============================================================
+
+export async function testAiConnection(endpoint: string, apiKey: string, model: string) {
+  try {
+    const response = await fetch(`${endpoint}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 5,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      const error = await response.text().catch(() => "");
+      return { success: false, error: `HTTP ${response.status}: ${error.slice(0, 100)}` };
+    }
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
