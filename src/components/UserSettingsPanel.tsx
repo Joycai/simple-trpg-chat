@@ -37,6 +37,28 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [provModel, setProvModel] = useState("gpt-4o");
   const [provMsg, setProvMsg] = useState("");
   const [testing, setTesting] = useState(false);
+  const [preset, setPreset] = useState("custom");
+
+  const handlePresetChange = (val: string) => {
+    setPreset(val);
+    if (val === "openai") {
+      setProvName("OpenAI 官方");
+      setProvEndpoint("https://api.openai.com/v1");
+      setProvModel("gpt-4o");
+    } else if (val === "deepseek-flash") {
+      setProvName("DeepSeek 官方");
+      setProvEndpoint("https://api.deepseek.com");
+      setProvModel("deepseek-v4-flash");
+    } else if (val === "deepseek-pro") {
+      setProvName("DeepSeek 官方");
+      setProvEndpoint("https://api.deepseek.com");
+      setProvModel("deepseek-v4-pro");
+    } else if (val === "custom") {
+      setProvName("");
+      setProvEndpoint("");
+      setProvModel("");
+    }
+  };
   const [usageRecords, setUsageRecords] = useState<any[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
 
@@ -122,7 +144,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
           </div>
           <div>
             <div className="text-sm font-medium text-text">{userName}</div>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${roleColor}`}>{roleLabel}</span>
+            <span className={`px-2 py-0.5 rounded-theme text-[10px] font-bold uppercase ${roleColor}`}>{roleLabel}</span>
           </div>
         </div>
 
@@ -153,14 +175,14 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
             <div className="space-y-3">
               <p className="text-sm text-text-muted">修改你的登录密码。修改后需要重新登录。</p>
               <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)}
-                placeholder="当前密码" className="w-full p-2.5 bg-bg border border-border rounded-lg text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
+                placeholder="当前密码" className="w-full p-2.5 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
               <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
-                placeholder="新密码（至少3位）" className="w-full p-2.5 bg-bg border border-border rounded-lg text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
+                placeholder="新密码（至少3位）" className="w-full p-2.5 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
               {pwdMsg && (
                 <p className={`text-xs ${pwdOk ? "text-success" : "text-danger"}`}>{pwdMsg}</p>
               )}
               <button onClick={handleChangePwd}
-                className="w-full bg-primary hover:bg-primary-hover text-white py-2.5 rounded-lg font-bold text-sm transition">
+                className="w-full bg-primary hover:bg-primary-hover text-white py-2.5 rounded-theme font-bold text-sm transition">
                 确认修改
               </button>
             </div>
@@ -182,7 +204,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                 <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
               ) : (
                 providers.filter((p: any) => p.isOwner).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-lg border border-border">
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-theme border border-border">
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-text">{p.name}</div>
                       <div className="text-xs text-text-muted truncate">{p.model} · {p.apiEndpoint}</div>
@@ -190,7 +212,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                     </div>
                     {p.isOwner && (
                     <div className="flex items-center gap-1 ml-2">
-                      <button onClick={() => { setEditProviderId(p.id); setProvName(p.name); setProvEndpoint(p.apiEndpoint); setProvModel(p.model); setProvKey(""); setShowAddProvider(true); }}
+                      <button onClick={() => { setEditProviderId(p.id); setProvName(p.name); setProvEndpoint(p.apiEndpoint); setProvModel(p.model); setProvKey(""); setPreset("custom"); setShowAddProvider(true); }}
                         className="p-1 text-text-muted hover:text-text"><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={() => handleDeleteProvider(p.id)}
                         className="p-1 text-text-muted hover:text-danger"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -201,25 +223,38 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               )}
 
               {!showAddProvider ? (
-                <button onClick={() => { setEditProviderId(null); setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o"); setShowAddProvider(true); }}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-border rounded-lg text-sm text-text-muted hover:text-text hover:border-primary/50 transition">
+                <button onClick={() => { setEditProviderId(null); setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o"); setPreset("custom"); setShowAddProvider(true); }}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-border rounded-theme text-sm text-text-muted hover:text-text hover:border-primary/50 transition font-medium">
                   <Plus className="w-4 h-4" /> 添加 Provider
                 </button>
               ) : (
-                <div className="bg-surface-alt rounded-lg border border-border p-3 space-y-2">
+                <div className="bg-surface-alt rounded-theme border border-border p-3 space-y-2">
                   <p className="text-xs font-medium text-text">{editProviderId ? "编辑" : "新增"} Provider</p>
-                  <input value={provName} onChange={e => setProvName(e.target.value)} placeholder="名称（如：我的 DeepSeek）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  <input value={provEndpoint} onChange={e => setProvEndpoint(e.target.value)} placeholder="API 地址（如：https://api.deepseek.com/v1）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  <input value={provKey} type="password" onChange={e => setProvKey(e.target.value)} placeholder={editProviderId ? "新密钥（留空不修改）" : "API Key"} className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  <input value={provModel} onChange={e => setProvModel(e.target.value)} placeholder="模型（如：gpt-4o）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <div>
+                    <label className="block text-[10px] text-text-dim mb-1 font-semibold">预设供应商</label>
+                    <select
+                      value={preset}
+                      onChange={e => handlePresetChange(e.target.value)}
+                      className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="custom">自定义 (Custom)</option>
+                      <option value="openai">OpenAI 官方</option>
+                      <option value="deepseek-flash">DeepSeek 官方 (deepseek-v4-flash)</option>
+                      <option value="deepseek-pro">DeepSeek 官方 (deepseek-v4-pro)</option>
+                    </select>
+                  </div>
+                  <input value={provName} onChange={e => setProvName(e.target.value)} placeholder="名称" className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provEndpoint} onChange={e => setProvEndpoint(e.target.value)} placeholder="API 地址" className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provKey} type="password" onChange={e => setProvKey(e.target.value)} placeholder={editProviderId ? "新密钥（留空不修改）" : "API Key"} className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provModel} onChange={e => setProvModel(e.target.value)} placeholder="模型" className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
                   {provMsg && <p className={`text-xs ${provMsg === "已保存" ? "text-success" : "text-danger"}`}>{provMsg}</p>}
                   <div className="flex gap-2">
                     <button onClick={handleTestConnection} disabled={testing}
-                      className="py-1.5 px-3 bg-surface-alt text-text-muted rounded text-sm hover:text-text disabled:opacity-50">
+                      className="py-1.5 px-3 bg-surface-alt text-text-muted rounded-theme text-sm hover:text-text disabled:opacity-50 font-medium">
                       {testing ? "测试中..." : "🔌 测试"}
                     </button>
-                    <button onClick={handleSaveProvider} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium">保存</button>
-                    <button onClick={() => { setShowAddProvider(false); setProvMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded text-sm">取消</button>
+                    <button onClick={handleSaveProvider} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-theme text-sm font-semibold">保存</button>
+                    <button onClick={() => { setShowAddProvider(false); setProvMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded-theme text-sm font-medium">取消</button>
                   </div>
                 </div>
               )}
