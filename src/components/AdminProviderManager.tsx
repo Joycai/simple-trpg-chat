@@ -62,14 +62,12 @@ export function AdminProviderManager() {
                 </div>
                 <div className="text-xs text-text-muted truncate">{p.model} · {p.apiEndpoint}</div>
               </div>
-              {p.isOwner && (
               <div className="flex items-center gap-1 ml-2">
                 <button onClick={() => { setEditId(p.id); setName(p.name); setEndpoint(p.apiEndpoint); setModel(p.model); setIsShared(!!p.isShared); setKey(""); setShowForm(true); }}
                   className="p-1 text-text-muted hover:text-text"><Pencil className="w-3.5 h-3.5" /></button>
                 <button onClick={async () => { try { await deleteProvider(p.id); await load(); } catch {} }}
                   className="p-1 text-text-muted hover:text-danger"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
-              )}
             </div>
           ))}
           {providers.length === 0 && <div className="text-center text-text-dim py-4 text-sm">暂无 Provider</div>}
