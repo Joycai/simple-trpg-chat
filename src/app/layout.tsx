@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { AppProvider } from "@/components/AppProvider";
-import { getSiteTheme } from "@/app/actions/theme";
+import { getSiteTheme, getUserThemePreference } from "@/app/actions/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,12 +18,13 @@ export default async function RootLayout({
   const locale = await getLocale();
   const messages = await getMessages();
   const siteTheme = await getSiteTheme();
+  const userTheme = await getUserThemePreference();
 
   return (
-    <html lang={locale} data-theme={siteTheme} className="h-full antialiased">
+    <html lang={locale} data-theme={userTheme || siteTheme} className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
-          <AppProvider initialTheme={siteTheme}>{children}</AppProvider>
+          <AppProvider siteTheme={siteTheme} userTheme={userTheme}>{children}</AppProvider>
         </NextIntlClientProvider>
       </body>
     </html>

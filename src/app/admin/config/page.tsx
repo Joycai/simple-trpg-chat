@@ -3,6 +3,9 @@ import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { AdminAiToggle } from "@/components/AdminAiToggle";
+import { SiteThemeSelector } from "@/components/SiteThemeSelector";
+import { getSiteTheme } from "@/app/actions/theme";
+import type { ThemeId } from "@/themes/types";
 import { Database, HardDrive } from "lucide-react";
 
 export default async function AdminConfigPage() {
@@ -10,6 +13,7 @@ export default async function AdminConfigPage() {
   const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
   const dbType = currentDialect;
+  const siteTheme = await getSiteTheme();
 
   return (
     <div className="p-6 flex flex-col gap-6 max-w-3xl">
@@ -39,6 +43,8 @@ export default async function AdminConfigPage() {
         </div>
         <p className="text-[10px] text-purple-400/30 mt-2">{t("dbConfigHint") || "数据库类型由 db.config.json 决定，修改后重启服务生效。"}</p>
       </section>
+
+      <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
 
       <section className="bg-[#0f1425] p-5 rounded-xl border border-purple-500/20 shadow-lg">
         <h3 className="font-bold text-purple-200 mb-3 flex items-center gap-2 text-sm">
