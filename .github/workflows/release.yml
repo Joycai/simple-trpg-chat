@@ -1,0 +1,72 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    name: Build standalone & create release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: trpg
+          POSTGRES_PASSWORD: trpg_ci
+          POSTGRES_DB: simple_trpg_chat
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure DB
+        run: |
+          echo '{"type":"postgresql","url":"postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat"}' > db.config.json
+          echo "DATABASE_URL=postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat" >> $GITHUB_ENV
+
+      - name: Push schema
+        run: pnpm db:push:pg
+        env:
+          DATABASE_URL: postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package standalone
+        run: |
+          mkdir -p dist
+          cp -r .next/standalone/* dist/
+          cp -r .next/static dist/.next/static 2>/dev/null || true
+          cp -r public dist/public 2>/dev/null || true
+          tar -czf simple-trpg-chat.tar.gz -C dist .
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release $(date +'%Y-%m-%d %H:%M')
+          files: simple-trpg-chat.tar.gz
+          tag_name: release-$(date +'%Y%m%d%H%M%S')
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
