@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Globe } from "lucide-react";
 import { getAllProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
+import { testAiConnection } from "@/app/actions/ai";
 
 export function AdminProviderManager() {
   const [providers, setProviders] = useState<any[]>([]);
@@ -15,6 +16,7 @@ export function AdminProviderManager() {
   const [model, setModel] = useState("gpt-4o");
   const [isShared, setIsShared] = useState(false);
   const [msg, setMsg] = useState("");
+  const [testing, setTesting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -90,6 +92,18 @@ export function AdminProviderManager() {
           </label>
           {msg && <p className={`text-xs ${msg === "已保存" ? "text-success" : "text-danger"}`}>{msg}</p>}
           <div className="flex gap-2">
+            <button type="button" onClick={async () => {
+              if (!endpoint.trim() || !key.trim()) { setMsg("请填写 API 地址和密钥"); return; }
+              setTesting(true); setMsg("");
+              try {
+                const r = await testAiConnection(endpoint.trim(), key.trim(), model || "gpt-4o");
+                setMsg(r.success ? "✨ 连接成功！" : `❌ ${r.error}`);
+              } catch (e: any) { setMsg(`❌ ${e.message}`); }
+              setTesting(false);
+            }} disabled={testing}
+              className="py-1.5 px-3 bg-surface-alt text-text-muted rounded text-sm hover:text-text disabled:opacity-50">
+              {testing ? "测试中..." : "🔌 测试"}
+            </button>
             <button onClick={handleSave} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium">保存</button>
             <button onClick={() => { setShowForm(false); setMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded text-sm">取消</button>
           </div>

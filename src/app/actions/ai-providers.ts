@@ -64,8 +64,9 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
     values.apiKeyEncrypted = encrypt(data.apiKey.trim());
   }
-  if (isAdmin && data.isShared !== undefined) {
-    values.isShared = data.isShared;
+  // Admin: always write isShared (checkbox passes true/false)
+  if (isAdmin) {
+    values.isShared = data.isShared ?? existing.isShared;
   }
 
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
@@ -124,9 +125,12 @@ export async function getAllProviders() {
     throw new Error("Admin only");
   }
 
+  const userId = parseInt((session.user as any).id);
+
   const rows = await db
     .select()
     .from(aiProviders)
+    .where(eq(aiProviders.ownerId, userId))
     .orderBy(aiProviders.name);
 
   return rows.map(maskProviderKey);
