@@ -281,3 +281,25 @@ export const clueVisibilityRelations = relations(clueVisibility, ({ one }) => ({
   clue: one(clueCards, { fields: [clueVisibility.clueId], references: [clueCards.id] }),
   user: one(users, { fields: [clueVisibility.userId], references: [users.id] }),
 }));
+
+// ============================================================
+// Login History
+// ============================================================
+
+export const DEVICE_TYPES = ['mobile', 'desktop', 'tablet', 'unknown'] as const;
+export type DeviceType = (typeof DEVICE_TYPES)[number];
+
+export const loginHistory = sqliteTable('login_history', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  ipAddress: text('ip_address').notNull(),
+  userAgent: text('user_agent'),
+  deviceType: text('device_type', { enum: DEVICE_TYPES }).notNull().default('unknown'),
+  loginAt: text('login_at').notNull().default(sql`(datetime('now'))`),
+}, (t) => ({
+  idxUserLogin: index('idx_login_history_user').on(t.userId, t.loginAt),
+}));
+
+export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
+  user: one(users, { fields: [loginHistory.userId], references: [users.id] }),
+}));
