@@ -60,7 +60,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   }, [tab]);
 
   const handleSaveProvider = async () => {
-    if (!provName.trim() || !provEndpoint.trim() || !provKey.trim()) {
+    if (!provName.trim() || !provEndpoint.trim() || (!editProviderId && !provKey.trim())) {
       setProvMsg("请填写名称、API地址和密钥"); return;
     }
     try {
@@ -174,13 +174,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               {loadingProviders ? (
                 <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
               ) : (
-                providers.map((p) => (
+                providers.filter((p: any) => p.isOwner).map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-lg border border-border">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-text">{p.name}</span>
-                        {p.isShared ? <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded">🌍 共享</span> : !p.isOwner ? <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">🔒 私有</span> : null}
-                      </div>
+                      <div className="text-sm font-medium text-text">{p.name}</div>
                       <div className="text-xs text-text-muted truncate">{p.model} · {p.apiEndpoint}</div>
                       <div className="text-xs text-text-dim font-mono">{p.apiKeyEncrypted}</div>
                     </div>

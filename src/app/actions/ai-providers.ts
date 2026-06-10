@@ -129,10 +129,11 @@ export async function getAllProviders() {
     .from(aiProviders)
     .orderBy(aiProviders.name);
 
-  return rows.map(maskProviderKey);
-}
-
-/** Get a single provider with decrypted key (for AI calls) */
+  const userId = parseInt((session.user as any).id);
+  return rows.map(p => ({
+    ...maskProviderKey(p),
+    isOwner: p.ownerId === userId,
+  }));
 export async function getProviderKey(providerId: number): Promise<string> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
