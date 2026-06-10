@@ -64,6 +64,9 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
     values.apiKeyEncrypted = encrypt(data.apiKey.trim());
   }
+
+  // Admin always sets isShared (falls back to existing value if not in form)
+
   if (isAdmin) {
     values.isShared = data.isShared ?? existing.isShared;
   }
