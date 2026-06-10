@@ -127,7 +127,7 @@ export async function getAllProviders() {
     throw new Error("Admin only");
   }
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt((session.user as any).id) || 0;
 
   const rows = await db
     .select()
