@@ -40,8 +40,8 @@
   --theme-card-shadow: 0 2px 0 rgba(0, 0, 0, 0.3),
                        0 4px 8px rgba(0, 0, 0, 0.4);
 
-  /* === Skeuomorphic: rust-spotted surface texture === */
-  --theme-surface-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='rust'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23rust)' opacity='0.04'/%3E%3C/svg%3E");
+  /* === Skeuomorphic: rust-spotted metal texture (CSS-only) === */
+  --theme-surface-texture: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect x='0' y='0' width='1' height='1' fill='rgba(180,130,255,0.04)'/%3E%3Crect x='3' y='4' width='1' height='1' fill='rgba(94,234,212,0.03)'/%3E%3Crect x='2' y='1' width='1' height='1' fill='rgba(180,130,255,0.03)'/%3E%3Crect x='5' y='2' width='1' height='1' fill='rgba(94,234,212,0.02)'/%3E%3C/svg%3E");
 
   /* === Asymmetric: 0 all corners (cold, inhuman, industrial) === */
   --theme-radius-tl: 0;
