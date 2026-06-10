@@ -21,6 +21,7 @@ export async function createBotAction(
     model: string;
     activation: string;
     enableTools?: string[];
+    providerId?: number;
   }
 ) {
   const session = await auth();
@@ -43,6 +44,7 @@ export async function createBotAction(
       model: data.model,
       activation: data.activation,
       enableTools: data.enableTools || ["send_message", "roll_dice"],
+      providerId: data.providerId,
       historicalSummary: "",
       lastSummarizedMsgId: 0
     }),
@@ -86,7 +88,7 @@ export async function getRoomBotsAction(roomId: number) {
 export async function updateBotAction(
   roomId: number,
   botUserId: number,
-  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string }
+  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number }
 ) {
   const session = await auth();
   if (!session || (session.user as any).role !== "host") throw new Error("Unauthorized");
@@ -97,7 +99,7 @@ export async function updateBotAction(
 
   await db.update(users).set({
     displayName: data.name,
-    botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation }),
+    botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools || existingConfig.enableTools, providerId: data.providerId }),
   }).where(eq(users.id, botUserId));
 
   await db.update(roomMembers).set({ nickname: data.nickname })

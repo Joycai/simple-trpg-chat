@@ -9,7 +9,11 @@ interface BotInfo {
   id: number;
   nickname: string;
   memberId: number;
-  config: { name?: string; systemPrompt?: string; model?: string; activation?: string };
+  name?: string;
+  config: {
+    name?: string; systemPrompt?: string; model?: string;
+    activation?: string; enableTools?: string[]; providerId?: number;
+  };
 }
 
 interface BotManagerProps {
@@ -66,6 +70,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       model,
       activation,
       enableTools,
+      providerId: providerId ?? undefined,
     });
     setShowCreate(false);
     setBotName("");
@@ -83,6 +88,8 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       systemPrompt: systemPrompt || "你是一个TRPG跑团助手。",
       model,
       activation,
+      enableTools,
+      providerId: providerId ?? undefined,
     });
     setEditingBot(null);
     setBotName("");
@@ -94,11 +101,13 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
 
   const startEdit = (bot: BotInfo) => {
     setEditingBot(bot);
-    setBotName(bot.config.name || "");
+    setBotName((bot as any).name || bot.config.name || "");
     setBotNickname(bot.nickname || "");
     setSystemPrompt(bot.config.systemPrompt || "");
     setModel(bot.config.model || "gpt-4o-mini");
     setActivation(bot.config.activation || "@mention");
+    setEnableTools(bot.config.enableTools || ["send_message", "roll_dice"]);
+    if (bot.config.providerId) setProviderId(bot.config.providerId);
     setShowCreate(false);
   };
 
