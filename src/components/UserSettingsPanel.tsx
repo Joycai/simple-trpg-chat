@@ -165,16 +165,21 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                 providers.map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-lg border border-border">
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-text">{p.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-text">{p.name}</span>
+                        {p.isShared ? <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded">🌍 共享</span> : !p.isOwner ? <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">🔒 私有</span> : null}
+                      </div>
                       <div className="text-xs text-text-muted truncate">{p.model} · {p.apiEndpoint}</div>
                       <div className="text-xs text-text-dim font-mono">{p.apiKeyEncrypted}</div>
                     </div>
+                    {p.isOwner && (
                     <div className="flex items-center gap-1 ml-2">
                       <button onClick={() => { setEditProviderId(p.id); setProvName(p.name); setProvEndpoint(p.apiEndpoint); setProvModel(p.model); setProvKey(""); setShowAddProvider(true); }}
                         className="p-1 text-text-muted hover:text-text"><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={() => handleDeleteProvider(p.id)}
                         className="p-1 text-text-muted hover:text-danger"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
+                    )}
                   </div>
                 ))
               )}
