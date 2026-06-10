@@ -79,7 +79,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
 
       {/* Create room dialog */}
       {showCreate && !createdKey && (
-        <div className="bg-surface p-6 rounded-theme shadow-lg border border-border">
+        <div className="bg-surface p-6 rounded-theme theme-border shadow-lg border border-border">
           <h3 className="font-bold text-lg mb-4 text-success">{tc("title")}</h3>
           <form
             action={async (formData) => {
@@ -317,7 +317,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
             return (
               <div
                 key={room.id}
-                className={`bg-surface rounded-theme shadow-sm border p-5 transition hover:shadow-md ${
+                className={`bg-surface rounded-theme theme-border shadow-sm border p-5 transition hover:shadow-md ${
                   isJoined ? "border-primary/30 bg-surface-alt" : ""
                 }`}
               >

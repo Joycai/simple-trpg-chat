@@ -191,10 +191,10 @@ section[class*="bg-surface"] {
   box-shadow: var(--theme-glow);
 }
 
-/* Border mask — applied to elements with .theme-border class */
+/* Asymmetric border radius (hand-cut paper / joinery / industrial) */
 .theme-border {
-  -webkit-mask-image: var(--theme-border-mask);
-  mask-image: var(--theme-border-mask);
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
+  border-top-left-radius: var(--theme-radius-tl, var(--theme-radius));
+  border-top-right-radius: var(--theme-radius-tr, var(--theme-radius));
+  border-bottom-right-radius: var(--theme-radius-br, var(--theme-radius));
+  border-bottom-left-radius: var(--theme-radius-bl, var(--theme-radius));
 }
