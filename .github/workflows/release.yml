@@ -59,11 +59,9 @@ jobs:
 
       - name: Package standalone
         run: |
-          mkdir -p dist
-          cp -r .next/standalone/* dist/
-          cp -r .next/static dist/.next/static 2>/dev/null || true
-          cp -r public dist/public 2>/dev/null || true
-          tar -czf simple-trpg-chat.tar.gz -C dist .
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          tar -czf simple-trpg-chat.tar.gz -C .next/standalone .
 
       - name: Get timestamp
         id: ts
