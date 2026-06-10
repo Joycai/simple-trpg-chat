@@ -39,7 +39,7 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-bg">
       {/* Header */}
-      <header className="bg-header-bg border-b border-header-border p-4 text-text shadow-sm">
+      <header className="bg-header-bg border-b border-header-border p-4 text-text shadow-sm overflow-visible">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold inline-flex items-center gap-1.5"><Dices className="w-5 h-5" /> Simple TRPG Chat</h1>
