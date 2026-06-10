@@ -6,6 +6,12 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import type { ThemeId } from "@/themes/types";
 
+/** Safe userId extraction — guards against NaN */
+function getUserId(session: any): number | null {
+  const id = parseInt(session?.user?.id);
+  return isNaN(id) ? null : id;
+}
+
 /**
  * Get the site-wide default theme from system_config.
  * Falls back to "default" if not set.
@@ -52,7 +58,9 @@ export async function getUserThemePreference(): Promise<ThemeId | null> {
   const session = await auth();
   if (!session) return null;
 
-  const userId = parseInt((session.user as any).id);
+  const userId = getUserId(session);
+  if (!userId) return null;
+
   const [user] = await db
     .select({ themePreference: users.themePreference })
     .from(users)
@@ -68,7 +76,8 @@ export async function updateUserThemePreference(theme: ThemeId) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
+  const userId = getUserId(session);
+  if (!userId) throw new Error("Invalid user session");
 
   await db
     .update(users)
