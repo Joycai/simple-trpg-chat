@@ -11,12 +11,17 @@ import type { ThemeId } from "@/themes/types";
  * Falls back to "default" if not set.
  */
 export async function getSiteTheme(): Promise<ThemeId> {
-  const [row] = await db
-    .select()
-    .from(systemConfig)
-    .where(eq(systemConfig.key, "site_theme"));
+  try {
+    const [row] = await db
+      .select()
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "site_theme"));
 
-  return (row?.value as ThemeId) || "default";
+    return (row?.value as ThemeId) || "default";
+  } catch {
+    // DB may not be available during static generation (login page)
+    return "default";
+  }
 }
 
 /**
