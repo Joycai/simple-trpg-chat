@@ -115,6 +115,7 @@ export async function getMyProviders() {
     ...maskProviderKey(p),
     isOwner: p.ownerId === userId,
   }));
+
 }
 
 /** Get all providers (admin only, for management) */
@@ -134,6 +135,8 @@ export async function getAllProviders() {
     ...maskProviderKey(p),
     isOwner: p.ownerId === userId,
   }));
+}
+
 export async function getProviderKey(providerId: number): Promise<string> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
