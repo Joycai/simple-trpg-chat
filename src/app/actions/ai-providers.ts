@@ -70,8 +70,8 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
     values.isShared = data.isShared != null ? Boolean(data.isShared) : existing.isShared;
   }
 
-  console.log("[updateProvider]", { providerId, isAdmin, inputIsShared: data.isShared, savedIsShared: values.isShared, allKeys: Object.keys(values) });
-  await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
+  const [updated] = await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId)).returning();
+  console.log("[updateProvider DONE]", { providerId, isAdmin, inputIsShared: data.isShared, savedIsShared: values.isShared, dbIsShared: updated?.isShared });
   revalidatePath("/");
 }
 
