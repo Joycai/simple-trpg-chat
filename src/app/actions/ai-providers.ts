@@ -127,7 +127,7 @@ export async function getAllProviders() {
     throw new Error("Admin only");
   }
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt((session.user as any).id) || 0;
 
   const rows = await db
     .select()
@@ -138,6 +138,7 @@ export async function getAllProviders() {
   return rows.map(maskProviderKey);
 }
 
+/** Get a single provider with decrypted key (for AI calls) */
 export async function getProviderKey(providerId: number): Promise<string> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
