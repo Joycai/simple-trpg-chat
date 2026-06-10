@@ -223,13 +223,10 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                   </div>
                 )}
 
+                {providers.length > 0 && providerId && (
+                  <p className="text-[10px] text-text-muted">模型：<code className="text-text font-mono">{model}</code>（由所选 Provider 决定）</p>
+                )}
                 <div className="flex gap-3">
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-xs text-text-dim">模型</label>
-                    <input value={model} onChange={e => setModel(e.target.value)}
-                      placeholder="如 gpt-4o / deepseek-chat / claude-3-opus"
-                      className="p-2 border border-input-border bg-input-bg rounded text-text text-sm font-mono" />
-                  </div>
                   <div className="flex-1 flex flex-col gap-1.5">
                     <label className="text-xs text-text-dim">激活方式</label>
                     <select value={activation} onChange={e => setActivation(e.target.value)}
