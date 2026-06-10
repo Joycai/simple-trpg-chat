@@ -1,23 +1,23 @@
 "use server";
 
-import { db, sqlNow, currentDialect } from "@/db";
-import { aiProviders as sqliteAiProviders } from "@/db/schema";
-import { aiProviders as pgAiProviders } from "@/db/schema.pg";
+import { db, sqlNow } from "@/db";
+import { aiProviders } from "@/db/schema";
 import { eq, and, or, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 
-// Use correct schema: PG schema encodes boolean → TRUE/FALSE, not integer 1/0
-const aiProviders: any = currentDialect === "postgresql" ? pgAiProviders : sqliteAiProviders;
-
 export interface ProviderData {
   name: string;
   apiEndpoint: string;
-  apiKey?: string;
+  apiKey?: string;       // plain text (new/updated), or undefined to keep existing
   model: string;
-  isShared?: boolean;
+  isShared?: boolean;    // admin only
 }
+
+// ============================================================
+// CRUD
+// ============================================================
 
 /** Create a new AI provider (host or admin) */
 export async function createProvider(data: ProviderData) {
@@ -31,7 +31,7 @@ export async function createProvider(data: ProviderData) {
     throw new Error("名称、API地址和密钥不能为空");
   }
 
-  const [provider] = await (db.insert(aiProviders) as any).values({
+  const [provider] = await db.insert(aiProviders).values({
     ownerId: userId,
     name: data.name.trim(),
     apiEndpoint: data.apiEndpoint.trim(),
@@ -64,8 +64,12 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
     values.apiKeyEncrypted = encrypt(data.apiKey.trim());
   }
+  // Admin: always write isShared (checkbox passes true/false)
+
   if (isAdmin) {
-    values.isShared = data.isShared ?? existing.isShared;
+    const newVal = data.isShared ?? existing.isShared;
+    // PG boolean column requires TRUE/FALSE literal, not integer 1/0
+    values.isShared = sql`${sql.raw(newVal ? 'TRUE' : 'FALSE')}`;
   }
 
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
@@ -110,10 +114,12 @@ export async function getMyProviders() {
     )
     .orderBy(aiProviders.name);
 
+  // Mask API keys + add ownership metadata
   return rows.map(p => ({
     ...maskProviderKey(p),
     isOwner: p.ownerId === userId,
   }));
+
 }
 
 /** Get all providers (admin only, for management) */
@@ -149,7 +155,7 @@ export async function getProviderKey(providerId: number): Promise<string> {
 // Helpers
 // ============================================================
 
-function maskProviderKey(p: any) {
+function maskProviderKey(p: typeof aiProviders.$inferSelect) {
   return {
     ...p,
     apiKeyEncrypted: "••••••••" + (decrypt(p.apiKeyEncrypted).slice(-4)),

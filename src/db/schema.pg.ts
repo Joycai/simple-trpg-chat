@@ -274,7 +274,7 @@ export const aiProviders = pgTable('ai_providers', {
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   model: text('model').notNull().default('gpt-4o'),
-  isShared: boolean('is_shared').notNull().default(false),
+  isShared: integer('is_shared').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
