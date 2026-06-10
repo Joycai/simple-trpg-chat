@@ -1,29 +1,47 @@
-/* ---- Aged Parchment ---- */
+/* ---- Aged Parchment — 拟物化羊皮卷 ---- */
 [data-theme="parchment"] {
-  --theme-bg: 253 246 227;
-  --theme-surface: 255 251 235;
-  --theme-surface-alt: 248 236 208;
-  --theme-border: 196 164 132;
-  --theme-text: 68 43 23;
-  --theme-text-muted: 156 127 89;
-  --theme-text-dim: 120 95 65;
-  --theme-primary: 139 90 43;
-  --theme-primary-hover: 101 63 28;
-  --theme-accent: 180 83 38;
-  --theme-accent-hover: 140 62 26;
-  --theme-danger: 180 40 40;
-  --theme-success: 80 130 50;
-  --theme-header-bg: 248 236 208;
-  --theme-header-border: 196 164 132;
-  --theme-input-bg: 255 251 235;
-  --theme-input-border: 196 164 132;
-  --theme-dice-card-bg: 248 236 208;
-  --theme-dice-card-border: 196 164 132;
-  --theme-private-border: 180 83 38;
-  --theme-private-bg: 253 246 227;
-  --theme-scroll-btn: 139 90 43;
+  /* === Core palette === */
+  --theme-bg: 252 245 229;
+  --theme-surface: 255 250 240;
+  --theme-surface-alt: 245 232 200;
+  --theme-border: 180 140 100;
+  --theme-text: 55 35 18;
+  --theme-text-muted: 140 110 75;
+  --theme-text-dim: 115 85 55;
+  --theme-primary: 120 70 35;
+  --theme-primary-hover: 90 50 22;
+  --theme-accent: 165 50 50;
+  --theme-accent-hover: 130 35 35;
+  --theme-danger: 170 45 45;
+  --theme-success: 75 115 45;
+  --theme-header-bg: 245 232 200;
+  --theme-header-border: 180 140 100;
+  --theme-input-bg: 255 250 240;
+  --theme-input-border: 180 140 100;
+  --theme-dice-card-bg: 245 232 200;
+  --theme-dice-card-border: 180 140 100;
+  --theme-private-border: 165 50 50;
+  --theme-private-bg: 252 245 229;
+  --theme-scroll-btn: 120 70 35;
+
+  /* === Typography === */
   --theme-radius: 0.25rem;
   --theme-font: 'Crimson Text', 'Georgia', serif;
   --theme-font-mono: 'Courier Prime', 'Courier New', monospace;
-}
 
+  /* === Skeuomorphic: asymmetric corner radius === */
+  --theme-radius-tl: 2px;
+  --theme-radius-tr: 6px;
+  --theme-radius-br: 3px;
+  --theme-radius-bl: 5px;
+
+  /* === Skeuomorphic: paper texture (SVG noise filter) === */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
+
+  /* === Skeuomorphic: card shadow (angled paper layers) === */
+  --theme-card-shadow: 1px 2px 4px rgba(90, 55, 25, 0.12),
+                       3px 4px 8px rgba(90, 55, 25, 0.06);
+
+  /* === Skeuomorphic: irregular edge mask (torn paper border) === */
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,8 Q5,2 10,9 T20,7 T30,10 T40,6 T50,9 T60,7 T70,10 T80,6 T90,9 T100,7 T110,10 T120,6 T130,9 T140,7 T150,10 T160,6 T170,9 T180,7 T190,10 T200,7' fill='none' stroke='%23b48c64' stroke-width='1.5'/%3E%3C/svg%3E");
+}
