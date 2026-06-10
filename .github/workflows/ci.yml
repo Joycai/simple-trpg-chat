@@ -17,21 +17,6 @@ jobs:
       matrix:
         node-version: [20, 22]
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: trpg
-          POSTGRES_PASSWORD: trpg_ci_pwd
-          POSTGRES_DB: simple_trpg_chat
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,13 +33,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create db config for CI
-        run: |
-          echo '{"type":"postgresql","url":"postgres://trpg:trpg_ci_pwd@localhost:5432/simple_trpg_chat"}' > db.config.json
-
-      - name: Push schema
-        run: pnpm db:push:pg
-
       - name: Lint (non-blocking)
         run: pnpm lint
         continue-on-error: true
@@ -64,7 +42,3 @@ jobs:
 
       - name: Build
         run: pnpm build
-
-      # Test stage — activate once test framework and specs are added
-      # - name: Test
-      #   run: npm test
