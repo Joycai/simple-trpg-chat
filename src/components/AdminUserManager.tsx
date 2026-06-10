@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Key } from "lucide-react";
+import { Key, History } from "lucide-react";
 import { createUser, deleteUser, resetPassword, changeOwnPassword } from "@/app/admin/actions";
+import { getUserLoginHistory } from "@/app/actions/login-history";
+import { UserLoginHistory } from "@/components/UserLoginHistory";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -30,6 +32,22 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [newPwd, setNewPwd] = useState("");
   const [pwdMsg, setPwdMsg] = useState("");
   const [pwdStatus, setPwdStatus] = useState<"" | "success" | "error">("");
+  // Login history
+  const [historyUser, setHistoryUser] = useState<{ id: number; username: string } | null>(null);
+  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const openHistory = async (userId: number, username: string) => {
+    setHistoryUser({ id: userId, username });
+    setLoadingHistory(true);
+    try {
+      const records = await getUserLoginHistory(userId);
+      setHistoryRecords(records);
+    } catch {
+      setHistoryRecords([]);
+    }
+    setLoadingHistory(false);
+  };
 
   const handleChangePwd = async () => {
     if (!oldPwd || !newPwd) return;
@@ -197,6 +215,13 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                   </span>
                 </td>
                 <td className="py-3 text-right flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => openHistory(user.id, user.username)}
+                    className="text-text-muted/60 hover:text-text-muted text-xs transition"
+                    title="登录历史"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                  </button>
                   {user.username !== "admin" && (
                     <button
                       onClick={() => { setResetTarget(user.id); setNewPassword(""); setResetMsg(""); }}
@@ -219,6 +244,28 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Login History Modal */}
+      {historyUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setHistoryUser(null)}>
+          <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md mx-4 max-h-[70vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <h3 className="font-bold text-text text-sm flex items-center gap-2">
+                <History className="w-4 h-4" />
+                登录历史 — {historyUser.username}
+              </h3>
+              <button onClick={() => setHistoryUser(null)} className="text-text-muted hover:text-text text-lg leading-none">&times;</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingHistory ? (
+                <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+              ) : (
+                <UserLoginHistory records={historyRecords} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
