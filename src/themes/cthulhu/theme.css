@@ -1,28 +1,51 @@
+/* ---- Call of Cthulhu — 拟物化证物柜 ---- */
 [data-theme="cthulhu"] {
-  --theme-bg: 15 23 42;
-  --theme-surface: 30 41 59;
-  --theme-surface-alt: 20 30 48;
-  --theme-border: 55 65 81;
-  --theme-text: 203 213 225;
-  --theme-text-muted: 100 116 139;
-  --theme-text-dim: 71 85 105;
-  --theme-primary: 94 234 212;
-  --theme-primary-hover: 45 212 191;
-  --theme-accent: 167 139 250;
-  --theme-accent-hover: 139 92 246;
-  --theme-danger: 220 38 38;
-  --theme-success: 34 197 94;
-  --theme-header-bg: 20 30 48;
-  --theme-header-border: 55 65 81;
-  --theme-input-bg: 30 41 59;
-  --theme-input-border: 75 85 99;
-  --theme-dice-card-bg: 30 41 59;
-  --theme-dice-card-border: 55 65 81;
-  --theme-private-border: 167 139 250;
-  --theme-private-bg: 40 30 60;
-  --theme-scroll-btn: 94 234 212;
+  /* === Core palette: abyss green + ghost purple === */
+  --theme-bg: 8 18 20;
+  --theme-surface: 18 32 36;
+  --theme-surface-alt: 12 24 28;
+  --theme-border: 40 60 65;
+  --theme-text: 200 215 220;
+  --theme-text-muted: 100 130 140;
+  --theme-text-dim: 65 90 100;
+  --theme-primary: 180 130 255;
+  --theme-primary-hover: 160 100 245;
+  --theme-accent: 94 234 212;
+  --theme-accent-hover: 45 212 191;
+  --theme-danger: 255 60 60;
+  --theme-success: 52 211 153;
+  --theme-header-bg: 12 24 28;
+  --theme-header-border: 40 60 65;
+  --theme-input-bg: 18 32 36;
+  --theme-input-border: 50 70 76;
+  --theme-dice-card-bg: 18 32 36;
+  --theme-dice-card-border: 40 60 65;
+  --theme-private-border: 180 130 255;
+  --theme-private-bg: 25 18 40;
+  --theme-scroll-btn: 180 130 255;
+
+  /* === Typography === */
   --theme-radius: 0;
   --theme-font: 'Inter', 'Geist', sans-serif;
-  --theme-font-mono: 'JetBrains Mono', monospace;
-}
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
+  /* === Skeuomorphic: cold metal edges (rusted evidence locker) === */
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0' y='3' width='200' height='14' rx='1' fill='none' stroke='%233d5060' stroke-width='1.5' stroke-dasharray='30 2 25 2 35 1 40 2'/%3E%3Ccircle cx='8' cy='6' r='1' fill='%235a4030' opacity='0.4'/%3E%3Ccircle cx='65' cy='14' r='0.8' fill='%235a4030' opacity='0.3'/%3E%3Ccircle cx='130' cy='5' r='1.2' fill='%235a4030' opacity='0.35'/%3E%3Ccircle cx='180' cy='12' r='0.7' fill='%235a4030' opacity='0.3'/%3E%3C/svg%3E");
+
+  /* === Skeuomorphic: fluorescent glow (breathing pulse) === */
+  --theme-glow: 0 0 8px rgba(180, 130, 255, 0.4),
+               0 0 20px rgba(180, 130, 255, 0.15);
+
+  /* === Skeuomorphic: cold sharp shadow (industrial) === */
+  --theme-card-shadow: 0 2px 0 rgba(0, 0, 0, 0.3),
+                       0 4px 8px rgba(0, 0, 0, 0.4);
+
+  /* === Skeuomorphic: rust-spotted surface texture === */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='rust'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23rust)' opacity='0.04'/%3E%3C/svg%3E");
+
+  /* === Asymmetric: 0 all corners (cold, inhuman, industrial) === */
+  --theme-radius-tl: 0;
+  --theme-radius-tr: 0;
+  --theme-radius-br: 0;
+  --theme-radius-bl: 0;
+}
