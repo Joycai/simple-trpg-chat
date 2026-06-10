@@ -37,7 +37,7 @@ export async function createProvider(data: ProviderData) {
     apiEndpoint: data.apiEndpoint.trim(),
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
     model: data.model || "gpt-4o",
-    isShared: sql`${sql.raw((isAdmin && data.isShared) ? 'TRUE' : 'FALSE')}`,
+    isShared: isAdmin ? (data.isShared ?? false) : false,
     updatedAt: sqlNow(),
   }).returning();
 
@@ -67,9 +67,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   // Admin: always write isShared (checkbox passes true/false)
 
   if (isAdmin) {
-    const newVal = data.isShared ?? existing.isShared;
-    // PG boolean column: use sql.raw() to inject TRUE/FALSE as SQL keyword (not parameterized $1)
-    values.isShared = sql`${sql.raw(newVal ? 'TRUE' : 'FALSE')}`;
+    values.isShared = data.isShared ?? existing.isShared;
   }
 
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
