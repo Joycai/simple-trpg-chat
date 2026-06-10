@@ -138,6 +138,7 @@ export async function getAllProviders() {
   return rows.map(maskProviderKey);
 }
 
+/** Get a single provider with decrypted key (for AI calls) */
 export async function getProviderKey(providerId: number): Promise<string> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
