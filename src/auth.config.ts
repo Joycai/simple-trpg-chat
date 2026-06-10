@@ -1,5 +1,29 @@
 import type { NextAuthConfig } from "next-auth";
 
+// In-memory cache: userId → { sessionToken, expires }
+const sessionCache = new Map<string, { token: string; expires: number }>();
+const CACHE_TTL = 30000; // 30 seconds
+
+async function isSessionValid(userId: string, tokenSession: string): Promise<boolean> {
+  const cached = sessionCache.get(userId);
+  const now = Date.now();
+  if (cached && cached.expires > now) {
+    return cached.token === tokenSession;
+  }
+  // Cache miss — query DB
+  try {
+    const { db } = await import("./db");
+    const { users } = await import("./db/schema");
+    const { eq } = await import("drizzle-orm");
+    const [user] = await db.select({ sessionToken: users.sessionToken }).from(users).where(eq(users.id, parseInt(userId)));
+    const dbToken = user?.sessionToken || null;
+    sessionCache.set(userId, { token: dbToken || "", expires: now + CACHE_TTL });
+    return dbToken === tokenSession;
+  } catch {
+    return true; // DB error: don't block user
+  }
+}
+
 export const authConfig = {
   trustHost: true,
   pages: {
@@ -19,12 +43,10 @@ export const authConfig = {
       }
 
       if (isOnLogin && isLoggedIn) {
-        // Admin users go directly to admin panel
         if (isAdmin) return Response.redirect(new URL("/admin", nextUrl));
         return Response.redirect(new URL("/", nextUrl));
       }
 
-      // Admin users should not access the lobby — redirect to admin
       if (isLoggedIn && isAdmin && nextUrl.pathname === "/") {
         return Response.redirect(new URL("/admin", nextUrl));
       }
@@ -35,11 +57,21 @@ export const authConfig = {
       if (user) {
         token.role = (user as any).role;
         token.username = (user as any).username;
+        token.sessionToken = (user as any).sessionToken;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
+        // Validate single-session token against DB (cached)
+        if (token.sessionToken && token.sub) {
+          const valid = await isSessionValid(token.sub, token.sessionToken as string);
+          if (!valid) {
+            // Session was invalidated by a newer login
+            (session as any).invalidated = true;
+            return session;
+          }
+        }
         (session.user as any).role = token.role;
         (session.user as any).username = token.username;
         (session.user as any).id = token.sub;
@@ -47,5 +79,5 @@ export const authConfig = {
       return session;
     },
   },
-  providers: [], // Logic added in auth.ts
+  providers: [],
 } satisfies NextAuthConfig;
