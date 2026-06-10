@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { createRoomAction, joinRoomAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
+import { Icons } from "@/components/icons";
 import Link from "next/link";
 
 interface Room {
@@ -302,7 +303,9 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
       {/* Room list */}
       {filteredRooms.length === 0 ? (
         <div className="text-center text-text-muted py-16">
-          <div className="text-4xl mb-4">{filter === "mine" ? "🏠" : filter === "joined" ? "🔑" : "🎲"}</div>
+          <div className="mb-4 flex justify-center">
+            {filter === "mine" ? <Icons.Home className="w-10 h-10 text-text-muted" /> : filter === "joined" ? <Icons.Key className="w-10 h-10 text-text-muted" /> : <Icons.Dices className="w-10 h-10 text-text-muted" />}
+          </div>
           <p>{filter === "mine" ? (t("noOwnRooms") || "还没有创建过房间") : filter === "joined" ? (t("noJoinedRooms") || "还没有加入过房间") : (t("noRooms") || "还没有创建或加入房间")}</p>
         </div>
       ) : (
@@ -322,7 +325,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                   <h3 className="font-bold text-text truncate">{room.name}</h3>
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {(room as any).ruleTemplate === "coc7th" && (
-                      <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">🐙 COC 7th</span>
+                      <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-flex items-center gap-0.5"><Icons.Skull className="w-3 h-3" /> COC 7th</span>
                     )}
                     <span className="text-[10px] text-text-muted bg-surface-alt px-2 py-0.5 rounded">
                       #{room.id}
@@ -347,7 +350,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 {isOwner && (
                   <div className="mb-3 p-2 bg-surface-alt border border-border rounded-md flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs min-w-0">
-                      <span className="text-accent shrink-0">🔑</span>
+                      <Icons.Key className="w-4 h-4 text-accent shrink-0" />
                       <span className="text-accent font-mono font-bold truncate select-all">{room.secretKey}</span>
                     </div>
                     <button

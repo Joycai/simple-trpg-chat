@@ -4,7 +4,7 @@ import {
   User, Package, Ticket, Bot, Crosshair, Settings, BarChart3,
   Users, Info, Lock, Download, Dices, ClipboardList, Key,
   Trash2, Pencil, X, Menu, ArrowLeft, LogOut, FileText,
-  Heart, Clover, Ruler, Home, Wand, Search, Plus, Zap,
+  Heart, Clover, Ruler, Home, Wand, Search, Plus, Zap, Skull,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,4 +48,5 @@ export const Icons = {
   Search: wrap(Search),
   Plus: wrap(Plus),
   Zap: wrap(Zap),
+  Skull: wrap(Skull),
 };
