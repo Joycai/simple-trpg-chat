@@ -174,7 +174,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               {loadingProviders ? (
                 <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
               ) : (
-                providers.map((p) => (
+                providers.filter((p: any) => p.isOwner).map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-lg border border-border">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">

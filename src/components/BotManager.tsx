@@ -216,7 +216,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                       if (p) setModel(p.model || "gpt-4o");
                     }} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm">
                       {providers.map((p: any) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.model})</option>
+                        <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? "[共享]" : "[私有]"}</option>
                       ))}
                     </select>
                     <p className="text-[10px] text-text-muted">选择 AI 模型提供商，模型将自动填充</p>
