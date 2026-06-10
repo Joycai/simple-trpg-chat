@@ -180,6 +180,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                       <button onClick={() => handleDeleteProvider(p.id)}
                         className="p-1 text-text-muted hover:text-danger"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
+                    )}
                   </div>
                 ))
               )}
