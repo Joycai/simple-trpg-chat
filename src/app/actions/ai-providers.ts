@@ -135,11 +135,7 @@ export async function getAllProviders() {
     .where(eq(aiProviders.ownerId, userId))
     .orderBy(aiProviders.name);
 
-  const userId = parseInt((session.user as any).id);
-  return rows.map(p => ({
-    ...maskProviderKey(p),
-    isOwner: p.ownerId === userId,
-  }));
+  return rows.map(maskProviderKey);
 }
 
 export async function getProviderKey(providerId: number): Promise<string> {
