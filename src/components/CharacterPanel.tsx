@@ -161,7 +161,7 @@ export function CharacterPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
+      <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-bold text-lg text-text">👤 角色档案</h3>
