@@ -9,7 +9,7 @@ import { encrypt, decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 
 // Use correct schema: PG schema encodes boolean → TRUE/FALSE, not integer 1/0
-const aiProviders = currentDialect === "postgresql" ? pgAiProviders : sqliteAiProviders;
+const aiProviders: any = currentDialect === "postgresql" ? pgAiProviders : sqliteAiProviders;
 
 export interface ProviderData {
   name: string;
@@ -149,7 +149,7 @@ export async function getProviderKey(providerId: number): Promise<string> {
 // Helpers
 // ============================================================
 
-function maskProviderKey(p: typeof aiProviders.$inferSelect) {
+function maskProviderKey(p: any) {
   return {
     ...p,
     apiKeyEncrypted: "••••••••" + (decrypt(p.apiKeyEncrypted).slice(-4)),

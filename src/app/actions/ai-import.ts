@@ -1,7 +1,7 @@
 "use server";
 
 import { db, currentDialect } from "@/db";
-import { aiProviders as sqliteAiProviders, inventoryItems, clueCards, clueVisibility } from "@/db/schema"; import { aiProviders as pgAiProviders } from "@/db/schema.pg"; const aiProviders = currentDialect === "postgresql" ? pgAiProviders : sqliteAiProviders;
+import { aiProviders as sqliteAiProviders, inventoryItems, clueCards, clueVisibility } from "@/db/schema"; import { aiProviders as pgAiProviders } from "@/db/schema.pg"; const aiProviders: any = currentDialect === "postgresql" ? pgAiProviders : sqliteAiProviders;
 import { eq, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
