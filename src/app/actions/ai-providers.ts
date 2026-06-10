@@ -1,8 +1,8 @@
 "use server";
 
 import { db, sqlNow } from "@/db";
-import { aiProviders } from "@/db/schema";
-import { eq, and, or, sql } from "drizzle-orm";
+import { aiProviders, aiTokenUsages } from "@/db/schema";
+import { eq, and, or, sql, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
@@ -158,4 +158,35 @@ function maskProviderKey(p: typeof aiProviders.$inferSelect) {
     ...p,
     apiKeyEncrypted: "••••••••" + (decrypt(p.apiKeyEncrypted).slice(-4)),
   };
+}
+
+/** Get current user's private token usage stats */
+export async function getMyPrivateTokenUsages() {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+
+  const userId = parseInt((session.user as any).id);
+
+  const rows = await db
+    .select({
+      id: aiTokenUsages.id,
+      day: aiTokenUsages.day,
+      inputTokens: aiTokenUsages.inputTokens,
+      cachedInputTokens: aiTokenUsages.cachedInputTokens,
+      outputTokens: aiTokenUsages.outputTokens,
+      providerName: aiProviders.name,
+      model: aiProviders.model,
+    })
+    .from(aiTokenUsages)
+    .innerJoin(aiProviders, eq(aiTokenUsages.providerId, aiProviders.id))
+    .where(
+      and(
+        eq(aiTokenUsages.userId, userId),
+        eq(aiProviders.ownerId, userId),
+        eq(aiProviders.isShared, false)
+      )
+    )
+    .orderBy(desc(aiTokenUsages.day), desc(aiTokenUsages.id));
+
+  return rows;
 }

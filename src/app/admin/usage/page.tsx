@@ -23,6 +23,7 @@ export default async function AdminUsagePage() {
     .from(aiTokenUsages)
     .innerJoin(users, eq(aiTokenUsages.userId, users.id))
     .innerJoin(aiProviders, eq(aiTokenUsages.providerId, aiProviders.id))
+    .where(eq(aiProviders.isShared, true))
     .orderBy(desc(aiTokenUsages.day), desc(aiTokenUsages.id));
 
   return (

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, History, X, Key, Bot, Plus, Trash2, Pencil } from "lucide-react";
+import { Shield, History, X, Key, Bot, Plus, Trash2, Pencil, BarChart3 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { changeOwnPassword } from "@/app/admin/actions";
 import { getMyLoginHistory } from "@/app/actions/login-history";
-import { getMyProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
+import { getMyProviders, createProvider, updateProvider, deleteProvider, getMyPrivateTokenUsages } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 
@@ -15,7 +15,7 @@ interface UserSettingsPanelProps {
   onClose: () => void;
 }
 
-type Tab = "security" | "history" | "ai";
+type Tab = "security" | "history" | "ai" | "ai-usage";
 
 export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsPanelProps) {
   const t = useTranslations("admin");
@@ -37,6 +37,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [provModel, setProvModel] = useState("gpt-4o");
   const [provMsg, setProvMsg] = useState("");
   const [testing, setTesting] = useState(false);
+  const [usageRecords, setUsageRecords] = useState<any[]>([]);
+  const [loadingUsage, setLoadingUsage] = useState(false);
 
   const handleTestConnection = async () => {
     if (!provEndpoint.trim() || !provKey.trim()) { setProvMsg("请填写 API 地址和密钥"); return; }
@@ -56,6 +58,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
     if (tab === "ai") {
       setLoadingProviders(true);
       getMyProviders().then(setProviders).catch(() => {}).finally(() => setLoadingProviders(false));
+    }
+    if (tab === "ai-usage") {
+      setLoadingUsage(true);
+      getMyPrivateTokenUsages().then(setUsageRecords).catch(() => {}).finally(() => setLoadingUsage(false));
     }
   }, [tab]);
 
@@ -126,15 +132,16 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
             ["security", Shield, "账号安全"],
             ["history", History, "登录日志"],
             ["ai", Bot, "AI 配置"],
+            ["ai-usage", BarChart3, "使用统计"],
           ] as const).map(([key, Icon, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs font-semibold transition-colors ${
                 tab === key ? "text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
               {label}
             </button>
           ))}
@@ -218,6 +225,59 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               )}
             </div>
           )}
+
+        {tab === "ai-usage" && (
+          loadingUsage ? (
+            <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+          ) : usageRecords.length > 0 ? (
+            <div className="space-y-4">
+              {/* Simple Summary */}
+              <div className="grid grid-cols-3 gap-2 bg-surface-alt p-3 rounded-lg border border-border text-center">
+                <div>
+                  <div className="text-[10px] text-text-dim uppercase font-semibold">输入</div>
+                  <div className="text-xs font-bold text-text mt-0.5">
+                    {usageRecords.reduce((acc, r) => acc + r.inputTokens, 0).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-success uppercase font-semibold">缓存命中</div>
+                  <div className="text-xs font-bold text-success mt-0.5">
+                    {usageRecords.reduce((acc, r) => acc + r.cachedInputTokens, 0).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-accent uppercase font-semibold">输出</div>
+                  <div className="text-xs font-bold text-text mt-0.5">
+                    {usageRecords.reduce((acc, r) => acc + r.outputTokens, 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed list */}
+              <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
+                {usageRecords.map((r) => {
+                  const total = r.inputTokens + r.outputTokens;
+                  return (
+                    <div key={r.id} className="p-3 bg-surface-alt rounded-lg border border-border flex flex-col gap-1 text-xs">
+                      <div className="flex justify-between items-center font-medium text-text">
+                        <span className="font-mono text-[11px]">{r.day}</span>
+                        <span className="text-text-dim truncate max-w-[180px]">{r.providerName} ({r.model})</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 mt-1 text-text-muted text-[10px] font-mono">
+                        <div>输入: {r.inputTokens}</div>
+                        <div>缓存: {r.cachedInputTokens || "-"}</div>
+                        <div>输出: {r.outputTokens}</div>
+                        <div className="text-right text-primary font-semibold">总计: {total}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-text-dim py-8 text-sm">暂无私有 Provider 的使用统计记录。</div>
+          )
+        )}
         </div>
       </div>
     </div>
