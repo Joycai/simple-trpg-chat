@@ -303,7 +303,7 @@ export const aiProviders = sqliteTable('ai_providers', {
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   model: text('model').notNull().default('gpt-4o'),
-  isShared: integer('is_shared', { mode: 'boolean' }).notNull().default(false),
+  isShared: integer('is_shared').notNull().default(0),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });
