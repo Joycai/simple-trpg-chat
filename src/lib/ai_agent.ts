@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { recordTokenUsage } from "@/lib/ai_usage";
 import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
 import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
@@ -124,7 +125,7 @@ const agentCooldowns = new Map<number, number>();
  * runAgent
  * Orchestrates the LLM call and Tool execution.
  */
-export async function runAgent(botUserId: number, roomId: number) {
+export async function runAgent(botUserId: number, roomId: number, triggeringUserId?: number) {
   const now = Date.now();
   const lastRun = agentCooldowns.get(botUserId) || 0;
   if (now - lastRun < 3000) {
@@ -326,6 +327,15 @@ export async function runAgent(botUserId: number, roomId: number) {
     if (!response || !response.ok) break;
 
     const data = await response.json();
+    
+    // Record token usage
+    const usage = data.usage || {};
+    const inputTokens = usage.prompt_tokens || 0;
+    const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
+    const billingUserId = triggeringUserId || room.hostId;
+    await recordTokenUsage(billingUserId, aiConfig.id, inputTokens, cachedInputTokens, outputTokens);
+
     const assistantMessage = data.choices[0].message;
     currentContext.push(assistantMessage);
 
@@ -519,14 +529,14 @@ export async function runAgent(botUserId: number, roomId: number) {
   }
 
   // 5. Trigger Incremental Summarization (Task #36)
-  summarizeHistoryAction(botUserId, roomId).catch(console.error);
+  summarizeHistoryAction(botUserId, roomId, triggeringUserId).catch(console.error);
 }
 
 /**
  * summarizeHistoryAction
  * Compresses older chat history into a persistent summary.
  */
-export async function summarizeHistoryAction(botUserId: number, roomId: number) {
+export async function summarizeHistoryAction(botUserId: number, roomId: number, triggeringUserId?: number) {
   const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
   if (!botUser) return;
 
@@ -579,6 +589,15 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
 
   if (response.ok) {
     const data = await response.json();
+
+    // Record token usage
+    const usage = data.usage || {};
+    const inputTokens = usage.prompt_tokens || 0;
+    const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
+    const billingUserId = triggeringUserId || room.hostId;
+    await recordTokenUsage(billingUserId, aiConfig.id, inputTokens, cachedInputTokens, outputTokens);
+
     const newSummary = data.choices[0].message.content;
     
     // Save back to Bot Config

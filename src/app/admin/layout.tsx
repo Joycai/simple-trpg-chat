@@ -2,7 +2,7 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { LayoutDashboard, Users, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, BarChart3 } from "lucide-react";
 import { getSiteTheme } from "@/app/actions/theme";
 import type { ThemeId } from "@/themes/types";
 import { AdminThemeSetter } from "@/components/AdminThemeSetter";
@@ -35,6 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <p className="text-[10px] text-text-dim uppercase tracking-widest px-2 mb-1">{t("sectionManagement")}</p>
           <SidebarLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label={t("dashboard") || "Dashboard"} />
           <SidebarLink href="/admin/users" icon={<Users className="w-4 h-4" />} label={t("userManagement")} />
+          <SidebarLink href="/admin/usage" icon={<BarChart3 className="w-4 h-4" />} label={t("tokenUsage") || "Token 使用统计"} />
           <SidebarLink href="/admin/config" icon={<Settings className="w-4 h-4" />} label={t("systemConfig") || "系统配置"} />
 
           <div className="border-t border-border my-3" />

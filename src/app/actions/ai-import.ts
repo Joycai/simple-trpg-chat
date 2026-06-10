@@ -6,6 +6,7 @@ import { eq, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
+import { recordTokenUsage } from "@/lib/ai_usage";
 
 // LLM output format for analyzed items
 interface AnalyzedItem {
@@ -79,6 +80,14 @@ export async function analyzeTextForImportAction(
     }
 
     const data = await response.json();
+    
+    // Record token usage
+    const usage = data.usage || {};
+    const inputTokens = usage.prompt_tokens || 0;
+    const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
+    await recordTokenUsage(userId, provider.id, inputTokens, cachedInputTokens, outputTokens);
+
     const raw = data.choices?.[0]?.message?.content || "";
 
     // Try to parse JSON from response

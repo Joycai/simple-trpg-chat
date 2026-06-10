@@ -117,6 +117,7 @@
     "noUsers": "No accounts found",
     "userManagement": "User Management",
     "userManagementDesc": "Manage user accounts and permissions",
+    "tokenUsage": "Token Usage",
     "dashboard": "Dashboard",
     "systemConfig": "System Config",
     "systemConfigDesc": "Manage global system features and configurations",

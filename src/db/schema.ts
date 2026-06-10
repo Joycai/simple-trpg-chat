@@ -272,3 +272,27 @@ export const aiProviders = pgTable('ai_providers', {
 export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
   owner: one(users, { fields: [aiProviders.ownerId], references: [users.id] }),
 }));
+
+// ============================================================
+// AI Token Usages
+// ============================================================
+
+export const aiTokenUsages = pgTable('ai_token_usages', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  providerId: integer('provider_id').notNull().references(() => aiProviders.id, { onDelete: 'cascade' }),
+  day: text('day').notNull(), // YYYY-MM-DD
+  inputTokens: integer('input_tokens').notNull().default(0),
+  cachedInputTokens: integer('cached_input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, (t) => ({
+  unq: unique().on(t.day, t.userId, t.providerId),
+}));
+
+export const aiTokenUsagesRelations = relations(aiTokenUsages, ({ one }) => ({
+  user: one(users, { fields: [aiTokenUsages.userId], references: [users.id] }),
+  provider: one(aiProviders, { fields: [aiTokenUsages.providerId], references: [aiProviders.id] }),
+}));
+

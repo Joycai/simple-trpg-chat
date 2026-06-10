@@ -117,6 +117,7 @@
     "noUsers": "暂无账号",
     "userManagement": "用户管理",
     "userManagementDesc": "管理系统用户账号和权限",
+    "tokenUsage": "Token 使用统计",
     "dashboard": "仪表盘",
     "systemConfig": "系统配置",
     "systemConfigDesc": "管理系统全局功能与参数配置",
