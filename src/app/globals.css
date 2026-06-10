@@ -198,3 +198,26 @@ section[class*="bg-surface"] {
   border-bottom-right-radius: var(--theme-radius-br, var(--theme-radius));
   border-bottom-left-radius: var(--theme-radius-bl, var(--theme-radius));
 }
+
+/* ============================================================
+   Per-theme visible skeuomorphic effects
+   These apply to .theme-border elements for immediate visual feedback
+   ============================================================ */
+
+/* Parchment: warm paper inner glow + irregular corners */
+[data-theme="parchment"] .theme-border {
+  box-shadow: inset 0 0 20px rgba(139, 90, 43, 0.06),
+              1px 2px 4px rgba(90, 55, 25, 0.12);
+}
+
+/* Cthulhu: purple glow outer shadow */
+[data-theme="cthulhu"] .theme-border {
+  box-shadow: 0 0 10px rgba(180, 130, 255, 0.2),
+              0 0 20px rgba(180, 130, 255, 0.08);
+}
+
+/* Shrine: vermillion accent bottom edge */
+[data-theme="shrine"] .theme-border {
+  border-bottom: 2px solid rgb(var(--theme-primary));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

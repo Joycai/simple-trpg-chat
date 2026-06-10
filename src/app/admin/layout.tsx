@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { LayoutDashboard, Users, Settings, LogOut } from "lucide-react";
+import { getSiteTheme } from "@/app/actions/theme";
+import type { ThemeId } from "@/themes/types";
+import { AdminThemeSetter } from "@/components/AdminThemeSetter";
 import type { ReactNode } from "react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -13,9 +16,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const t = await getTranslations("admin");
+  const siteTheme = await getSiteTheme();
 
   return (
-    <div className="flex h-screen bg-bg overflow-hidden">
+    <>
+      <AdminThemeSetter theme={siteTheme as ThemeId} />
+      <div className="flex h-screen bg-bg overflow-hidden">
       {/* Sidebar */}
       <aside className="w-56 bg-surface border-r border-border shrink-0 flex flex-col">
         <div className="px-5 py-5 border-b border-border">
@@ -54,6 +60,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {children}
       </main>
     </div>
+    </>
   );
 }
 
