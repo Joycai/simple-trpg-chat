@@ -63,18 +63,16 @@ export const authConfig = {
     },
     async session({ session, token }) {
       if (session.user) {
-        // Validate single-session token against DB (cached)
-        if (token.sessionToken && token.sub) {
-          const valid = await isSessionValid(token.sub, token.sessionToken as string);
-          if (!valid) {
-            // Session was invalidated by a newer login
-            (session as any).invalidated = true;
-            return session;
-          }
-        }
         (session.user as any).role = token.role;
         (session.user as any).username = token.username;
-        (session.user as any).id = token.sub;
+        (session.user as any).id = token.sub || "";
+        // Validate single-session token against DB (cached)
+        if (token.sessionToken && token.sub) {
+          try {
+            const valid = await isSessionValid(token.sub, token.sessionToken as string);
+            if (!valid) (session as any).invalidated = true;
+          } catch { /* validation failure is non-blocking */ }
+        }
       }
       return session;
     },

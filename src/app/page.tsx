@@ -16,7 +16,7 @@ export default async function HomePage() {
   if (!session) redirect("/login");
 
   const user = session.user as any;
-  const userId = parseInt(user.id);
+  const userId = parseInt(user.id) || 0;
   const isHost = user.role === "host";
   const isAdmin = user.role === "admin";
 
