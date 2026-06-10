@@ -52,7 +52,7 @@ export default function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-surface">
       <form
         onSubmit={handleSubmit}
-        className="p-8 bg-surface rounded-theme shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
+        className="p-8 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
       >
         <div className="text-center mb-2">
           <h1 className="text-2xl font-bold text-text">{t("title")}</h1>
