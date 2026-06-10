@@ -83,35 +83,18 @@ if [ -f db.config.json ]; then
 fi
 
 if [ "$DB_SKIP" = false ]; then
-echo "  [1] SQLite (zero-config, local file)"
-echo "  [2] PostgreSQL (external, production-ready)"
+echo "--- PostgreSQL Configuration ---"
+echo "Connection string format: postgres://user:password@host:5432/dbname"
 echo ""
-
-DB_TYPE="sqlite"
-while true; do
-  printf "Select database type [1/2] (default: 1): "
-  read -r choice
-  choice="${choice:-1}"
-  case "$choice" in
-    1) DB_TYPE="sqlite"; break ;;
-    2) DB_TYPE="postgresql"; break ;;
-    *) echo "Please enter 1 or 2." ;;
-  esac
-done
-
+echo "  Tip: Use Docker to run PostgreSQL locally:"
+echo "  docker run -d --name trpg-pg -e POSTGRES_USER=trpg -e POSTGRES_PASSWORD=trpg_dev_pwd -e POSTGRES_DB=simple_trpg_chat -p 5432:5432 postgres:16"
 echo ""
+printf "PostgreSQL connection URL: "
+read -r PG_URL
 
-if [ "$DB_TYPE" = "postgresql" ]; then
-  echo "--- PostgreSQL Configuration ---"
-  echo "Connection string format: postgres://user:password@host:5432/dbname"
-  echo ""
-  printf "PostgreSQL connection URL: "
-  read -r PG_URL
-
-  if [ -z "$PG_URL" ]; then
-    echo "[!] Empty URL — falling back to SQLite."
-    DB_TYPE="sqlite"
-  fi
+if [ -z "$PG_URL" ]; then
+  echo "[✗] PostgreSQL connection URL is required."
+  exit 1
 fi
 
 # -----------------------------------------------------------
@@ -188,43 +171,33 @@ echo "  Step 4 — Database Initialization"
 echo "================================================"
 echo ""
 
-if [ "$DB_TYPE" = "postgresql" ]; then
-  echo "Testing PostgreSQL connection..."
-  if node -e "
-    async function test() {
-      const postgres = require('postgres');
-      const sql = postgres('$PG_URL', { max: 1, connect_timeout: 10, idle_timeout: 5 });
-      await sql\`SELECT 1\`;
-      await sql.end({ timeout: 3 });
-      console.log('OK');
-    }
-    test().catch(e => { console.error(e.message); process.exit(1); });
-  " 2>/dev/null; then
-    echo "[✓] PostgreSQL connection successful"
-    cat > db.config.json << JSONEOF
+echo "Testing PostgreSQL connection..."
+if node -e "
+  async function test() {
+    const postgres = require('postgres');
+    const sql = postgres('$PG_URL', { max: 1, connect_timeout: 10, idle_timeout: 5 });
+    await sql\`SELECT 1\`;
+    await sql.end({ timeout: 3 });
+    console.log('OK');
+  }
+  test().catch(e => { console.error(e.message); process.exit(1); });
+" 2>/dev/null; then
+  echo "[✓] PostgreSQL connection successful"
+  cat > db.config.json << JSONEOF
 {
   "type": "postgresql",
   "url": "$PG_URL"
 }
 JSONEOF
-    echo "[✓] db.config.json created"
-    echo ""
-    echo "Pushing PostgreSQL schema..."
-    DATABASE_URL="$PG_URL" pnpm db:push:pg
-    echo "[✓] PostgreSQL schema pushed"
-    echo ""
-  else
-    echo "[✗] PostgreSQL connection failed — falling back to SQLite"
-    DB_TYPE="sqlite"
-  fi
-fi
-
-if [ "$DB_TYPE" = "sqlite" ]; then
-  # Ensure no stale PostgreSQL config
-  rm -f db.config.json
-  echo "Pushing SQLite schema..."
-  pnpm db:push
-  echo "[✓] SQLite database ready"
+  echo "[✓] db.config.json created"
+  echo ""
+  echo "Pushing PostgreSQL schema..."
+  DATABASE_URL="$PG_URL" pnpm db:push:pg
+  echo "[✓] PostgreSQL schema pushed"
+  echo ""
+else
+  echo "[✗] PostgreSQL connection failed"
+  exit 1
 fi
 fi  # End DB_SKIP block
 
