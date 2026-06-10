@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createRoomAction, joinRoomAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -29,6 +29,17 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const [joinKey, setJoinKey] = useState("");
   const [error, setError] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const keyInputRef = useRef<HTMLInputElement>(null);
+
+  const generateRandomKey = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let key = "";
+    for (let i = 0; i < 8; i++) key += chars[Math.floor(Math.random() * chars.length)];
+    if (keyInputRef.current) {
+      keyInputRef.current.value = key;
+      keyInputRef.current.focus();
+    }
+  };
   const [filter, setFilter] = useState<"all" | "mine" | "joined">("all");
 
   const filteredRooms = rooms.filter((room) => {
@@ -94,15 +105,26 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="roomKey" className="text-xs text-text-muted font-medium">{tc("key")}</label>
-              <input
-                id="roomKey"
-                name="key"
-                type="text"
-                placeholder={tc("keyPlaceholder")}
-                required
-                minLength={1}
-                className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="roomKey"
+                  name="key"
+                  type="text"
+                  ref={keyInputRef}
+                  placeholder={tc("keyPlaceholder")}
+                  required
+                  minLength={1}
+                  className="flex-1 p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={generateRandomKey}
+                  className="px-3 py-2 bg-surface-alt hover:bg-surface border border-border rounded text-sm font-mono text-accent transition"
+                  title={tc("randomKey") || "随机生成"}
+                >
+                  🎲
+                </button>
+              </div>
               <p className="text-xs text-text-muted">{tc("keyHint")}</p>
             </div>
             <div className="flex flex-col gap-1">
