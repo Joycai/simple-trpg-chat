@@ -37,7 +37,7 @@ export async function createProvider(data: ProviderData) {
     apiEndpoint: data.apiEndpoint.trim(),
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
     model: data.model || "gpt-4o",
-    isShared: isAdmin ? (data.isShared ?? false) : false,
+    isShared: sql`${sql.raw((isAdmin && data.isShared) ? 'TRUE' : 'FALSE')}`,
     updatedAt: sqlNow(),
   }).returning();
 
