@@ -57,23 +57,16 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (!existing) throw new Error("Provider not found");
   if (existing.ownerId !== userId && !isAdmin) throw new Error("Not authorized");
 
-  // Build update — explicit fields only
-  const setData: Record<string, unknown> = {};
-  if (data.name?.trim()) setData.name = data.name.trim();
-  if (data.apiEndpoint?.trim()) setData.apiEndpoint = data.apiEndpoint.trim();
-  if (data.model?.trim()) setData.model = data.model.trim();
-  if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
-    setData.apiKeyEncrypted = encrypt(data.apiKey.trim());
-  }
-  if (isAdmin) {
-    setData.isShared = data.isShared != null ? Boolean(data.isShared) : existing.isShared;
-  }
+  await db.update(aiProviders)
+    .set({
+      ...(data.name?.trim() ? { name: data.name.trim() } : {}),
+      ...(data.apiEndpoint?.trim() ? { apiEndpoint: data.apiEndpoint.trim() } : {}),
+      ...(data.model?.trim() ? { model: data.model.trim() } : {}),
+      ...(data.apiKey?.trim() && !data.apiKey.includes("***") ? { apiKeyEncrypted: encrypt(data.apiKey.trim()) } : {}),
+      ...(isAdmin ? { isShared: data.isShared != null ? Boolean(data.isShared) : existing.isShared } : {}),
+    } as any)
+    .where(eq(aiProviders.id, providerId));
 
-  const query = db.update(aiProviders).set(setData as any).where(eq(aiProviders.id, providerId)).returning();
-  console.log("[updateProvider SQL]", query.toSQL?.() || "toSQL not available");
-
-  const [updated] = await query;
-  console.log("[updateProvider DONE]", { providerId, inputIsShared: data.isShared, setIsShared: setData.isShared, dbIsShared: updated?.isShared });
   revalidatePath("/");
 }
 
