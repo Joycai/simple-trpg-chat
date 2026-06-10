@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Key } from "lucide-react";
 import { createUser, deleteUser, resetPassword, changeOwnPassword } from "@/app/admin/actions";
 import { useRouter } from "next/navigation";
 
@@ -70,11 +71,11 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
         {!showChangePwd ? (
           <button onClick={() => setShowChangePwd(true)}
             className="text-xs text-amber-400/70 hover:text-amber-400 transition">
-            🔑 {t("changePassword") || "修改密码"}
+            <Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("changePassword") || "修改密码"}
           </button>
         ) : (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-            <h4 className="text-sm font-bold text-amber-300 mb-2">🔑 {t("changePassword") || "修改密码"}</h4>
+            <h4 className="text-sm font-bold text-amber-300 mb-2"><Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("changePassword") || "修改密码"}</h4>
             <div className="flex flex-col gap-2">
               <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)}
                 placeholder={t("currentPassword") || "当前密码"}
@@ -111,7 +112,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
       {resetTarget !== null && (
         <div className="mb-4 bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
           <h4 className="text-sm font-bold text-amber-300 mb-2">
-            🔑 {t("resetPassword") || "重置密码"} — {allUsers.find(u => u.id === resetTarget)?.username}
+            <Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("resetPassword") || "重置密码"} — {allUsers.find(u => u.id === resetTarget)?.username}
           </h4>
           <div className="flex gap-2">
             <input
@@ -202,7 +203,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                       className="text-amber-400/60 hover:text-amber-400 text-xs transition"
                       title={t("resetPassword") || "重置密码"}
                     >
-                      🔑
+                      <Key className="w-4 h-4" />
                     </button>
                   )}
                   <form action={deleteUser.bind(null, user.id)} className="inline">

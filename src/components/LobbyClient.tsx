@@ -123,7 +123,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                   className="px-3 py-2 bg-surface-alt hover:bg-surface border border-border rounded text-sm font-mono text-accent transition"
                   title={tc("randomKey") || "随机生成"}
                 >
-                  🎲
+                  <Icons.Dices className="w-4 h-4" />
                 </button>
               </div>
               <p className="text-xs text-text-muted">{tc("keyHint")}</p>
