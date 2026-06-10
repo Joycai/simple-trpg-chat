@@ -70,6 +70,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       model,
       activation,
       enableTools,
+      providerId: providerId ?? undefined,
     });
     setShowCreate(false);
     setBotName("");
@@ -88,6 +89,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       model,
       activation,
       enableTools,
+      providerId: providerId ?? undefined,
     });
     setEditingBot(null);
     setBotName("");
