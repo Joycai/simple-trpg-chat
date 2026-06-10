@@ -49,10 +49,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Configure database
-        run: echo '{"type":"postgresql","url":"postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat"}' > db.config.json
+        run: |
+          echo '{"type":"postgresql","url":"postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat"}' > db.config.json
+          echo "DATABASE_URL=postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat" >> $GITHUB_ENV
 
       - name: Push schema
-        run: npx drizzle-kit push
+        run: pnpm db:push:pg
+        env:
+          DATABASE_URL: postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat
 
       - name: Lint (non-blocking)
         run: pnpm lint

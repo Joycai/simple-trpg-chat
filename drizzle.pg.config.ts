@@ -7,7 +7,7 @@ import { defineConfig } from 'drizzle-kit';
  * Usage: DATABASE_URL="postgres://..." pnpm db:push:pg
  */
 export default defineConfig({
-  schema: './src/db/schema.pg.ts',
+  schema: './src/db/schema.ts',
   out: './drizzle-pg',
   dialect: 'postgresql',
   dbCredentials: {
