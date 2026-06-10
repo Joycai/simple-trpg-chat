@@ -49,6 +49,7 @@
     "key": "Room Key",
     "keyPlaceholder": "Set a key for players to join",
     "keyHint": "Players will need this key to enter",
+    "randomKey": "Generate random key",
     "theme": "Room Theme",
     "themeHint": "Host can set a unique theme for the room",
     "themeDefault": "Default (Dark Tabletop)",
