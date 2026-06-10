@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { formatTime, formatDiceResult } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -30,6 +31,11 @@ export function ChatMessage({
   onCheckRequest,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check request rendering
   if (type === "check_request") {
@@ -92,7 +98,9 @@ export function ChatMessage({
             {isBot && " 🤖"}
             {isPrivate && ` (🔒 ${t("privateRoll")})`}
           </span>
-          <span className="text-[9px] text-text-dim opacity-0 group-hover:opacity-100 transition">{formatTime(createdAt)}</span>
+          <span className="text-[9px] text-text-dim opacity-0 group-hover:opacity-100 transition">
+            {mounted ? formatTime(createdAt) : ""}
+          </span>
         </div>
 
         <div

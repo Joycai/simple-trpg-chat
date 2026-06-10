@@ -3,10 +3,12 @@ export function formatTime(createdAt: string | Date): string {
   if (createdAt instanceof Date) {
     return formatWithDate(createdAt);
   }
-  // 如果已经是标准 ISO 格式（包含 T 或 Z），不需要再补 Z
-  const hasTZ = createdAt.includes("T") || createdAt.includes("Z");
-  const date = new Date(hasTZ ? createdAt : createdAt + "Z");
-  
+  let cleanStr = createdAt.replace(" ", "T");
+  const hasTimezone = cleanStr.includes("Z") || /[-+]\d{2}(:?\d{2})?$/.test(cleanStr);
+  if (!hasTimezone) {
+    cleanStr += "Z";
+  }
+  const date = new Date(cleanStr);
   if (isNaN(date.getTime())) return "未知时间";
   return formatWithDate(date);
 }
