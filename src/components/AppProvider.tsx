@@ -6,13 +6,14 @@ import type { ReactNode } from "react";
 
 interface AppProviderProps {
   children: ReactNode;
-  initialTheme?: ThemeId;
+  siteTheme?: ThemeId;
+  userTheme?: ThemeId | null;
 }
 
 /** Client boundary: wraps ThemeProvider for server-rendered layout */
-export function AppProvider({ children, initialTheme }: AppProviderProps) {
+export function AppProvider({ children, siteTheme, userTheme }: AppProviderProps) {
   return (
-    <ThemeProvider initialTheme={initialTheme}>
+    <ThemeProvider siteTheme={siteTheme} userTheme={userTheme}>
       {children}
     </ThemeProvider>
   );
