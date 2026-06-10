@@ -193,10 +193,10 @@ section[class*="bg-surface"] {
 
 /* Asymmetric border radius (hand-cut paper / joinery / industrial) */
 .theme-border {
-  border-top-left-radius: var(--theme-radius-tl, var(--theme-radius));
-  border-top-right-radius: var(--theme-radius-tr, var(--theme-radius));
-  border-bottom-right-radius: var(--theme-radius-br, var(--theme-radius));
-  border-bottom-left-radius: var(--theme-radius-bl, var(--theme-radius));
+  border-top-left-radius: var(--theme-radius-tl, var(--theme-radius)) !important;
+  border-top-right-radius: var(--theme-radius-tr, var(--theme-radius)) !important;
+  border-bottom-right-radius: var(--theme-radius-br, var(--theme-radius)) !important;
+  border-bottom-left-radius: var(--theme-radius-bl, var(--theme-radius)) !important;
 }
 
 /* ============================================================
