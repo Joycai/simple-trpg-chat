@@ -152,10 +152,9 @@ export async function triggerBotAction(roomId: number, botUserId: number) {
   if (!session || (session.user as any).role !== "host") {
     throw new Error("Unauthorized: Only hosts can trigger bots manually");
   }
-  const userId = parseInt((session.user as any).id);
 
   // Async trigger — bot responds in the background
-  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId, userId)).catch(console.error);
+  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId)).catch(console.error);
 
   return { success: true };
 }
