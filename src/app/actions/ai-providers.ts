@@ -67,9 +67,10 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   // Admin: always write isShared (checkbox passes true/false)
 
   if (isAdmin) {
-    values.isShared = data.isShared ?? existing.isShared;
+    values.isShared = data.isShared != null ? Boolean(data.isShared) : existing.isShared;
   }
 
+  console.log("[updateProvider]", { providerId, isAdmin, inputIsShared: data.isShared, savedIsShared: values.isShared, allKeys: Object.keys(values) });
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
   revalidatePath("/");
 }
