@@ -31,7 +31,7 @@ export async function createProvider(data: ProviderData) {
     throw new Error("名称、API地址和密钥不能为空");
   }
 
-  const [provider] = await db.insert(aiProviders).values({
+  const [provider] = await (db.insert(aiProviders) as any).values({
     ownerId: userId,
     name: data.name.trim(),
     apiEndpoint: data.apiEndpoint.trim(),
