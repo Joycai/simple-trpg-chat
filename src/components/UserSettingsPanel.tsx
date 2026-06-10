@@ -232,7 +232,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
           ) : usageRecords.length > 0 ? (
             <div className="space-y-4">
               {/* Simple Summary */}
-              <div className="grid grid-cols-3 gap-2 bg-surface-alt p-3 rounded-lg border border-border text-center">
+              <div className="grid grid-cols-3 gap-2 bg-surface-alt p-3 rounded-theme border border-border text-center">
                 <div>
                   <div className="text-[10px] text-text-dim uppercase font-semibold">输入</div>
                   <div className="text-xs font-bold text-text mt-0.5">
@@ -258,12 +258,12 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                 {usageRecords.map((r) => {
                   const total = r.inputTokens + r.outputTokens;
                   return (
-                    <div key={r.id} className="p-3 bg-surface-alt rounded-lg border border-border flex flex-col gap-1 text-xs">
+                    <div key={r.id} className="p-3 bg-surface-alt rounded-theme border border-border flex flex-col gap-1 text-xs">
                       <div className="flex justify-between items-center font-medium text-text">
-                        <span className="font-mono text-[11px]">{r.day}</span>
+                        <span className="font-theme-mono text-[11px]">{r.day}</span>
                         <span className="text-text-dim truncate max-w-[180px]">{r.providerName} ({r.model})</span>
                       </div>
-                      <div className="grid grid-cols-4 gap-1 mt-1 text-text-muted text-[10px] font-mono">
+                      <div className="grid grid-cols-4 gap-1 mt-1 text-text-muted text-[10px] font-theme-mono">
                         <div>输入: {r.inputTokens}</div>
                         <div>缓存: {r.cachedInputTokens || "-"}</div>
                         <div>输出: {r.outputTokens}</div>

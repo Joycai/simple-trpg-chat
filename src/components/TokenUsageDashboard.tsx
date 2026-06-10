@@ -69,10 +69,10 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
   }, [filteredUsages]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 font-theme">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-surface border border-border p-4 rounded-xl flex flex-col gap-1">
+        <div className="bg-surface border border-border p-4 rounded-theme flex flex-col gap-1">
           <div className="text-xs text-text-dim uppercase tracking-wider flex items-center gap-1.5">
             <Cpu className="w-3.5 h-3.5 text-primary" />
             总输入 Token
@@ -81,7 +81,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
           <div className="text-[10px] text-text-muted mt-0.5">包含缓存命中的输入</div>
         </div>
 
-        <div className="bg-surface border border-border p-4 rounded-xl flex flex-col gap-1">
+        <div className="bg-surface border border-border p-4 rounded-theme flex flex-col gap-1">
           <div className="text-xs text-text-dim uppercase tracking-wider flex items-center gap-1.5">
             <RefreshCw className="w-3.5 h-3.5 text-success" />
             输入（缓存命中）
@@ -92,7 +92,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
           </div>
         </div>
 
-        <div className="bg-surface border border-border p-4 rounded-xl flex flex-col gap-1">
+        <div className="bg-surface border border-border p-4 rounded-theme flex flex-col gap-1">
           <div className="text-xs text-text-dim uppercase tracking-wider flex items-center gap-1.5">
             <BarChart2 className="w-3.5 h-3.5 text-accent" />
             总输出 Token
@@ -101,7 +101,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
           <div className="text-[10px] text-text-muted mt-0.5">模型生成返回的 Token 数量</div>
         </div>
 
-        <div className="bg-surface border border-border p-4 rounded-xl flex flex-col gap-1 bg-primary/5">
+        <div className="bg-surface border border-border p-4 rounded-theme flex flex-col gap-1 bg-primary/5">
           <div className="text-xs text-primary-dim uppercase tracking-wider flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-primary" />
             总 Token 消耗
@@ -112,7 +112,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
       </div>
 
       {/* Filters */}
-      <div className="bg-surface border border-border p-4 rounded-xl flex flex-wrap gap-4 items-center justify-between">
+      <div className="bg-surface border border-border p-4 rounded-theme flex flex-wrap gap-4 items-center justify-between">
         <div className="flex flex-wrap gap-3 items-center flex-1 min-w-[280px]">
           {/* Search bar */}
           <div className="relative flex-1 max-w-sm">
@@ -122,7 +122,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="搜索用户、昵称、Provider..."
-              className="w-full pl-9 pr-4 py-1.5 bg-surface-alt border border-border rounded-lg text-sm text-text placeholder-text-dim outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+              className="w-full pl-9 pr-4 py-1.5 bg-surface-alt border border-border rounded-theme text-sm text-text placeholder-text-dim outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
             />
           </div>
 
@@ -131,7 +131,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
             type="date"
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
-            className="px-3 py-1.5 bg-surface-alt border border-border rounded-lg text-sm text-text outline-none focus:ring-1 focus:ring-primary transition-all"
+            className="px-3 py-1.5 bg-surface-alt border border-border rounded-theme text-sm text-text outline-none focus:ring-1 focus:ring-primary transition-all"
           />
 
           {/* Reset Date button */}
@@ -146,10 +146,10 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
         </div>
 
         {/* Tab-like filters */}
-        <div className="flex bg-surface-alt border border-border p-0.5 rounded-lg shrink-0">
+        <div className="flex bg-surface-alt border border-border p-0.5 rounded-theme shrink-0">
           <button
             onClick={() => setFilterType("all")}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+            className={`px-3 py-1 text-xs font-medium rounded-theme transition-all ${
               filterType === "all" ? "bg-surface text-text shadow-sm" : "text-text-muted hover:text-text"
             }`}
           >
@@ -157,7 +157,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
           </button>
           <button
             onClick={() => setFilterType("shared")}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+            className={`px-3 py-1 text-xs font-medium rounded-theme transition-all flex items-center gap-1 ${
               filterType === "shared" ? "bg-surface text-text shadow-sm" : "text-text-muted hover:text-text"
             }`}
           >
@@ -166,7 +166,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
           </button>
           <button
             onClick={() => setFilterType("private")}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+            className={`px-3 py-1 text-xs font-medium rounded-theme transition-all flex items-center gap-1 ${
               filterType === "private" ? "bg-surface text-text shadow-sm" : "text-text-muted hover:text-text"
             }`}
           >
@@ -177,7 +177,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
       </div>
 
       {/* Table */}
-      <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-surface border border-border rounded-theme overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -198,7 +198,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                   return (
                     <tr key={record.id} className="hover:bg-surface-alt/50 transition-all duration-150">
                       {/* Date */}
-                      <td className="px-6 py-4 whitespace-nowrap font-medium font-mono text-xs">
+                      <td className="px-6 py-4 whitespace-nowrap font-medium font-theme-mono text-xs">
                         {record.day}
                       </td>
 
@@ -206,7 +206,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="font-semibold text-text">{record.userName}</span>
-                          <span className="text-xs text-text-dim font-mono">@{record.username}</span>
+                          <span className="text-xs text-text-dim font-theme-mono">@{record.username}</span>
                         </div>
                       </td>
 
@@ -215,7 +215,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                         <div className="flex items-center gap-2">
                           <div className="flex flex-col">
                             <span className="font-medium text-text">{record.providerName}</span>
-                            <span className="text-xs text-text-dim font-mono">{record.model}</span>
+                            <span className="text-xs text-text-dim font-theme-mono">{record.model}</span>
                           </div>
                           {record.isShared ? (
                             <span className="text-[10px] bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 font-medium">
@@ -230,12 +230,12 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                       </td>
 
                       {/* Input Tokens */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-sm">
+                      <td className="px-6 py-4 whitespace-nowrap text-right font-theme-mono text-sm">
                         {record.inputTokens.toLocaleString()}
                       </td>
 
                       {/* Cached Tokens */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-sm text-success">
+                      <td className="px-6 py-4 whitespace-nowrap text-right font-theme-mono text-sm text-success">
                         {record.cachedInputTokens > 0 ? (
                           <span>{record.cachedInputTokens.toLocaleString()}</span>
                         ) : (
@@ -244,12 +244,12 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                       </td>
 
                       {/* Output Tokens */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-sm">
+                      <td className="px-6 py-4 whitespace-nowrap text-right font-theme-mono text-sm">
                         {record.outputTokens.toLocaleString()}
                       </td>
 
                       {/* Total */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-sm font-bold text-primary">
+                      <td className="px-6 py-4 whitespace-nowrap text-right font-theme-mono text-sm font-bold text-primary">
                         {recordTotal.toLocaleString()}
                       </td>
                     </tr>
