@@ -35,7 +35,12 @@
     "keyPlaceholder": "输入密钥",
     "join": "加入",
     "joinFailed": "加入失败",
-    "cancel": "取消"
+    "cancel": "取消",
+    "filterAll": "全部",
+    "filterMine": "我的房间",
+    "filterJoined": "已加入",
+    "noOwnRooms": "还没有创建过房间",
+    "noJoinedRooms": "还没有加入过房间"
   },
   "createRoom": {
     "title": "创建新房间",

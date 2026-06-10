@@ -29,6 +29,13 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const [joinKey, setJoinKey] = useState("");
   const [error, setError] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "mine" | "joined">("all");
+
+  const filteredRooms = rooms.filter((room) => {
+    if (filter === "mine") return room.hostId === userId;
+    if (filter === "joined") return joinedRoomIds.has(room.id) && room.hostId !== userId;
+    return true; // all
+  });
 
   const handleJoin = async (formData: FormData) => {
     setError("");
@@ -184,16 +191,38 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
         </div>
       )}
 
+      {/* Filter tabs */}
+      {rooms.length > 0 && (
+        <div className="flex gap-2 border-b border-border pb-2">
+          {([
+            ["all", t("filterAll") || "全部"],
+            ["mine", t("filterMine") || "我的房间"],
+            ["joined", t("filterJoined") || "已加入"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-4 py-1.5 rounded-theme text-sm font-medium transition ${
+                filter === key
+                  ? "bg-primary text-white"
+                  : "bg-surface-alt text-text-muted hover:text-text hover:bg-surface"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Room list */}
-      {rooms.length === 0 ? (
+      {filteredRooms.length === 0 ? (
         <div className="text-center text-text-muted py-16">
-          <div className="text-4xl mb-4">🎲</div>
-          <p>{t("noRooms")}</p>
-          {isHost && <p className="text-sm mt-2">{t("noRoomsHint")}</p>}
+          <div className="text-4xl mb-4">{filter === "mine" ? "🏠" : filter === "joined" ? "🔑" : "🎲"}</div>
+          <p>{filter === "mine" ? (t("noOwnRooms") || "还没有创建过房间") : filter === "joined" ? (t("noJoinedRooms") || "还没有加入过房间") : (t("noRooms") || "还没有创建或加入房间")}</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rooms.map((room) => {
+          {filteredRooms.map((room) => {
             const isJoined = joinedRoomIds.has(room.id);
             const isOwner = room.hostId === userId;
 
