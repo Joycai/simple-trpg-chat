@@ -15,6 +15,7 @@ const BotConfigSchema = z.object({
   activation: z.string().optional().default("mention"),
   enableTools: z.array(z.string()).optional().default(["send_message", "roll_dice"]),
   lastSummarizedMsgId: z.number().optional().default(0),
+  providerId: z.number().optional(),
 });
 
 type BotConfig = z.infer<typeof BotConfigSchema>;
@@ -135,19 +136,28 @@ export async function runAgent(botUserId: number, roomId: number) {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return;
 
-  const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.ownerId, room.hostId));
-  if (!aiConfig) return;
+  // Read bot config
+  const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
+    .from(users).where(eq(users.id, botUserId));
+  if (!botConfig) return;
+
+  const botCfg = parseBotConfig(botConfig.botConfigJson);
+
+  if (!botCfg.providerId) {
+    console.error(`[runAgent] Bot ${botUserId} has no AI Provider configured`);
+    return;
+  }
+
+  const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.id, botCfg.providerId));
+  if (!aiConfig) {
+    console.error(`[runAgent] Configured AI Provider (ID: ${botCfg.providerId}) not found for bot ${botUserId}`);
+    return;
+  }
 
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);
   const endpoint = aiConfig.apiEndpoint;
 
   const { context, model } = await buildAgentContext(botUserId, roomId);
-
-  // Read enabled tools from bot config
-  const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
-    .from(users).where(eq(users.id, botUserId));
-
-  const botCfg = parseBotConfig(botConfig?.botConfigJson);
   const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
 
 
@@ -528,10 +538,20 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   
   if (newMsgs.length < 30) return; // Threshold not met
 
-  // Get Host AI Config for summarization
+  // Get AI Config for summarization (use configured, fallback to host, fallback to shared)
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.ownerId, room.hostId));
-  if (!aiConfig) return;
+  if (!room) return;
+
+  if (!config.providerId) {
+    console.error(`[summarizeHistoryAction] Bot ${botUserId} has no AI Provider configured`);
+    return;
+  }
+
+  const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.id, config.providerId));
+  if (!aiConfig) {
+    console.error(`[summarizeHistoryAction] Configured AI Provider (ID: ${config.providerId}) not found for bot ${botUserId}`);
+    return;
+  }
 
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);
   const endpoint = aiConfig.apiEndpoint;
