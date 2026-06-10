@@ -94,7 +94,9 @@ export function AdminProviderManager() {
           </label>
           {msg && <p className={`text-xs ${msg === "已保存" ? "text-success" : "text-danger"}`}>{msg}</p>}
           <div className="flex gap-2">
-            <button onClick={async () => {
+
+            <button type="button" onClick={async () => {
+
               if (!endpoint.trim() || !key.trim()) { setMsg("请填写 API 地址和密钥"); return; }
               setTesting(true); setMsg("");
               try {
