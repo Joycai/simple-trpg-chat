@@ -36,7 +36,7 @@
   --theme-radius-bl: 4px;
 
   /* === Skeuomorphic: washi paper texture (fine fiber grain) === */
-  --theme-surface-texture: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4'%3E%3Crect x='0' y='0' width='1' height='1' fill='rgba(200,55,35,0.03)'/%3E%3Crect x='2' y='3' width='1' height='1' fill='rgba(200,55,35,0.02)'/%3E%3Crect x='4' y='1' width='1' height='1' fill='rgba(200,55,35,0.025)'/%3E%3C/svg%3E");
+  --theme-surface-texture: repeating-conic-gradient(rgba(200,55,35,0.04) 0% 25%, transparent 0% 50%);
 
   /* === Skeuomorphic: torii seal glow (vermilion stamp feedback) === */
   --theme-glow: 0 0 6px rgba(200, 55, 35, 0.35),

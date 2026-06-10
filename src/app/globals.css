@@ -149,9 +149,10 @@ body {
    Skeuomorphic Theme Wiring
    ============================================================ */
 
-/* Surface texture — applied directly to body background */
+/* Surface texture — CSS gradient tiled on body, guaranteed to render */
 body {
   background-image: var(--theme-surface-texture);
+  background-size: 4px 4px;
 }
 
 /* Card shadow (angled paper / cold industrial / wooden depth) */
