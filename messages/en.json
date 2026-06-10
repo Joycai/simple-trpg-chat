@@ -40,7 +40,8 @@
     "filterMine": "My Rooms",
     "filterJoined": "Joined",
     "noOwnRooms": "No rooms created yet",
-    "noJoinedRooms": "No rooms joined yet"
+    "noJoinedRooms": "No rooms joined yet",
+    "logout": "Logout"
   },
   "createRoom": {
     "title": "Create New Room",
