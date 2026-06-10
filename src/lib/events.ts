@@ -6,10 +6,8 @@ declare global {
 }
 
 const eventHub = globalThis.__eventHub || new EventEmitter();
-
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__eventHub = eventHub;
-}
+// Always persist — production needs shared emitter for SSE
+globalThis.__eventHub = eventHub;
 
 // Increased limit for rooms/clients
 eventHub.setMaxListeners(1000);

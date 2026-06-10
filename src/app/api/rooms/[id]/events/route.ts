@@ -11,10 +11,8 @@ declare global {
 }
 
 const userConnections = globalThis.__userConnections || new Map<number, number>();
-
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__userConnections = userConnections;
-}
+// Always persist — production needs shared state
+globalThis.__userConnections = userConnections;
 
 export async function GET(
   req: NextRequest,
