@@ -29,6 +29,15 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const [joinKey, setJoinKey] = useState("");
   const [error, setError] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "mine" | "joined">("all");
+
+  const filteredRooms = rooms.filter((room) => {
+    if (filter === "mine") return room.hostId === userId;
+    if (filter === "joined") return joinedRoomIds.has(room.id) && room.hostId !== userId;
+    return true; // all
+  });
+
+  const tabIndex = filter === "all" ? 0 : filter === "mine" ? 1 : 2;
 
   const handleJoin = async (formData: FormData) => {
     setError("");
@@ -184,16 +193,99 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
         </div>
       )}
 
+      {/* Filter tabs */}
+      {rooms.length > 0 && (
+        <>
+          <style>{`
+            /* === Base indicator: neon cyan (default/tech) === */
+            .filter-indicator {
+              background: var(--theme-primary, #22d3ee);
+              box-shadow: 0 0 8px var(--theme-primary, #22d3ee), 0 0 16px rgba(34, 211, 238, 0.3);
+            }
+            .filter-tab-active {
+              color: var(--theme-primary, #22d3ee);
+            }
+
+            /* === Shrine: vermillion + gold omamori === */
+            [data-theme="shrine"] .filter-indicator {
+              background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+              box-shadow: 0 0 6px rgba(220, 38, 38, 0.5), inset 0 1px 0 rgba(255, 215, 0, 0.25);
+              border: 1px solid rgba(185, 28, 28, 0.6);
+              border-radius: 3px;
+            }
+            [data-theme="shrine"] .filter-tab-active {
+              color: #fca5a5;
+              text-shadow: 0 0 6px rgba(220, 38, 38, 0.35);
+            }
+
+            /* === Cthulhu: purple glow + fade === */
+            [data-theme="cthulhu"] .filter-indicator {
+              background: #a78bfa;
+              box-shadow: 0 0 12px rgba(167, 139, 250, 0.55), 0 0 24px rgba(139, 92, 246, 0.25);
+            }
+            [data-theme="cthulhu"] .filter-tab-active {
+              color: #c4b5fd;
+              text-shadow: 0 0 10px rgba(167, 139, 250, 0.45);
+            }
+
+            /* === Parchment: retro serif text + static border === */
+            [data-theme="parchment"] .filter-indicator {
+              display: none;
+            }
+            [data-theme="parchment"] .filter-tab {
+              font-family: 'Georgia', 'Times New Roman', serif;
+              border-bottom: 2px solid transparent;
+              border-radius: 4px 4px 0 0;
+              transition: color 0.2s, border-color 0.2s, background 0.2s;
+            }
+            [data-theme="parchment"] .filter-tab-active {
+              color: #8b5e3c;
+              border-bottom-color: #8b5e3c;
+              background: rgba(139, 94, 60, 0.1);
+              text-shadow: none;
+            }
+          `}</style>
+
+          <div className="filter-tabs-container relative flex border-b border-border">
+            {/* Sliding indicator */}
+            <div
+              className="filter-indicator absolute bottom-0 h-[2px] rounded-full transition-all duration-300 ease-out"
+              style={{
+                left: `${tabIndex * 33.33}%`,
+                width: '33.33%',
+              }}
+            />
+
+            {([
+              ["all", t("filterAll") || "全部"],
+              ["mine", t("filterMine") || "我的房间"],
+              ["joined", t("filterJoined") || "已加入"],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`filter-tab flex-1 text-center px-3 py-2 text-sm font-medium transition-colors duration-200 ${
+                  filter === key
+                    ? "filter-tab-active"
+                    : "text-text-muted hover:text-text"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Room list */}
-      {rooms.length === 0 ? (
+      {filteredRooms.length === 0 ? (
         <div className="text-center text-text-muted py-16">
-          <div className="text-4xl mb-4">🎲</div>
-          <p>{t("noRooms")}</p>
-          {isHost && <p className="text-sm mt-2">{t("noRoomsHint")}</p>}
+          <div className="text-4xl mb-4">{filter === "mine" ? "🏠" : filter === "joined" ? "🔑" : "🎲"}</div>
+          <p>{filter === "mine" ? (t("noOwnRooms") || "还没有创建过房间") : filter === "joined" ? (t("noJoinedRooms") || "还没有加入过房间") : (t("noRooms") || "还没有创建或加入房间")}</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rooms.map((room) => {
+          {filteredRooms.map((room) => {
             const isJoined = joinedRoomIds.has(room.id);
             const isOwner = room.hostId === userId;
 
