@@ -37,7 +37,7 @@ export async function createProvider(data: ProviderData) {
     apiEndpoint: data.apiEndpoint.trim(),
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
     model: data.model || "gpt-4o",
-    isShared: isAdmin ? (data.isShared ? 1 : 0) : 0,
+    isShared: isAdmin ? (data.isShared ?? false) : false,
     updatedAt: sqlNow(),
   }).returning();
 
@@ -57,16 +57,20 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   if (!existing) throw new Error("Provider not found");
   if (existing.ownerId !== userId && !isAdmin) throw new Error("Not authorized");
 
-  await db.update(aiProviders)
-    .set({
-      ...(data.name?.trim() ? { name: data.name.trim() } : {}),
-      ...(data.apiEndpoint?.trim() ? { apiEndpoint: data.apiEndpoint.trim() } : {}),
-      ...(data.model?.trim() ? { model: data.model.trim() } : {}),
-      ...(data.apiKey?.trim() && !data.apiKey.includes("***") ? { apiKeyEncrypted: encrypt(data.apiKey.trim()) } : {}),
-      ...(isAdmin && data.isShared !== undefined ? { isShared: sql\`${data.isShared ? 1 : 0}\` } : {}),
-    } as any)
-    .where(eq(aiProviders.id, providerId));
+  const values: any = { updatedAt: sqlNow() };
+  if (data.name?.trim()) values.name = data.name.trim();
+  if (data.apiEndpoint?.trim()) values.apiEndpoint = data.apiEndpoint.trim();
+  if (data.model?.trim()) values.model = data.model.trim();
+  if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
+    values.apiKeyEncrypted = encrypt(data.apiKey.trim());
+  }
+  // Admin: always write isShared (checkbox passes true/false)
 
+  if (isAdmin) {
+    values.isShared = data.isShared != null ? data.isShared : existing.isShared;
+  }
+
+  await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
   revalidatePath("/");
 }
 
@@ -103,7 +107,7 @@ export async function getMyProviders() {
     .where(
       or(
         eq(aiProviders.ownerId, userId),
-        eq(aiProviders.isShared, 1),
+        eq(aiProviders.isShared, true),
       )
     )
     .orderBy(aiProviders.name);

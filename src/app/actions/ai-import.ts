@@ -31,7 +31,7 @@ export async function analyzeTextForImportAction(
 
   // Get first available AI provider (own or shared)
   const [provider] = await db.select().from(aiProviders).where(
-    or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, 1))
+    or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
   ).orderBy(aiProviders.id);
   if (!provider) {
     return { success: false, error: "请先在个人设置中添加 AI Provider" };
