@@ -304,3 +304,23 @@ export const loginHistory = sqliteTable('login_history', {
 export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
   user: one(users, { fields: [loginHistory.userId], references: [users.id] }),
 }));
+
+// ============================================================
+// AI Providers (replaces host_ai_config)
+// ============================================================
+
+export const aiProviders = sqliteTable('ai_providers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  model: text('model').notNull().default('gpt-4o'),
+  isShared: integer('is_shared', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
+  owner: one(users, { fields: [aiProviders.ownerId], references: [users.id] }),
+}));
