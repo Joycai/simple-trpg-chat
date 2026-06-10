@@ -182,6 +182,7 @@ body {
 }
 
 /* ============================================================
+
    Per-theme DRAMATIC skeuomorphic effects
    ============================================================ */
 
@@ -219,4 +220,5 @@ body {
 [data-theme="shrine"] .theme-border:hover {
   box-shadow: 0 0 12px rgba(200, 55, 35, 0.4),
               0 4px 16px rgba(0, 0, 0, 0.2);
+
 }

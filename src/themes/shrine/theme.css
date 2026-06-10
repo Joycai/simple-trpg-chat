@@ -36,6 +36,7 @@
   --theme-radius-bl: 4px;
 
   /* === Skeuomorphic: washi paper texture (fine fiber grain) === */
+
   --theme-surface-texture: repeating-conic-gradient(rgba(200,55,35,0.12) 0% 25%, transparent 0% 50%);
 
   /* === Skeuomorphic: torii seal glow (vermilion stamp feedback) === */

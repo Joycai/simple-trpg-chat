@@ -36,7 +36,9 @@
   --theme-radius-bl: 5px;
 
   /* === Skeuomorphic: paper grain texture (CSS-only, no SVG filter) === */
+
   --theme-surface-texture: repeating-conic-gradient(rgba(139,90,43,0.15) 0% 25%, transparent 0% 50%);
+
 
   /* === Skeuomorphic: card shadow (angled paper layers) === */
   --theme-card-shadow: 1px 2px 4px rgba(90, 55, 25, 0.12),
