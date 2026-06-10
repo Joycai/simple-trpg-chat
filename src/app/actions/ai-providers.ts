@@ -124,9 +124,12 @@ export async function getAllProviders() {
     throw new Error("Admin only");
   }
 
+  const userId = parseInt((session.user as any).id);
+
   const rows = await db
     .select()
     .from(aiProviders)
+    .where(eq(aiProviders.ownerId, userId))
     .orderBy(aiProviders.name);
 
   return rows.map(maskProviderKey);
