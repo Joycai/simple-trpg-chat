@@ -1,11 +1,10 @@
 import { defineConfig } from 'drizzle-kit';
-import path from 'path';
 
 export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: path.join(process.cwd(), 'sqlite.db'),
+    url: process.env.DATABASE_URL || 'postgres://localhost:5432/simple_trpg_chat',
   },
 });
