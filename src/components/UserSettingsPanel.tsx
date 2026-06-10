@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, History, X, Key } from "lucide-react";
+import { Shield, History, X, Key, Bot, Plus, Trash2, Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { changeOwnPassword } from "@/app/admin/actions";
 import { getMyLoginHistory } from "@/app/actions/login-history";
+import { getMyProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 
 interface UserSettingsPanelProps {
@@ -13,7 +14,7 @@ interface UserSettingsPanelProps {
   onClose: () => void;
 }
 
-type Tab = "security" | "history";
+type Tab = "security" | "history" | "ai";
 
 export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsPanelProps) {
   const t = useTranslations("admin");
@@ -24,16 +25,49 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [pwdOk, setPwdOk] = useState(false);
   const [records, setRecords] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  // AI providers
+  const [providers, setProviders] = useState<any[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(false);
+  const [showAddProvider, setShowAddProvider] = useState(false);
+  const [editProviderId, setEditProviderId] = useState<number | null>(null);
+  const [provName, setProvName] = useState("");
+  const [provEndpoint, setProvEndpoint] = useState("");
+  const [provKey, setProvKey] = useState("");
+  const [provModel, setProvModel] = useState("gpt-4o");
+  const [provMsg, setProvMsg] = useState("");
 
   useEffect(() => {
     if (tab === "history") {
       setLoadingHistory(true);
-      getMyLoginHistory()
-        .then(setRecords)
-        .catch(() => {})
-        .finally(() => setLoadingHistory(false));
+      getMyLoginHistory().then(setRecords).catch(() => {}).finally(() => setLoadingHistory(false));
+    }
+    if (tab === "ai") {
+      setLoadingProviders(true);
+      getMyProviders().then(setProviders).catch(() => {}).finally(() => setLoadingProviders(false));
     }
   }, [tab]);
+
+  const handleSaveProvider = async () => {
+    if (!provName.trim() || !provEndpoint.trim() || !provKey.trim()) {
+      setProvMsg("请填写名称、API地址和密钥"); return;
+    }
+    try {
+      if (editProviderId) {
+        await updateProvider(editProviderId, { name: provName, apiEndpoint: provEndpoint, apiKey: provKey, model: provModel });
+      } else {
+        await createProvider({ name: provName, apiEndpoint: provEndpoint, apiKey: provKey, model: provModel });
+      }
+      setProvMsg("已保存"); setShowAddProvider(false); setEditProviderId(null);
+      setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o");
+      const list = await getMyProviders();
+      setProviders(list);
+    } catch (e: any) { setProvMsg(e.message || "保存失败"); }
+  };
+
+  const handleDeleteProvider = async (id: number) => {
+    try { await deleteProvider(id); setProviders(providers.filter(p => p.id !== id)); }
+    catch (e: any) { setProvMsg(e.message || "删除失败"); }
+  };
 
   const handleChangePwd = async () => {
     if (!oldPwd || !newPwd) return;
@@ -79,6 +113,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
           {([
             ["security", Shield, "账号安全"],
             ["history", History, "登录日志"],
+            ["ai", Bot, "AI 配置"],
           ] as const).map(([key, Icon, label]) => (
             <button
               key={key}
@@ -118,6 +153,52 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
             ) : (
               <UserLoginHistory records={records} />
             )
+          )}
+
+          {tab === "ai" && (
+            <div className="space-y-3">
+              <p className="text-sm text-text-muted">管理你的 AI 模型提供商，Bot 创建时可以从中选择。</p>
+
+              {loadingProviders ? (
+                <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+              ) : (
+                providers.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-lg border border-border">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-text">{p.name}</div>
+                      <div className="text-xs text-text-muted truncate">{p.model} · {p.apiEndpoint}</div>
+                      <div className="text-xs text-text-dim font-mono">{p.apiKeyEncrypted}</div>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <button onClick={() => { setEditProviderId(p.id); setProvName(p.name); setProvEndpoint(p.apiEndpoint); setProvModel(p.model); setProvKey(""); setShowAddProvider(true); }}
+                        className="p-1 text-text-muted hover:text-text"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteProvider(p.id)}
+                        className="p-1 text-text-muted hover:text-danger"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {!showAddProvider ? (
+                <button onClick={() => { setEditProviderId(null); setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o"); setShowAddProvider(true); }}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-border rounded-lg text-sm text-text-muted hover:text-text hover:border-primary/50 transition">
+                  <Plus className="w-4 h-4" /> 添加 Provider
+                </button>
+              ) : (
+                <div className="bg-surface-alt rounded-lg border border-border p-3 space-y-2">
+                  <p className="text-xs font-medium text-text">{editProviderId ? "编辑" : "新增"} Provider</p>
+                  <input value={provName} onChange={e => setProvName(e.target.value)} placeholder="名称（如：我的 DeepSeek）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provEndpoint} onChange={e => setProvEndpoint(e.target.value)} placeholder="API 地址（如：https://api.deepseek.com/v1）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provKey} type="password" onChange={e => setProvKey(e.target.value)} placeholder={editProviderId ? "新密钥（留空不修改）" : "API Key"} className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provModel} onChange={e => setProvModel(e.target.value)} placeholder="模型（如：gpt-4o）" className="w-full p-2 bg-bg border border-border rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  {provMsg && <p className={`text-xs ${provMsg === "已保存" ? "text-success" : "text-danger"}`}>{provMsg}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={handleSaveProvider} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium">保存</button>
+                    <button onClick={() => { setShowAddProvider(false); setProvMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded text-sm">取消</button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { AdminAiToggle } from "@/components/AdminAiToggle";
+import { AdminProviderManager } from "@/components/AdminProviderManager";
 import { SiteThemeSelector } from "@/components/SiteThemeSelector";
 import { getSiteTheme } from "@/app/actions/theme";
 import type { ThemeId } from "@/themes/types";
@@ -45,6 +46,8 @@ export default async function AdminConfigPage() {
       </section>
 
       <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
+
+      <AdminProviderManager />
 
       <section className="bg-[#0f1425] p-5 rounded-xl border border-purple-500/20 shadow-lg">
         <h3 className="font-bold text-purple-200 mb-3 flex items-center gap-2 text-sm">
