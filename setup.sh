@@ -65,6 +65,24 @@ echo "================================================"
 echo "  Step 1 — Database Configuration"
 echo "================================================"
 echo ""
+
+# Check for existing config
+DB_SKIP=false
+if [ -f db.config.json ]; then
+  EXISTING_TYPE=$(grep -o '"type": *"[^"]*"' db.config.json 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+  echo "[✓] 检测到已有数据库配置 (类型: ${EXISTING_TYPE:-unknown})："
+  echo "    $(cat db.config.json)"
+  echo ""
+  if ask_yn "是否重新配置数据库？" "n"; then
+    echo "[→] 将重新配置数据库"
+  else
+    echo "[✓] 保留现有数据库配置"
+    DB_SKIP=true
+  fi
+  echo ""
+fi
+
+if [ "$DB_SKIP" = false ]; then
 echo "  [1] SQLite (zero-config, local file)"
 echo "  [2] PostgreSQL (external, production-ready)"
 echo ""
@@ -208,6 +226,7 @@ if [ "$DB_TYPE" = "sqlite" ]; then
   pnpm db:push
   echo "[✓] SQLite database ready"
 fi
+fi  # End DB_SKIP block
 
 # -----------------------------------------------------------
 # 6. Seed database (optional)
