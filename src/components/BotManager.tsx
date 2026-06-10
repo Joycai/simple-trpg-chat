@@ -12,7 +12,7 @@ interface BotInfo {
   name?: string;
   config: {
     name?: string; systemPrompt?: string; model?: string;
-    activation?: string; enableTools?: string[];
+    activation?: string; enableTools?: string[]; providerId?: number;
   };
 }
 
