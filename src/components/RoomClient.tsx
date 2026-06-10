@@ -241,7 +241,7 @@ export function RoomClient({
       setLoadingMore(true);
       const oldestId = messages[0].id;
       try {
-        const older = await loadMoreMessagesAction(room.id, oldestId, 50);
+        const older: any[] = await loadMoreMessagesAction(room.id, oldestId, 50);
         if (older.length < 50) {
           setHasMore(false);
         }

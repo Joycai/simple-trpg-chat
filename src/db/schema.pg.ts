@@ -3,7 +3,6 @@
  *
  * Mirror of schema.ts for PostgreSQL dialect.
  * Tables: users | rooms | room_members | messages | room_skills | system_config
- *         | host_ai_config | inventory_items | inventory_distributions
  *         | clue_cards | clue_visibility
  */
 
@@ -38,6 +37,9 @@ export type InventoryItemType = (typeof INVENTORY_ITEM_TYPES)[number];
 export const INVENTORY_ACTIONS = ['created', 'shared'] as const;
 export type InventoryAction = (typeof INVENTORY_ACTIONS)[number];
 
+export const DEVICE_TYPES = ['mobile', 'desktop', 'tablet', 'unknown'] as const;
+export type DeviceType = (typeof DEVICE_TYPES)[number];
+
 // ============================================================
 // Tables
 // ============================================================
@@ -52,8 +54,8 @@ export const users = pgTable('users', {
   botConfigJson: text('bot_config_json'),
   themePreference: text('theme_preference'),
   sessionToken: text('session_token'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const rooms = pgTable('rooms', {
@@ -65,8 +67,8 @@ export const rooms = pgTable('rooms', {
   diceRules: text('dice_rules').notNull().default('basic'),
   ruleTemplate: text('rule_template').notNull().default('basic'),
   status: text('status').notNull().default('active'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const roomMembers = pgTable('room_members', {
@@ -74,7 +76,7 @@ export const roomMembers = pgTable('room_members', {
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   nickname: text('nickname').notNull(),
-  joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  joinedAt: timestamp('joined_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   characterData: text('character_data'),
 });
 
@@ -84,7 +86,7 @@ export const roomSkills = pgTable('room_skills', {
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   skillName: text('skill_name').notNull(),
   skillValue: integer('skill_value').notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   unq: unique().on(t.roomId, t.userId, t.skillName),
 }));
@@ -94,7 +96,7 @@ export const roomDmReads = pgTable('room_dm_reads', {
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   partnerUserId: integer('partner_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  lastReadAt: timestamp('last_read_at', { withTimezone: true }).notNull().defaultNow(),
+  lastReadAt: timestamp('last_read_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   unq: unique().on(t.roomId, t.userId, t.partnerUserId),
 }));
@@ -109,23 +111,15 @@ export const messages = pgTable('messages', {
   type: text('type').notNull().default('text'),
   diceDetail: text('dice_detail'),
   isPrivate: boolean('is_private').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const systemConfig = pgTable('system_config', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-export const hostAiConfig = pgTable('host_ai_config', {
-  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
-  apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
-  apiKeyEncrypted: text('api_key_encrypted').notNull(),
-  model: text('model').notNull().default('gpt-4o'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
 
 export const inventoryItems = pgTable('inventory_items', {
   id: serial('id').primaryKey(),
@@ -135,7 +129,7 @@ export const inventoryItems = pgTable('inventory_items', {
   title: text('title').notNull(),
   contentJson: text('content_json').notNull(),
   imageUrl: text('image_url'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const inventoryDistributions = pgTable('inventory_distributions', {
@@ -146,7 +140,7 @@ export const inventoryDistributions = pgTable('inventory_distributions', {
   toUserId: integer('to_user_id').notNull().references(() => users.id),
   action: text('action').notNull().default('created'),
   viewed: boolean('viewed').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idx_to_user_room: index('idx_dist_to_user_room').on(t.toUserId, t.roomId),
   idx_item_id: index('idx_dist_item_id').on(t.itemId),
@@ -159,14 +153,14 @@ export const clueCards = pgTable('clue_cards', {
   title: text('title').notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const clueVisibility = pgTable('clue_visibility', {
   id: serial('id').primaryKey(),
   clueId: integer('clue_id').notNull().references(() => clueCards.id, { onDelete: 'cascade' }),
   userId: integer('user_id'),
-  revealedAt: timestamp('revealed_at', { withTimezone: true }).notNull().defaultNow(),
+  revealedAt: timestamp('revealed_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idx_clue_id: index('idx_clue_vis_clue_id').on(t.clueId),
   idx_user_id: index('idx_clue_vis_user_id').on(t.userId),
@@ -181,7 +175,6 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   roomMemberships: many(roomMembers),
   messages: many(messages),
   skills: many(roomSkills),
-  aiConfig: one(hostAiConfig),
   sentDistributions: many(inventoryDistributions, { relationName: 'sender' }),
   receivedDistributions: many(inventoryDistributions, { relationName: 'recipient' }),
 }));
@@ -211,9 +204,6 @@ export const roomDmReadsRelations = relations(roomDmReads, ({ one }) => ({
   partner: one(users, { fields: [roomDmReads.partnerUserId], references: [users.id] }),
 }));
 
-export const hostAiConfigRelations = relations(hostAiConfig, ({ one }) => ({
-  user: one(users, { fields: [hostAiConfig.userId], references: [users.id] }),
-}));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
   room: one(rooms, { fields: [messages.roomId], references: [rooms.id] }),
@@ -254,7 +244,7 @@ export const loginHistory = pgTable('login_history', {
   ipAddress: text('ip_address').notNull(),
   userAgent: text('user_agent'),
   deviceType: text('device_type').notNull().default('unknown'),
-  loginAt: timestamp('login_at', { withTimezone: true }).notNull().defaultNow(),
+  loginAt: timestamp('login_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idxUserLogin: index('idx_login_history_user').on(t.userId, t.loginAt),
 }));
@@ -275,8 +265,8 @@ export const aiProviders = pgTable('ai_providers', {
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({

@@ -138,7 +138,7 @@ export async function batchImportItemsAction(
     try {
       if (item.type === "clue") {
         // Insert as clue card (visible to all by default)
-        const [clue] = await db.insert(clueCards).values({
+        const [clue] = await (db.insert as any)(clueCards).values({
           roomId,
           creatorId: userId,
           title: item.title,
