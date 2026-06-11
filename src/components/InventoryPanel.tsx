@@ -232,24 +232,56 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   <p className="text-sm text-text-muted">还没有创建道具</p>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    {roomItems.map(item => (
-                      <div key={item.id} className="bg-surface-alt rounded-theme p-3 border border-border flex justify-between items-center inventory-card">
-                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailItem(item)}>
-                          <div className="text-sm font-bold text-text truncate">{typeLabel(item.type)} {item.title}</div>
-                          <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button onClick={() => { setDistributeItemId(item.id); setDistributeTarget(null); }}
-                            className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                            发放
-                          </button>
-                          <button onClick={() => handleDeleteItem(item.id, item.title)}
-                            className="bg-danger hover:opacity-90 text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                            删除
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                    {(() => {
+                      const sortedRoomItems = [...roomItems].sort((a, b) => {
+                        const countA = history.filter((h: any) => h.itemId === a.id).length;
+                        const countB = history.filter((h: any) => h.itemId === b.id).length;
+                        
+                        if (countA === 0 && countB > 0) return -1;
+                        if (countA > 0 && countB === 0) return 1;
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                      });
+
+                      return sortedRoomItems.map(item => {
+                        const itemHistory = history.filter((h: any) => h.itemId === item.id);
+                        const distCount = itemHistory.length;
+                        const hasBeenDistributed = distCount > 0;
+
+                        return (
+                          <div key={item.id} className={`bg-surface-alt rounded-theme p-3 border flex justify-between items-center inventory-card transition-all duration-200 ${
+                            !hasBeenDistributed 
+                              ? "border-success/40 bg-success/5 shadow-sm ring-1 ring-success/20" 
+                              : "border-border"
+                          }`}>
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailItem(item)}>
+                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                <span className="text-sm font-bold text-text truncate">{typeLabel(item.type)} {item.title}</span>
+                                {!hasBeenDistributed ? (
+                                  <span className="bg-success/15 text-success text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-success/30 select-none animate-pulse">
+                                    ✨ 未发放
+                                  </span>
+                                ) : (
+                                  <span className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-primary/20 select-none">
+                                    📤 已发: {distCount}人
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button onClick={() => { setDistributeItemId(item.id); setDistributeTarget(null); }}
+                                className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                                发放
+                              </button>
+                              <button onClick={() => handleDeleteItem(item.id, item.title)}
+                                className="bg-danger hover:opacity-90 text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                                删除
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </div>
@@ -390,6 +422,35 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   <div className="mt-3 p-2 bg-surface-alt rounded border border-border text-xs text-text-muted">
                     🖼️ 图片预留 (imageUrl: {detailItem.imageUrl})
                   </div>
+                )}
+
+                {/* Host view: Distribution History */}
+                {isHost && (
+                  (() => {
+                    const itemDists = history.filter((h: any) => h.itemId === detailItem.id);
+                    return (
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <h4 className="text-xs font-bold text-text-dim uppercase tracking-wider mb-2">📋 分发历史 ({itemDists.length} 次)</h4>
+                        {itemDists.length === 0 ? (
+                          <p className="text-xs text-text-muted">该道具尚未发放给任何人。</p>
+                        ) : (
+                          <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                            {itemDists.map((d: any) => (
+                              <div key={d.id} className="flex justify-between items-center text-xs bg-surface-alt p-2 rounded border border-border/50">
+                                <span className="text-text-muted">
+                                  {d.action === "shared" ? "🤝 共享自 " : "📤 发送给 "}
+                                  <strong className="text-text">{d.toUsername || `#${d.toUserId}`}</strong>
+                                </span>
+                                <span className="text-text-dim text-[10px]">
+                                  {new Date(d.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
                 )}
 
                 {/* Share section */}
