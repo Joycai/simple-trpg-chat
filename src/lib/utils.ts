@@ -97,6 +97,29 @@ export function formatDiceResult(diceDetail: string | null, t?: any): string {
   if (!diceDetail) return "";
   try {
     const detail = JSON.parse(diceDetail);
+
+    // Sanity check (.sc) result
+    if (detail.sanityCheck) {
+      const { oldSanity, newSanity, deductExpression, deduction, isSuccess } = detail.sanityCheck;
+      const checkResultLabel = isSuccess
+        ? (t ? t("scSuccess") || "成功" : "Success")
+        : (t ? t("scFailure") || "失败" : "Failure");
+
+      const deductLabel = t ? t("scDeductLabel") || "扣除" : "Deduct";
+      const sanityLabel = t ? t("scSanityLabel") || "理智" : "Sanity";
+      const warningLabel = deduction >= 5
+        ? ` [⚠️ ${t ? t("scWarningInsanityShort") || "临时疯狂" : "Temporary Insanity"}]`
+        : "";
+
+      const scParts = [
+        `d100 = ${detail.sum}`,
+        `← ${t ? t("scSanityLabel") || "理智" : "理智"}值(${oldSanity}) ${checkResultLabel}`,
+        `| ${deductLabel}: ${deductExpression} = ${deduction}`,
+        `| ${sanityLabel}: ${oldSanity} → ${newSanity}${warningLabel}`
+      ];
+      return scParts.join(" ");
+    }
+
     const parts = [`${detail.notation || detail.dice || ""}`];
     if (detail.results && detail.results.length > 1) {
       parts.push(`[${detail.results.join(", ")}]`);
