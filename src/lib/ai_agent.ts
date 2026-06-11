@@ -60,21 +60,36 @@ async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 
  * buildAgentContext
  * Constructs the LLM context for a specific Bot.
  */
-export async function buildAgentContext(botUserId: number, roomId: number) {
-  const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
-  if (!botUser || !botUser.isBot) throw new Error("Bot user not found");
-  
+export async function buildAgentContext(
+  botUser: any,
+  room: any,
+  roomId: number,
+  botUserId: number
+) {
   const config = parseBotConfig(botUser.botConfigJson);
   const sysPrompt = config.systemPrompt;
   const summary = config.historicalSummary || "";
 
-  const distributions = await db.query.inventoryDistributions.findMany({
-    where: and(
+  // Parallelize database queries for inventory distributions and messages history
+  const [distributions, history] = await Promise.all([
+    db.query.inventoryDistributions.findMany({
+      where: and(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, botUserId)
-    ),
-    with: { item: true }
-  });
+      ),
+      with: { item: true }
+    }),
+    db.select().from(messages)
+      .where(
+        and(
+          eq(messages.roomId, roomId),
+          gt(messages.id, config.lastSummarizedMsgId),
+          sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+        )
+      )
+      .orderBy(desc(messages.id))
+      .limit(50) // Safety limit
+  ]);
 
   const knowledgeBase = distributions.map(d => ({
     id: d.itemId,
@@ -82,21 +97,8 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
     type: d.item.type
   }));
 
-  // Fetch all messages since the last summarization point to stabilize the prompt prefix for caching
-  const history = await db.select().from(messages)
-    .where(
-      and(
-        eq(messages.roomId, roomId),
-        gt(messages.id, config.lastSummarizedMsgId),
-        sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
-      )
-    )
-    .orderBy(desc(messages.id))
-    .limit(50); // Safety limit
-
   const sortedHistory = [...history].reverse();
 
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const diceRules = room?.diceRules || "basic";
   const rulesExplanation = diceRules === "coc7th"
     ? "Room Dice Rules: COC 7th edition (d100 rolls: 1-5 is Critical Success (大成功), 96-100 is Fumble/Critical Failure (大失败). Lower results are better in skill checks)."
@@ -141,15 +143,20 @@ export async function runAgent(
   }
   agentCooldowns.set(botUserId, now);
 
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) return;
+  // Retrieve room, botUser, and roomMember records in parallel
+  const [roomResult, botUserResult, memberResult] = await Promise.all([
+    db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1),
+    db.select().from(users).where(eq(users.id, botUserId)).limit(1),
+    db.select().from(roomMembers).where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId))).limit(1)
+  ]);
 
-  // Read bot config
-  const [botConfig] = await db.select({ botConfigJson: users.botConfigJson })
-    .from(users).where(eq(users.id, botUserId));
-  if (!botConfig) return;
+  const room = roomResult[0];
+  const botUser = botUserResult[0];
+  const member = memberResult[0];
 
-  const botCfg = parseBotConfig(botConfig.botConfigJson);
+  if (!room || !botUser) return;
+
+  const botCfg = parseBotConfig(botUser.botConfigJson);
 
   if (!botCfg.providerId) {
     console.error(`[runAgent] Bot ${botUserId} has no AI Provider configured`);
@@ -165,7 +172,7 @@ export async function runAgent(
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);
   const endpoint = aiConfig.apiEndpoint;
 
-  const { context, model } = await buildAgentContext(botUserId, roomId);
+  const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId);
   const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
 
 
@@ -322,13 +329,6 @@ export async function runAgent(
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: any; tool_call_id?: string; function_call?: any }[] = [...context];
   let iterations = 0;
 
-  // Retrieve bot's room nickname first
-  const [member] = await db
-    .select()
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
-  
-  const botUser = await db.query.users.findFirst({ where: eq(users.id, botUserId) });
   const botNickname = member?.nickname || botUser?.displayName || "AI";
 
   // Check if the triggering context was private and identify the target user
@@ -396,6 +396,11 @@ export async function runAgent(
     userId: botUserId
   });
 
+  // Declare accumulated token counters
+  let accumulatedInputTokens = 0;
+  let accumulatedCachedInputTokens = 0;
+  let accumulatedOutputTokens = 0;
+
   try {
     // 2. Fetch the LLM completion
     while (iterations < 5) {
@@ -425,12 +430,11 @@ export async function runAgent(
 
         const data = await response.json();
         
-        // Record token usage (always billed to the room host who manages/owns the bot in this room)
+        // Record token usage (accumulated and saved in the finally block)
         const usage = data.usage || {};
-        const inputTokens = usage.prompt_tokens || 0;
-        const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
-        const outputTokens = usage.completion_tokens || 0;
-        await recordTokenUsage(room.hostId, aiConfig.id, inputTokens, cachedInputTokens, outputTokens);
+        accumulatedInputTokens += usage.prompt_tokens || 0;
+        accumulatedCachedInputTokens += usage.prompt_tokens_details?.cached_tokens || 0;
+        accumulatedOutputTokens += usage.completion_tokens || 0;
 
         assistantMessage = data.choices[0].message;
       } catch (err: any) {
@@ -477,7 +481,7 @@ export async function runAgent(
         break;
       }
 
-      for (const toolCall of assistantMessage.tool_calls) {
+      const toolCallPromises = assistantMessage.tool_calls.map(async (toolCall: any) => {
         const functionName = toolCall.function.name;
         const args = JSON.parse(toolCall.function.arguments);
         let result;
@@ -501,8 +505,7 @@ export async function runAgent(
             }).returning();
             broadcastToRoom(roomId, newMessage);
 
-            // Get the room rules
-            const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+            // Get the room rules (pre-fetched room object)
             const roomDiceRules = room?.diceRules || "basic";
 
             let evaluation = undefined;
@@ -514,8 +517,6 @@ export async function runAgent(
                   evaluation = "Fumble (大失败)";
                 }
               } else {
-                // Even under basic rules, 100 on d100 is culturally/historically a Fumble in CoC/TRPG,
-                // and 1 is a Critical Success.
                 if (sum === 100) {
                   evaluation = "Fumble (大失败) in CoC rules (though current room uses basic rules)";
                 } else if (sum === 1) {
@@ -642,7 +643,7 @@ export async function runAgent(
               }))
             };
           } else if (functionName === "my_character") {
-            const [member] = await db.select({
+            const [memberInfo] = await db.select({
               characterData: roomMembers.characterData,
             }).from(roomMembers)
               .where(and(
@@ -657,7 +658,7 @@ export async function runAgent(
                 eq(roomSkills.roomId, roomId),
                 eq(roomSkills.userId, botUserId)
               ));
-            const charData = member?.characterData ? JSON.parse(member.characterData) : null;
+            const charData = memberInfo?.characterData ? JSON.parse(memberInfo.characterData) : null;
             result = {
               hasCharacterSheet: !!charData,
               attributes: charData?.cocAttributes || null,
@@ -666,7 +667,7 @@ export async function runAgent(
               customAttributes: charData?.customAttributes || [],
             };
           } else if (functionName === "set_character_card") {
-            const [member] = await db.select({
+            const [memberInfo] = await db.select({
               characterData: roomMembers.characterData,
             }).from(roomMembers)
               .where(and(
@@ -674,8 +675,8 @@ export async function runAgent(
                 eq(roomMembers.userId, botUserId)
               ));
 
-            const existing: CharacterData = member?.characterData
-              ? JSON.parse(member.characterData)
+            const existing: CharacterData = memberInfo?.characterData
+              ? JSON.parse(memberInfo.characterData)
               : { ruleTemplate: args.ruleTemplate || "basic" };
 
             const merged: CharacterData = {
@@ -729,10 +730,17 @@ export async function runAgent(
           result = { error: e instanceof Error ? e.message : String(e) };
         }
 
-        currentContext.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
-      }
+        return { role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) };
+      });
+
+      const toolResults = await Promise.all(toolCallPromises);
+      currentContext.push(...toolResults);
     }
   } finally {
+    if (accumulatedInputTokens > 0 || accumulatedOutputTokens > 0) {
+      recordTokenUsage(room.hostId, aiConfig.id, accumulatedInputTokens, accumulatedCachedInputTokens, accumulatedOutputTokens)
+        .catch(err => console.error("[runAgent] Error saving accumulated token usage:", err));
+    }
     broadcastToRoom(roomId, {
       type: "typing",
       botUserId,
