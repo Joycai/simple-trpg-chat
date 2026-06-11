@@ -20,11 +20,19 @@ function readDbConfig(): { url: string } {
 
 const config = readDbConfig();
 
-const client = postgres(config.url, {
+declare global {
+  var __dbClient: ReturnType<typeof postgres> | undefined;
+}
+
+const client = globalThis.__dbClient || postgres(config.url, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
 });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.__dbClient = client;
+}
 
 export const db = pgDrizzle(client, { schema: pgSchema });
 export const currentDialect: 'postgresql' = 'postgresql';

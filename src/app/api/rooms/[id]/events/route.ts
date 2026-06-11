@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { subscribeToRoom } from "@/lib/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 interface ActiveConnection {
   controller: ReadableStreamDefaultController;
@@ -33,8 +34,16 @@ export async function GET(
     return new Response("Invalid room ID", { status: 400 });
   }
 
-  const userId = parseInt((session.user as any).id);
-  const isHost = (session.user as any).role === "host";
+  let userId: number;
+  let isHost = false;
+
+  try {
+    const access = await checkRoomAccess(roomId, false);
+    userId = access.userId;
+    isHost = access.isHost;
+  } catch (err: any) {
+    return new Response(err.message || "Forbidden", { status: 403 });
+  }
 
   // Get or initialize active connections set for this user
   let connections = userConnections.get(userId);

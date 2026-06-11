@@ -1,12 +1,12 @@
 "use server";
 
 import { db, sqlBool } from "@/db";
-import { users, roomMembers, messages } from "@/db/schema";
+import { users, roomMembers } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 /**
  * createBotAction
@@ -24,10 +24,8 @@ export async function createBotAction(
     providerId?: number;
   }
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Unauthorized: Only hosts can create bots");
-  }
+  // Only room hosts can create bots in the room
+  await checkRoomAccess(roomId, true);
 
   // 1. Create a "Shadow User" for the bot
   const botUsername = `bot_${crypto.randomBytes(4).toString("hex")}`;
@@ -66,6 +64,9 @@ export async function createBotAction(
  * Lists all bots in a room.
  */
 export async function getRoomBotsAction(roomId: number) {
+  // Verify that the user is at least a member of the room to list bots
+  await checkRoomAccess(roomId, false);
+
   const results = await db
     .select()
     .from(roomMembers)
@@ -90,8 +91,8 @@ export async function updateBotAction(
   botUserId: number,
   data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number }
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") throw new Error("Unauthorized");
+  // Only room hosts can edit bots
+  await checkRoomAccess(roomId, true);
 
   const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
   if (!botUser) throw new Error("Bot not found");
@@ -113,10 +114,8 @@ export async function updateBotAction(
  * Removes a bot user record.
  */
 export async function deleteBotAction(roomId: number, botUserId: number) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Unauthorized");
-  }
+  // Only room hosts can delete bots
+  await checkRoomAccess(roomId, true);
 
   await db.delete(roomMembers).where(
     and(
@@ -148,10 +147,8 @@ export async function checkBotMentionAction(roomId: number, content: string, sen
  * Only the Host can trigger bots manually.
  */
 export async function triggerBotAction(roomId: number, botUserId: number) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Unauthorized: Only hosts can trigger bots manually");
-  }
+  // Only room hosts can manually trigger bots
+  await checkRoomAccess(roomId, true);
 
   // Async trigger — bot responds in the background
   import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId)).catch(console.error);

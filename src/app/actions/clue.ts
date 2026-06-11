@@ -6,6 +6,7 @@ import { eq, and, or, isNull, inArray } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/events";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 /**
  * Create a clue card with optional visibility targets.
@@ -19,14 +20,11 @@ export async function createClueAction(
   imageUrl?: string,
   targetUserIds?: number[]
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Only host can create clues");
-  }
+  const { userId } = await checkRoomAccess(roomId, true);
 
   const [clue] = await db.insert(clueCards).values({
     roomId,
-    creatorId: parseInt((session.user as any).id),
+    creatorId: userId,
     title,
     content,
     imageUrl: imageUrl || null,
@@ -60,20 +58,18 @@ export async function pushClueToChannelAction(
   targetUserIds?: number[],
   clueId?: number
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Only host can push clues");
-  }
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   let clue: any;
   if (clueId) {
     const [existingClue] = await db.select().from(clueCards).where(eq(clueCards.id, clueId));
     if (!existingClue) throw new Error("Clue not found");
+    if (existingClue.roomId !== roomId) throw new Error("Clue room mismatch");
     clue = existingClue;
   } else {
     const [newClue] = await db.insert(clueCards).values({
       roomId,
-      creatorId: parseInt((session.user as any).id),
+      creatorId: hostId,
       title,
       content,
       imageUrl: imageUrl || null,
@@ -129,8 +125,8 @@ export async function pushClueToChannelAction(
   // Broadcast as clue message
   const [msg] = await db.insert(messages).values({
     roomId,
-    userId: parseInt((session.user as any).id),
-    nickname: (session.user as any).name || "Host",
+    userId: hostId,
+    nickname: "Host",
     content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![线索图片](${imageUrl})` : ""}`,
     type: "clue",
     diceDetail: JSON.stringify({
@@ -152,25 +148,27 @@ export async function pushClueToChannelAction(
  * - the current user is the creator (always sees own clues)
  */
 export async function getVisibleCluesAction(roomId: number) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  const { userId } = await checkRoomAccess(roomId, false);
 
-  const userId = parseInt((session.user as any).id);
-
-  // 1. Get all clueIds that are visible to the current user (either public or specific user)
+  // 1. Get all clueIds in this room that are visible to the current user (either public or specific user)
+  // We can select clueVisibility entries for this user / public, and join clueCards on roomId.
   const visibleVisibility = await db
     .select({ clueId: clueVisibility.clueId })
     .from(clueVisibility)
+    .innerJoin(clueCards, eq(clueVisibility.clueId, clueCards.id))
     .where(
-      or(
-        isNull(clueVisibility.userId),
-        eq(clueVisibility.userId, userId)
+      and(
+        eq(clueCards.roomId, roomId),
+        or(
+          isNull(clueVisibility.userId),
+          eq(clueVisibility.userId, userId)
+        )
       )
     );
 
   const clueIds = Array.from(new Set(visibleVisibility.map(v => v.clueId)));
 
-  // 2. Fetch the corresponding clueCards (or clues created by this user)
+  // 2. Fetch the corresponding clueCards (or clues created by this user in this room)
   const conditions = [eq(clueCards.roomId, roomId)];
   if (clueIds.length > 0) {
     conditions.push(
@@ -201,9 +199,14 @@ export async function revealClueToPlayersAction(
   targetUserIds: number[]
 ) {
   const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Only host can reveal clues");
-  }
+  if (!session) throw new Error("Not authenticated");
+
+  // Fetch the clue to determine roomId
+  const [clue] = await db.select().from(clueCards).where(eq(clueCards.id, clueId));
+  if (!clue) throw new Error("Clue not found");
+
+  // Verify that the caller is the host of the room where the clue exists
+  await checkRoomAccess(clue.roomId, true);
 
   if (!targetUserIds || targetUserIds.length === 0) {
     throw new Error("Must specify at least one target user");
@@ -249,5 +252,6 @@ export async function revealClueToPlayersAction(
   }));
   await db.insert(clueVisibility).values(rows);
 
+  revalidatePath(`/rooms/${clue.roomId}`);
   return { clueId, revealedTo: newTargetUserIds };
 }

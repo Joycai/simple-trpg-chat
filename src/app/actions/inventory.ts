@@ -1,11 +1,12 @@
 "use server";
 
 import { db, sqlBool } from "@/db";
-import { inventoryItems, inventoryDistributions, roomMembers, users, rooms } from "@/db/schema";
+import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
 import { eq, and, not, desc, inArray, count, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 /**
  * createInventoryItemAction
@@ -19,14 +20,11 @@ export async function createInventoryItemAction(
     imageUrl?: string;
   }
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Unauthorized");
-  }
+  const { userId } = await checkRoomAccess(roomId, true);
 
   const [newItem] = await db.insert(inventoryItems).values({
     roomId,
-    creatorId: parseInt((session.user as any).id),
+    creatorId: userId,
     type: data.type,
     title: data.title,
     contentJson: JSON.stringify(data.content),
@@ -45,12 +43,12 @@ export async function distributeItemAction(
   itemId: number,
   toUserId: number | "all"
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    throw new Error("Unauthorized");
-  }
+  const { userId: fromUserId } = await checkRoomAccess(roomId, true);
 
-  const fromUserId = parseInt((session.user as any).id);
+  // Verify that the item exists and belongs to the room
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  if (!item) throw new Error("Item not found");
+  if (item.roomId !== roomId) throw new Error("Item room mismatch");
 
   let targetUserIds: number[] = [];
   if (toUserId === "all") {
@@ -64,6 +62,12 @@ export async function distributeItemAction(
       ));
     targetUserIds = members.map((m: any) => m.userId);
   } else {
+    // Verify recipient is a member of the room
+    const [recipientMember] = await db.select().from(roomMembers).where(
+      and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, toUserId))
+    );
+    if (!recipientMember) throw new Error("Recipient is not a member of this room");
+    
     targetUserIds = [toUserId];
   }
 
@@ -85,7 +89,6 @@ export async function distributeItemAction(
 
   if (targetUserIds.length === 0) {
     // Notify host that everyone already has it
-    const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
     const kpSummary = toUserId === "all"
       ? `⚠️ 全体成员此前已拥有道具：【${item?.title}】，未重复发放`
       : `⚠️ 目标玩家此前已拥有道具：【${item?.title}】，未重复发放`;
@@ -103,7 +106,6 @@ export async function distributeItemAction(
 
   await db.insert(inventoryDistributions).values(values);
 
-  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
   const recipients = await db
     .select({ id: users.id, name: users.displayName })
     .from(users)
@@ -139,23 +141,34 @@ export async function shareItemAction(
   itemId: number,
   toUserId: number
 ) {
+  const { userId: fromUserId } = await checkRoomAccess(roomId, false);
   const session = await auth();
-  if (!session) throw new Error("Unauthorized");
+  const senderName = session?.user?.name || "玩家";
 
-  const fromUserId = parseInt((session.user as any).id);
-  const senderName = (session.user as any).name || "玩家";
+  // Verify that the item exists and belongs to the room
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  if (!item) throw new Error("Item not found");
+  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+
+  // Verify recipient is a member of the room
+  const [recipientMember] = await db.select().from(roomMembers).where(
+    and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, toUserId))
+  );
+  if (!recipientMember) throw new Error("Recipient is not a member of this room");
 
   const [own] = await db.select().from(inventoryDistributions).where(
     and(
+      eq(inventoryDistributions.roomId, roomId),
       eq(inventoryDistributions.itemId, itemId),
       eq(inventoryDistributions.toUserId, fromUserId)
     )
   );
-  if (!own) throw new Error("You don't have this item");
+  if (!own) throw new Error("You don't have this item in this room");
 
   // Check if recipient already has it
   const [hasAlready] = await db.select().from(inventoryDistributions).where(
     and(
+      eq(inventoryDistributions.roomId, roomId),
       eq(inventoryDistributions.itemId, itemId),
       eq(inventoryDistributions.toUserId, toUserId)
     )
@@ -172,7 +185,6 @@ export async function shareItemAction(
     action: "shared",
   });
 
-  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
   const [recipient] = await db.select({ name: users.displayName }).from(users).where(eq(users.id, toUserId));
   const recipientName = recipient?.name || "队友";
 
@@ -202,9 +214,7 @@ export async function shareItemAction(
  * getMyInventory
  */
 export async function getMyInventory(roomId: number) {
-  const session = await auth();
-  if (!session) return [];
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
 
   const raw = await db.query.inventoryDistributions.findMany({
     where: and(
@@ -228,6 +238,8 @@ export async function getMyInventory(roomId: number) {
  * getRoomItems
  */
 export async function getRoomItems(roomId: number) {
+  await checkRoomAccess(roomId, false);
+
   return await db
     .select()
     .from(inventoryItems)
@@ -239,6 +251,8 @@ export async function getRoomItems(roomId: number) {
  * getDistributionHistory
  */
 export async function getDistributionHistory(roomId: number) {
+  await checkRoomAccess(roomId, false);
+
   const raw = await db.query.inventoryDistributions.findMany({
     where: eq(inventoryDistributions.roomId, roomId),
     with: {
@@ -261,10 +275,7 @@ export async function getDistributionHistory(roomId: number) {
  * Called when the player opens their inventory panel.
  */
 export async function markInventoryViewedAction(roomId: number) {
-  const session = await auth();
-  if (!session) throw new Error("Unauthorized");
-
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
 
   await db.update(inventoryDistributions)
     .set({ viewed: sqlBool(true) as unknown as boolean })
@@ -283,10 +294,7 @@ export async function markInventoryViewedAction(roomId: number) {
  * Get unread inventory count for badge display.
  */
 export async function getUnreadInventoryCountAction(roomId: number) {
-  const session = await auth();
-  if (!session) return 0;
-
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
 
   const result = await db.select({ count: count() })
     .from(inventoryDistributions)

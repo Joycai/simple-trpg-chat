@@ -5,7 +5,7 @@ import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { recordLogin } from "@/app/actions/login-history";
+import { recordLogin } from "@/lib/login-history";
 import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({

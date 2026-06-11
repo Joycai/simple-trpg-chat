@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { messages, roomMembers, rooms, users } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { auth } from "@/auth";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 interface ExportTimelineItem {
   time: string;
@@ -43,12 +44,7 @@ interface ExportRoomData {
  * E1: Query all room data and assemble structured export data.
  */
 export async function exportRoomDataAction(roomId: number): Promise<ExportRoomData> {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const role = (session.user as any).role;
-  if (role !== "host" && role !== "admin") {
-    throw new Error("Only host or admin can export room data");
-  }
+  await checkRoomAccess(roomId, true);
 
   // Room info
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));

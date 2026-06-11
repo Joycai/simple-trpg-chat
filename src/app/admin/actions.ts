@@ -7,7 +7,16 @@ import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
+async function requireAdmin() {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "admin") {
+    throw new Error("Unauthorized: Admin access required");
+  }
+}
+
 export async function createUser(formData: FormData) {
+  await requireAdmin();
+
   const username = formData.get("username") as string;
   const password = formData.get("password") as string;
   const role = formData.get("role") as any;
@@ -28,11 +37,15 @@ export async function createUser(formData: FormData) {
 }
 
 export async function deleteUser(id: number) {
+  await requireAdmin();
+
   await db.delete(users).where(eq(users.id, id));
   revalidatePath("/admin");
 }
 
 export async function resetPassword(id: number, newPassword: string) {
+  await requireAdmin();
+
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, id));
   revalidatePath("/admin");

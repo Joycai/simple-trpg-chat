@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { broadcastToRoom } from "@/lib/events";
 import { executeCommand } from "@/lib/commands";
 import { rollDice } from "@/lib/utils";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 // --- Room Actions ---
 
@@ -136,10 +137,7 @@ export async function sendMessageAction(
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
 ) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
+  const { userId, isHost } = await checkRoomAccess(roomId, false);
 
   // 1. Intercept for Bot Commands if it's a plain text message starting with '.'
   if (type === "text" && content.startsWith(".")) {
@@ -231,14 +229,12 @@ export async function requestSkillCheckAction(
   skillName: string,
   diceType: string = "d100"
 ) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") throw new Error("Only host can request checks");
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
 
-  const hostId = parseInt((session.user as any).id);
   const [hostMember] = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
 
-  const hostNick = hostMember?.nickname || (session.user as any).name || "Host";
+  const hostNick = hostMember?.nickname || "Host";
 
   // Get target nicknames
   const targetMembers = await db.select().from(roomMembers)
@@ -254,8 +250,8 @@ export async function requestSkillCheckAction(
     roomId,
     userId: hostId,
     nickname: hostNick,
-    content,
     type: "check_request",
+    content,
     diceDetail: detail,
   }).returning();
 
@@ -266,14 +262,7 @@ export async function requestSkillCheckAction(
 // --- Room Settings ---
 
 export async function updateRoomSettingsAction(roomId: number, formData: FormData) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
-
-  // Verify host
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room || room.hostId !== userId) throw new Error("Only the host can change room settings");
+  await checkRoomAccess(roomId, true);
 
   const theme = ((formData.get("theme") as string) || "default") as Theme;
   const diceRules = ((formData.get("diceRules") as string) || "basic") as DiceRules;
@@ -312,11 +301,34 @@ export async function getRoomSkills(roomId: number, userId: number) {
 // --- Command Engine ---
 
 export async function executeCommandAction(roomId: number, userId: number, content: string) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const callerId = parseInt((session.user as any).id);
+
+  if (callerId !== userId) {
+    throw new Error("Unauthorized: Cannot execute commands as another user");
+  }
+
+  // Ensure they are a member of the room
+  await checkRoomAccess(roomId, false);
+
   const { executeCommand } = await import("@/lib/commands");
   return await executeCommand(roomId, userId, content);
 }
 
 export async function deleteSkillAction(roomId: number, userId: number, skillName: string) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const callerId = parseInt((session.user as any).id);
+
+  if (callerId !== userId) {
+    // If not the owner of the skill, must be the room host
+    await checkRoomAccess(roomId, true);
+  } else {
+    // Must be a member of the room
+    await checkRoomAccess(roomId, false);
+  }
+
   await db.delete(roomSkills).where(
     and(
       eq(roomSkills.roomId, roomId),
@@ -328,6 +340,18 @@ export async function deleteSkillAction(roomId: number, userId: number, skillNam
 }
 
 export async function upsertSkillAction(roomId: number, userId: number, skillName: string, skillValue: number) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const callerId = parseInt((session.user as any).id);
+
+  if (callerId !== userId) {
+    // If not the owner of the skill, must be the room host
+    await checkRoomAccess(roomId, true);
+  } else {
+    // Must be a member of the room
+    await checkRoomAccess(roomId, false);
+  }
+
   await db.insert(roomSkills).values({
     roomId,
     userId,
@@ -343,10 +367,7 @@ export async function upsertSkillAction(roomId: number, userId: number, skillNam
 // --- DM/Conversation Actions ---
 
 export async function getUnreadDMCountAction(roomId: number) {
-  const session = await auth();
-  if (!session) return {};
-  
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
   const { messages, roomDmReads } = await import("@/db/schema");
   const { db, sqlBool } = await import("@/db");
   const { eq, and, sql, not } = await import("drizzle-orm");
@@ -390,10 +411,7 @@ export async function getUnreadDMCountAction(roomId: number) {
 }
 
 export async function markDMReadAction(roomId: number, senderUserId: number) {
-  const session = await auth();
-  if (!session) return;
-  
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
   const { roomDmReads } = await import("@/db/schema");
   const { db } = await import("@/db");
   const { eq, and, sql } = await import("drizzle-orm");
@@ -415,13 +433,7 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
 }
 
 export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const userId = parseInt((session.user as any).id);
-
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) throw new Error("Room not found");
-  const isHost = room.hostId === userId;
+  const { userId, isHost } = await checkRoomAccess(roomId, false);
 
   const visibilityCondition = isHost
     ? eq(messages.roomId, roomId)

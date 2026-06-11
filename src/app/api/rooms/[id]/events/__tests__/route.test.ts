@@ -18,6 +18,19 @@ vi.mock("@/auth", () => {
   };
 });
 
+vi.mock("@/lib/auth-helpers", () => {
+  return {
+    checkRoomAccess: vi.fn((roomId: number, requireHost?: boolean) => {
+      if (!mockSession) return Promise.reject(new Error("Not authenticated"));
+      return Promise.resolve({
+        userId: parseInt(mockSession.user.id),
+        isHost: mockSession.user.role === "host",
+        isAdmin: mockSession.user.role === "admin",
+      });
+    }),
+  };
+});
+
 vi.mock("@/lib/events", () => {
   const listeners: Record<number, Array<(data: any) => void>> = {};
   const subscribeToRoom = vi.fn((roomId: number, listener: (data: any) => void) => {
