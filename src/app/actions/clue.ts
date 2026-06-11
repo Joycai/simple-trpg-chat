@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { clueCards, clueVisibility, messages } from "@/db/schema";
+import { clueCards, clueVisibility, messages, users } from "@/db/schema";
 import { eq, and, or, isNull, inArray } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
@@ -162,6 +162,22 @@ export async function pushClueToChannelAction(
       broadcastToRoom(roomId, msg);
       lastMsg = msg;
     }
+
+    // Send Host log summary
+    const recipients = await db
+      .select({ name: users.displayName })
+      .from(users)
+      .where(inArray(users.id, targetUserIds!));
+    const recipientNames = recipients.map(r => r.name).join(", ");
+    const [hostMsg] = await db.insert(messages).values({
+      roomId,
+      userId: hostId,
+      nickname: "Host",
+      content: `📤 已向 ${recipientNames || '玩家'} 发放线索：【${title}】`,
+      type: "system",
+      isPrivate: true,
+    }).returning();
+    broadcastToRoom(roomId, hostMsg);
   }
 
   revalidatePath(`/rooms/${roomId}`);
@@ -294,6 +310,22 @@ export async function revealClueToPlayersAction(
 
     broadcastToRoom(clue.roomId, msg);
   }
+
+  // Send Host log summary
+  const recipients = await db
+    .select({ name: users.displayName })
+    .from(users)
+    .where(inArray(users.id, newTargetUserIds));
+  const recipientNames = recipients.map(r => r.name).join(", ");
+  const [hostMsg] = await db.insert(messages).values({
+    roomId: clue.roomId,
+    userId: hostId,
+    nickname: "Host",
+    content: `📤 已向 ${recipientNames || '玩家'} 发放线索：【${clue.title}】`,
+    type: "system",
+    isPrivate: true,
+  }).returning();
+  broadcastToRoom(clue.roomId, hostMsg);
 
   revalidatePath(`/rooms/${clue.roomId}`);
   return { clueId, revealedTo: newTargetUserIds };
