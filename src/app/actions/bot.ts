@@ -148,10 +148,10 @@ export async function checkBotMentionAction(roomId: number, content: string, sen
  */
 export async function triggerBotAction(roomId: number, botUserId: number) {
   // Only room hosts can manually trigger bots
-  await checkRoomAccess(roomId, true);
+  const { userId } = await checkRoomAccess(roomId, true);
 
   // Async trigger — bot responds in the background
-  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId)).catch(console.error);
+  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false })).catch(console.error);
 
   return { success: true };
 }

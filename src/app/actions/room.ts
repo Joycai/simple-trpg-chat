@@ -207,7 +207,7 @@ export async function sendMessageAction(
       const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
       if (targetUser && targetUser.isBot) {
         // Trigger Agent (async)
-        import("@/lib/ai_agent").then(({ runAgent }) => runAgent(targetUserId, roomId));
+        import("@/lib/ai_agent").then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true }));
       }
     } else if (!isPrivate) {
       // Check if any bot in the room is mentioned
@@ -219,7 +219,7 @@ export async function sendMessageAction(
       for (const m of roomBots) {
         if (m.user.isBot && (content.includes(`@${m.user.displayName}`) || content.includes(`@${m.nickname}`))) {
           // Trigger Agent (async)
-          import("@/lib/ai_agent").then(({ runAgent }) => runAgent(m.userId, roomId));
+          import("@/lib/ai_agent").then(({ runAgent }) => runAgent(m.userId, roomId, { triggeringUserId: userId, isPrivate: false }));
         }
       }
     }

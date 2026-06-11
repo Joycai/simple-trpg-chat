@@ -5,6 +5,7 @@ import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
 import { rollDice } from "@/lib/utils";
+import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { z } from "zod";
 import { computeCocDerived, type CharacterData, type CocAttributes, type CustomAttribute } from "@/lib/character-types";
 
@@ -127,7 +128,11 @@ const agentCooldowns = new Map<number, number>();
  * runAgent
  * Orchestrates the LLM call and Tool execution.
  */
-export async function runAgent(botUserId: number, roomId: number) {
+export async function runAgent(
+  botUserId: number,
+  roomId: number,
+  triggeringInfo?: { triggeringUserId: number; isPrivate: boolean }
+) {
   const now = Date.now();
   const lastRun = agentCooldowns.get(botUserId) || 0;
   if (now - lastRun < 3000) {
@@ -169,12 +174,12 @@ export async function runAgent(botUserId: number, roomId: number) {
       type: "function",
       function: {
         name: "roll_dice",
-        description: "Roll dice for the TRPG game",
+        description: "Roll dice for the TRPG game. Limit count: 1-20, faces: 1-1000.",
         parameters: {
           type: "object",
           properties: {
-            faces: { type: "integer" },
-            count: { type: "integer" },
+            faces: { type: "integer", minimum: 1, maximum: 1000 },
+            count: { type: "integer", minimum: 1, maximum: 20 },
             isPrivate: { type: "boolean" }
           },
           required: ["faces", "count"]
@@ -311,8 +316,8 @@ export async function runAgent(botUserId: number, roomId: number) {
       }
     }
   ];
-  // Filter to only enabled tools for this bot
-  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
+  // Filter to only enabled tools for this bot, temporarily disabling "send_message" tool
+  const tools = allTools.filter(t => enabledTools.includes(t.function.name) && t.function.name !== "send_message");
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: any; tool_call_id?: string; function_call?: any }[] = [...context];
   let iterations = 0;
@@ -330,46 +335,51 @@ export async function runAgent(botUserId: number, roomId: number) {
   let replyIsPrivate = false;
   let targetUserId: number | null = null;
 
-  try {
-    // Limit to public messages or private messages involving the bot to scan history
-    const history = await db.select().from(messages)
-      .where(
-        and(
-          eq(messages.roomId, roomId),
-          sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+  if (triggeringInfo) {
+    replyIsPrivate = triggeringInfo.isPrivate;
+    targetUserId = triggeringInfo.triggeringUserId;
+  } else {
+    try {
+      // Limit to public messages or private messages involving the bot to scan history
+      const history = await db.select().from(messages)
+        .where(
+          and(
+            eq(messages.roomId, roomId),
+            sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+          )
         )
-      )
-      .orderBy(desc(messages.createdAt))
-      .limit(20);
-    const sortedHistory = [...history].reverse();
+        .orderBy(desc(messages.createdAt))
+        .limit(20);
+      const sortedHistory = [...history].reverse();
 
-    for (let i = sortedHistory.length - 1; i >= 0; i--) {
-      const msg = sortedHistory[i];
-      if (msg.userId !== botUserId) {
-        if (msg.isPrivate && msg.targetUserId === botUserId) {
-          replyIsPrivate = true;
-          targetUserId = msg.userId;
-        }
-        break;
-      }
-    }
-
-    if (!targetUserId) {
       for (let i = sortedHistory.length - 1; i >= 0; i--) {
         const msg = sortedHistory[i];
-        if (msg.isPrivate) {
-          if (msg.userId === botUserId && msg.targetUserId) {
-            targetUserId = msg.targetUserId;
-            break;
-          } else if (msg.targetUserId === botUserId) {
+        if (msg.userId !== botUserId) {
+          if (msg.isPrivate && msg.targetUserId === botUserId) {
+            replyIsPrivate = true;
             targetUserId = msg.userId;
-            break;
+          }
+          break;
+        }
+      }
+
+      if (!targetUserId) {
+        for (let i = sortedHistory.length - 1; i >= 0; i--) {
+          const msg = sortedHistory[i];
+          if (msg.isPrivate) {
+            if (msg.userId === botUserId && msg.targetUserId) {
+              targetUserId = msg.targetUserId;
+              break;
+            } else if (msg.targetUserId === botUserId) {
+              targetUserId = msg.userId;
+              break;
+            }
           }
         }
       }
+    } catch (err) {
+      console.error("[runAgent] Error determining triggering context privacy:", err);
     }
-  } catch (err) {
-    console.error("[runAgent] Error determining triggering context privacy:", err);
   }
 
   if (!targetUserId) {
@@ -442,14 +452,20 @@ export async function runAgent(botUserId: number, roomId: number) {
       // Add assistant response to context
       currentContext.push(assistantMessage);
 
-      // If there is message text, broadcast it (R3)
+      // If there is message text, broadcast it (R3) (filtered with sensitive words check)
       if (assistantMessage.content) {
+        let textToSend = assistantMessage.content;
+        const matchedWord = await checkSensitiveWords(textToSend);
+        if (matchedWord) {
+          console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
+          textToSend = "🤖 (Output blocked due to sensitive content filter)";
+        }
         const [newMessage] = await db.insert(messages).values({
           roomId,
           userId: botUserId,
           targetUserId: replyIsPrivate ? targetUserId : null,
           nickname: botNickname,
-          content: assistantMessage.content,
+          content: textToSend,
           type: "text",
           isPrivate: replyIsPrivate
         }).returning();
@@ -468,9 +484,11 @@ export async function runAgent(botUserId: number, roomId: number) {
 
         try {
           if (functionName === "roll_dice") {
-            const { results: rollResults, sum } = rollDice(args.faces, args.count);
-            const detail = JSON.stringify({ dice: `d${args.faces}`, count: args.count, results: rollResults, sum, isBot: true });
-            const content = `🤖 (${botNickname}) 🎲 ${args.count}d${args.faces}: [${rollResults.join(", ")}] = ${sum}`;
+            const count = Math.max(1, Math.min(args.count || 1, 20));
+            const faces = Math.max(1, Math.min(args.faces || 6, 1000));
+            const { results: rollResults, sum } = rollDice(faces, count);
+            const detail = JSON.stringify({ dice: `d${faces}`, count, results: rollResults, sum, isBot: true });
+            const content = `🤖 (${botNickname}) 🎲 ${count}d${faces}: [${rollResults.join(", ")}] = ${sum}`;
             const [newMessage] = await db.insert(messages).values({
               roomId,
               userId: botUserId,
@@ -488,7 +506,7 @@ export async function runAgent(botUserId: number, roomId: number) {
             const roomDiceRules = room?.diceRules || "basic";
 
             let evaluation = undefined;
-            if (args.faces === 100 && args.count === 1) {
+            if (faces === 100 && count === 1) {
               if (roomDiceRules === "coc7th") {
                 if (sum <= 5) {
                   evaluation = "Critical Success (大成功)";
@@ -568,7 +586,7 @@ export async function runAgent(botUserId: number, roomId: number) {
                 and(
                   eq(messages.roomId, roomId),
                   sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
-                  sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\'`
+                  sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\\'`
                 )
               )
               .orderBy(desc(messages.createdAt))
