@@ -1,13 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies to prevent Next.js server actions / NextAuth import errors in vitest environment
+const { mockSelect } = vi.hoisted(() => ({
+  mockSelect: vi.fn()
+}));
+
 vi.mock("@/db", () => ({
   db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => [])
-      }))
-    })),
+    select: mockSelect,
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
         onConflictDoUpdate: vi.fn()
@@ -30,17 +30,27 @@ vi.mock("@/db/schema", () => ({
 
 vi.mock("@/app/actions/room", () => ({
   rollDiceAction: vi.fn(),
-  sendMessageAction: vi.fn()
+  sendMessageAction: vi.fn(async () => ({ id: 1 }))
 }));
 
 vi.mock("next-intl/server", () => ({
-  getTranslations: vi.fn(() => async (key: string) => {
+  getTranslations: vi.fn(async () => (key: string) => {
     if (key === "keptLabel") return "保留";
     return key;
   })
 }));
 
-import { parseAndRollExpression } from "../commands";
+import { parseAndRollExpression, executeCommand } from "../commands";
+import { rooms, roomSkills, roomMembers } from "@/db/schema";
+
+beforeEach(() => {
+  mockSelect.mockReset();
+  mockSelect.mockReturnValue({
+    from: vi.fn(() => ({
+      where: vi.fn(() => [])
+    }))
+  });
+});
 
 describe("Commands - parseAndRollExpression", () => {
   it("should parse and roll a simple d100 roll", () => {
@@ -158,5 +168,49 @@ describe("Commands - parseAndRollExpression", () => {
       const match = testCase.match(scRegex);
       expect(match).not.toBeNull();
     }
+  });
+});
+
+describe("Commands - executeCommand (.sc)", () => {
+  it("should fail with scNotCoc7th if room.ruleTemplate is not coc7th", async () => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "basic", diceRules: "coc7th" }];
+          }
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".sc 0/1d6");
+    expect(result.success).toBe(false);
+    expect(result.isCommand).toBe(true);
+    expect(result.error).toBe("scNotCoc7th");
+  });
+
+  it("should succeed and roll check if room.ruleTemplate is coc7th", async () => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "basic" }];
+          }
+          if (table === roomSkills) {
+            return [{ roomId: 1, userId: 1, skillName: "理智值", skillValue: 50 }];
+          }
+          if (table === roomMembers) {
+            return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocDerived: { san: 50, sanMax: 99 } }) }];
+          }
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".sc 0/1d6");
+    expect(result.success).toBe(true);
+    expect(result.isCommand).toBe(true);
+    expect(result.message).toBeDefined();
   });
 });

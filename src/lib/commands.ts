@@ -273,7 +273,7 @@ async function handleSanityCheck(
   // 1. Get room rules and verify it's coc7th
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
-  if (room.diceRules !== "coc7th") {
+  if (room.ruleTemplate !== "coc7th") {
     return { success: false, isCommand: true, error: t("scNotCoc7th") };
   }
 
