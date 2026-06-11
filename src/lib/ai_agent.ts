@@ -81,16 +81,17 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
     type: d.item.type
   }));
 
-  // Limit to public messages or private messages involving the bot
+  // Fetch all messages since the last summarization point to stabilize the prompt prefix for caching
   const history = await db.select().from(messages)
     .where(
       and(
         eq(messages.roomId, roomId),
+        gt(messages.id, config.lastSummarizedMsgId),
         sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
       )
     )
-    .orderBy(desc(messages.createdAt))
-    .limit(20);
+    .orderBy(desc(messages.id))
+    .limit(50); // Safety limit
 
   const sortedHistory = [...history].reverse();
 
@@ -103,7 +104,7 @@ export async function buildAgentContext(botUserId: number, roomId: number) {
   const context: { role: string; name?: string; content: string; tool_calls?: any; tool_call_id?: string }[] = [
     {
       role: "system",
-      content: `${sysPrompt}\n\n[Room Information]:\n- Room ID: ${roomId}\n- Room Name: ${room?.name || "Unknown"}\n- Dice Rules: ${diceRules}\n- Rule Note: ${rulesExplanation}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
+      content: `${sysPrompt}\n\n[Room Rules]:\n- Dice Rules: ${diceRules}\n- Rule Note: ${rulesExplanation}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
     }
   ];
 
