@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { AppProvider } from "@/components/AppProvider";
 import { getSiteTheme, getUserThemePreference } from "@/app/actions/theme";
+import { recordPageVisit } from "@/lib/stats";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,6 +20,11 @@ export default async function RootLayout({
   const messages = await getMessages();
   const siteTheme = await getSiteTheme();
   const userTheme = await getUserThemePreference();
+
+  // Record page visit without blocking layout rendering
+  recordPageVisit().catch((err) => {
+    console.error("[STATS] Error in recordPageVisit:", err);
+  });
 
   return (
     <html lang={locale} data-theme={userTheme || siteTheme} className="h-full antialiased" suppressHydrationWarning>

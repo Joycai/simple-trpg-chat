@@ -297,3 +297,10 @@ export const aiTokenUsagesRelations = relations(aiTokenUsages, ({ one }) => ({
   provider: one(aiProviders, { fields: [aiTokenUsages.providerId], references: [aiProviders.id] }),
 }));
 
+export const dailyStats = pgTable('daily_stats', {
+  date: text('date').primaryKey(),
+  visitCount: integer('visit_count').notNull().default(0),
+  peakOnline: integer('peak_online').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});
+

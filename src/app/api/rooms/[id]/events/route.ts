@@ -5,6 +5,7 @@ import { subscribeToRoom } from "@/lib/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { updatePeakOnline } from "@/lib/stats";
 
 interface ActiveConnection {
   controller: ReadableStreamDefaultController;
@@ -81,6 +82,9 @@ export async function GET(
       connRecord.controller = controller;
       connRecord.cleanup = cleanup;
       connections!.add(connRecord);
+      updatePeakOnline().catch((err) => {
+        console.error("[STATS] Error updating peak online on connect:", err);
+      });
 
       const encoder = new TextEncoder();
       // Per-stream dedup: prevent sending the same message twice (protects against EventEmitter listener accumulation in dev mode)
@@ -144,6 +148,9 @@ export async function GET(
             userConnections.delete(userId);
           }
         }
+        updatePeakOnline().catch((err) => {
+          console.error("[STATS] Error updating peak online on disconnect:", err);
+        });
       };
 
       req.signal.addEventListener("abort", cleanup);

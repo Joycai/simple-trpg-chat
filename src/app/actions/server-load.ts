@@ -2,6 +2,7 @@
 
 import os from "os";
 import { requireAdmin } from "@/app/admin/actions";
+import { updatePeakOnline } from "@/lib/stats";
 
 let lastCpuInfo = {
   idle: 0,
@@ -39,6 +40,11 @@ function getCpuUsage(): number {
 
 export async function getServerLoadAction() {
   await requireAdmin();
+
+  // Periodically align stats on dashboard updates
+  updatePeakOnline().catch((err) => {
+    console.error("[STATS] Error updating peak online in server load check:", err);
+  });
 
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
