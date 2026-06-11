@@ -419,8 +419,30 @@ export async function runAgent(botUserId: number, roomId: number) {
           broadcastToRoom(roomId, newMessage);
           result = { success: true };
         } else if (functionName === "inspect_item") {
-          const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, args.itemId));
-          result = item ? { title: item.title, content: JSON.parse(item.contentJson) } : { error: "Item not found" };
+          // Validate that the item belongs to this room
+          const [item] = await db.select().from(inventoryItems).where(
+            and(
+              eq(inventoryItems.id, args.itemId),
+              eq(inventoryItems.roomId, roomId)
+            )
+          );
+          if (!item) {
+            result = { error: "Item not found in this room" };
+          } else {
+            // Validate that the bot actually possesses this item
+            const [possession] = await db.select().from(inventoryDistributions).where(
+              and(
+                eq(inventoryDistributions.roomId, roomId),
+                eq(inventoryDistributions.itemId, args.itemId),
+                eq(inventoryDistributions.toUserId, botUserId)
+              )
+            );
+            if (!possession) {
+              result = { error: "Unauthorized: You do not possess this item" };
+            } else {
+              result = { title: item.title, content: JSON.parse(item.contentJson) };
+            }
+          }
         } else if (functionName === "search_history") {
           const query = args.query as string;
 

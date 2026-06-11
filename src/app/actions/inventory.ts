@@ -104,22 +104,29 @@ export async function distributeItemAction(
     action: "created" as const,
   }));
 
-  await db.insert(inventoryDistributions).values(values);
+  // Perform DB insertion and user lookup within transaction
+  const recipients = await db.transaction(async (tx) => {
+    await tx.insert(inventoryDistributions).values(values);
+    return await tx
+      .select({ id: users.id, name: users.displayName })
+      .from(users)
+      .where(inArray(users.id, targetUserIds));
+  });
 
-  const recipients = await db
-    .select({ id: users.id, name: users.displayName })
-    .from(users)
-    .where(inArray(users.id, targetUserIds));
+  // Prepare notification promises
+  const promises: Promise<any>[] = [];
 
   // 1. Send targeted "Receipt" notification to each player (ONLY they see it)
   for (const tid of targetUserIds) {
-    await sendMessageAction(
-      roomId,
-      `📦 您获得了新道具：【${item?.title}】`,
-      "system",
-      undefined,
-      true, // isPrivate
-      tid   // targetUserId (Routes strictly to recipient)
+    promises.push(
+      sendMessageAction(
+        roomId,
+        `📦 您获得了新道具：【${item?.title}】`,
+        "system",
+        undefined,
+        true, // isPrivate
+        tid   // targetUserId (Routes strictly to recipient)
+      )
     );
   }
 
@@ -128,7 +135,10 @@ export async function distributeItemAction(
     ? `📤 已向全体成员发放道具：【${item?.title}】`
     : `📤 已向 ${recipients[0]?.name || '玩家'} 发放道具：【${item?.title}】`;
   
-  await sendMessageAction(roomId, kpSummary, "system", undefined, true); // No targetUserId -> visible to Sender & Host
+  promises.push(sendMessageAction(roomId, kpSummary, "system", undefined, true)); // No targetUserId -> visible to Sender & Host
+
+  // Execute notifications in parallel
+  await Promise.all(promises);
 
   revalidatePath(`/rooms/${roomId}`);
 }
@@ -238,7 +248,7 @@ export async function getMyInventory(roomId: number) {
  * getRoomItems
  */
 export async function getRoomItems(roomId: number) {
-  await checkRoomAccess(roomId, false);
+  await checkRoomAccess(roomId, true);
 
   return await db
     .select()
@@ -251,7 +261,7 @@ export async function getRoomItems(roomId: number) {
  * getDistributionHistory
  */
 export async function getDistributionHistory(roomId: number) {
-  await checkRoomAccess(roomId, false);
+  await checkRoomAccess(roomId, true);
 
   const raw = await db.query.inventoryDistributions.findMany({
     where: eq(inventoryDistributions.roomId, roomId),

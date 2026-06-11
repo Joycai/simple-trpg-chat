@@ -125,7 +125,7 @@ export const systemConfig = pgTable('system_config', {
 export const inventoryItems = pgTable('inventory_items', {
   id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
-  creatorId: integer('creator_id').notNull().references(() => users.id),
+  creatorId: integer('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   type: text('item_type').notNull(),
   title: text('title').notNull(),
   contentJson: text('content_json').notNull(),
@@ -137,8 +137,8 @@ export const inventoryDistributions = pgTable('inventory_distributions', {
   id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   itemId: integer('item_id').notNull().references(() => inventoryItems.id, { onDelete: 'cascade' }),
-  fromUserId: integer('from_user_id').notNull().references(() => users.id),
-  toUserId: integer('to_user_id').notNull().references(() => users.id),
+  fromUserId: integer('from_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  toUserId: integer('to_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   action: text('action').notNull().default('created'),
   viewed: boolean('viewed').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
@@ -150,7 +150,7 @@ export const inventoryDistributions = pgTable('inventory_distributions', {
 export const clueCards = pgTable('clue_cards', {
   id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
-  creatorId: integer('creator_id').notNull().references(() => users.id),
+  creatorId: integer('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   content: text('content').notNull(),
   imageUrl: text('image_url'),
@@ -160,7 +160,7 @@ export const clueCards = pgTable('clue_cards', {
 export const clueVisibility = pgTable('clue_visibility', {
   id: serial('id').primaryKey(),
   clueId: integer('clue_id').notNull().references(() => clueCards.id, { onDelete: 'cascade' }),
-  userId: integer('user_id'),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
   revealedAt: timestamp('revealed_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idx_clue_id: index('idx_clue_vis_clue_id').on(t.clueId),
