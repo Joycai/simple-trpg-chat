@@ -318,3 +318,21 @@ export async function getUnreadInventoryCountAction(roomId: number) {
 
   return (result[0]?.count as number) || 0;
 }
+
+/**
+ * Delete an inventory item (Host only).
+ * Cascades to delete all distribution records.
+ */
+export async function deleteInventoryItemAction(roomId: number, itemId: number) {
+  await checkRoomAccess(roomId, true);
+
+  // Verify item belongs to room
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  if (!item) throw new Error("Item not found");
+  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+
+  await db.delete(inventoryItems).where(eq(inventoryItems.id, itemId));
+
+  revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
+}

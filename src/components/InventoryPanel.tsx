@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction } from "@/app/actions/inventory";
+import { createInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 
 interface InventoryItem {
@@ -35,6 +35,7 @@ interface InventoryPanelProps {
 
 export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
   const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
+  const [filterType, setFilterType] = useState<"all" | "info" | "character" | "item">("all");
   const [myItems, setMyItems] = useState<any[]>([]);
   const [roomItems, setRoomItems] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -108,6 +109,17 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
     loadData();
   };
 
+  const handleDeleteItem = async (itemId: number, itemTitle: string) => {
+    if (!confirm(`确定要删除道具【${itemTitle}】吗？删除后所有玩家背包中的该道具也将同步消失。`)) return;
+    try {
+      await deleteInventoryItemAction(roomId, itemId);
+      router.refresh();
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "删除失败");
+    }
+  };
+
   const handleShare = async (itemId: number) => {
     if (!shareTarget) return;
     try {
@@ -131,29 +143,36 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   };
 
   const typeLabel = (t: string) => ({ info: "📄 信息", character: "👤 人物", item: "🎒 物品" }[t] || t);
-  const typeTabLabel = (t: string) => ({ info: "📄 信息", character: "👤 人物", item: "🎒 物品" }[t] || t);
+  const typeTabLabel = (t: string) => ({ info: "信息", character: "人物", item: "物品" }[t] || t);
   const typeEmoji = (t: string) => ({ info: "📄", character: "👤", item: "🎒" }[t] || "📦");
   const isNew = (d: any) => d.viewed === false || d.viewed === 0;
 
+  // Filter backpack dynamically
+  const filteredBackpack = myItems.filter(d => {
+    const item = (d as any).item as InventoryItem | undefined;
+    if (filterType === "all") return true;
+    return item?.type === filterType;
+  });
+
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex font-theme" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" />
       <div className="relative ml-auto w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">📦 道具栏</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl transition">×</button>
+          <button onClick={onClose} className="text-text-muted hover:text-text text-xl transition cursor-pointer">×</button>
         </div>
 
         {/* Tabs (host only) */}
         {isHost && (
           <div className="flex border-b border-border">
             <button onClick={() => setTab("manage")}
-              className={`flex-1 py-3 text-sm font-bold transition ${tab === "manage" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
+              className={`flex-1 py-3 text-sm font-bold transition cursor-pointer ${tab === "manage" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
               ⚙️ 道具管理
             </button>
             <button onClick={() => setTab("backpack")}
-              className={`flex-1 py-3 text-sm font-bold transition ${tab === "backpack" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
+              className={`flex-1 py-3 text-sm font-bold transition cursor-pointer ${tab === "backpack" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
               🎒 我的背包
             </button>
           </div>
@@ -168,11 +187,11 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               {/* Create button */}
               {!showCreate ? (
                 <button onClick={() => setShowCreate(true)}
-                  className="w-full bg-success hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition">
+                  className="w-full bg-success hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
                   ＋ 创建新道具
                 </button>
               ) : (
-                <div className="bg-surface-alt rounded-theme p-4 border border-border flex flex-col gap-3">
+                <div className="bg-surface-alt rounded-theme theme-border p-4 border border-border flex flex-col gap-3">
                   <h4 className="font-bold text-text text-sm">创建道具</h4>
                   <select value={itemType} onChange={e => setItemType(e.target.value as any)}
                     className="p-2 border border-input-border bg-input-bg rounded text-text text-sm">
@@ -199,9 +218,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       placeholder="补充信息" rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none" />
                   </>)}
                   <div className="flex gap-2">
-                    <button onClick={() => setShowCreate(false)} className="flex-1 px-3 py-2 text-text-muted text-sm">取消</button>
+                    <button onClick={() => setShowCreate(false)} className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">取消</button>
                     <button onClick={handleCreate} disabled={!title}
-                      className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm">创建</button>
+                      className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">创建</button>
                   </div>
                 </div>
               )}
@@ -219,10 +238,16 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                           <div className="text-sm font-bold text-text truncate">{typeLabel(item.type)} {item.title}</div>
                           <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
                         </div>
-                        <button onClick={() => { setDistributeItemId(item.id); setDistributeTarget(null); }}
-                          className="ml-2 bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold shrink-0">
-                          发放
-                        </button>
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => { setDistributeItemId(item.id); setDistributeTarget(null); }}
+                            className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                            发放
+                          </button>
+                          <button onClick={() => handleDeleteItem(item.id, item.title)}
+                            className="bg-danger hover:opacity-90 text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                            删除
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -231,19 +256,19 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
               {/* Distribute dialog */}
               {distributeItemId !== null && (
-                <div className="bg-accent/10 border border-accent/30 rounded-theme p-4">
+                <div className="bg-accent/10 border border-accent/30 rounded-theme theme-border p-4">
                   <h4 className="font-bold text-text text-sm mb-3">选择发放目标</h4>
                   <div className="flex flex-col gap-2 mb-3">
                     <button onClick={() => { setDistributeTarget("all"); handleDistribute(); }}
-                      className="bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm">🌐 全员发放</button>
+                      className="bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer">🌐 全员发放</button>
                     {players.filter(p => p.id !== userId).map(p => (
                       <button key={p.id} onClick={() => { setDistributeTarget(p.id); handleDistribute(); }}
-                        className="bg-surface hover:bg-surface-alt text-text py-2 px-3 rounded text-sm text-left transition">
+                        className="bg-surface hover:bg-surface-alt text-text py-2 px-3 rounded text-sm text-left transition cursor-pointer">
                         👤 {p.nickname || p.username}
                       </button>
                     ))}
                   </div>
-                  <button onClick={() => setDistributeItemId(null)} className="text-xs text-text-muted hover:text-text">取消</button>
+                  <button onClick={() => setDistributeItemId(null)} className="text-xs text-text-muted hover:text-text cursor-pointer">取消</button>
                 </div>
               )}
 
@@ -267,85 +292,94 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               </div>
             </div>
           ) : (
-            /* === PLAYER BACKPACK VIEW (RPG Grid) === */
+            /* === PLAYER BACKPACK VIEW (Unified RPG Grid with Filters) === */
             <div className="flex flex-col gap-4">
-              <div className="flex gap-2">
+              {/* Filter Pills */}
+              <div className="flex flex-wrap gap-1.5">
+                <button onClick={() => setFilterType("all")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    filterType === "all" 
+                      ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                      : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
+                  }`}>
+                  全部
+                </button>
                 {(["info", "character", "item"] as const).map(t => (
-                  <button key={t} onClick={() => setTab(t as any)}
-                    className={`flex-1 py-2 rounded text-xs font-bold transition ${tab === t ? "bg-primary text-white" : "bg-surface-alt text-text-muted hover:text-text"}`}>
+                  <button key={t} onClick={() => setFilterType(t)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      filterType === t 
+                        ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                        : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
+                    }`}>
                     {typeTabLabel(t)}
                   </button>
                 ))}
               </div>
 
-              {(["info", "character", "item"] as const).map(t => {
-                const filtered = myItems.filter(d => {
-                  const item = (d as any).item as InventoryItem | undefined;
-                  return item?.type === t;
-                });
-                if (tab !== t) return null;
-                if (filtered.length === 0) return (
-                  <div key={t} className="text-center text-text-muted py-12 text-sm">
-                    <div className="text-4xl mb-3 opacity-30">{typeEmoji(t) || '🎒'}</div>
-                    <p>暂无{typeLabel(t)}道具</p>
-                    <p className="text-xs mt-1 opacity-60">等待 KP 发放中...</p>
-                  </div>
-                );
-                
-                // RPG Grid: 4 columns, fill with items + empty slots
-                const GRID_COLS = 4;
-                const totalSlots = Math.max(GRID_COLS, Math.ceil(filtered.length / GRID_COLS) * GRID_COLS);
-                const gridItems = [];
-                for (let i = 0; i < totalSlots; i++) {
-                  const d = i < filtered.length ? filtered[i] : null;
-                  gridItems.push(
-                    <div key={d ? d.id : `empty-${i}`}
-                      className={d 
-                        ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
-                        : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
-                      }
-                      onClick={() => { if (d) { setDetailItem((d as any).item); setDetailDist(d); } }}
-                      title={d ? d.item?.title || "" : ""}
-                    >
-                      {d && (
-                        <>
-                          {isNew(d) && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
-                              NEW
+              {filteredBackpack.length === 0 ? (
+                <div className="text-center text-text-muted py-12 text-sm">
+                  <div className="text-4xl mb-3 opacity-30">🎒</div>
+                  <p>暂无{filterType === "all" ? "" : typeTabLabel(filterType)}道具</p>
+                  <p className="text-xs mt-1 opacity-60">等待 KP 发放中...</p>
+                </div>
+              ) : (
+                (() => {
+                  const GRID_COLS = 4;
+                  // Render minimum 12 slots for RPG grid layout
+                  const totalSlots = Math.max(12, Math.ceil(filteredBackpack.length / GRID_COLS) * GRID_COLS);
+                  const gridItems = [];
+
+                  for (let i = 0; i < totalSlots; i++) {
+                    const d = i < filteredBackpack.length ? filteredBackpack[i] : null;
+                    gridItems.push(
+                      <div key={d ? d.id : `empty-${i}`}
+                        className={d 
+                          ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
+                          : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
+                        }
+                        onClick={() => { if (d) { setDetailItem((d as any).item); setDetailDist(d); } }}
+                        title={d ? d.item?.title || "" : ""}
+                      >
+                        {d && (
+                          <>
+                            {isNew(d) && (
+                              <span className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
+                                NEW
+                              </span>
+                            )}
+                            <span className="text-2xl mb-1">{typeEmoji((d as any).item?.type || "item")}</span>
+                            <span className="text-[10px] font-bold text-text text-center leading-tight line-clamp-2">
+                              {d.item?.title || `#${d.itemId}`}
                             </span>
-                          )}
-                          <span className="text-2xl mb-1">{typeEmoji((d as any).item?.type || "item")}</span>
-                          <span className="text-[10px] font-bold text-text text-center leading-tight line-clamp-2">
-                            {d.item?.title || `#${d.itemId}`}
-                          </span>
-                          <span className="absolute bottom-1 right-1.5 text-[8px] text-text-dim opacity-0 group-hover:opacity-100 transition-opacity">
-                            {d.fromUserId !== userId ? "🎁" : ""}
-                          </span>
-                        </>
-                      )}
+                            <span className="absolute bottom-1 right-1.5 text-[8px] text-text-dim opacity-0 group-hover:opacity-100 transition-opacity">
+                              {d.fromUserId !== userId ? "🎁" : ""}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-4 gap-3">
+                      {gridItems}
                     </div>
                   );
-                }
-                
-                return (
-                  <div key={t} className="grid grid-cols-4 gap-3">
-                    {gridItems}
-                  </div>
-                );
-              })}
+                })()
+              )}
             </div>
           )}
 
           {/* === ITEM DETAIL MODAL === */}
           {detailItem && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => { setDetailItem(null); setShareTarget(null); }}>
-              <div className="bg-surface rounded-theme p-6 max-w-md w-full mx-4 shadow-2xl border border-border" onClick={e => e.stopPropagation()}>
+              <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <span className="text-xs text-text-muted">{typeLabel(detailItem.type)}</span>
                     <h3 className="font-bold text-lg text-text">{detailItem.title}</h3>
                   </div>
-                  <button onClick={() => { setDetailItem(null); setShareTarget(null); }} className="text-text-muted hover:text-text">×</button>
+                  <button onClick={() => { setDetailItem(null); setShareTarget(null); }} className="text-text-muted hover:text-text cursor-pointer">×</button>
                 </div>
 
                 <div className="bg-surface-alt rounded-theme p-4 text-sm text-text whitespace-pre-wrap border border-border item-detail-panel">
@@ -366,7 +400,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       <div className="flex flex-col gap-1">
                         {players.filter(p => p.id !== userId).map(p => (
                           <button key={p.id} onClick={() => setShareTarget(p.id)}
-                            className="text-left px-3 py-2 rounded hover:bg-surface-alt text-text text-sm transition">
+                            className="text-left px-3 py-2 rounded hover:bg-surface-alt text-text text-sm transition cursor-pointer">
                             👤 {p.nickname || p.username}
                           </button>
                         ))}
@@ -375,8 +409,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       <div className="flex gap-2 items-center">
                         <span className="text-sm text-text">共享给 {players.find(p => p.id === shareTarget)?.nickname}？</span>
                         <button onClick={() => handleShare(detailDist.itemId)}
-                          className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold">确认</button>
-                        <button onClick={() => setShareTarget(null)} className="text-xs text-text-muted">取消</button>
+                          className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">确认</button>
+                        <button onClick={() => setShareTarget(null)} className="text-xs text-text-muted cursor-pointer">取消</button>
                       </div>
                     )}
                   </div>
