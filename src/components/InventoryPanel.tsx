@@ -36,6 +36,8 @@ interface InventoryPanelProps {
 export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
   const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
   const [filterType, setFilterType] = useState<"all" | "info" | "character" | "item">("all");
+  const [manageFilterType, setManageFilterType] = useState<"all" | "info" | "character" | "item">("all");
+  const [manageFilterDist, setManageFilterDist] = useState<"all" | "undistributed" | "distributed">("all");
   const [myItems, setMyItems] = useState<any[]>([]);
   const [roomItems, setRoomItems] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -225,33 +227,100 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 </div>
               )}
 
+              {/* Quick Filters */}
+              <div className="flex flex-col gap-2.5 bg-surface-alt/50 border border-border/40 rounded-theme p-3 theme-border shadow-sm mb-2">
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-[11px] font-bold text-text-dim w-10 shrink-0">类型:</span>
+                  <div className="flex flex-wrap gap-1">
+                    <button onClick={() => setManageFilterType("all")}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                        manageFilterType === "all" 
+                          ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                          : "bg-surface text-text-muted hover:text-text border border-border/50"
+                      }`}>
+                      全部
+                    </button>
+                    {(["info", "character", "item"] as const).map(t => (
+                      <button key={t} onClick={() => setManageFilterType(t)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                          manageFilterType === t 
+                            ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                            : "bg-surface text-text-muted hover:text-text border border-border/50"
+                        }`}>
+                        {typeTabLabel(t)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-[11px] font-bold text-text-dim w-10 shrink-0">状态:</span>
+                  <div className="flex flex-wrap gap-1">
+                    <button onClick={() => setManageFilterDist("all")}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                        manageFilterDist === "all" 
+                          ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                          : "bg-surface text-text-muted hover:text-text border border-border/50"
+                      }`}>
+                      全部
+                    </button>
+                    <button onClick={() => setManageFilterDist("undistributed")}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                        manageFilterDist === "undistributed" 
+                          ? "bg-success text-white shadow-sm" 
+                          : "bg-surface text-text-muted hover:text-text border border-border/50"
+                      }`}>
+                      未发放
+                    </button>
+                    <button onClick={() => setManageFilterDist("distributed")}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                        manageFilterDist === "distributed" 
+                          ? "bg-accent text-white shadow-sm" 
+                          : "bg-surface text-text-muted hover:text-text border border-border/50"
+                      }`}>
+                      已发放
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Room items for distribution */}
               <div>
                 <h4 className="text-xs text-text-dim font-medium mb-2 uppercase tracking-wider">道具列表</h4>
-                {roomItems.length === 0 ? (
-                  <p className="text-sm text-text-muted">还没有创建道具</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {(() => {
-                      const sortedRoomItems = [...roomItems].sort((a, b) => {
-                        const countA = history.filter((h: any) => h.itemId === a.id).length;
-                        const countB = history.filter((h: any) => h.itemId === b.id).length;
-                        
-                        if (countA === 0 && countB > 0) return -1;
-                        if (countA > 0 && countB === 0) return 1;
-                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                      });
+                {(() => {
+                  const filteredRoomItems = roomItems.filter(item => {
+                    if (manageFilterType !== "all" && item.type !== manageFilterType) return false;
+                    const distCount = history.filter((h: any) => h.itemId === item.id).length;
+                    if (manageFilterDist === "undistributed" && distCount > 0) return false;
+                    if (manageFilterDist === "distributed" && distCount === 0) return false;
+                    return true;
+                  });
 
-                      return sortedRoomItems.map(item => {
+                  if (filteredRoomItems.length === 0) {
+                    return <p className="text-sm text-text-muted py-4 text-center">暂无符合条件的道具</p>;
+                  }
+
+                  const sortedRoomItems = [...filteredRoomItems].sort((a, b) => {
+                    const countA = history.filter((h: any) => h.itemId === a.id).length;
+                    const countB = history.filter((h: any) => h.itemId === b.id).length;
+                    
+                    if (countA === 0 && countB > 0) return -1;
+                    if (countA > 0 && countB === 0) return 1;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  });
+
+                  return (
+                    <div className="flex flex-col gap-2">
+                      {sortedRoomItems.map(item => {
                         const itemHistory = history.filter((h: any) => h.itemId === item.id);
                         const distCount = itemHistory.length;
                         const hasBeenDistributed = distCount > 0;
+                        const uniqueRecipients = Array.from(new Set(itemHistory.map((h: any) => h.toUsername).filter(Boolean)));
 
                         return (
                           <div key={item.id} className={`bg-surface-alt rounded-theme p-3 border flex justify-between items-center inventory-card transition-all duration-200 ${
                             !hasBeenDistributed 
-                              ? "border-success/40 bg-success/5 shadow-sm ring-1 ring-success/20" 
-                              : "border-border"
+                              ? "border-success/40 bg-success/5 shadow-[0_0_8px_rgb(var(--theme-success)/15%)] hover:shadow-[0_0_12px_rgb(var(--theme-success)/25%)]" 
+                              : "border-border hover:border-primary/30"
                           }`}>
                             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailItem(item)}>
                               <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
@@ -267,6 +336,21 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                                 )}
                               </div>
                               <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
+                              {uniqueRecipients.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5 items-center">
+                                  <span className="text-[10px] text-text-dim">持有者:</span>
+                                  {uniqueRecipients.slice(0, 2).map((name, idx) => (
+                                    <span key={idx} className="bg-surface/80 text-text-muted text-[9px] px-1.5 py-0.5 rounded border border-border/50 font-medium max-w-[80px] truncate">
+                                      👤 {name}
+                                    </span>
+                                  ))}
+                                  {uniqueRecipients.length > 2 && (
+                                    <span className="text-[9px] text-text-dim leading-none ml-0.5">
+                                      等 {uniqueRecipients.length} 人
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div className="flex gap-2 shrink-0">
                               <button onClick={() => { setDistributeItemId(item.id); setDistributeTarget(null); }}
@@ -280,10 +364,10 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                             </div>
                           </div>
                         );
-                      });
-                    })()}
-                  </div>
-                )}
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Distribute dialog */}
@@ -430,20 +514,40 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                     const itemDists = history.filter((h: any) => h.itemId === detailItem.id);
                     return (
                       <div className="mt-4 pt-4 border-t border-border">
-                        <h4 className="text-xs font-bold text-text-dim uppercase tracking-wider mb-2">📋 分发历史 ({itemDists.length} 次)</h4>
+                        <h4 className="text-xs font-bold text-text-dim uppercase tracking-wider mb-3">📋 分发历史 ({itemDists.length} 次)</h4>
                         {itemDists.length === 0 ? (
-                          <p className="text-xs text-text-muted">该道具尚未发放给任何人。</p>
+                          <div className="text-center py-4 bg-surface-alt rounded-theme border border-dashed border-border/50">
+                            <p className="text-xs text-text-muted">该道具尚未发放给任何人。</p>
+                            <button onClick={() => { setDistributeItemId(detailItem.id); setDistributeTarget(null); setDetailItem(null); }}
+                              className="mt-2 bg-primary hover:bg-primary-hover text-white text-[11px] font-bold px-3 py-1.5 rounded cursor-pointer transition">
+                              立即发放
+                            </button>
+                          </div>
                         ) : (
-                          <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                          <div className="relative border-l border-border pl-4 ml-2 flex flex-col gap-4 max-h-48 overflow-y-auto pr-1 py-1">
                             {itemDists.map((d: any) => (
-                              <div key={d.id} className="flex justify-between items-center text-xs bg-surface-alt p-2 rounded border border-border/50">
-                                <span className="text-text-muted">
-                                  {d.action === "shared" ? "🤝 共享自 " : "📤 发送给 "}
-                                  <strong className="text-text">{d.toUsername || `#${d.toUserId}`}</strong>
-                                </span>
-                                <span className="text-text-dim text-[10px]">
-                                  {new Date(d.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                              <div key={d.id} className="relative text-xs">
+                                {/* Timeline Bullet */}
+                                <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-surface shadow-sm"></span>
+                                
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="font-semibold text-text">
+                                      {d.toUsername || `#${d.toUserId}`}
+                                    </span>
+                                    <span className="text-[10px] text-text-muted ml-2">
+                                      {d.action === "shared" ? "🔄 共享获得" : "📤 派发获得"}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] text-text-dim bg-surface-alt px-1.5 py-0.5 rounded border border-border/40">
+                                    {new Date(d.createdAt).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                {d.fromUsername && d.fromUserId !== userId && (
+                                  <p className="text-[10px] text-text-dim mt-0.5">
+                                    来自玩家: <span className="italic">{d.fromUsername}</span>
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
