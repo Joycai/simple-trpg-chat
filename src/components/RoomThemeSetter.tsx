@@ -5,19 +5,23 @@ import { useTheme } from "./ThemeProvider";
 import type { ThemeId } from "@/themes/types";
 
 interface RoomThemeSetterProps {
+  roomId: number;
   theme: ThemeId;
 }
 
 /** Sets data-theme on <html> for room-specific theming */
-export function RoomThemeSetter({ theme }: RoomThemeSetterProps) {
+export function RoomThemeSetter({ roomId, theme }: RoomThemeSetterProps) {
   const { setRoomTheme } = useTheme();
 
   useEffect(() => {
     setRoomTheme(theme);
+    try {
+      window.sessionStorage.setItem("room-theme-" + roomId, theme);
+    } catch (e) {}
     return () => {
       setRoomTheme(null);
     };
-  }, [theme, setRoomTheme]);
+  }, [roomId, theme, setRoomTheme]);
 
   return null;
 }

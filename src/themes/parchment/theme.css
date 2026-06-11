@@ -46,4 +46,21 @@
 
   /* === Skeuomorphic: irregular edge mask (torn paper border) === */
   --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,8 Q5,2 10,9 T20,7 T30,10 T40,6 T50,9 T60,7 T70,10 T80,6 T90,9 T100,7 T110,10 T120,6 T130,9 T140,7 T150,10 T160,6 T170,9 T180,7 T190,10 T200,7' fill='none' stroke='%23b48c64' stroke-width='1.5'/%3E%3C/svg%3E");
+  --theme-primary-foreground: 255 255 255;
+}
+
+[data-theme="parchment"] .conv-sidebar {
+  background: linear-gradient(180deg, #f5e6c8 0%, #e8d5a3 100%);
+  border-right: 2px solid #c4a484;
+}
+[data-theme="parchment"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="parchment"] .conv-tab.active {
+  border-left-color: #8b5a2b;
+  background: linear-gradient(90deg, rgba(139,90,43,0.1), transparent);
+}
+[data-theme="parchment"] .conv-divider {
+  border-color: rgba(196,164,132,0.5);
 }

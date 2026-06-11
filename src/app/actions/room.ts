@@ -280,6 +280,14 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   const ruleTemplate = ((formData.get("ruleTemplate") as string) || "basic") as RuleTemplate;
 
   await db.update(rooms).set({ theme, diceRules, ruleTemplate }).where(eq(rooms.id, roomId));
+  
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+    theme,
+    diceRules,
+    ruleTemplate,
+  });
+
   revalidatePath(`/rooms/${roomId}`);
 }
 

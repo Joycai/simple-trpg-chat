@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTheme } from "./ThemeProvider";
 import type { ThemeId } from "@/themes/types";
 
 interface AdminThemeSetterProps {
@@ -12,16 +13,14 @@ interface AdminThemeSetterProps {
  * ignoring the current user's personal preference.
  */
 export function AdminThemeSetter({ theme }: AdminThemeSetterProps) {
+  const { setForcedTheme } = useTheme();
+
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    setForcedTheme(theme);
     return () => {
-      // Restore user preference on unmount
-      const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
-      if (stored) {
-        document.documentElement.setAttribute("data-theme", stored);
-      }
+      setForcedTheme(null);
     };
-  }, [theme]);
+  }, [theme, setForcedTheme]);
 
   return null;
 }

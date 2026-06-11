@@ -98,7 +98,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <RoomThemeSetter theme={(room.theme as ThemeId) || "default"} />
+      <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} />
       <RoomClient
         room={room as any}
         players={members as any[]}

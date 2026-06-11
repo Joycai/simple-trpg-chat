@@ -26,5 +26,19 @@
   --theme-radius: 0.75rem;
   --theme-font: 'Inter', 'Geist', sans-serif;
   --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --theme-primary-foreground: 255 255 255;
+}
+
+[data-theme="default"] .conv-sidebar {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  border-right: 2px solid #cbd5e1;
+}
+[data-theme="default"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="default"] .conv-tab.active {
+  border-left-color: #3b82f6;
+  background: linear-gradient(90deg, rgba(59,130,246,0.08), transparent);
 }
 

@@ -50,4 +50,21 @@
   --theme-radius-tr: 0;
   --theme-radius-br: 0;
   --theme-radius-bl: 0;
+  --theme-primary-foreground: 8 18 20;
+}
+
+[data-theme="cthulhu"] .conv-sidebar {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-right: 2px solid #334155;
+}
+[data-theme="cthulhu"] .conv-tab {
+  border-left: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+[data-theme="cthulhu"] .conv-tab.active {
+  border-left-color: #5eead4;
+  background: linear-gradient(90deg, rgba(94,234,212,0.1), transparent);
+}
+[data-theme="cthulhu"] .conv-divider {
+  border-color: rgba(51,65,85,0.6);
 }

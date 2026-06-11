@@ -7,10 +7,12 @@ import { updateUserThemePreference } from "@/app/actions/theme";
 
 interface ThemeContextValue {
   theme: ThemeId;       // User preferred theme
-  activeTheme: ThemeId; // Effective theme (roomTheme || theme)
+  activeTheme: ThemeId; // Effective theme (forcedTheme || roomTheme || theme)
   siteTheme: ThemeId;   // Site default (from server)
+  forcedTheme: ThemeId | null; // Administrative override (e.g. for admin panel)
   setTheme: (theme: ThemeId) => void;
   setRoomTheme: (theme: ThemeId | null) => void;
+  setForcedTheme: (theme: ThemeId | null) => void;
   themeList: typeof THEME_LIST;
 }
 
@@ -18,8 +20,10 @@ const ThemeContext = createContext<ThemeContextValue>({
   theme: "default",
   activeTheme: "default",
   siteTheme: "default",
+  forcedTheme: null,
   setTheme: () => {},
   setRoomTheme: () => {},
+  setForcedTheme: () => {},
   themeList: THEME_LIST,
 });
 
@@ -38,16 +42,21 @@ export function ThemeProvider({ children, siteTheme, userTheme }: ThemeProviderP
   const initialTheme = userTheme || siteTheme || "default";
   const [theme, setThemeState] = useState<ThemeId>(initialTheme);
   const [roomTheme, setRoomTheme] = useState<ThemeId | null>(null);
+  const [forcedTheme, setForcedTheme] = useState<ThemeId | null>(null);
 
-  // Load stored user preference on mount (may be newer than server-passed value)
+  // Load stored user preference on mount (prioritize server-passed userTheme if logged in)
   useEffect(() => {
-    const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
-    if (stored) {
-      setThemeState(stored);
+    if (!userTheme) {
+      const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
+      if (stored) {
+        setThemeState(stored);
+      }
+    } else {
+      localStorage.setItem("trpg-theme", userTheme);
     }
-  }, []);
+  }, [userTheme]);
 
-  const activeTheme = roomTheme || theme;
+  const activeTheme = forcedTheme || roomTheme || theme;
 
   // Apply theme to <html> data-theme attribute
   useEffect(() => {
@@ -63,8 +72,8 @@ export function ThemeProvider({ children, siteTheme, userTheme }: ThemeProviderP
 
   return (
     <ThemeContext.Provider value={{
-      theme, activeTheme, siteTheme: siteTheme || "default",
-      setTheme, setRoomTheme, themeList: THEME_LIST,
+      theme, activeTheme, siteTheme: siteTheme || "default", forcedTheme,
+      setTheme, setRoomTheme, setForcedTheme, themeList: THEME_LIST,
     }}>
       {children}
     </ThemeContext.Provider>

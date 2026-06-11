@@ -22,6 +22,27 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} data-theme={userTheme || siteTheme} className="h-full antialiased">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var path = window.location.pathname;
+                  var match = path.match(/^\\/rooms\\/(\\d+)/);
+                  if (match) {
+                    var roomId = match[1];
+                    var cachedTheme = window.sessionStorage.getItem('room-theme-' + roomId);
+                    if (cachedTheme) {
+                      document.documentElement.setAttribute('data-theme', cachedTheme);
+                    }
+                  }
+                } catch (e) {}
+              })()
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
           <AppProvider siteTheme={siteTheme} userTheme={userTheme}>{children}</AppProvider>

@@ -19,6 +19,7 @@ import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommand
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
 
@@ -69,6 +70,7 @@ export function RoomClient({
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
   const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
@@ -302,6 +304,10 @@ export function RoomClient({
         if (abortController.signal.aborted) return;
         try {
           const data = JSON.parse(event.data);
+          if (data.type === "room_settings_updated") {
+            router.refresh();
+            return;
+          }
           if (data.id) {
             if (data.isPrivate) {
               const isSender = data.userId === userId;

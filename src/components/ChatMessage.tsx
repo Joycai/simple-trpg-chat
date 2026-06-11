@@ -110,7 +110,7 @@ export function ChatMessage({
               : isPrivate
               ? "bg-private-bg border border-private-border text-text"
               : isOwn
-              ? "bg-primary text-white"
+              ? "bg-primary text-primary-foreground"
               : "bg-surface border border-border text-text"
           }`}
         >
