@@ -114,7 +114,8 @@
     "countMembers": "{count} 人",
     "labelPlayers": "👤 玩家 {count}",
     "labelBots": "🤖 Bot {count}",
-    "suffixMe": "（我）"
+    "suffixMe": "（我）",
+    "btnViewCard": "🎴 角色卡"
   },
   "chat": {
     "inputPlaceholder": "输入消息...",
@@ -331,6 +332,11 @@
   },
   "character": {
     "title": "角色档案",
+    "titleOther": "{name} 的角色卡",
+    "notInitialized": "该玩家尚未初始化角色卡",
+    "saveSuccess": "保存成功 ✓",
+    "saveFailed": "保存失败 ×",
+    "saving": "正在保存...",
     "tabAttributes": "属性",
     "tabSkills": "技能",
     "tabBackground": "背景",

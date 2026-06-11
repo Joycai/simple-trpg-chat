@@ -15,6 +15,10 @@ interface ChatMessageProps {
   isOwn: boolean;
   isBot?: boolean;
   userId?: number;
+  senderId?: number;
+  isHost?: boolean;
+  onViewCharacter?: (userId: number, nickname: string) => void;
+  onStartDM?: (userId: number) => void;
   onCheckRequest?: (skillName: string, diceType: string) => void;
 }
 
@@ -28,10 +32,23 @@ export function ChatMessage({
   isOwn,
   isBot = false,
   userId,
+  senderId,
+  isHost = false,
+  onViewCharacter,
+  onStartDM,
   onCheckRequest,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
+  const tRoom = useTranslations("room");
   const [mounted, setMounted] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleOutsideClick = () => setShowMenu(false);
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [showMenu]);
 
   useEffect(() => {
     setMounted(true);
@@ -92,13 +109,55 @@ export function ChatMessage({
 
       {/* Bubble */}
       <div className={`flex flex-col max-w-[80%] ${isOwn ? "items-end" : ""}`}>
-        <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""}`}>
-          <span className="text-[11px] font-medium text-text-muted">
+        <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""} relative`}>
+          <span
+            className={`text-[13px] font-semibold text-text-muted ${(!isBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
+            onClick={(e) => {
+              if (!isBot && !isOwn && senderId) {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }
+            }}
+          >
             {nickname}
             {isBot && " 🤖"}
             {isPrivate && ` (🔒 ${t("privateRoll")})`}
           </span>
-          <span className="text-[9px] text-text-dim opacity-0 group-hover:opacity-100 transition">
+
+          {showMenu && senderId && (
+            <div
+              className={`absolute bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[120px] z-30 animate-in fade-in zoom-in-95 duration-100 ${
+                isOwn ? "right-0" : "left-0"
+              }`}
+              style={{ top: "100%" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isHost && onViewCharacter && (
+                <button
+                  onClick={() => {
+                    onViewCharacter(senderId, nickname);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-surface-alt transition cursor-pointer"
+                >
+                  🎴 {tRoom("btnViewCard")}
+                </button>
+              )}
+              {onStartDM && (
+                <button
+                  onClick={() => {
+                    onStartDM(senderId);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-surface-alt transition cursor-pointer"
+                >
+                  🔒 {tRoom("btnDm")}
+                </button>
+              )}
+            </div>
+          )}
+
+          <span className="text-[11px] text-text-dim opacity-0 group-hover:opacity-100 transition">
             {mounted ? formatTime(createdAt, t) : ""}
           </span>
         </div>

@@ -114,7 +114,8 @@
     "countMembers": "{count} players",
     "labelPlayers": "👤 Players {count}",
     "labelBots": "🤖 Bots {count}",
-    "suffixMe": " (Me)"
+    "suffixMe": " (Me)",
+    "btnViewCard": "🎴 Character Card"
   },
   "chat": {
     "inputPlaceholder": "Type a message...",
@@ -331,6 +332,11 @@
   },
   "character": {
     "title": "Character Profile",
+    "titleOther": "{name}'s Character Card",
+    "notInitialized": "This player has not initialized their character card yet",
+    "saveSuccess": "Saved Successfully ✓",
+    "saveFailed": "Save Failed ×",
+    "saving": "Saving...",
     "tabAttributes": "Stats",
     "tabSkills": "Skills",
     "tabBackground": "Bio",

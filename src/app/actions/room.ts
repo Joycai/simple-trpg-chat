@@ -315,6 +315,7 @@ export async function getRoomMessages(roomId: number) {
 }
 
 export async function getRoomSkills(roomId: number, userId: number) {
+  await checkRoomAccess(roomId, false);
   return await db
     .select()
     .from(roomSkills)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateNicknameAction } from "@/app/actions/room";
+import { updateNicknameAction, getRoomSkills } from "@/app/actions/room";
 import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,9 @@ interface CharacterPanelProps {
   roomRuleTemplate?: string;
   onClose: () => void;
   onNicknameChange: (newNick: string) => void;
+  readOnly?: boolean;
+  targetUserId?: number;
+  loading?: boolean;
 }
 
 interface SkillItem {
@@ -35,6 +38,9 @@ export function CharacterPanel({
   roomRuleTemplate,
   onClose,
   onNicknameChange,
+  readOnly = false,
+  targetUserId,
+  loading = false,
 }: CharacterPanelProps) {
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
@@ -46,6 +52,7 @@ export function CharacterPanel({
   // Nickname
   const [nickname, setNickname] = useState(currentNickname);
   const [editingNick, setEditingNick] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
 
   // Character data
   const charData = parseCharData(characterData);
@@ -55,6 +62,7 @@ export function CharacterPanel({
 
   // Auto-init COC 7th character on first open
   useEffect(() => {
+    if (readOnly) return;
     if (initDone) return;
     if (roomRuleTemplate === "coc7th") {
       initCocCharacterAction(roomId).then((data) => {
@@ -65,7 +73,7 @@ export function CharacterPanel({
     } else {
       setInitDone(true);
     }
-  }, [roomRuleTemplate, roomId, initDone]);
+  }, [roomRuleTemplate, roomId, initDone, readOnly]);
   
   const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
   const derived = computeCocDerived(cocAttrs);
@@ -82,8 +90,14 @@ export function CharacterPanel({
   const [newSkillValue, setNewSkillValue] = useState(50);
 
   useEffect(() => {
-    getMySkillsAction(roomId).then(setSkills).catch(() => {});
-  }, [roomId]);
+    if (readOnly && targetUserId) {
+      getRoomSkills(roomId, targetUserId).then((data) => {
+        setSkills(data.map(s => ({ id: s.id, skillName: s.skillName, skillValue: s.skillValue })));
+      }).catch(() => {});
+    } else {
+      getMySkillsAction(roomId).then(setSkills).catch(() => {});
+    }
+  }, [roomId, readOnly, targetUserId]);
 
   const saveNickname = async () => {
     if (nickname.trim() && nickname !== currentNickname) {
@@ -99,11 +113,16 @@ export function CharacterPanel({
       cocAttributes: cocAttrs,
       bio,
     };
+    setSaveStatus("saving");
     try {
       await saveCharacterDataAction(roomId, data);
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 2000);
       router.refresh();
     } catch (e) {
       console.error("Failed to save character data", e);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
     }
   };
 
@@ -171,12 +190,48 @@ export function CharacterPanel({
     { key: "luck", tKey: "luckAttr" },
   ];
 
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+        <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-sm mx-4"
+          onClick={e => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="font-bold text-lg text-text">{t("titleOther", { name: currentNickname })}</h3>
+            <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
+          </div>
+          <div className="text-center py-12 text-text-muted flex flex-col items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4" />
+            <p className="text-sm font-medium">{tCommon("loading")}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (readOnly && !hasExistingData) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+        <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-sm mx-4"
+          onClick={e => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="font-bold text-lg text-text">{t("titleOther", { name: currentNickname })}</h3>
+            <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
+          </div>
+          <div className="text-center py-8 text-text-muted">
+            <span className="text-4xl block mb-3">🎴</span>
+            <p className="text-sm font-medium">{t("notInitialized")}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
+          <h3 className="font-bold text-lg text-text">{readOnly ? t("titleOther", { name: currentNickname }) : t("title")}</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
@@ -193,7 +248,7 @@ export function CharacterPanel({
           ) : (
             <div className="flex-1 flex items-center justify-between">
               <span className="font-bold text-text">{nickname}</span>
-              <button onClick={() => setEditingNick(true)} className="text-xs text-text-muted hover:text-text cursor-pointer">✏️</button>
+              {!readOnly && <button onClick={() => setEditingNick(true)} className="text-xs text-text-muted hover:text-text cursor-pointer">✏️</button>}
             </div>
           )}
         </div>
@@ -281,7 +336,8 @@ export function CharacterPanel({
                     <label className="text-xs text-text-muted w-16 shrink-0">{t(tKey).split(" ")[0]}</label>
                     <input type="number" min={0} max={99}
                       value={cocAttrs[key]} onChange={e => updateAttr(key, parseInt(e.target.value) || 0)}
-                      className="w-14 p-1 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
+                      disabled={readOnly}
+                      className="w-14 p-1 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary disabled:opacity-85 disabled:cursor-default" />
                     <span className="text-[10px] text-text-dim w-8 text-right">{Math.floor((cocAttrs[key] - 50) / 5)}</span>
                   </div>
                 ))}
@@ -316,10 +372,28 @@ export function CharacterPanel({
               </p>
             )}
 
-            <button onClick={saveCharacterData}
-              className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition">
-              {t("saveAttributes")}
-            </button>
+            {!readOnly && (
+              <button onClick={saveCharacterData}
+                disabled={saveStatus === "saving"}
+                className={`text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
+                  saveStatus === "success" ? "bg-success" :
+                  saveStatus === "error" ? "bg-danger" :
+                  "bg-primary hover:bg-primary-hover"
+                }`}>
+                {saveStatus === "saving" ? (
+                  <>
+                    <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
+                    {t("saving") || "保存中..."}
+                  </>
+                ) : saveStatus === "success" ? (
+                  <>✓ {t("saveSuccess") || "保存成功"}</>
+                ) : saveStatus === "error" ? (
+                  <>× {t("saveFailed") || "保存失败"}</>
+                ) : (
+                  t("saveAttributes")
+                )}
+              </button>
+            )}
 
             {/* Custom Attributes */}
             <div>
@@ -330,22 +404,26 @@ export function CharacterPanel({
                     <div key={attr.name} className="flex items-center gap-2 bg-surface-alt rounded p-2 group">
                       <span className="flex-1 text-sm text-text">{attr.name}</span>
                       <span className="text-xs text-text-muted font-mono w-12 text-right">{attr.value}</span>
-                      <button onClick={() => removeCustomAttr(attr.name)}
-                        className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
+                      {!readOnly && (
+                        <button onClick={() => removeCustomAttr(attr.name)}
+                          className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
-                <input value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
-                  placeholder={t("customAttrPlaceholder")} onKeyDown={e => e.key === "Enter" && addCustomAttr()}
-                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
-                <input type="number" min={0} max={999} value={newAttrValue}
-                  onChange={e => setNewAttrValue(parseInt(e.target.value) || 0)}
-                  className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                <button onClick={addCustomAttr}
-                  className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
-              </div>
+              {!readOnly && (
+                <div className="flex gap-2">
+                  <input value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
+                    placeholder={t("customAttrPlaceholder")} onKeyDown={e => e.key === "Enter" && addCustomAttr()}
+                    className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
+                  <input type="number" min={0} max={999} value={newAttrValue}
+                    onChange={e => setNewAttrValue(parseInt(e.target.value) || 0)}
+                    className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
+                  <button onClick={addCustomAttr}
+                    className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -369,21 +447,25 @@ export function CharacterPanel({
                       style={{ width: `${Math.min(100, s.skillValue)}%` }} />
                   </div>
                   <span className="text-xs text-text-muted font-mono w-8 text-right">{s.skillValue}</span>
-                  <button onClick={() => removeSkill(s.id)}
-                    className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
+                  {!readOnly && (
+                    <button onClick={() => removeSkill(s.id)}
+                      className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
-              <input value={newSkillName} onChange={e => setNewSkillName(e.target.value)}
-                placeholder={t("skillNamePlaceholder")} onKeyDown={e => e.key === "Enter" && addSkill()}
-                className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
-              <input type="number" min={1} max={99} value={newSkillValue}
-                onChange={e => setNewSkillValue(parseInt(e.target.value) || 1)}
-                className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-              <button onClick={addSkill}
-                className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
-            </div>
+            {!readOnly && (
+              <div className="flex gap-2">
+                <input value={newSkillName} onChange={e => setNewSkillName(e.target.value)}
+                  placeholder={t("skillNamePlaceholder")} onKeyDown={e => e.key === "Enter" && addSkill()}
+                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
+                <input type="number" min={1} max={99} value={newSkillValue}
+                  onChange={e => setNewSkillValue(parseInt(e.target.value) || 1)}
+                  className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
+                <button onClick={addSkill}
+                  className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -392,14 +474,33 @@ export function CharacterPanel({
           <div className="flex flex-col gap-4">
             <div>
               <label className="text-xs text-text-dim font-medium mb-1 block">{t("bioPlaceholder").slice(0, 4)}</label>
-              <textarea value={bio} onChange={e => setBio(e.target.value)} onBlur={saveCharacterData}
+              <textarea value={bio} onChange={e => setBio(e.target.value)} onBlur={readOnly ? undefined : saveCharacterData}
                 placeholder={t("bioPlaceholder")} rows={6}
-                className="w-full p-2 border border-input-border bg-input-bg rounded text-sm text-text resize-none outline-none focus:ring-1 focus:ring-primary" />
+                readOnly={readOnly}
+                className="w-full p-2 border border-input-border bg-input-bg rounded text-sm text-text resize-none outline-none focus:ring-1 focus:ring-primary disabled:opacity-85 disabled:cursor-default" />
             </div>
-            <button onClick={saveCharacterData}
-              className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition">
-              {t("saveBio")}
-            </button>
+            {!readOnly && (
+              <button onClick={saveCharacterData}
+                disabled={saveStatus === "saving"}
+                className={`text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
+                  saveStatus === "success" ? "bg-success" :
+                  saveStatus === "error" ? "bg-danger" :
+                  "bg-primary hover:bg-primary-hover"
+                }`}>
+                {saveStatus === "saving" ? (
+                  <>
+                    <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
+                    {t("saving") || "保存中..."}
+                  </>
+                ) : saveStatus === "success" ? (
+                  <>✓ {t("saveSuccess") || "保存成功"}</>
+                ) : saveStatus === "error" ? (
+                  <>× {t("saveFailed") || "保存失败"}</>
+                ) : (
+                  t("saveBio")
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>

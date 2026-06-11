@@ -18,6 +18,7 @@ import { SkillPanel } from "./SkillPanel";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
+import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/themes/types";
@@ -97,6 +98,10 @@ export function RoomClient({
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
+  const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
+  const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
+  const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
 
   const activeTabRef = useRef(activeTab);
   useEffect(() => {
@@ -445,6 +450,21 @@ export function RoomClient({
     setNickname(newNickname);
   };
 
+  const handleViewPlayerCard = async (targetUserId: number, targetNickname: string) => {
+    setShowMembers(false);
+    setViewingPlayerId(targetUserId);
+    setViewingPlayerNickname(targetNickname);
+    setLoadingPlayerCard(true);
+    try {
+      const data = await getCharacterDataAction(room.id, targetUserId);
+      setViewingPlayerCharData(data ? JSON.stringify(data) : null);
+    } catch (e) {
+      console.error("Failed to load player character card", e);
+    } finally {
+      setLoadingPlayerCard(false);
+    }
+  };
+
   const handleCheckRequest = (skillName: string, diceType: string) => {
     getMySkillsAction(room.id).then(async (skills) => {
       const skill = skills.find((s: any) => s.skillName === skillName);
@@ -725,6 +745,10 @@ export function RoomClient({
                   createdAt={msg.createdAt}
                   isOwn={msg.userId === userId}
                   userId={userId}
+                  senderId={msg.userId}
+                  isHost={isHost}
+                  onViewCharacter={handleViewPlayerCard}
+                  onStartDM={handleTabChange}
                   onCheckRequest={handleCheckRequest}
                   isBot={!!players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.users?.isBot}
                 />
@@ -761,6 +785,24 @@ export function RoomClient({
       {showCharacter && (
         <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} roomRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
       )}
+      {viewingPlayerId !== null && (
+        <CharacterPanel
+          roomId={room.id}
+          userId={viewingPlayerId}
+          currentNickname={viewingPlayerNickname}
+          characterData={viewingPlayerCharData}
+          roomRuleTemplate={(room as any).ruleTemplate || "basic"}
+          onClose={() => {
+            setViewingPlayerId(null);
+            setViewingPlayerCharData(null);
+            setViewingPlayerNickname("");
+          }}
+          onNicknameChange={() => {}}
+          readOnly={true}
+          targetUserId={viewingPlayerId}
+          loading={loadingPlayerCard}
+        />
+      )}
       {showBotManager && (
         <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} />
       )}
@@ -795,6 +837,14 @@ export function RoomClient({
                     <span>{isBot ? "🤖" : "👤"}</span>
                     <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? t("suffixMe") : ""}</span>
                     <div className="flex gap-2">
+                        {isHost && !isMe && !isBot && (
+                          <button
+                            onClick={() => handleViewPlayerCard(u.id, nick)}
+                            className="bg-primary/10 hover:bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
+                          >
+                            {t("btnViewCard")}
+                          </button>
+                        )}
                         {!isMe && (
                           <button 
                              onClick={() => { handleTabChange(u.id); setShowMembers(false); }}

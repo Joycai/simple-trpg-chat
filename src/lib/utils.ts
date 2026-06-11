@@ -3,12 +3,55 @@ export function formatTime(createdAt: string | Date, t?: any): string {
   if (createdAt instanceof Date) {
     return formatWithDate(createdAt, t);
   }
-  let cleanStr = createdAt.replace(" ", "T");
+
+  const str = typeof createdAt === "string" ? createdAt.trim() : String(createdAt).trim();
+  let cleanStr = str.replace(/\s+/, "T").replace(/\s+/g, "");
+  // Truncate microsecond digits to 3 digits (millisecond precision)
+  cleanStr = cleanStr.replace(/\.(\d{1,3})\d+/, ".$1");
+  // Expand 2-digit offsets (e.g. +08 or -05) to +08:00 or -05:00
+  if (/[-+]\d{2}$/.test(cleanStr)) {
+    cleanStr += ":00";
+  }
+
   const hasTimezone = cleanStr.includes("Z") || /[-+]\d{2}(:?\d{2})?$/.test(cleanStr);
   if (!hasTimezone) {
     cleanStr += "Z";
   }
-  const date = new Date(cleanStr);
+
+  let date = new Date(cleanStr);
+
+  // Custom regex parsing fallback in case new Date() fails on standard formats
+  if (isNaN(date.getTime())) {
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+      const [, y, m, d, hh, mm, ss] = match;
+      const offsetMatch = str.match(/([-+])(\d{2}):?(\d{2})?$/);
+      if (offsetMatch) {
+        const [, sign, oh, om = "00"] = offsetMatch;
+        const offsetMinutes = parseInt(oh) * 60 + parseInt(om);
+        const diff = sign === "+" ? -offsetMinutes : offsetMinutes;
+        const utcDate = new Date(Date.UTC(
+          parseInt(y),
+          parseInt(m) - 1,
+          parseInt(d),
+          parseInt(hh),
+          parseInt(mm),
+          parseInt(ss)
+        ));
+        date = new Date(utcDate.getTime() + diff * 60 * 1000);
+      } else {
+        date = new Date(
+          parseInt(y),
+          parseInt(m) - 1,
+          parseInt(d),
+          parseInt(hh),
+          parseInt(mm),
+          parseInt(ss)
+        );
+      }
+    }
+  }
+
   if (isNaN(date.getTime())) return t ? t("unknownTime") : "Unknown time";
   return formatWithDate(date, t);
 }
