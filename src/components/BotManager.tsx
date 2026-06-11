@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createBotAction, getRoomBotsAction, updateBotAction, triggerBotAction } from "@/app/actions/bot";
 import { getMyProviders } from "@/app/actions/ai-providers";
+import { getBotPresetsAction } from "@/app/actions/bot-presets";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -44,6 +45,11 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
   const [providers, setProviders] = useState<any[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);
 
+  // Preset State
+  const [presets, setPresets] = useState<any[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<number | string>("");
+  const [allowEditPrompt, setAllowEditPrompt] = useState(true);
+
   useEffect(() => {
     getMyProviders().then(list => {
       setProviders(list);
@@ -56,6 +62,10 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
     }).catch(() => setModel("gpt-4o-mini"));
   }, []);
 
+  useEffect(() => {
+    getBotPresetsAction().then(setPresets).catch(console.error);
+  }, []);
+
   const loadBots = async () => {
     try {
       const data = await getRoomBotsAction(roomId);
@@ -65,6 +75,29 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
   };
 
   useEffect(() => { loadBots(); }, [roomId]);
+
+  const handlePresetChange = (presetIdVal: string) => {
+    setSelectedPresetId(presetIdVal);
+    if (!presetIdVal) {
+      setAllowEditPrompt(true);
+      return;
+    }
+    const preset = presets.find(p => p.id === parseInt(presetIdVal));
+    if (preset) {
+      setBotName(preset.name);
+      setBotNickname(preset.defaultNickname);
+      setSystemPrompt(preset.systemPrompt);
+      setAllowEditPrompt(preset.allowEditPrompt);
+    }
+  };
+
+  const resetForm = () => {
+    setBotName("");
+    setBotNickname("");
+    setSystemPrompt("");
+    setSelectedPresetId("");
+    setAllowEditPrompt(true);
+  };
 
   const handleCreate = async () => {
     if (!botName || !botNickname) return;
@@ -78,9 +111,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       providerId: providerId ?? undefined,
     });
     setShowCreate(false);
-    setBotName("");
-    setBotNickname("");
-    setSystemPrompt("");
+    resetForm();
     router.refresh();
     loadBots();
   };
@@ -97,9 +128,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       providerId: providerId ?? undefined,
     });
     setEditingBot(null);
-    setBotName("");
-    setBotNickname("");
-    setSystemPrompt("");
+    resetForm();
     router.refresh();
     loadBots();
   };
@@ -114,13 +143,13 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
     setEnableTools(bot.config.enableTools || ["send_message", "roll_dice"]);
     if (bot.config.providerId) setProviderId(bot.config.providerId);
     setShowCreate(false);
+    setSelectedPresetId("");
+    setAllowEditPrompt(true);
   };
 
   const cancelEdit = () => {
     setEditingBot(null);
-    setBotName("");
-    setBotNickname("");
-    setSystemPrompt("");
+    resetForm();
   };
 
   return (
@@ -201,6 +230,19 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
             {(showCreate || editingBot) && (
               <div className="bg-surface-alt rounded-theme p-4 border border-primary/30 flex flex-col gap-3">
                 <h4 className="font-bold text-text text-sm">{editingBot ? t("editBot") : t("createBot")}</h4>
+
+                {presets.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-text-dim">{t("presetSelect")}</label>
+                    <select value={selectedPresetId} onChange={e => handlePresetChange(e.target.value)}
+                      className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                      <option value="">{t("manualPreset")}</option>
+                      {presets.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-text-dim">{t("name")}</label>
@@ -219,7 +261,10 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                   <label className="text-xs text-text-dim">{t("prompt")}</label>
                   <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
                     placeholder={t("promptPlaceholder")} rows={4}
-                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none font-mono outline-none" />
+                    disabled={!allowEditPrompt}
+                    className={`p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none font-mono outline-none ${
+                      !allowEditPrompt ? "opacity-60 cursor-not-allowed" : ""
+                    }`} />
                 </div>
 
                 {providers.length > 0 && (
@@ -265,6 +310,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                       { key: "my_clues", label: "toolMyClues" },
                       { key: "my_character", label: "toolMyCharacter" },
                       { key: "search_history", label: "toolSearchHistory" },
+                      { key: "set_character_card", label: "toolSetCharacterCard" },
                     ].map(tool => (
                       <label key={tool.key} className={`flex items-center gap-1.5 p-1.5 rounded text-xs cursor-pointer transition ${
                         enableTools.includes(tool.key) ? "bg-primary/10 text-primary" : "bg-surface text-text-muted"

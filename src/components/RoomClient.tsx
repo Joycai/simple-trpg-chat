@@ -102,6 +102,7 @@ export function RoomClient({
   const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
   const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
   const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
+  const [typingBots, setTypingBots] = useState<Record<number, { nickname: string; typing: boolean; isPrivate?: boolean; targetUserId?: number }>>({});
 
   const activeTabRef = useRef(activeTab);
   useEffect(() => {
@@ -297,7 +298,7 @@ export function RoomClient({
         scrollToBottom(false);
       });
     }
-  }, [tabMessages]); // Re-scroll when switching tabs
+  }, [tabMessages, typingBots]); // Re-scroll when switching tabs or typing state changes
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -323,6 +324,23 @@ export function RoomClient({
           const data = JSON.parse(event.data);
           if (data.type === "room_settings_updated") {
             router.refresh();
+            return;
+          }
+          if (data.type === "typing") {
+            setTypingBots((prev) => {
+              const next = { ...prev };
+              if (data.typing) {
+                next[data.botUserId] = {
+                  nickname: data.nickname,
+                  typing: true,
+                  isPrivate: data.isPrivate,
+                  targetUserId: data.targetUserId,
+                };
+              } else {
+                delete next[data.botUserId];
+              }
+              return next;
+            });
             return;
           }
           if (data.id) {
@@ -753,6 +771,20 @@ export function RoomClient({
                   isBot={!!players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.users?.isBot}
                 />
               ))}
+              {Object.entries(typingBots)
+                .filter(([botId, bot]) => {
+                  if (bot.isPrivate) {
+                    return activeTab === Number(botId);
+                  } else {
+                    return activeTab === "public";
+                  }
+                })
+                .map(([botId, bot]) => (
+                  <div key={botId} className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-text-dim bg-surface/50 border border-border/40 rounded-theme max-w-max animate-pulse my-1 font-mono">
+                    <span>🤖</span>
+                    <span>{t("botThinking", { nickname: bot.nickname })}</span>
+                  </div>
+                ))}
               {tabMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-50 py-20">
                   <span className="text-4xl mb-4">{activeTab === "public" ? "🏠" : "🔒"}</span>

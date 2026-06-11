@@ -28,7 +28,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
   const [isPrivate, setIsPrivate] = useState(isPrivateLocked);
   const [privateTargetId, setPrivateTargetId] = useState<number | null>(null);
   
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync isPrivate with isPrivateLocked prop
   useEffect(() => {
@@ -39,6 +39,14 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Auto-resize textarea height based on content
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [message]);
 
   // Detect @mention query
   const mentionMatch = useMemo(() => {
@@ -113,6 +121,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
     }
 
     if (e.key === "Enter" && !e.shiftKey) {
+      if (e.nativeEvent.isComposing) return;
       e.preventDefault();
       handleSend();
     }
@@ -185,7 +194,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
       )}
 
       {/* Input row */}
-      <div className={`flex items-center gap-2 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
+      <div className={`flex items-end gap-2 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
         isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
       }`}>
         <button
@@ -210,14 +219,14 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
           </button>
         )}
 
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={isPrivate ? t("whisperingPlaceholder") : t("inputPlaceholder")}
-          className="flex-1 p-2 border-0 outline-none text-sm bg-transparent text-text"
+          className="flex-1 p-2 border-0 outline-none text-sm bg-transparent text-text resize-none overflow-y-auto max-h-32 min-h-[36px]"
+          rows={1}
         />
 
         <button

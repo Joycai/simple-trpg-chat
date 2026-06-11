@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { recordTokenUsage } from "@/lib/ai_usage";
 import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
 import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
@@ -6,6 +6,7 @@ import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
 import { rollDice } from "@/lib/utils";
 import { z } from "zod";
+import { computeCocDerived, type CharacterData, type CocAttributes, type CustomAttribute } from "@/lib/character-types";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({
@@ -246,6 +247,67 @@ export async function runAgent(botUserId: number, roomId: number) {
         description: "Check your own character sheet including attributes, HP/SAN/MP, skills, and status.",
         parameters: { type: "object", properties: {}, required: [] }
       }
+    },
+    {
+      type: "function",
+      function: {
+        name: "set_character_card",
+        description: "Set or update your own character sheet attributes, skills, and background story.",
+        parameters: {
+          type: "object",
+          properties: {
+            ruleTemplate: {
+              type: "string",
+              enum: ["basic", "coc7th"],
+              description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card."
+            },
+            name: { "type": "string", "description": "The character's name" },
+            age: { "type": "integer", "description": "The character's age" },
+            occupation: { "type": "string", "description": "The character's occupation" },
+            bio: { "type": "string", "description": "The character's biography or backstory" },
+            cocAttributes: {
+              type: "object",
+              description: "COC 7th attributes (required/used only if ruleTemplate is 'coc7th'). Values should typically be between 15 and 99.",
+              properties: {
+                str: { "type": "integer", "description": "Strength" },
+                con: { "type": "integer", "description": "Constitution" },
+                siz: { "type": "integer", "description": "Size" },
+                dex: { "type": "integer", "description": "Dexterity" },
+                app: { "type": "integer", "description": "Appearance" },
+                int: { "type": "integer", "description": "Intelligence" },
+                pow: { "type": "integer", "description": "Power" },
+                edu: { "type": "integer", "description": "Education" },
+                luck: { "type": "integer", "description": "Luck" }
+              }
+            },
+            customAttributes: {
+              type: "array",
+              description: "Generic custom attributes/stats for non-COC systems or extensions.",
+              items: {
+                type: "object",
+                properties: {
+                  name: { "type": "string", "description": "Attribute name, e.g. 'Sanity', 'Mana', 'Strength'" },
+                  value: { "type": "integer", "description": "Current value" },
+                  max: { "type": "integer", "description": "Optional maximum value" }
+                },
+                required: ["name", "value"]
+              }
+            },
+            skills: {
+              type: "array",
+              description: "Skills list to add or update.",
+              items: {
+                type: "object",
+                properties: {
+                  name: { "type": "string", "description": "Skill name, e.g. 'Spot Hidden' or 'Library Use'" },
+                  value: { "type": "integer", "description": "Skill level/percentage (e.g. 50)" }
+                },
+                required: ["name", "value"]
+              }
+            }
+          }
+        }
+      }
     }
   ];
   // Filter to only enabled tools for this bot
@@ -263,82 +325,123 @@ export async function runAgent(botUserId: number, roomId: number) {
   const botUser = await db.query.users.findFirst({ where: eq(users.id, botUserId) });
   const botNickname = member?.nickname || botUser?.displayName || "AI";
 
-  // Limit to public messages or private messages involving the bot to scan history
-  const history = await db.select().from(messages)
-    .where(
-      and(
-        eq(messages.roomId, roomId),
-        sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
-      )
-    )
-    .orderBy(desc(messages.createdAt))
-    .limit(20);
-  const sortedHistory = [...history].reverse();
-
   // Check if the triggering context was private and identify the target user
   let replyIsPrivate = false;
   let targetUserId: number | null = null;
 
-  for (let i = sortedHistory.length - 1; i >= 0; i--) {
-    const msg = sortedHistory[i];
-    if (msg.userId !== botUserId) {
-      if (msg.isPrivate && msg.targetUserId === botUserId) {
-        replyIsPrivate = true;
-        targetUserId = msg.userId;
-      }
-      break;
-    }
-  }
+  try {
+    // Limit to public messages or private messages involving the bot to scan history
+    const history = await db.select().from(messages)
+      .where(
+        and(
+          eq(messages.roomId, roomId),
+          sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+        )
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(20);
+    const sortedHistory = [...history].reverse();
 
-  if (!targetUserId) {
     for (let i = sortedHistory.length - 1; i >= 0; i--) {
       const msg = sortedHistory[i];
-      if (msg.isPrivate) {
-        if (msg.userId === botUserId && msg.targetUserId) {
-          targetUserId = msg.targetUserId;
-          break;
-        } else if (msg.targetUserId === botUserId) {
+      if (msg.userId !== botUserId) {
+        if (msg.isPrivate && msg.targetUserId === botUserId) {
+          replyIsPrivate = true;
           targetUserId = msg.userId;
-          break;
+        }
+        break;
+      }
+    }
+
+    if (!targetUserId) {
+      for (let i = sortedHistory.length - 1; i >= 0; i--) {
+        const msg = sortedHistory[i];
+        if (msg.isPrivate) {
+          if (msg.userId === botUserId && msg.targetUserId) {
+            targetUserId = msg.targetUserId;
+            break;
+          } else if (msg.targetUserId === botUserId) {
+            targetUserId = msg.userId;
+            break;
+          }
         }
       }
     }
+  } catch (err) {
+    console.error("[runAgent] Error determining triggering context privacy:", err);
   }
 
   if (!targetUserId) {
     targetUserId = room.hostId;
   }
 
-  while (iterations < 3) {
-    iterations++;
+  broadcastToRoom(roomId, {
+    type: "typing",
+    botUserId,
+    nickname: botNickname,
+    typing: true,
+    isPrivate: replyIsPrivate,
+    targetUserId: targetUserId,
+    userId: botUserId
+  });
 
-    let response;
-    try {
-      response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({ model, messages: currentContext, tools, tool_choice: "auto" })
-      });
-    } catch (err) {
-      console.error("[runAgent] AI API request failed after retries:", err);
-      break;
-    }
+  try {
+    // 2. Fetch the LLM completion
+    while (iterations < 5) {
+      iterations++;
 
-    if (!response || !response.ok) break;
+      let assistantMessage;
+      try {
+        const bodyPayload = {
+          model,
+          messages: currentContext,
+          ...(tools.length > 0 ? { tools } : {})
+        };
 
-    const data = await response.json();
-    
-    // Record token usage (always billed to the room host who manages/owns the bot in this room)
-    const usage = data.usage || {};
-    const inputTokens = usage.prompt_tokens || 0;
-    const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
-    const outputTokens = usage.completion_tokens || 0;
-    await recordTokenUsage(room.hostId, aiConfig.id, inputTokens, cachedInputTokens, outputTokens);
+        const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(bodyPayload)
+        });
 
-    const assistantMessage = data.choices[0].message;
-    currentContext.push(assistantMessage);
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`AI API error (${response.status}): ${errText}`);
+        }
 
-    if (!assistantMessage.tool_calls) {
+        const data = await response.json();
+        
+        // Record token usage (always billed to the room host who manages/owns the bot in this room)
+        const usage = data.usage || {};
+        const inputTokens = usage.prompt_tokens || 0;
+        const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
+        const outputTokens = usage.completion_tokens || 0;
+        await recordTokenUsage(room.hostId, aiConfig.id, inputTokens, cachedInputTokens, outputTokens);
+
+        assistantMessage = data.choices[0].message;
+      } catch (err: any) {
+        console.error(`[runAgent] completion error:`, err);
+        const content = `🤖 (${botNickname}) encountered an error connecting to AI: ${err.message || String(err)}`;
+        const [newMessage] = await db.insert(messages).values({
+          roomId,
+          userId: botUserId,
+          targetUserId: replyIsPrivate ? targetUserId : null,
+          nickname: botNickname,
+          content: replyIsPrivate ? `🔒 ${content}` : content,
+          type: "text",
+          isPrivate: replyIsPrivate
+        }).returning();
+        broadcastToRoom(roomId, newMessage);
+        break;
+      }
+
+      // Add assistant response to context
+      currentContext.push(assistantMessage);
+
+      // If there is message text, broadcast it (R3)
       if (assistantMessage.content) {
         const [newMessage] = await db.insert(messages).values({
           roomId,
@@ -351,202 +454,275 @@ export async function runAgent(botUserId: number, roomId: number) {
         }).returning();
         broadcastToRoom(roomId, newMessage);
       }
-      break;
-    }
 
-    for (const toolCall of assistantMessage.tool_calls) {
-      const functionName = toolCall.function.name;
-      const args = JSON.parse(toolCall.function.arguments);
-      let result;
-
-      try {
-        if (functionName === "roll_dice") {
-          const { results: rollResults, sum } = rollDice(args.faces, args.count);
-          const detail = JSON.stringify({ dice: `d${args.faces}`, count: args.count, results: rollResults, sum, isBot: true });
-          const content = `🤖 (${botNickname}) 🎲 ${args.count}d${args.faces}: [${rollResults.join(", ")}] = ${sum}`;
-          const [newMessage] = await db.insert(messages).values({
-            roomId,
-            userId: botUserId,
-            targetUserId: args.isPrivate ? targetUserId : null,
-            nickname: botNickname,
-            content: args.isPrivate ? `🔒 ${content}` : content,
-            type: "dice",
-            diceDetail: detail,
-            isPrivate: !!args.isPrivate
-          }).returning();
-          broadcastToRoom(roomId, newMessage);
-
-          // Get the room rules
-          const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-          const roomDiceRules = room?.diceRules || "basic";
-
-          let evaluation = undefined;
-          if (args.faces === 100 && args.count === 1) {
-            if (roomDiceRules === "coc7th") {
-              if (sum <= 5) {
-                evaluation = "Critical Success (大成功)";
-              } else if (sum >= 96) {
-                evaluation = "Fumble (大失败)";
-              }
-            } else {
-              // Even under basic rules, 100 on d100 is culturally/historically a Fumble in CoC/TRPG,
-              // and 1 is a Critical Success.
-              if (sum === 100) {
-                evaluation = "Fumble (大失败) in CoC rules (though current room uses basic rules)";
-              } else if (sum === 1) {
-                evaluation = "Critical Success (大成功) in CoC rules (though current room uses basic rules)";
-              }
-            }
-          }
-
-          result = {
-            success: true,
-            results: rollResults,
-            sum,
-            diceRules: roomDiceRules,
-            ...(evaluation ? { evaluation } : {})
-          };
-        } else if (functionName === "send_message") {
-          const [newMessage] = await db.insert(messages).values({
-            roomId,
-            userId: botUserId,
-            targetUserId: args.isPrivate ? targetUserId : null,
-            nickname: botNickname,
-            content: args.content,
-            type: "text",
-            isPrivate: !!args.isPrivate
-          }).returning();
-          broadcastToRoom(roomId, newMessage);
-          result = { success: true };
-        } else if (functionName === "inspect_item") {
-          // Validate that the item belongs to this room
-          const [item] = await db.select().from(inventoryItems).where(
-            and(
-              eq(inventoryItems.id, args.itemId),
-              eq(inventoryItems.roomId, roomId)
-            )
-          );
-          if (!item) {
-            result = { error: "Item not found in this room" };
-          } else {
-            // Validate that the bot actually possesses this item
-            const [possession] = await db.select().from(inventoryDistributions).where(
-              and(
-                eq(inventoryDistributions.roomId, roomId),
-                eq(inventoryDistributions.itemId, args.itemId),
-                eq(inventoryDistributions.toUserId, botUserId)
-              )
-            );
-            if (!possession) {
-              result = { error: "Unauthorized: You do not possess this item" };
-            } else {
-              result = { title: item.title, content: JSON.parse(item.contentJson) };
-            }
-          }
-        } else if (functionName === "search_history") {
-          const query = args.query as string;
-
-          const safeQuery = query.replace(/[%_\\]/g, '\\$&');
-
-          const limit = Math.min(args.limit || 10, 20);
-          // Use SQL LIKE for keyword search on message content
-          const results = await db.select({
-            id: messages.id,
-            nickname: messages.nickname,
-            content: messages.content,
-            type: messages.type,
-            createdAt: messages.createdAt,
-          }).from(messages)
-            .where(
-              and(
-                eq(messages.roomId, roomId),
-                sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
-                sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\'`
-              )
-            )
-            .orderBy(desc(messages.createdAt))
-            .limit(limit);
-          result = {
-            query,
-            count: results.length,
-            results: results.map(r => ({
-              nickname: r.nickname,
-              content: r.content.slice(0, 300), // Truncate long messages
-              type: r.type,
-              time: r.createdAt,
-            }))
-          };
-        } else if (functionName === "my_inventory") {
-          const dists = await db.query.inventoryDistributions.findMany({
-            where: and(
-              eq(inventoryDistributions.roomId, roomId),
-              eq(inventoryDistributions.toUserId, botUserId)
-            ),
-            with: { item: true }
-          });
-          result = {
-            count: dists.length,
-            items: dists.map(d => ({
-              id: d.itemId,
-              title: d.item.title,
-              type: d.item.type,
-            }))
-          };
-        } else if (functionName === "my_clues") {
-          const clueRows = await db.select({
-            id: clueCards.id,
-            title: clueCards.title,
-            content: clueCards.content,
-          }).from(clueCards)
-            .innerJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
-            .where(
-              and(
-                eq(clueCards.roomId, roomId),
-                or(
-                  isNull(clueVisibility.userId),
-                  eq(clueVisibility.userId, botUserId)
-                )
-              )
-            );
-          result = {
-            count: clueRows.length,
-            clues: clueRows.map(c => ({
-              id: c.id,
-              title: c.title,
-              content: c.content?.slice(0, 200),
-            }))
-          };
-        } else if (functionName === "my_character") {
-          const [member] = await db.select({
-            characterData: roomMembers.characterData,
-          }).from(roomMembers)
-            .where(and(
-              eq(roomMembers.roomId, roomId),
-              eq(roomMembers.userId, botUserId)
-            ));
-          const skills = await db.select({
-            skillName: roomSkills.skillName,
-            skillValue: roomSkills.skillValue,
-          }).from(roomSkills)
-            .where(and(
-              eq(roomSkills.roomId, roomId),
-              eq(roomSkills.userId, botUserId)
-            ));
-          const charData = member?.characterData ? JSON.parse(member.characterData) : null;
-          result = {
-            hasCharacterSheet: !!charData,
-            attributes: charData?.cocAttributes || null,
-            derived: charData?.cocDerived || null,
-            skills: skills.map(s => ({ name: s.skillName, value: s.skillValue })),
-            customAttributes: charData?.customAttributes || [],
-          };
-        }
-      } catch (e: unknown) {
-        result = { error: e instanceof Error ? e.message : String(e) };
+      // If no tool calls, we are finished
+      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+        break;
       }
 
-      currentContext.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
+      for (const toolCall of assistantMessage.tool_calls) {
+        const functionName = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments);
+        let result;
+
+        try {
+          if (functionName === "roll_dice") {
+            const { results: rollResults, sum } = rollDice(args.faces, args.count);
+            const detail = JSON.stringify({ dice: `d${args.faces}`, count: args.count, results: rollResults, sum, isBot: true });
+            const content = `🤖 (${botNickname}) 🎲 ${args.count}d${args.faces}: [${rollResults.join(", ")}] = ${sum}`;
+            const [newMessage] = await db.insert(messages).values({
+              roomId,
+              userId: botUserId,
+              targetUserId: args.isPrivate ? targetUserId : null,
+              nickname: botNickname,
+              content: args.isPrivate ? `🔒 ${content}` : content,
+              type: "dice",
+              diceDetail: detail,
+              isPrivate: !!args.isPrivate
+            }).returning();
+            broadcastToRoom(roomId, newMessage);
+
+            // Get the room rules
+            const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+            const roomDiceRules = room?.diceRules || "basic";
+
+            let evaluation = undefined;
+            if (args.faces === 100 && args.count === 1) {
+              if (roomDiceRules === "coc7th") {
+                if (sum <= 5) {
+                  evaluation = "Critical Success (大成功)";
+                } else if (sum >= 96) {
+                  evaluation = "Fumble (大失败)";
+                }
+              } else {
+                // Even under basic rules, 100 on d100 is culturally/historically a Fumble in CoC/TRPG,
+                // and 1 is a Critical Success.
+                if (sum === 100) {
+                  evaluation = "Fumble (大失败) in CoC rules (though current room uses basic rules)";
+                } else if (sum === 1) {
+                  evaluation = "Critical Success (大成功) in CoC rules (though current room uses basic rules)";
+                }
+              }
+            }
+
+            result = {
+              success: true,
+              results: rollResults,
+              sum,
+              diceRules: roomDiceRules,
+              ...(evaluation ? { evaluation } : {})
+            };
+          } else if (functionName === "send_message") {
+            const [newMessage] = await db.insert(messages).values({
+              roomId,
+              userId: botUserId,
+              targetUserId: args.isPrivate ? targetUserId : null,
+              nickname: botNickname,
+              content: args.content,
+              type: "text",
+              isPrivate: !!args.isPrivate
+            }).returning();
+            broadcastToRoom(roomId, newMessage);
+            result = { success: true };
+          } else if (functionName === "inspect_item") {
+            // Validate that the item belongs to this room
+            const [item] = await db.select().from(inventoryItems).where(
+              and(
+                eq(inventoryItems.id, args.itemId),
+                eq(inventoryItems.roomId, roomId)
+              )
+            );
+            if (!item) {
+              result = { error: "Item not found in this room" };
+            } else {
+              // Validate that the bot actually possesses this item
+              const [possession] = await db.select().from(inventoryDistributions).where(
+                and(
+                  eq(inventoryDistributions.roomId, roomId),
+                  eq(inventoryDistributions.itemId, args.itemId),
+                  eq(inventoryDistributions.toUserId, botUserId)
+                )
+              );
+              if (!possession) {
+                result = { error: "Unauthorized: You do not possess this item" };
+              } else {
+                result = { title: item.title, content: JSON.parse(item.contentJson) };
+              }
+            }
+          } else if (functionName === "search_history") {
+            const query = args.query as string;
+
+            const safeQuery = query.replace(/[%_\\]/g, '\\$&');
+
+            const limit = Math.min(args.limit || 10, 20);
+            // Use SQL LIKE for keyword search on message content
+            const results = await db.select({
+              id: messages.id,
+              nickname: messages.nickname,
+              content: messages.content,
+              type: messages.type,
+              createdAt: messages.createdAt,
+            }).from(messages)
+              .where(
+                and(
+                  eq(messages.roomId, roomId),
+                  sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                  sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\'`
+                )
+              )
+              .orderBy(desc(messages.createdAt))
+              .limit(limit);
+            result = {
+              query,
+              count: results.length,
+              results: results.map(r => ({
+                nickname: r.nickname,
+                content: r.content.slice(0, 300), // Truncate long messages
+                type: r.type,
+                time: r.createdAt,
+              }))
+            };
+          } else if (functionName === "my_inventory") {
+            const dists = await db.query.inventoryDistributions.findMany({
+              where: and(
+                eq(inventoryDistributions.roomId, roomId),
+                eq(inventoryDistributions.toUserId, botUserId)
+              ),
+              with: { item: true }
+            });
+            result = {
+              count: dists.length,
+              items: dists.map(d => ({
+                id: d.itemId,
+                title: d.item.title,
+                type: d.item.type,
+              }))
+            };
+          } else if (functionName === "my_clues") {
+            const clueRows = await db.select({
+              id: clueCards.id,
+              title: clueCards.title,
+              content: clueCards.content,
+            }).from(clueCards)
+              .innerJoin(clueVisibility, eq(clueCards.id, clueVisibility.clueId))
+              .where(
+                and(
+                  eq(clueCards.roomId, roomId),
+                  or(
+                    isNull(clueVisibility.userId),
+                    eq(clueVisibility.userId, botUserId)
+                  )
+                )
+              );
+            result = {
+              count: clueRows.length,
+              clues: clueRows.map(c => ({
+                id: c.id,
+                title: c.title,
+                content: c.content?.slice(0, 200),
+              }))
+            };
+          } else if (functionName === "my_character") {
+            const [member] = await db.select({
+              characterData: roomMembers.characterData,
+            }).from(roomMembers)
+              .where(and(
+                eq(roomMembers.roomId, roomId),
+                eq(roomMembers.userId, botUserId)
+              ));
+            const skills = await db.select({
+              skillName: roomSkills.skillName,
+              skillValue: roomSkills.skillValue,
+            }).from(roomSkills)
+              .where(and(
+                eq(roomSkills.roomId, roomId),
+                eq(roomSkills.userId, botUserId)
+              ));
+            const charData = member?.characterData ? JSON.parse(member.characterData) : null;
+            result = {
+              hasCharacterSheet: !!charData,
+              attributes: charData?.cocAttributes || null,
+              derived: charData?.cocDerived || null,
+              skills: skills.map(s => ({ name: s.skillName, value: s.skillValue })),
+              customAttributes: charData?.customAttributes || [],
+            };
+          } else if (functionName === "set_character_card") {
+            const [member] = await db.select({
+              characterData: roomMembers.characterData,
+            }).from(roomMembers)
+              .where(and(
+                eq(roomMembers.roomId, roomId),
+                eq(roomMembers.userId, botUserId)
+              ));
+
+            const existing: CharacterData = member?.characterData
+              ? JSON.parse(member.characterData)
+              : { ruleTemplate: args.ruleTemplate || "basic" };
+
+            const merged: CharacterData = {
+              ...existing,
+              ...(args.ruleTemplate ? { ruleTemplate: args.ruleTemplate } : {}),
+              ...(args.name !== undefined ? { name: args.name } : {}),
+              ...(args.age !== undefined ? { age: args.age } : {}),
+              ...(args.occupation !== undefined ? { occupation: args.occupation } : {}),
+              ...(args.bio !== undefined ? { bio: args.bio } : {}),
+              ...(args.customAttributes !== undefined ? { customAttributes: args.customAttributes } : {}),
+            };
+
+            if (merged.ruleTemplate === "coc7th") {
+              if (args.cocAttributes) {
+                merged.cocAttributes = {
+                  ...(merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 }),
+                  ...args.cocAttributes
+                };
+              }
+              if (merged.cocAttributes) {
+                merged.cocDerived = computeCocDerived(merged.cocAttributes);
+              }
+            }
+
+            await db.update(roomMembers)
+              .set({ characterData: JSON.stringify(merged) })
+              .where(and(
+                eq(roomMembers.roomId, roomId),
+                eq(roomMembers.userId, botUserId)
+              ));
+
+            if (args.skills && Array.isArray(args.skills)) {
+              for (const skill of args.skills) {
+                if (typeof skill.name === "string" && typeof skill.value === "number") {
+                  await db.insert(roomSkills).values({
+                    roomId,
+                    userId: botUserId,
+                    skillName: skill.name,
+                    skillValue: skill.value,
+                  }).onConflictDoUpdate({
+                    target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
+                    set: { skillValue: skill.value, updatedAt: sqlNow() },
+                  });
+                }
+              }
+            }
+
+            result = { success: true };
+          }
+        } catch (e: unknown) {
+          result = { error: e instanceof Error ? e.message : String(e) };
+        }
+
+        currentContext.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
+      }
     }
+  } finally {
+    broadcastToRoom(roomId, {
+      type: "typing",
+      botUserId,
+      nickname: botNickname,
+      typing: false,
+      isPrivate: replyIsPrivate,
+      targetUserId: targetUserId,
+      userId: botUserId
+    });
   }
 
   // 5. Trigger Incremental Summarization (Task #36)

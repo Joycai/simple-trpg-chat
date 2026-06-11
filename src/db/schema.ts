@@ -304,3 +304,17 @@ export const dailyStats = pgTable('daily_stats', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
+// ============================================================
+// Bot Presets (#Goal)
+// ============================================================
+
+export const botPresets = pgTable('bot_presets', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  defaultNickname: text('default_nickname').notNull(),
+  systemPrompt: text('system_prompt').notNull(),
+  allowEditPrompt: boolean('allow_edit_prompt').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});
+
