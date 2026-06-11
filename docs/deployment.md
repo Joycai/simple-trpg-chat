@@ -1,266 +1,142 @@
 # Simple TRPG Chat — 部署指南
 
-**Version**: 0.1.0 | **Last Updated**: 2026-05-31
+**Version**: 0.2.0 | **Last Updated**: 2026-06-12
 
 ---
 
 ## 环境要求
 
-| 环境 | 版本要求 |
-|------|---------|
-| Node.js | >= 18.x |
-| npm | >= 9.x |
-| 操作系统 | macOS / Linux / Windows |
+| 环境 | 版本要求 | 说明 |
+|------|---------|------|
+| **Node.js** | >= 18.x | 运行环境 |
+| **pnpm** | >= 8.x | 包管理器 |
+| **PostgreSQL** | >= 15.x | 数据库（本地开发可用 Docker/Podman 起服务） |
+| **操作系统** | macOS / Linux / Windows | — |
 
-## 快速部署
+---
 
-### 1. 克隆仓库
+## 快速一键部署
 
+项目提供了一键交互式配置脚本，在首次部署或本地运行时，推荐优先使用脚本。
+
+### 1. 克隆仓库与准备
 ```bash
 git clone <repository-url>
 cd simple-trpg-chat
 ```
 
-### 2. 安装依赖
+### 2. 运行初始化脚本
+- **macOS / Linux**:
+  ```bash
+  chmod +x setup.sh
+  ./setup.sh
+  ```
+- **Windows** (PowerShell):
+  ```powershell
+  Set-ExecutionPolicy Bypass -Scope Process
+  ./setup.ps1
+  ```
 
+**该脚本将自动完成以下操作：**
+1. 检查 Node.js 和 pnpm 环境。
+2. 自动根据模板生成 `.env` 配置文件，并填充高强度随机的 `AUTH_SECRET` 密钥（用于 Session 加密）。
+3. 提示是否开启 AI Bot 功能。如果开启，会自动生成加密 API Key 所用的 `AI_ENCRYPTION_KEY`。
+4. 安装项目全部依赖 (`pnpm install`)。
+5. 提示输入 PostgreSQL 的连接字符串并进行连接测试，测试通过后写入 `db.config.json`。
+6. 向 PostgreSQL 推送最新的数据库 Schema。
+7. 询问是否创建初始管理员账号 (`admin` / `admin123`)。
+
+### 3. 构建并启动服务
+配置完成后，只需两步即可将项目构建并启动于生产环境：
 ```bash
-npm install
+# 1. 编译生产优化包
+pnpm run build
+
+# 2. 启动 Next.js 生产服务器
+pnpm start
 ```
+默认服务将运行在 `http://localhost:3000`。
 
-### 3. 配置环境变量
+---
 
-项目根目录有一个 `.env` 文件，内容如下：
+## 手动配置指引 (备用)
 
+如果不使用 `setup` 一键脚本，也可以手动配置环境。
+
+### 1. 配置环境变量 `.env`
+复制根目录下 `.env.example` 为 `.env`。必须包含：
 ```env
-AUTH_SECRET=<your-random-secret>
+AUTH_SECRET="<使用 openssl rand -base64 32 生成的强随机密匙>"
+AUTH_URL="http://localhost:3000"
+
+# 如果需要开启 AI 机器人功能：
+AI_ENCRYPTION_KEY="<使用 openssl rand -hex 32 生成的加密密匙>"
 ```
 
-`AUTH_SECRET` 用于加密登录 session。生产环境部署时请替换为随机生成的字符串：
-
-```bash
-# 生成强随机 AUTH_SECRET
-openssl rand -base64 32
+### 2. 创建数据库配置文件 `db.config.json`
+在项目根目录创建 `db.config.json`，格式如下：
+```json
+{
+  "type": "postgresql",
+  "url": "postgres://user:password@host:5432/simple_trpg_chat"
+}
 ```
 
-### 4. 初始化数据库
-
+### 3. 安装依赖与迁移数据库
 ```bash
-# 推送 schema 到 SQLite
-npm run db:push
+# 安装依赖
+pnpm install
 
-# 创建初始管理员账号
-npm run db:seed
-```
+# 推送 Schema 结构到 PostgreSQL
+pnpm db:push:pg
 
-这将创建：
-- 数据库文件 `sqlite.db`
-- 初始管理员账号：`admin` / `admin123`
-
-### 5. 构建并启动
-
-```bash
-# 生产构建
-npm run build
-
-# 启动生产服务器
-npm start
-```
-
-访问 `http://localhost:3000` 即可使用。
-
----
-
-## 本地开发
-
-```bash
-# 启动开发服务器（热更新）
-npm run dev
-
-# 或使用 Drizzle Studio 查看数据库
-npm run db:studio
+# 创建初始管理员账号种子数据
+pnpm db:seed
 ```
 
 ---
 
-## Docker 部署
+## 本地开发调试
 
-### 方案一：使用 Dockerfile
-
-在项目根目录创建 `Dockerfile`：
-
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run db:push
-RUN npm run build
-
-FROM node:20-alpine AS production
-WORKDIR /app
-RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 appuser
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/sqlite.db ./sqlite.db
-# 构建时种子数据可能为空，生产环境需首次启动时 seed
-COPY --from=build /app/src/db ./src/db
-COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
-RUN chown -R appuser:appgroup /app
-USER appuser
-EXPOSE 3000
-ENV NODE_ENV=production
-CMD ["node_modules/.bin/next", "start"]
-```
-
-#### 构建镜像
-
+### 1. 使用 Podman/Docker 启动本地数据库
+项目在 `docker` 目录提供了一个针对 PostgreSQL 的快速容器脚本：
 ```bash
-docker build -t simple-trpg-chat .
+# 启动本地 PostgreSQL 容器 (使用 Alpine-16 镜像)
+bash docker/start-pg.sh
+
+# 停止容器
+bash docker/start-pg.sh --stop
 ```
+启动成功后，将输出默认连接串：`postgres://trpg:trpg_dev_pwd@localhost:5432/simple_trpg_chat`。
 
-#### 运行容器
-
+### 2. 启动 Next.js 热重载开发服务器
 ```bash
-# 使用文件映射持久化数据库
-docker run -d \
-  --name simple-trpg-chat \
-  -p 3000:3000 \
-  -e AUTH_SECRET="<your-secret>" \
-  -v $(pwd)/data:/app \
-  simple-trpg-chat
-```
-
-### 方案二：使用 Docker Compose（推荐）
-
-创建 `docker-compose.yml`：
-
-```yaml
-version: "3.9"
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - AUTH_SECRET=${AUTH_SECRET}
-      - NODE_ENV=production
-    volumes:
-      - trpg-data:/app/data
-    restart: unless-stopped
-
-volumes:
-  trpg-data:
-```
-
-#### 启动
-
-```bash
-# 生成 AUTH_SECRET 并写入 .env
-echo "AUTH_SECRET=$(openssl rand -base64 32)" > .env
-
-# 启动
-docker compose up -d
-```
-
-> ⚠️ 首次启动后，需要进入容器执行 `npm run db:seed` 创建管理员账号：
-> ```bash
-> docker compose exec app npm run db:seed
-> ```
-
----
-
-## SQLite 备份与迁移
-
-### 备份数据库
-
-```bash
-# 生产环境
-cp sqlite.db sqlite.db.backup.$(date +%Y%m%d)
-
-# Docker 环境
-docker cp simple-trpg-chat:/app/sqlite.db ./backup/
-```
-
-### 恢复数据库
-
-```bash
-# 停止服务，替换 sqlite.db 文件，重启服务即可
-```
-
-### 从 SQLite 迁移到 PostgreSQL
-
-本项目使用 Drizzle ORM 作为数据库抽象层，迁移到 PostgreSQL 只需：
-
-1. 安装 `postgres-js` 驱动
-2. 修改 `src/db/index.ts` 中的数据库连接
-3. 使用 Drizzle 的迁移工具迁移 schema
-
-```ts
-// PostgreSQL 连接示例
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-
-const client = postgres(process.env.DATABASE_URL!);
-export const db = drizzle(client, { schema });
+pnpm dev
 ```
 
 ---
 
 ## 环境变量参考
 
-| 变量 | 必填 | 说明 | 默认值 |
-|------|------|------|--------|
-| `AUTH_SECRET` | ✅ | NextAuth.js session 加密密钥 | — |
-| `DATABASE_URL` | ❌ | 数据库连接（默认使用 `sqlite.db`） | `sqlite.db` |
-| `NODE_ENV` | ❌ | 运行环境 | `production` |
+| 变量 | 是否必填 | 说明 |
+|------|:------:|------|
+| `AUTH_SECRET` | ✅ | Auth.js session 和 JWT 加密密钥 |
+| `AUTH_URL` | ✅ | 部署服务的外部访问根路径（反向代理必须填写正确，否则会导致重定向到 localhost） |
+| `AI_ENCRYPTION_KEY` | ❌ | 用于加密存储在数据库中 AI 提供商 API Key 的密钥。未配置则无法使用 AI 模块 |
+| `DATABASE_URL` | ❌ | Drizzle-kit CLI 迁移时使用的 fallback 数据库连接串（优先读取 `db.config.json`） |
 
 ---
 
-## 生产环境注意事项
+## 生产环境运维注意事项
 
-1. **反向代理**：建议使用 Nginx 或 Caddy 作为反向代理，启用 HTTP/2 以优化 SSE 连接
-2. **数据库持久化**：SQLite 文件（`sqlite.db`）包含所有数据，务必定期备份
-3. **多实例部署**：本项目默认使用内存 EventEmitter 做 SSE 广播。如需多实例部署，需改用 Redis 等外部发布/订阅系统替换 `src/lib/events.ts` 中的 EventEmitter
-4. **日志**：生产环境建议配置日志轮转，监控服务状态
+### 1. SSE 实时事件的反向代理配置
+项目内部的消息流、Bot 思考提示和在线统计使用 **Server-Sent Events (SSE)** 实现。当部署在 Nginx、Caddy 等反向代理之后时，**必须禁用响应缓冲（Response Buffering）**，否则客户端无法实时接收推送。
 
-### 反向代理下的 Auth.js 配置
-
-使用反向代理时（Nginx/Caddy），必须在 `.env` 中将 `AUTH_URL` 设置为外部可访问的域名，否则登录后会跳转到 `localhost:3000`：
-
-```env
-# ❌ 错误：反向代理后用户会被跳转到 localhost
-AUTH_URL=http://localhost:3000
-
-# ✅ 正确：设为外部域名
-AUTH_URL=https://trpg.yourdomain.com
-```
-
-如果仅用于本地测试，也可在 `.env` 中删除 `AUTH_URL`，框架会自动从请求头中提取 host（需已配置 `trustHost`）。
-
-### Caddy 反向代理配置示例
-
-```caddy
-trpg.yourdomain.com {
-    reverse_proxy 127.0.0.1:3000 {
-        # SSE 需要禁用缓冲
-        header_up -Accept-Encoding
-    }
-}
-```
-
-### Nginx 反向代理配置示例
-
+#### Nginx 配置示例：
 ```nginx
 server {
     listen 443 ssl http2;
     server_name trpg.example.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -268,11 +144,31 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-
-        # SSE 需要禁用缓冲
+        
+        # ⚠️ 必须：禁用代理缓冲区以支持 SSE 实时长连接
         proxy_buffering off;
         proxy_cache off;
     }
 }
 ```
+
+#### Caddy 配置示例：
+```caddy
+trpg.example.com {
+    reverse_proxy 127.0.0.1:3000 {
+        # 禁用压缩和缓冲以确保 SSE 事件流即时刷新
+        header_up -Accept-Encoding
+    }
+}
+```
+
+### 2. 数据库备份
+PostgreSQL 数据存放在数据库服务中。生产环境应配置定时任务，使用工具定期执行热备份：
+```bash
+pg_dump -U <username> -d simple_trpg_chat -F c -b -v -f /backups/trpg_db_$(date +%Y%m%d_%H%M%S).backup
+```
+
+### 3. 多实例集群部署限制
+目前项目中的 SSE 实时消息通知采用进程内 `EventEmitter`（位于 `src/lib/events.ts`）进行跨连接分发。
+- **单实例部署**：开箱即用，支持多客户端即时通信。
+- **多实例集群部署（如 K8s 副本、多主机负载均衡）**：需要将 `src/lib/events.ts` 改为使用外部集中式发布/订阅服务（例如 Redis Pub/Sub），否则在不同机器实例上的用户将无法互通消息。
