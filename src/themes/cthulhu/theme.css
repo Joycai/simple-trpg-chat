@@ -57,14 +57,100 @@
   background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
   border-right: 2px solid #334155;
 }
+
+/* Cold iron console tab styles */
 [data-theme="cthulhu"] .conv-tab {
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.45) 0%, rgba(10, 15, 30, 0.25) 100%);
   border-left: 3px solid transparent;
-  transition: border-color 0.3s;
+  border-bottom: 1px solid rgba(40, 60, 65, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition: all 0.25s ease-in-out;
+}
+[data-theme="cthulhu"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.35) 100%);
+  color: rgb(var(--theme-text)) !important;
 }
 [data-theme="cthulhu"] .conv-tab.active {
-  border-left-color: #5eead4;
-  background: linear-gradient(90deg, rgba(94,234,212,0.1), transparent);
+  background: linear-gradient(90deg, rgba(94, 234, 212, 0.15) 0%, rgba(15, 23, 42, 0.15) 100%);
+  border-left-color: rgb(var(--theme-accent));
+  border-bottom-color: rgba(94, 234, 212, 0.3);
+  box-shadow: 0 0 12px rgba(94, 234, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: rgb(var(--theme-text)) !important;
 }
 [data-theme="cthulhu"] .conv-divider {
-  border-color: rgba(51,65,85,0.6);
+  border-color: rgba(40, 60, 65, 0.4);
+}
+
+/* Cthulhu rusty console paper cards (clues, inventory etc.) */
+[data-theme="cthulhu"] .clue-card,
+[data-theme="cthulhu"] .inventory-card,
+[data-theme="cthulhu"] .item-detail-panel {
+  background-color: #122024 !important;
+  /* Multi-layered background: semi-transparent solid color on top to soften the underlying rust texture, maximizing text readability */
+  background-image: linear-gradient(rgba(18, 32, 36, 0.95), rgba(18, 32, 36, 0.95)), var(--theme-surface-texture) !important;
+  background-size: 8px 8px !important;
+  border: 1px solid #283c41 !important;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.4),
+              1px 2px 4px rgba(0, 0, 0, 0.3) !important;
+  position: relative;
+  overflow: visible;
+  transition: all 0.2s ease;
+
+  /* High-contrast neon text overrides for readability inside console cards */
+  --theme-text: 210 230 235;
+  --theme-text-muted: 125 155 165;
+  --theme-text-dim: 80 110 120;
+  color: rgb(var(--theme-text)) !important;
+}
+
+[data-theme="cthulhu"] .clue-card:hover,
+[data-theme="cthulhu"] .inventory-card:hover {
+  border-color: rgb(var(--theme-accent)) !important;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.4),
+              0 0 12px rgba(94, 234, 212, 0.25) !important;
+}
+
+/* Glowing accent header line for Cthulhu cards */
+[data-theme="cthulhu"] .clue-card::before,
+[data-theme="cthulhu"] .inventory-card::before,
+[data-theme="cthulhu"] .item-detail-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: rgb(var(--theme-accent)) !important;
+}
+
+/* Cthulhu Chat Bubble Elder Sign / Arcane Seal Decoration */
+[data-theme="cthulhu"] .chat-bubble {
+  position: relative;
+  overflow: visible !important;
+}
+[data-theme="cthulhu"] .chat-bubble-other::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%235eead4' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 12h8M12 8v8M8 8l8 8M8 16l8-8'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.8));
+  z-index: 10;
+}
+[data-theme="cthulhu"] .chat-bubble-own::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%235eead4' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 12h8M12 8v8M8 8l8 8M8 16l8-8'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.8));
+  z-index: 10;
 }

@@ -21,7 +21,7 @@ export default async function RootLayout({
   const userTheme = await getUserThemePreference();
 
   return (
-    <html lang={locale} data-theme={userTheme || siteTheme} className="h-full antialiased">
+    <html lang={locale} data-theme={userTheme || siteTheme} className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
