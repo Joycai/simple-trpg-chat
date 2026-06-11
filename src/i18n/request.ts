@@ -1,16 +1,22 @@
 import { getRequestConfig } from "next-intl/server";
+import { cookies } from "next/headers";
 
 export default getRequestConfig(async () => {
-  // For MVP: use Chinese as default. Language can be switched via
-  // cookie/header without URL prefix routing overhead.
   let locale = "zh";
 
-  // In the future, detect from cookie or Accept-Language header:
-  // const cookieLocale = (await cookies()).get("NEXT_LOCALE")?.value;
-  // if (cookieLocale) locale = cookieLocale;
+  try {
+    const cookieStore = await cookies();
+    const cookieLocale = cookieStore.get("NEXT_LOCALE")?.value;
+    if (cookieLocale === "zh" || cookieLocale === "en") {
+      locale = cookieLocale;
+    }
+  } catch {
+    // cookies() might not be available during static generation phases
+  }
 
   return {
     locale,
     messages: (await import(`../../messages/${locale}.json`)).default,
   };
 });
+

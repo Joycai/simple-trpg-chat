@@ -23,11 +23,11 @@ export function AdminSensitiveWords({ initialWords }: AdminSensitiveWordsProps) 
     setMsg("");
     try {
       await updateSystemConfig("sensitive_words", customWords);
-      setMsg(t("saveSuccess") || "配置已保存");
+      setMsg(t("saveSuccess"));
       setMsgType("success");
     } catch (e) {
       console.error(e);
-      setMsg(t("saveFailed") || "保存失败，请重试");
+      setMsg(t("saveFailed"));
       setMsgType("error");
     } finally {
       setSaving(false);
@@ -43,10 +43,10 @@ export function AdminSensitiveWords({ initialWords }: AdminSensitiveWordsProps) 
         </div>
         <div>
           <h3 className="font-bold text-text text-lg mb-1 flex items-center gap-2">
-            {t("sensitiveWords") || "敏感词过滤设置"}
+            {t("sensitiveWords")}
           </h3>
           <p className="text-xs text-text-muted leading-relaxed">
-            {t("sensitiveWordsDesc") || "配置发言拦截词汇。系统预置了与中国大陆政治相关的敏感词（默认且不可删除），您可以在下方添加额外的自定义敏感词。"}
+            {t("sensitiveWordsDesc")}
           </p>
         </div>
       </div>
@@ -58,16 +58,16 @@ export function AdminSensitiveWords({ initialWords }: AdminSensitiveWordsProps) 
         <div className="flex justify-between items-center">
           <label className="text-sm font-bold text-text flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5 text-text-dim" />
-            {t("defaultBlacklist") || "系统预置词（不可删除）"}
+            {t("defaultBlacklist")}
             <span className="text-[10px] bg-danger/10 text-danger border border-danger/20 px-2 py-0.5 rounded-full font-normal">
-              {DEFAULT_SENSITIVE_WORDS.length} 个敏感词已保护
+              {t("wordsProtected", { count: DEFAULT_SENSITIVE_WORDS.length })}
             </span>
           </label>
           <button
             onClick={() => setShowDefaults(!showDefaults)}
             className="text-xs text-primary hover:text-primary-hover font-medium transition"
           >
-            {showDefaults ? "收起预置列表" : "展开预置列表"}
+            {showDefaults ? t("hideDefaults") : t("showDefaults")}
           </button>
         </div>
 
@@ -88,19 +88,19 @@ export function AdminSensitiveWords({ initialWords }: AdminSensitiveWordsProps) 
       {/* Custom Words */}
       <div className="flex flex-col gap-2.5">
         <label htmlFor="custom-sensitive-words" className="text-sm font-bold text-text">
-          {t("customBlacklist") || "自定义敏感词（每行或逗号隔开一个）"}
+          {t("customBlacklist")}
         </label>
         <textarea
           id="custom-sensitive-words"
           value={customWords}
           onChange={(e) => setCustomWords(e.target.value)}
-          placeholder="例如：赌博, 翻墙, 暴政"
+          placeholder={t("customPlaceholder")}
           disabled={saving}
           className="p-3 bg-bg border border-border rounded-lg text-text text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition min-h-[120px] font-mono leading-relaxed placeholder-text-dim"
         />
         <p className="text-[10px] text-text-dim flex items-center gap-1">
           <AlertCircle className="w-3.5 h-3.5" />
-          当房间中用户发送的消息包含上述任一词汇时，消息将被阻断，且仅发送者本人能看到警告提示。
+          {t("sensitiveWordsHint")}
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export function AdminSensitiveWords({ initialWords }: AdminSensitiveWordsProps) 
           className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white font-bold px-4 py-2 rounded-lg text-sm transition shadow-md hover:shadow-lg disabled:shadow-none"
         >
           <Save className="w-4 h-4" />
-          {saving ? "保存中..." : (t("saveConfig") || "保存配置")}
+          {saving ? t("saving") : t("saveConfig")}
         </button>
 
         {msg && (

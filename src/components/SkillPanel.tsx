@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { getRoomSkills, upsertSkillAction, deleteSkillAction } from "@/app/actions/room";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface Skill {
   id: number;
@@ -19,6 +20,8 @@ interface SkillPanelProps {
 }
 
 export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
+  const t = useTranslations("skills");
+  const tCommon = useTranslations("common");
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -71,10 +74,11 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
       >
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
-          <h3 className="font-bold text-text text-lg">📋 技能面板</h3>
+          <h3 className="font-bold text-text text-lg">{t("title")}</h3>
           <button
             onClick={onClose}
             className="text-text-muted hover:text-text text-xl leading-none transition"
+            title={tCommon("close")}
           >
             ×
           </button>
@@ -84,17 +88,17 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
         <div className="p-5 flex flex-col gap-5">
           {/* Tip */}
           <div className="bg-surface-alt rounded-theme p-3 text-xs text-text-muted border border-border">
-            💡 也可用指令：<code className="bg-bg px-1 py-0.5 rounded text-text font-mono">.st 技能名 数值</code>
+            💡 {t("commandHintPrefix")}<code className="bg-bg px-1 py-0.5 rounded text-text font-mono">{t("commandHintCode")}</code>
           </div>
 
           {/* Add form */}
           <div className="bg-surface-alt rounded-theme p-4 border border-border">
-            <h4 className="text-sm font-bold text-text mb-3">添加/覆盖技能</h4>
+            <h4 className="text-sm font-bold text-text mb-3">{t("addOrOverwrite")}</h4>
             <div className="flex gap-2 mb-2">
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="技能名称"
+                placeholder={t("namePlaceholder")}
                 className="flex-1 px-3 py-2 text-sm border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text"
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               />
@@ -112,18 +116,18 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
               disabled={!newName.trim()}
               className="w-full bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded-lg text-sm font-bold transition"
             >
-              添加
+              {t("btnAdd")}
             </button>
           </div>
 
           {/* Skills list */}
           {loading ? (
-            <div className="text-center text-text-muted text-sm py-8">加载中...</div>
+            <div className="text-center text-text-muted text-sm py-8">{tCommon("loading")}</div>
           ) : skills.length === 0 ? (
             <div className="text-center text-text-muted py-8">
               <div className="text-3xl mb-2">📝</div>
-              <p className="text-sm">还没有技能</p>
-              <p className="text-xs mt-1">用上方表单或 <code className="bg-surface-alt px-1 rounded font-mono">.st</code> 指令添加</p>
+              <p className="text-sm">{t("noSkills")}</p>
+              <p className="text-xs mt-1">{t("noSkillsDesc")}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -137,7 +141,7 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
                     <button
                       onClick={() => handleDelete(skill.skillName)}
                       className="text-[10px] text-danger/50 hover:text-danger transition opacity-0 group-hover:opacity-100"
-                      title="删除"
+                      title={t("deleteTooltip")}
                     >
                       🗑
                     </button>
@@ -190,7 +194,7 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
                           setEditing(skill.id);
                           setEditValue(skill.skillValue);
                         }}
-                        title="点击编辑"
+                        title={t("editTooltip")}
                       >
                         {skill.skillValue}
                       </span>

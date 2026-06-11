@@ -154,7 +154,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
             </button>
           ))}
           <div className="text-[10px] text-text-dim px-3 pt-1 border-t border-border mt-1">
-            ↑↓ 选择 · Tab/Enter 确认 · Esc 取消
+            {t("mentionTip")}
           </div>
         </div>
       )}
@@ -163,13 +163,13 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
       {!isPrivateLocked && isPrivate && (
         <div className="absolute bottom-full left-12 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
           <div className="bg-private-bg border border-private-border rounded-theme shadow-lg p-2 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-accent uppercase tracking-wider ml-1">私聊对象:</span>
+            <span className="text-[10px] font-bold text-accent uppercase tracking-wider ml-1">{t("privateChatTarget")}</span>
             <select 
               value={privateTargetId || ""} 
               onChange={(e) => setPrivateTargetId(Number(e.target.value))}
               className="bg-surface border border-private-border rounded px-2 py-1 text-xs text-text outline-none focus:ring-1 focus:ring-accent"
             >
-              <option value="" disabled>选择成员...</option>
+              <option value="" disabled>{t("selectMember")}</option>
               {mentions.map(m => (
                 <option key={m.id} value={m.id}>{m.isBot ? "🤖" : "👤"} {m.nickname}</option>
               ))}
@@ -193,7 +193,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
           className={`px-3 py-2 rounded-theme text-sm font-bold transition ${
             showDice ? "bg-accent text-white" : "bg-surface-alt text-text-muted hover:bg-border"
           }`}
-          title="投骰子"
+          title={t("btnRollTooltip")}
         >
           🎲
         </button>
@@ -204,7 +204,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
             className={`px-3 py-2 rounded-theme text-sm transition ${
               isPrivate ? "bg-private-bg text-accent border border-private-border animate-pulse" : "bg-surface-alt text-text-muted hover:bg-border"
             }`}
-            title="开启私聊模式"
+            title={t("btnPrivateTooltip")}
           >
             🔒
           </button>
@@ -216,7 +216,7 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isPrivate ? "正在进行悄悄话..." : t("inputPlaceholder")}
+          placeholder={isPrivate ? t("whisperingPlaceholder") : t("inputPlaceholder")}
           className="flex-1 p-2 border-0 outline-none text-sm bg-transparent text-text"
         />
 

@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { getTranslations } from "next-intl/server";
 
 /**
  * createInventoryItemAction
@@ -87,11 +88,13 @@ export async function distributeItemAction(
   const existingUserIds = new Set(existing.map((e: any) => e.toUserId));
   targetUserIds = targetUserIds.filter((id) => !existingUserIds.has(id));
 
+  const t = await getTranslations("inventoryActions");
+
   if (targetUserIds.length === 0) {
     // Notify host that everyone already has it
     const kpSummary = toUserId === "all"
-      ? `⚠️ 全体成员此前已拥有道具：【${item?.title}】，未重复发放`
-      : `⚠️ 目标玩家此前已拥有道具：【${item?.title}】，未重复发放`;
+      ? t("alreadyHadAll", { title: item?.title })
+      : t("alreadyHadOne", { title: item?.title });
     await sendMessageAction(roomId, kpSummary, "system", undefined, true);
     return;
   }
@@ -121,7 +124,7 @@ export async function distributeItemAction(
     promises.push(
       sendMessageAction(
         roomId,
-        `📦 您获得了新道具：【${item?.title}】`,
+        t("receivedNew", { title: item?.title }),
         "system",
         undefined,
         true, // isPrivate
@@ -132,8 +135,8 @@ export async function distributeItemAction(
 
   // 2. Send "Log" notification to KP/Host (ONLY Host/Sender sees it)
   const kpSummary = toUserId === "all" 
-    ? `📤 已向全体成员发放道具：【${item?.title}】`
-    : `📤 已向 ${recipients[0]?.name || '玩家'} 发放道具：【${item?.title}】`;
+    ? t("distributedAll", { title: item?.title })
+    : t("distributedOne", { recipient: recipients[0]?.name || t("defaultPlayer"), title: item?.title });
   
   promises.push(sendMessageAction(roomId, kpSummary, "system", undefined, true)); // No targetUserId -> visible to Sender & Host
 
@@ -151,9 +154,10 @@ export async function shareItemAction(
   itemId: number,
   toUserId: number
 ) {
+  const t = await getTranslations("inventoryActions");
   const { userId: fromUserId } = await checkRoomAccess(roomId, false);
   const session = await auth();
-  const senderName = session?.user?.name || "玩家";
+  const senderName = session?.user?.name || t("defaultPlayer");
 
   // Verify that the item exists and belongs to the room
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
@@ -184,7 +188,7 @@ export async function shareItemAction(
     )
   );
   if (hasAlready) {
-    throw new Error("该玩家已拥有此道具");
+    throw new Error(t("alreadyOwned"));
   }
 
   await db.insert(inventoryDistributions).values({
@@ -196,12 +200,12 @@ export async function shareItemAction(
   });
 
   const [recipient] = await db.select({ name: users.displayName }).from(users).where(eq(users.id, toUserId));
-  const recipientName = recipient?.name || "队友";
+  const recipientName = recipient?.name || t("defaultTeammate");
 
   // 1. Notification to recipient (ONLY recipient sees it)
   await sendMessageAction(
     roomId,
-    `🤝 获得了来自 ${senderName} 分享的道具：【${item?.title}】`,
+    t("sharedReceived", { sender: senderName, title: item?.title }),
     "system",
     undefined,
     true,
@@ -211,7 +215,7 @@ export async function shareItemAction(
   // 2. Notification to sender & Host (GM sees what players share)
   await sendMessageAction(
     roomId,
-    `📤 已将道具 【${item?.title}】 分享给 ${recipientName}`,
+    t("sharedSent", { title: item?.title, recipient: recipientName }),
     "system",
     undefined,
     true

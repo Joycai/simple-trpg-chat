@@ -5,6 +5,7 @@ import { updateRoomSettingsAction } from "@/app/actions/room";
 import { THEME_LIST } from "@/themes/types";
 import type { ThemeId } from "@/themes/types";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface RoomSettingsProps {
   roomId: number;
@@ -16,6 +17,9 @@ interface RoomSettingsProps {
 }
 
 export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, currentRuleTemplate, onClose }: RoomSettingsProps) {
+  const t = useTranslations("roomSettings");
+  const tt = useTranslations("themes");
+  const tCommon = useTranslations("common");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
@@ -39,7 +43,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
       onClose();
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "保存失败");
+      setError(err.message || t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -52,7 +56,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-text">⚙️ 房间设置</h3>
+          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text text-xl leading-none">
             ×
           </button>
@@ -60,11 +64,11 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
-            <p className="text-sm text-text-muted mb-4">{roomName} 的房间设置</p>
+            <p className="text-sm text-text-muted mb-4">{t("desc", { roomName })}</p>
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-text-dim font-medium">房间主题</label>
+            <label className="text-xs text-text-dim font-medium">{t("themeLabel")}</label>
             <div className="grid gap-2">
               {THEME_LIST.map((theme) => (
                 <label
@@ -84,8 +88,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
                     className="accent-primary"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-text">{theme.name}</div>
-                    <div className="text-xs text-text-dim mt-0.5">{theme.description}</div>
+                    <div className="text-sm font-medium text-text">{tt(`${theme.id}.name`)}</div>
+                    <div className="text-xs text-text-dim mt-0.5">{tt(`${theme.id}.desc`)}</div>
                   </div>
                   {/* Theme preview dot */}
                   <div
@@ -109,32 +113,32 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
 
           {/* Dice rules */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-text-dim font-medium">投点规则</label>
+            <label className="text-xs text-text-dim font-medium">{t("diceRulesLabel")}</label>
             <select
               name="diceRules"
               value={selectedDiceRules}
               onChange={(e) => setSelectedDiceRules(e.target.value)}
               className="p-2.5 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
             >
-              <option value="basic">📊 Basic — 基础骰点</option>
-              <option value="coc7th">🐙 COC 7th — 大成功/大失败判定</option>
+              <option value="basic">{t("diceRulesBasic")}</option>
+              <option value="coc7th">{t("diceRulesCoc7th")}</option>
             </select>
-            <p className="text-xs text-text-muted">COC 7th 启用 .rc 检定的 01-05 大成功🟢 / 96-100 大失败🔴</p>
+            <p className="text-xs text-text-muted">{t("diceRulesCoc7thHint")}</p>
           </div>
 
           {/* Rule template */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-text-dim font-medium">规则模版</label>
+            <label className="text-xs text-text-dim font-medium">{t("ruleTemplateLabel")}</label>
             <select
               name="ruleTemplate"
               value={selectedRuleTemplate}
               onChange={(e) => setSelectedRuleTemplate(e.target.value)}
               className="p-2.5 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
             >
-              <option value="basic">🎲 通用 d100</option>
-              <option value="coc7th">🐙 COC 7th</option>
+              <option value="basic">{t("ruleTemplateBasic")}</option>
+              <option value="coc7th">{t("ruleTemplateCoc7th")}</option>
             </select>
-            <p className="text-xs text-text-muted">决定角色卡初始化属性结构</p>
+            <p className="text-xs text-text-muted">{t("ruleTemplateHint")}</p>
           </div>
 
           {error && (
@@ -149,14 +153,14 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
               onClick={onClose}
               className="px-4 py-2 text-sm text-text-muted hover:text-text transition"
             >
-              取消
+              {tCommon("cancel")}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="bg-primary hover:bg-primary-hover disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold text-sm transition"
             >
-              {saving ? "保存中..." : "保存"}
+              {saving ? t("saving") : t("save")}
             </button>
           </div>
         </form>

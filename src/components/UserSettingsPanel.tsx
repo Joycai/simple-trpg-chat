@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Shield, History, X, Key, Bot, Plus, Trash2, Pencil, BarChart3 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { useRouter } from "next/navigation";
 import { changeOwnPassword } from "@/app/admin/actions";
 import { getMyLoginHistory } from "@/app/actions/login-history";
 import { getMyProviders, createProvider, updateProvider, deleteProvider, getMyPrivateTokenUsages } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
+import { setUserLocale } from "@/app/actions/locale";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 
 interface UserSettingsPanelProps {
@@ -19,6 +21,12 @@ type Tab = "security" | "history" | "ai" | "ai-usage";
 
 export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsPanelProps) {
   const t = useTranslations("admin");
+  const ts = useTranslations("userSettings");
+  const tp = useTranslations("adminProviders");
+  const ttu = useTranslations("tokenUsage");
+  const locale = useLocale();
+  const router = useRouter();
+
   const [tab, setTab] = useState<Tab>("security");
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -26,6 +34,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [pwdOk, setPwdOk] = useState(false);
   const [records, setRecords] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
   // AI providers
   const [providers, setProviders] = useState<any[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
@@ -42,15 +51,15 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const handlePresetChange = (val: string) => {
     setPreset(val);
     if (val === "openai") {
-      setProvName("OpenAI 官方");
+      setProvName("OpenAI");
       setProvEndpoint("https://api.openai.com/v1");
       setProvModel("gpt-4o");
     } else if (val === "deepseek-flash") {
-      setProvName("DeepSeek 官方");
+      setProvName("DeepSeek");
       setProvEndpoint("https://api.deepseek.com");
       setProvModel("deepseek-v4-flash");
     } else if (val === "deepseek-pro") {
-      setProvName("DeepSeek 官方");
+      setProvName("DeepSeek");
       setProvEndpoint("https://api.deepseek.com");
       setProvModel("deepseek-v4-pro");
     } else if (val === "custom") {
@@ -63,13 +72,19 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [loadingUsage, setLoadingUsage] = useState(false);
 
   const handleTestConnection = async () => {
-    if (!provEndpoint.trim() || !provKey.trim()) { setProvMsg("请填写 API 地址和密钥"); return; }
+    if (!provEndpoint.trim() || !provKey.trim()) { setProvMsg(tp("msgRequireTestFields")); return; }
     setTesting(true); setProvMsg("");
     try {
       const result = await testAiConnection(provEndpoint.trim(), provKey.trim(), provModel || "gpt-4o");
-      setProvMsg(result.success ? "✨ 连接成功！" : `❌ ${result.error}`);
+      setProvMsg(result.success ? tp("msgConnectOk") : `❌ ${result.error}`);
     } catch (e: any) { setProvMsg(`❌ ${e.message}`); }
     setTesting(false);
+  };
+
+  const handleLocaleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLocale = e.target.value as "zh" | "en";
+    await setUserLocale(newLocale);
+    window.location.reload();
   };
 
   useEffect(() => {
@@ -89,7 +104,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
   const handleSaveProvider = async () => {
     if (!provName.trim() || !provEndpoint.trim() || (!editProviderId && !provKey.trim())) {
-      setProvMsg("请填写名称、API地址和密钥"); return;
+      setProvMsg(tp("msgRequireFields")); return;
     }
     try {
       if (editProviderId) {
@@ -97,33 +112,33 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       } else {
         await createProvider({ name: provName, apiEndpoint: provEndpoint, apiKey: provKey, model: provModel });
       }
-      setProvMsg("已保存"); setShowAddProvider(false); setEditProviderId(null);
+      setProvMsg(tp("msgSaved")); setShowAddProvider(false); setEditProviderId(null);
       setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o");
       const list = await getMyProviders();
       setProviders(list);
-    } catch (e: any) { setProvMsg(e.message || "保存失败"); }
+    } catch (e: any) { setProvMsg(e.message || t("saveFailed")); }
   };
 
   const handleDeleteProvider = async (id: number) => {
     try { await deleteProvider(id); setProviders(providers.filter(p => p.id !== id)); }
-    catch (e: any) { setProvMsg(e.message || "删除失败"); }
+    catch (e: any) { setProvMsg(e.message || t("saveFailed")); }
   };
 
   const handleChangePwd = async () => {
     if (!oldPwd || !newPwd) return;
-    if (newPwd.length < 3) { setPwdMsg(t("passwordTooShort") || "密码至少3位"); return; }
+    if (newPwd.length < 3) { setPwdMsg(t("passwordTooShort")); return; }
     try {
       await changeOwnPassword(oldPwd, newPwd);
       setPwdOk(true);
-      setPwdMsg(t("passwordResetOk") || "密码已重置");
+      setPwdMsg(t("passwordResetOk"));
       setOldPwd(""); setNewPwd("");
     } catch (e: any) {
-      setPwdMsg(e.message || t("passwordResetFail") || "修改失败");
+      setPwdMsg(e.message || t("passwordResetFail"));
       setPwdOk(false);
     }
   };
 
-  const roleLabel = userRole === "admin" ? "Admin" : userRole === "host" ? "Host" : "Player";
+  const roleLabel = userRole === "admin" ? ts("roleAdmin") : userRole === "host" ? ts("roleHost") : ts("rolePlayer");
   const roleColor = userRole === "admin" ? "bg-danger/20 text-danger" : userRole === "host" ? "bg-success/20 text-success" : "bg-primary/20 text-primary";
 
   return (
@@ -131,30 +146,44 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-bold text-text text-lg">个人设置</h3>
+          <h3 className="font-bold text-text text-lg">{ts("title")}</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* User info bar */}
-        <div className="px-5 py-3 bg-surface-alt border-b border-border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-            {userName[0]?.toUpperCase()}
+        {/* User info bar + Language switcher */}
+        <div className="px-5 py-3 bg-surface-alt border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+              {userName[0]?.toUpperCase()}
+            </div>
+            <div>
+              <div className="text-sm font-medium text-text">{userName}</div>
+              <span className={`px-2 py-0.5 rounded-theme text-[10px] font-bold uppercase ${roleColor}`}>{roleLabel}</span>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-medium text-text">{userName}</div>
-            <span className={`px-2 py-0.5 rounded-theme text-[10px] font-bold uppercase ${roleColor}`}>{roleLabel}</span>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted font-medium">{ts("language")}:</span>
+            <select
+              value={locale}
+              onChange={handleLocaleChange}
+              className="p-1 bg-surface border border-border rounded text-xs text-text outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="flex border-b border-border">
           {([
-            ["security", Shield, "账号安全"],
-            ["history", History, "登录日志"],
-            ["ai", Bot, "AI 配置"],
-            ["ai-usage", BarChart3, "使用统计"],
+            ["security", Shield, ts("tabSecurity")],
+            ["history", History, ts("tabHistory")],
+            ["ai", Bot, ts("tabAi")],
+            ["ai-usage", BarChart3, ts("tabAiUsage")],
           ] as const).map(([key, Icon, label]) => (
             <button
               key={key}
@@ -173,24 +202,24 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
         <div className="flex-1 overflow-y-auto p-5">
           {tab === "security" && (
             <div className="space-y-3">
-              <p className="text-sm text-text-muted">修改你的登录密码。修改后需要重新登录。</p>
+              <p className="text-sm text-text-muted">{ts("securityDesc")}</p>
               <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)}
-                placeholder="当前密码" className="w-full p-2.5 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
+                placeholder={ts("oldPassword")} className="w-full p-2.5 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
               <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
-                placeholder="新密码（至少3位）" className="w-full p-2.5 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
+                placeholder={ts("newPasswordHint")} className="w-full p-2.5 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary" />
               {pwdMsg && (
                 <p className={`text-xs ${pwdOk ? "text-success" : "text-danger"}`}>{pwdMsg}</p>
               )}
               <button onClick={handleChangePwd}
                 className="w-full bg-primary hover:bg-primary-hover text-white py-2.5 rounded-theme font-bold text-sm transition">
-                确认修改
+                {ts("confirmUpdate")}
               </button>
             </div>
           )}
 
           {tab === "history" && (
             loadingHistory ? (
-              <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+              <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
             ) : (
               <UserLoginHistory records={records} />
             )
@@ -198,10 +227,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
           {tab === "ai" && (
             <div className="space-y-3">
-              <p className="text-sm text-text-muted">管理你的 AI 模型提供商，Bot 创建时可以从中选择。</p>
+              <p className="text-sm text-text-muted">{ts("aiDesc")}</p>
 
               {loadingProviders ? (
-                <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+                <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
               ) : (
                 providers.filter((p: any) => p.isOwner).map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-3 bg-surface-alt rounded-theme border border-border">
@@ -225,36 +254,36 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               {!showAddProvider ? (
                 <button onClick={() => { setEditProviderId(null); setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o"); setPreset("custom"); setShowAddProvider(true); }}
                   className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-border rounded-theme text-sm text-text-muted hover:text-text hover:border-primary/50 transition font-medium">
-                  <Plus className="w-4 h-4" /> 添加 Provider
+                  <Plus className="w-4 h-4" /> {tp("addProvider")}
                 </button>
               ) : (
                 <div className="bg-surface-alt rounded-theme border border-border p-3 space-y-2">
-                  <p className="text-xs font-medium text-text">{editProviderId ? "编辑" : "新增"} Provider</p>
+                  <p className="text-xs font-medium text-text">{editProviderId ? tp("editTitle") : tp("newTitle")}</p>
                   <div>
-                    <label className="block text-[10px] text-text-dim mb-1 font-semibold">预设供应商</label>
+                    <label className="block text-[10px] text-text-dim mb-1 font-semibold">{tp("presetLabel")}</label>
                     <select
                       value={preset}
                       onChange={e => handlePresetChange(e.target.value)}
                       className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary"
                     >
-                      <option value="custom">自定义 (Custom)</option>
-                      <option value="openai">OpenAI 官方</option>
-                      <option value="deepseek-flash">DeepSeek 官方 (deepseek-v4-flash)</option>
-                      <option value="deepseek-pro">DeepSeek 官方 (deepseek-v4-pro)</option>
+                      <option value="custom">{tp("presetCustom")}</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="deepseek-flash">DeepSeek (deepseek-v4-flash)</option>
+                      <option value="deepseek-pro">DeepSeek (deepseek-v4-pro)</option>
                     </select>
                   </div>
-                  <input value={provName} onChange={e => setProvName(e.target.value)} placeholder="名称" className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  <input value={provEndpoint} onChange={e => setProvEndpoint(e.target.value)} placeholder="API 地址" className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  <input value={provKey} type="password" onChange={e => setProvKey(e.target.value)} placeholder={editProviderId ? "新密钥（留空不修改）" : "API Key"} className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  <input value={provModel} onChange={e => setProvModel(e.target.value)} placeholder="模型" className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  {provMsg && <p className={`text-xs ${provMsg === "已保存" ? "text-success" : "text-danger"}`}>{provMsg}</p>}
+                  <input value={provName} onChange={e => setProvName(e.target.value)} placeholder={tp("namePlaceholder")} className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provEndpoint} onChange={e => setProvEndpoint(e.target.value)} placeholder={tp("urlPlaceholder")} className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provKey} type="password" onChange={e => setProvKey(e.target.value)} placeholder={editProviderId ? tp("keyPlaceholderEdit") : tp("keyPlaceholderNew")} className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  <input value={provModel} onChange={e => setProvModel(e.target.value)} placeholder={tp("modelPlaceholder")} className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  {provMsg && <p className={`text-xs ${provMsg === tp("msgSaved") ? "text-success" : "text-danger"}`}>{provMsg}</p>}
                   <div className="flex gap-2">
                     <button onClick={handleTestConnection} disabled={testing}
                       className="py-1.5 px-3 bg-surface-alt text-text-muted rounded-theme text-sm hover:text-text disabled:opacity-50 font-medium">
-                      {testing ? "测试中..." : "🔌 测试"}
+                      {testing ? tp("btnTesting") : tp("btnTest")}
                     </button>
-                    <button onClick={handleSaveProvider} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-theme text-sm font-semibold">保存</button>
-                    <button onClick={() => { setShowAddProvider(false); setProvMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded-theme text-sm font-medium">取消</button>
+                    <button onClick={handleSaveProvider} className="flex-1 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-theme text-sm font-semibold">{tp("btnSave")}</button>
+                    <button onClick={() => { setShowAddProvider(false); setProvMsg(""); }} className="flex-1 py-1.5 bg-surface-alt text-text-muted rounded-theme text-sm font-medium">{tp("btnCancel")}</button>
                   </div>
                 </div>
               )}
@@ -263,25 +292,25 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
         {tab === "ai-usage" && (
           loadingUsage ? (
-            <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+            <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
           ) : usageRecords.length > 0 ? (
             <div className="space-y-4">
               {/* Simple Summary */}
               <div className="grid grid-cols-3 gap-2 bg-surface-alt p-3 rounded-theme border border-border text-center">
                 <div>
-                  <div className="text-[10px] text-text-dim uppercase font-semibold">输入</div>
+                  <div className="text-[10px] text-text-dim uppercase font-semibold">{ttu("thInput")}</div>
                   <div className="text-xs font-bold text-text mt-0.5">
                     {usageRecords.reduce((acc, r) => acc + r.inputTokens, 0).toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-success uppercase font-semibold">缓存命中</div>
+                  <div className="text-[10px] text-success uppercase font-semibold">{ttu("thCached")}</div>
                   <div className="text-xs font-bold text-success mt-0.5">
                     {usageRecords.reduce((acc, r) => acc + r.cachedInputTokens, 0).toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-accent uppercase font-semibold">输出</div>
+                  <div className="text-[10px] text-accent uppercase font-semibold">{ttu("thOutput")}</div>
                   <div className="text-xs font-bold text-text mt-0.5">
                     {usageRecords.reduce((acc, r) => acc + r.outputTokens, 0).toLocaleString()}
                   </div>
@@ -299,10 +328,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                         <span className="text-text-dim truncate max-w-[180px]">{r.providerName} ({r.model})</span>
                       </div>
                       <div className="grid grid-cols-4 gap-1 mt-1 text-text-muted text-[10px] font-theme-mono">
-                        <div>输入: {r.inputTokens}</div>
-                        <div>缓存: {r.cachedInputTokens || "-"}</div>
-                        <div>输出: {r.outputTokens}</div>
-                        <div className="text-right text-primary font-semibold">总计: {total}</div>
+                        <div>{ttu("thInput")}: {r.inputTokens}</div>
+                        <div>{ttu("thCached")}: {r.cachedInputTokens || "-"}</div>
+                        <div>{ttu("thOutput")}: {r.outputTokens}</div>
+                        <div className="text-right text-primary font-semibold">{ttu("thTotal")}: {total}</div>
                       </div>
                     </div>
                   );
@@ -310,7 +339,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               </div>
             </div>
           ) : (
-            <div className="text-center text-text-dim py-8 text-sm">暂无私有 Provider 的使用统计记录。</div>
+            <div className="text-center text-text-dim py-8 text-sm">{ts("emptyProvidersUsage")}</div>
           )
         )}
         </div>

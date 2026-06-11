@@ -33,10 +33,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         <nav className="flex-1 py-4 flex flex-col gap-1 px-3">
           <p className="text-[10px] text-text-dim uppercase tracking-widest px-2 mb-1">{t("sectionManagement")}</p>
-          <SidebarLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label={t("dashboard") || "Dashboard"} />
+          <SidebarLink href="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label={t("dashboard")} />
           <SidebarLink href="/admin/users" icon={<Users className="w-4 h-4" />} label={t("userManagement")} />
-          <SidebarLink href="/admin/usage" icon={<BarChart3 className="w-4 h-4" />} label={t("tokenUsage") || "Token 使用统计"} />
-          <SidebarLink href="/admin/config" icon={<Settings className="w-4 h-4" />} label={t("systemConfig") || "系统配置"} />
+          <SidebarLink href="/admin/usage" icon={<BarChart3 className="w-4 h-4" />} label={t("tokenUsage")} />
+          <SidebarLink href="/admin/config" icon={<Settings className="w-4 h-4" />} label={t("systemConfig")} />
 
           <div className="border-t border-border my-3" />
           <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>

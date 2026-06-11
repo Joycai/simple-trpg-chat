@@ -1,7 +1,7 @@
 /** Format a timestamp string for display */
-export function formatTime(createdAt: string | Date): string {
+export function formatTime(createdAt: string | Date, t?: any): string {
   if (createdAt instanceof Date) {
-    return formatWithDate(createdAt);
+    return formatWithDate(createdAt, t);
   }
   let cleanStr = createdAt.replace(" ", "T");
   const hasTimezone = cleanStr.includes("Z") || /[-+]\d{2}(:?\d{2})?$/.test(cleanStr);
@@ -9,20 +9,20 @@ export function formatTime(createdAt: string | Date): string {
     cleanStr += "Z";
   }
   const date = new Date(cleanStr);
-  if (isNaN(date.getTime())) return "未知时间";
-  return formatWithDate(date);
+  if (isNaN(date.getTime())) return t ? t("unknownTime") : "Unknown time";
+  return formatWithDate(date, t);
 }
 
-function formatWithDate(date: Date): string {
+function formatWithDate(date: Date, t?: any): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return "刚刚";
-  if (diffMin < 60) return `${diffMin}分钟前`;
+  if (diffMin < 1) return t ? t("justNow") : "Just now";
+  if (diffMin < 60) return t ? t("minutesAgo", { count: diffMin }) : `${diffMin}m ago`;
   const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}小时前`;
-  return date.toLocaleDateString("zh-CN", {
+  if (diffHour < 24) return t ? t("hoursAgo", { count: diffHour }) : `${diffHour}h ago`;
+  return date.toLocaleDateString(t ? t("localeCode") : "en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -50,7 +50,7 @@ export function rollDice(faces: number, count: number): {
 }
 
 /** Format dice roll for display */
-export function formatDiceResult(diceDetail: string | null): string {
+export function formatDiceResult(diceDetail: string | null, t?: any): string {
   if (!diceDetail) return "";
   try {
     const detail = JSON.parse(diceDetail);
@@ -64,9 +64,15 @@ export function formatDiceResult(diceDetail: string | null): string {
     if (detail.check) {
       const { skillName, target, roll, success, grade } = detail.check;
       let label: string;
-      if (grade === "critical") label = "🟢 大成功！";
-      else if (grade === "fumble") label = "🔴 大失败！";
-      else label = success ? "✅ 成功" : "❌ 失败";
+      if (t) {
+        if (grade === "critical") label = `🟢 ${t("critical")}`;
+        else if (grade === "fumble") label = `🔴 ${t("fumble")}`;
+        else label = success ? `✅ ${t("success")}` : `❌ ${t("failure")}`;
+      } else {
+        if (grade === "critical") label = "🟢 Critical Success!";
+        else if (grade === "fumble") label = "🔴 Fumble!";
+        else label = success ? "✅ Success" : "❌ Failure";
+      }
       parts.push(`← ${skillName}(${target}) ${label}`);
     }
 

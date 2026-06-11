@@ -167,7 +167,7 @@ export function AdminDashboard({
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-text flex items-center gap-2 text-sm">
             <BarChart2 className="w-4 h-4 text-accent" />
-            {t("trafficStats") || "访问与在线统计"}
+            {t("trafficStats")}
           </h3>
           <div className="flex items-center gap-2">
             <div className="flex bg-surface-alt border border-border rounded overflow-hidden">
@@ -181,7 +181,7 @@ export function AdminDashboard({
                       : "text-text-muted hover:text-text hover:bg-bg/40"
                   }`}
                 >
-                  {t(`range${r.charAt(0).toUpperCase() + r.slice(1)}`) || r}
+                  {t(`range${r.charAt(0).toUpperCase() + r.slice(1)}`)}
                 </button>
               ))}
             </div>
@@ -189,7 +189,7 @@ export function AdminDashboard({
               onClick={handleManualRefresh}
               disabled={loading}
               className="text-text-muted hover:text-text p-1 rounded hover:bg-surface-alt transition disabled:opacity-50 cursor-pointer"
-              title={t("refresh") || "刷新"}
+              title={t("refresh")}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -203,7 +203,7 @@ export function AdminDashboard({
               <Users className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] text-text-dim uppercase">{t("liveOnline") || "当前在线"}</div>
+              <div className="text-[10px] text-text-dim uppercase">{t("liveOnline")}</div>
               <div className="text-lg font-bold font-mono text-primary">
                 {statsData ? statsData.liveOnlineCount : "..."}
               </div>
@@ -215,7 +215,7 @@ export function AdminDashboard({
               <Eye className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] text-text-dim uppercase">{t("todayVisits") || "今日访问量"}</div>
+              <div className="text-[10px] text-text-dim uppercase">{t("todayVisits")}</div>
               <div className="text-lg font-bold font-mono text-accent">
                 {statsData ? statsData.today.visitCount : "..."}
               </div>
@@ -227,7 +227,7 @@ export function AdminDashboard({
               <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] text-text-dim uppercase">{t("todayPeakOnline") || "今日最高在线"}</div>
+              <div className="text-[10px] text-text-dim uppercase">{t("todayPeakOnline")}</div>
               <div className="text-lg font-bold font-mono text-success">
                 {statsData ? statsData.today.peakOnline : "..."}
               </div>
@@ -240,11 +240,11 @@ export function AdminDashboard({
           <div className="flex justify-between text-[10px] text-text-muted px-2 mb-2">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-accent" />
-              {t("visitCount") || "访问量"} (L)
+              {t("visitCount")} (L)
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-success" />
-              {t("peakOnline") || "最高在线"} (R)
+              {t("peakOnline")} (R)
             </span>
           </div>
 
@@ -419,18 +419,18 @@ export function AdminDashboard({
                   </div>
                   <div className="text-accent flex items-center gap-1.5 font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                    {t("visitCount") || "访问量"}: {points[hoveredIdx].visitCount}
+                    {t("visitCount")}: {points[hoveredIdx].visitCount}
                   </div>
                   <div className="text-success flex items-center gap-1.5 font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-success" />
-                    {t("peakOnline") || "最高在线"}: {points[hoveredIdx].peakOnline}
+                    {t("peakOnline")}: {points[hoveredIdx].peakOnline}
                   </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="py-12 text-center text-text-dim text-xs">
-              加载统计趋势图数据中...
+              {t("loadingChart")}
             </div>
           )}
         </div>
@@ -441,7 +441,7 @@ export function AdminDashboard({
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-text flex items-center gap-2 text-sm">
             <Activity className="w-4 h-4 text-accent animate-pulse" />
-            {t("serverLoad") || "服务器负载"}
+            {t("serverLoad")}
           </h3>
         </div>
 
@@ -453,7 +453,7 @@ export function AdminDashboard({
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-text-muted flex items-center gap-1">
                     <Cpu className="w-3.5 h-3.5" />
-                    {t("cpu") || "CPU 使用率"}
+                    {t("cpu")}
                   </span>
                   <span className="text-text font-mono">{loadData.cpuUsage}%</span>
                 </div>
@@ -476,7 +476,7 @@ export function AdminDashboard({
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-text-muted flex items-center gap-1">
                     <Database className="w-3.5 h-3.5" />
-                    {t("memory") || "内存使用率"}
+                    {t("memory")}
                   </span>
                   <span className="text-text font-mono">
                     {loadData.memory.used} GB / {loadData.memory.total} GB ({loadData.memory.percentage}%)
@@ -499,18 +499,18 @@ export function AdminDashboard({
 
             <div className="grid grid-cols-3 gap-3">
               <StatusBadge
-                label={t("uptime") || "系统运行时间"}
+                label={t("uptime")}
                 value={
                   <span className="inline-flex items-center gap-1 font-mono text-xs">
                     <Clock className="w-3.5 h-3.5 shrink-0 text-text-dim" />
-                    {loadData.uptime.days > 0 ? `${loadData.uptime.days}天 ` : ""}
-                    {loadData.uptime.hours}时{loadData.uptime.minutes}分
+                    {loadData.uptime.days > 0 ? t("uptimeDays", { count: loadData.uptime.days }) : ""}
+                    {t("uptimeHoursMinutes", { hours: loadData.uptime.hours, minutes: loadData.uptime.minutes })}
                   </span>
                 }
                 accent="accent"
               />
               <StatusBadge
-                label={t("processMemory") || "Node 进程内存"}
+                label={t("processMemory")}
                 value={
                   <span className="inline-flex items-center gap-1 font-mono text-xs">
                     {loadData.processMemory} MB
@@ -519,7 +519,7 @@ export function AdminDashboard({
                 accent="accent"
               />
               <StatusBadge
-                label={t("os") || "运行环境"}
+                label={t("os")}
                 value={
                   <span className="inline-flex items-center gap-1 font-mono text-xs truncate" title={`${loadData.os.platform} (${loadData.os.release})`}>
                     <Laptop className="w-3.5 h-3.5 shrink-0 text-text-dim" />
@@ -532,7 +532,7 @@ export function AdminDashboard({
           </div>
         ) : (
           <div className="py-6 text-center text-text-dim text-xs animate-pulse">
-            加载系统监控数据中...
+            {t("loadingMonitor")}
           </div>
         )}
       </section>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setSiteTheme } from "@/app/actions/theme";
 import { THEME_LIST, type ThemeId } from "@/themes/types";
+import { useTranslations } from "next-intl";
 
 interface SiteThemeSelectorProps {
   currentTheme: ThemeId;
@@ -11,6 +12,8 @@ interface SiteThemeSelectorProps {
 
 export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
   const router = useRouter();
+  const t = useTranslations("admin");
+  const tThemes = useTranslations("themes");
   const [theme, setTheme] = useState<ThemeId>(currentTheme);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -21,11 +24,11 @@ export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
     setMsg("");
     try {
       await setSiteTheme(newTheme);
-      setMsg("主题已更新");
+      setMsg(t("themeUpdated"));
       // Refresh to apply the new site theme to the admin panel
       router.refresh();
     } catch {
-      setMsg("保存失败，请重试");
+      setMsg(t("saveFailed"));
     }
     setSaving(false);
   };
@@ -34,10 +37,10 @@ export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
     <section className="bg-surface p-5 rounded-xl border border-border shadow-lg">
       <h3 className="font-bold text-text mb-3 flex items-center gap-2 text-sm">
         <span className="w-2 h-2 rounded-full bg-accent" />
-        {"网站主题"}
+        {t("siteTheme")}
       </h3>
       <p className="text-xs text-text-muted mb-3">
-        {"设置全站默认主题。应用于登录页、Admin 面板和新用户的大厅。"}
+        {t("siteThemeDesc")}
       </p>
       <div className="flex items-center gap-3">
         <select
@@ -48,12 +51,12 @@ export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
         >
           {THEME_LIST.map((tm) => (
             <option key={tm.id} value={tm.id}>
-              {tm.name} — {tm.description}
+              {tThemes(`${tm.id}.name`)} — {tThemes(`${tm.id}.desc`)}
             </option>
           ))}
         </select>
         {saving && (
-          <span className="text-xs text-text-muted animate-pulse">{"保存中..."}</span>
+          <span className="text-xs text-text-muted animate-pulse">{t("saving")}</span>
         )}
         {msg && (
           <span className="text-xs text-success">{msg}</span>

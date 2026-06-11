@@ -29,18 +29,18 @@ interface ExportRoomData {
   characterSnapshots: ExportCharacterSnapshot[];
 }
 
-export function formatAsMarkdown(data: ExportRoomData): string {
+export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?: any) => string): string {
   const lines: string[] = [];
 
-  lines.push(`# 房间「${data.roomName}」回放记录`);
+  lines.push(`# ${t("title", { roomName: data.roomName })}`);
   lines.push("");
-  lines.push("## 基本信息");
-  lines.push(`- 规则模版：${data.ruleTemplate === "coc7th" ? "COC 7th" : "通用 d100"}`);
-  lines.push(`- 投点规则：${data.diceRules}`);
-  lines.push(`- 导出时间：${data.exportTime}`);
+  lines.push(`## ${t("basicInfo")}`);
+  lines.push(`- ${t("ruleTemplate")}：${data.ruleTemplate === "coc7th" ? t("ruleTemplateCoc7th") : t("ruleTemplateBasic")}`);
+  lines.push(`- ${t("diceRules")}：${data.diceRules}`);
+  lines.push(`- ${t("exportTime")}：${data.exportTime}`);
   lines.push("");
 
-  lines.push("## 📜 公频时间线");
+  lines.push(`## ${t("publicTimeline")}`);
   lines.push("");
   for (const item of data.timeline) {
     const time = item.time.slice(11, 19);
@@ -49,9 +49,9 @@ export function formatAsMarkdown(data: ExportRoomData): string {
     if (item.type === "dice") {
       lines.push(`[${time}] 🎲 **${name}**：${item.content || ""}`);
     } else if (item.type === "system") {
-      lines.push(`[${time}] 📢 系统：${item.content || ""}`);
+      lines.push(`[${time}] ${t("systemPrefix")}${item.content || ""}`);
     } else if (item.type === "clue") {
-      lines.push(`[${time}] 🃏 **${name}** 推送了线索`);
+      lines.push(`[${time}] ${t("cluePrefix", { name })}`);
     } else if (item.type === "check_request") {
       lines.push(`[${time}] 🎯 **${name}**：${item.content || ""}`);
     } else {
@@ -61,7 +61,7 @@ export function formatAsMarkdown(data: ExportRoomData): string {
   lines.push("");
 
   if (Object.keys(data.privateConversations).length > 0) {
-    lines.push("## 🔒 私聊记录");
+    lines.push(`## ${t("privateLogs")}`);
     lines.push("");
     for (const [key, msgs] of Object.entries(data.privateConversations)) {
       if (msgs.length === 0) continue;
@@ -79,7 +79,7 @@ export function formatAsMarkdown(data: ExportRoomData): string {
   }
 
   if (data.characterSnapshots.length > 0) {
-    lines.push("## 👤 角色状态快照");
+    lines.push(`## ${t("characterSnapshot")}`);
     lines.push("");
     for (const snap of data.characterSnapshots) {
       const parts: string[] = [];

@@ -55,7 +55,6 @@ export default async function HomePage() {
             <UserDropdown
               userName={user.name || user.username}
               userRole={user.role}
-              roleLabel={isAdmin ? "Admin" : isHost ? "Host" : "Player"}
             />
           </div>
         </div>

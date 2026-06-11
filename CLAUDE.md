@@ -168,6 +168,7 @@ if (process.env.NODE_ENV !== "production") {
 - `next-intl` with server-side locale detection.
 - Translation files in `messages/{zh,en}.json`.
 - Default locale: `zh` (Chinese).
+- Refer to [Codebase Mapping & i18n Reference Index](file:///Users/caizhengxu/.gemini/antigravity/brain/c5595299-01bc-4d24-9a5d-632015f10ad9/codebase_index.md) for components, namespaces, and audit/scan helper scripts.
 
 ## Coding Conventions
 

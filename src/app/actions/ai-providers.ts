@@ -6,6 +6,7 @@ import { eq, and, or, sql, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 
 export interface ProviderData {
   name: string;
@@ -28,7 +29,8 @@ export async function createProvider(data: ProviderData) {
   const isAdmin = (session.user as any).role === "admin";
 
   if (!data.name?.trim() || !data.apiEndpoint?.trim() || !data.apiKey?.trim()) {
-    throw new Error("名称、API地址和密钥不能为空");
+    const t = await getTranslations("adminProviders");
+    throw new Error(t("msgRequireFields"));
   }
 
   const [provider] = await db.insert(aiProviders).values({

@@ -35,7 +35,7 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
       URL.revokeObjectURL(url);
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
-      setError(t("exportFail") || errorMsg || "导出失败");
+      setError(t("exportFail") || errorMsg);
     } finally {
       setExporting(false);
     }
@@ -45,10 +45,10 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
     <div className="bg-surface border border-border rounded-theme p-5 shadow-lg">
       <h3 className="font-bold text-text mb-3 flex items-center gap-2 text-sm">
         <span className="w-2 h-2 rounded-full bg-accent" />
-        {t("exportTitle") || "📥 导出回放数据"}
+        {t("exportTitle")}
       </h3>
       <p className="text-xs text-text-muted mb-4">
-        {t("exportDesc") || "导出房间完整消息记录、骰点、技能检定和角色状态快照，用于制作 Replay 视频。"}
+        {t("exportDesc")}
       </p>
 
       {/* Format Selector — Radio Cards */}
@@ -64,7 +64,7 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
         >
           <div className="text-lg mb-1">📝</div>
           <div className="text-sm font-bold text-text mb-0.5">Markdown</div>
-          <div className="text-[10px] text-text-dim">{t("exportMdDesc") || "适合视频脚本和阅读"}</div>
+          <div className="text-[10px] text-text-dim">{t("exportMdDesc")}</div>
         </button>
         <button
           onClick={() => setFormat("json")}
@@ -77,7 +77,7 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
         >
           <div className="text-lg mb-1">📊</div>
           <div className="text-sm font-bold text-text mb-0.5">JSON</div>
-          <div className="text-[10px] text-text-dim">{t("exportJsonDesc") || "适合程序化回放"}</div>
+          <div className="text-[10px] text-text-dim">{t("exportJsonDesc")}</div>
         </button>
       </div>
 
@@ -93,10 +93,10 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {t("exporting") || "导出中..."}
+            {t("exporting")}
           </>
         ) : (
-          `${t("exportAction") || "导出"} ${format === "markdown" ? "Markdown" : "JSON"}`
+          `${t("exportAction")} ${format === "markdown" ? "Markdown" : "JSON"}`
         )}
       </button>
 

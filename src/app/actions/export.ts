@@ -5,6 +5,7 @@ import { messages, roomMembers, rooms, users } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { getTranslations } from "next-intl/server";
 
 interface ExportTimelineItem {
   time: string;
@@ -133,10 +134,11 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
  */
 export async function buildExportAction(roomId: number) {
   const data = await exportRoomDataAction(roomId);
+  const t = await getTranslations("export");
   const { formatAsMarkdown, formatAsJson } = await import("@/lib/export-formatter");
   return {
     roomName: data.roomName,
-    markdown: formatAsMarkdown(data),
+    markdown: formatAsMarkdown(data, (key, vals) => t(key as any, vals)),
     json: formatAsJson(data),
   };
 }

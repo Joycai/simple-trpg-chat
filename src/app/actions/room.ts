@@ -11,6 +11,7 @@ import { executeCommand } from "@/lib/commands";
 import { rollDice } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
+import { getTranslations } from "next-intl/server";
 
 // --- Room Actions ---
 
@@ -140,6 +141,8 @@ export async function sendMessageAction(
 ) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
 
+  const t = await getTranslations("roomActions");
+
   // 0. Scan for sensitive words
   if (type === "text") {
     const matchedWord = await checkSensitiveWords(content);
@@ -149,7 +152,7 @@ export async function sendMessageAction(
         userId,
         targetUserId: userId, // Targeted strictly to the sender
         nickname: "SYSTEM",
-        content: `⚠️ 发送失败：您的消息中包含敏感词汇，已被系统拦截。`,
+        content: t("sensitiveWordsIntercepted"),
         type: "system",
         isPrivate: true,
       }).returning();
@@ -168,7 +171,7 @@ export async function sendMessageAction(
           roomId,
           userId,
           nickname: "SYSTEM",
-          content: `⚠️ 指令错误: ${result.error}`,
+          content: t("commandError", { error: result.error || "" }),
           type: "system",
           isPrivate: true,
         }).returning();
@@ -260,8 +263,9 @@ export async function requestSkillCheckAction(
   const targetMembers = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
   const targetNicks = targetMembers.map((m: any) => m.nickname);
-
-  const content = `🎯 ${hostNick} 要求 ${targetNicks.join("、")} 进行【${skillName}】检定`;
+  const t = await getTranslations("roomActions");
+  const targetNicksStr = targetNicks.join(t("separator"));
+  const content = t("checkRequestContent", { hostNick, targetNicks: targetNicksStr, skillName });
   const detail = JSON.stringify({
     checkRequest: { skillName, diceType, targetUserIds, hostNick }
   });

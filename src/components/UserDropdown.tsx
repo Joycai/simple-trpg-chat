@@ -9,11 +9,11 @@ import { UserSettingsPanel } from "@/components/UserSettingsPanel";
 interface UserDropdownProps {
   userName: string;
   userRole: string;
-  roleLabel: string;
 }
 
-export function UserDropdown({ userName, userRole, roleLabel }: UserDropdownProps) {
+export function UserDropdown({ userName, userRole }: UserDropdownProps) {
   const t = useTranslations("lobby");
+  const ts = useTranslations("userSettings");
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -29,6 +29,13 @@ export function UserDropdown({ userName, userRole, roleLabel }: UserDropdownProp
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const roleLabel =
+    userRole === "admin"
+      ? ts("roleAdmin")
+      : userRole === "host"
+        ? ts("roleHost")
+        : ts("rolePlayer");
+
   const roleColor =
     userRole === "admin"
       ? "bg-danger/20 text-danger border-danger/30"
@@ -42,7 +49,7 @@ export function UserDropdown({ userName, userRole, roleLabel }: UserDropdownProp
         {/* Trigger */}
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors"
+          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors cursor-pointer"
         >
           <span className="flex items-center gap-2">
             <span className="hidden sm:inline">{userName}</span>
@@ -70,20 +77,20 @@ export function UserDropdown({ userName, userRole, roleLabel }: UserDropdownProp
             {/* Personal Settings */}
             <button
               onClick={() => { setOpen(false); setShowSettings(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-surface-alt transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-surface-alt transition-colors text-left cursor-pointer"
             >
               <Settings className="w-4 h-4 text-text-muted" />
-              个人设置
+              {ts("title")}
             </button>
 
             {/* Logout */}
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-surface-alt transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-surface-alt transition-colors text-left cursor-pointer"
               >
                 <LogOut className="w-4 h-4 text-text-muted" />
-                {t("logout") || "退出登录"}
+                {t("logout")}
               </button>
             </form>
           </div>

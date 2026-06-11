@@ -121,7 +121,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                   type="button"
                   onClick={generateRandomKey}
                   className="px-3 py-2 bg-surface-alt hover:bg-surface border border-border rounded text-sm font-mono text-accent transition"
-                  title={tc("randomKey") || "随机生成"}
+                  title={tc("randomKey")}
                 >
                   <Icons.Dices className="w-4 h-4" />
                 </button>
@@ -144,17 +144,17 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               <p className="text-xs text-text-muted">{tc("themeHint")}</p>
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">规则模版</label>
+              <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
               <select
                 id="ruleTemplate"
                 name="ruleTemplate"
                 defaultValue="basic"
                 className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
               >
-                <option value="basic">🎲 通用 d100</option>
-                <option value="coc7th">🐙 COC 7th</option>
+                <option value="basic">{tc("ruleTemplateBasic")}</option>
+                <option value="coc7th">{tc("ruleTemplateCoc7th")}</option>
               </select>
-              <p className="text-xs text-text-muted">COC 7th 将自动初始化 8 属性 + 衍生值</p>
+              <p className="text-xs text-text-muted">{tc("ruleTemplateHint")}</p>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button
@@ -280,9 +280,9 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
             />
 
             {([
-              ["all", t("filterAll") || "全部"],
-              ["mine", t("filterMine") || "我的房间"],
-              ["joined", t("filterJoined") || "已加入"],
+              ["all", t("filterAll")],
+              ["mine", t("filterMine")],
+              ["joined", t("filterJoined")],
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -306,7 +306,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
           <div className="mb-4 flex justify-center">
             {filter === "mine" ? <Icons.Home className="w-10 h-10 text-text-muted" /> : filter === "joined" ? <Icons.Key className="w-10 h-10 text-text-muted" /> : <Icons.Dices className="w-10 h-10 text-text-muted" />}
           </div>
-          <p>{filter === "mine" ? (t("noOwnRooms") || "还没有创建过房间") : filter === "joined" ? (t("noJoinedRooms") || "还没有加入过房间") : (t("noRooms") || "还没有创建或加入房间")}</p>
+          <p>{filter === "mine" ? t("noOwnRooms") : filter === "joined" ? t("noJoinedRooms") : t("noRooms")}</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

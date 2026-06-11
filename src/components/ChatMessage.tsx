@@ -53,7 +53,7 @@ export function ChatMessage({
             <button
               onClick={() => onCheckRequest(checkInfo.checkRequest.skillName, checkInfo.checkRequest.diceType)}
               className="bg-accent hover:bg-accent-hover text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
-              title="点击检定"
+              title={t("clickCheck")}
             >
               🎲
             </button>
@@ -99,7 +99,7 @@ export function ChatMessage({
             {isPrivate && ` (🔒 ${t("privateRoll")})`}
           </span>
           <span className="text-[9px] text-text-dim opacity-0 group-hover:opacity-100 transition">
-            {mounted ? formatTime(createdAt) : ""}
+            {mounted ? formatTime(createdAt, t) : ""}
           </span>
         </div>
 
@@ -120,7 +120,7 @@ export function ChatMessage({
                 <span className="text-lg">🎲</span>
                 <div>
                   <span className="font-bold font-theme-mono text-sm leading-tight">
-                    {formatDiceResult(diceDetail || content)}
+                    {formatDiceResult(diceDetail || content, t)}
                   </span>
                 </div>
               </div>

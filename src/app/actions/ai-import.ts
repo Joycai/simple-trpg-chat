@@ -8,6 +8,7 @@ import { decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 import { recordTokenUsage } from "@/lib/ai_usage";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { getTranslations } from "next-intl/server";
 
 // LLM output format for analyzed items
 interface AnalyzedItem {
@@ -24,6 +25,7 @@ export async function analyzeTextForImportAction(
   roomId: number,
   rawText: string
 ): Promise<{ success: boolean; items?: AnalyzedItem[]; error?: string }> {
+  const t = await getTranslations("aiImport");
   try {
     const { userId } = await checkRoomAccess(roomId, true);
 
@@ -32,7 +34,7 @@ export async function analyzeTextForImportAction(
       or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
     ).orderBy(aiProviders.id);
     if (!provider) {
-      return { success: false, error: "请先在个人设置中添加 AI Provider" };
+      return { success: false, error: t("errNoProvider") };
     }
 
     const apiKey = decrypt(provider.apiKeyEncrypted);
@@ -72,7 +74,7 @@ export async function analyzeTextForImportAction(
 
     if (!response.ok) {
       const err = await response.text().catch(() => "");
-      return { success: false, error: `AI 请求失败 (${response.status}): ${err.slice(0, 200)}` };
+      return { success: false, error: t("errRequestFailed", { status: response.status, error: err.slice(0, 200) }) };
     }
 
     const data = await response.json();
@@ -97,15 +99,15 @@ export async function analyzeTextForImportAction(
         try {
           items = JSON.parse(match[1]);
         } catch {
-          return { success: false, error: "AI 返回格式无法解析，请重试" };
+          return { success: false, error: t("errCannotParse") };
         }
       } else {
-        return { success: false, error: "AI 返回格式无法解析，请重试" };
+        return { success: false, error: t("errCannotParse") };
       }
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return { success: false, error: "AI 未识别出可导入的内容" };
+      return { success: false, error: t("errNoContent") };
     }
 
     // Validate and filter
@@ -115,12 +117,12 @@ export async function analyzeTextForImportAction(
     );
 
     if (validItems.length === 0) {
-      return { success: false, error: "没有通过验证的可导入条目" };
+      return { success: false, error: t("errNoValidItems") };
     }
 
     return { success: true, items: validItems };
   } catch (e: any) {
-    return { success: false, error: e.message || "请求失败" };
+    return { success: false, error: e.message || t("errRequestFailGeneral") };
   }
 }
 
@@ -131,6 +133,7 @@ export async function batchImportItemsAction(
   roomId: number,
   items: AnalyzedItem[]
 ): Promise<{ success: boolean; imported: number; error?: string }> {
+  const t = await getTranslations("aiImport");
   try {
     const { userId } = await checkRoomAccess(roomId, true);
     let imported = 0;
@@ -173,6 +176,6 @@ export async function batchImportItemsAction(
     revalidatePath(`/rooms/${roomId}`);
     return { success: true, imported };
   } catch (err: any) {
-    return { success: false, imported: 0, error: err.message || "导入失败" };
+    return { success: false, imported: 0, error: err.message || t("errImportFailed") };
   }
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 
 interface InventoryItem {
   id: number;
@@ -34,6 +35,10 @@ interface InventoryPanelProps {
 }
 
 export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
+  const t = useTranslations("inventory");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+
   const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
   const [filterType, setFilterType] = useState<"all" | "info" | "character" | "item">("all");
   const [manageFilterType, setManageFilterType] = useState<"all" | "info" | "character" | "item">("all");
@@ -112,7 +117,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
         await Promise.all(targets.map(uid => distributeItemAction(roomId, distributeItemId, uid)));
       }
     } catch (err: any) {
-      alert(err.message || "发放失败");
+      alert(err.message || t("distributeFailed"));
     }
     setDistributeItemId(null);
     setDistributeTargets([]);
@@ -121,13 +126,14 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   };
 
   const handleDeleteItem = async (itemId: number, itemTitle: string) => {
-    if (!confirm(`确定要删除道具【${itemTitle}】吗？删除后所有玩家背包中的该道具也将同步消失。`)) return;
+    const confirmMsg = t("deleteConfirm", { title: itemTitle });
+    if (!confirm(confirmMsg)) return;
     try {
       await deleteInventoryItemAction(roomId, itemId);
       router.refresh();
       loadData();
     } catch (err: any) {
-      alert(err.message || "删除失败");
+      alert(err.message || tCommon("error"));
     }
   };
 
@@ -136,7 +142,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
     try {
       await shareItemAction(roomId, itemId, shareTarget);
     } catch (err: any) {
-      alert(err.message || "分享失败");
+      alert(err.message || tCommon("error"));
     }
     setShareTarget(null);
     setDetailItem(null);
@@ -153,9 +159,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
     } catch { return item.contentJson; }
   };
 
-  const typeLabel = (t: string) => ({ info: "📄 信息", character: "👤 人物", item: "🎒 物品" }[t] || t);
-  const typeTabLabel = (t: string) => ({ info: "信息", character: "人物", item: "物品" }[t] || t);
-  const typeEmoji = (t: string) => ({ info: "📄", character: "👤", item: "🎒" }[t] || "📦");
+  const typeLabel = (tStr: string) => ({ info: t("typeInfo"), character: t("typeChar"), item: t("typeItem") }[tStr] || tStr);
+  const typeTabLabel = (tStr: string) => ({ info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
+  const typeEmoji = (tStr: string) => ({ info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
   const isNew = (d: any) => d.viewed === false || d.viewed === 0;
 
   // Filter backpack dynamically
@@ -171,7 +177,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
       <div className="relative ml-auto w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
-          <h3 className="font-bold text-text text-lg">📦 道具栏</h3>
+          <h3 className="font-bold text-text text-lg">{t("title")}</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text text-xl transition cursor-pointer">×</button>
         </div>
 
@@ -180,18 +186,18 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
           <div className="flex border-b border-border">
             <button onClick={() => setTab("manage")}
               className={`flex-1 py-3 text-sm font-bold transition cursor-pointer ${tab === "manage" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
-              ⚙️ 道具管理
+              ⚙️ {t("tabManage")}
             </button>
             <button onClick={() => setTab("backpack")}
               className={`flex-1 py-3 text-sm font-bold transition cursor-pointer ${tab === "backpack" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
-              🎒 我的背包
+              🎒 {t("tabBackpack")}
             </button>
           </div>
         )}
 
         <div className="p-5">
           {loading ? (
-            <div className="text-center text-text-muted py-8">加载中...</div>
+            <div className="text-center text-text-muted py-8">{tCommon("loading")}</div>
           ) : tab === "manage" && isHost ? (
             /* === KP MANAGEMENT VIEW === */
             <div className="flex flex-col gap-5">
@@ -199,39 +205,39 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               {!showCreate ? (
                 <button onClick={() => setShowCreate(true)}
                   className="w-full bg-success hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
-                  ＋ 创建新道具
+                  ＋ {t("createItem")}
                 </button>
               ) : (
                 <div className="bg-surface-alt rounded-theme theme-border p-4 border border-border flex flex-col gap-3">
-                  <h4 className="font-bold text-text text-sm">创建道具</h4>
+                  <h4 className="font-bold text-text text-sm">{t("createItem")}</h4>
                   <select value={itemType} onChange={e => setItemType(e.target.value as any)}
-                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm">
-                    <option value="info">📄 信息</option>
-                    <option value="character">👤 人物信息</option>
-                    <option value="item">🎒 物品</option>
+                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                    <option value="info">{t("typeInfo")}</option>
+                    <option value="character">{t("typeChar")}</option>
+                    <option value="item">{t("typeItem")}</option>
                   </select>
                   <input value={title} onChange={e => setTitle(e.target.value)}
-                    placeholder="道具名称（标题）" className="p-2 border border-input-border bg-input-bg rounded text-text text-sm" />
+                    placeholder={t("titlePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
                   {itemType === "info" && (
                     <textarea value={contentFields.text} onChange={e => setContentFields({...contentFields, text: e.target.value})}
-                      placeholder="文本内容" rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none" />
+                      placeholder={t("contentPlaceholder")} rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                   )}
                   {itemType === "character" && (<>
                     <textarea value={contentFields.basicInfo} onChange={e => setContentFields({...contentFields, basicInfo: e.target.value})}
-                      placeholder="基本信息" rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none" />
+                      placeholder={t("basicInfoPlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                     <textarea value={contentFields.detail} onChange={e => setContentFields({...contentFields, detail: e.target.value})}
-                      placeholder="详细描述" rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none" />
+                      placeholder={t("detailPlaceholder")} rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                   </>)}
                   {itemType === "item" && (<>
                     <textarea value={contentFields.appearance} onChange={e => setContentFields({...contentFields, appearance: e.target.value})}
-                      placeholder="外形描述" rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none" />
+                      placeholder={t("appearancePlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                     <textarea value={contentFields.extra} onChange={e => setContentFields({...contentFields, extra: e.target.value})}
-                      placeholder="补充信息" rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none" />
+                      placeholder={t("extraPlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                   </>)}
                   <div className="flex gap-2">
-                    <button onClick={() => setShowCreate(false)} className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">取消</button>
+                    <button onClick={() => setShowCreate(false)} className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">{tCommon("cancel")}</button>
                     <button onClick={handleCreate} disabled={!title}
-                      className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">创建</button>
+                      className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">{t("confirm")}</button>
                   </div>
                 </div>
               )}
@@ -239,7 +245,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               {/* Quick Filters */}
               <div className="flex flex-col gap-2.5 bg-surface-alt/50 border border-border/40 rounded-theme p-3 theme-border shadow-sm mb-2">
                 <div className="flex gap-1.5 items-center">
-                  <span className="text-[11px] font-bold text-text-dim w-10 shrink-0">类型:</span>
+                  <span className="text-[11px] font-bold text-text-dim w-10 shrink-0">{t("typeFilter")}</span>
                   <div className="flex flex-wrap gap-1">
                     <button onClick={() => setManageFilterType("all")}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
@@ -247,22 +253,22 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                           ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
                           : "bg-surface text-text-muted hover:text-text border border-border/50"
                       }`}>
-                      全部
+                      {t("filterAll")}
                     </button>
-                    {(["info", "character", "item"] as const).map(t => (
-                      <button key={t} onClick={() => setManageFilterType(t)}
+                    {(["info", "character", "item"] as const).map(typeKey => (
+                      <button key={typeKey} onClick={() => setManageFilterType(typeKey)}
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
-                          manageFilterType === t 
+                          manageFilterType === typeKey 
                             ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
                             : "bg-surface text-text-muted hover:text-text border border-border/50"
                         }`}>
-                        {typeTabLabel(t)}
+                        {typeTabLabel(typeKey)}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="flex gap-1.5 items-center">
-                  <span className="text-[11px] font-bold text-text-dim w-10 shrink-0">状态:</span>
+                  <span className="text-[11px] font-bold text-text-dim w-10 shrink-0">{t("statusFilter")}</span>
                   <div className="flex flex-wrap gap-1">
                     <button onClick={() => setManageFilterDist("all")}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
@@ -270,7 +276,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                           ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
                           : "bg-surface text-text-muted hover:text-text border border-border/50"
                       }`}>
-                      全部
+                      {t("filterAll")}
                     </button>
                     <button onClick={() => setManageFilterDist("undistributed")}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
@@ -278,7 +284,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                           ? "bg-success text-white shadow-sm" 
                           : "bg-surface text-text-muted hover:text-text border border-border/50"
                       }`}>
-                      未发放
+                      {t("filterUnsent")}
                     </button>
                     <button onClick={() => setManageFilterDist("distributed")}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
@@ -286,7 +292,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                           ? "bg-accent text-white shadow-sm" 
                           : "bg-surface text-text-muted hover:text-text border border-border/50"
                       }`}>
-                      已发放
+                      {t("filterSent")}
                     </button>
                   </div>
                 </div>
@@ -294,7 +300,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
               {/* Room items for distribution */}
               <div>
-                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase tracking-wider">道具列表</h4>
+                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase tracking-wider">{t("listHeader")}</h4>
                 {(() => {
                   const filteredRoomItems = roomItems.filter(item => {
                     if (manageFilterType !== "all" && item.type !== manageFilterType) return false;
@@ -305,7 +311,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   });
 
                   if (filteredRoomItems.length === 0) {
-                    return <p className="text-sm text-text-muted py-4 text-center">暂无符合条件的道具</p>;
+                    return <p className="text-sm text-text-muted py-4 text-center">{t("emptyList")}</p>;
                   }
 
                   const sortedRoomItems = [...filteredRoomItems].sort((a, b) => {
@@ -336,26 +342,26 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                                 <span className="text-sm font-bold text-text truncate">{typeLabel(item.type)} {item.title}</span>
                                 {!hasBeenDistributed ? (
                                   <span className="bg-success/15 text-success text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-success/30 select-none animate-pulse">
-                                    ✨ 未发放
+                                    {t("statusUnsent")}
                                   </span>
                                 ) : (
                                   <span className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-primary/20 select-none">
-                                    📤 已发: {distCount}人
+                                    {t("statusSentCount", { count: distCount })}
                                   </span>
                                 )}
                               </div>
                               <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
                               {uniqueRecipients.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1.5 items-center">
-                                  <span className="text-[10px] text-text-dim">持有者:</span>
-                                  {uniqueRecipients.slice(0, 2).map((name, idx) => (
-                                    <span key={idx} className="bg-surface/80 text-text-muted text-[9px] px-1.5 py-0.5 rounded border border-border/50 font-medium max-w-[80px] truncate">
-                                      👤 {name}
+                                  <span className="text-[10px] text-text-dim">{t("holders")}</span>
+                                  {uniqueRecipients.slice(0, 2).map((hName, hIdx) => (
+                                    <span key={hIdx} className="bg-surface/80 text-text-muted text-[9px] px-1.5 py-0.5 rounded border border-border/50 font-medium max-w-[80px] truncate">
+                                      👤 {hName}
                                     </span>
                                   ))}
                                   {uniqueRecipients.length > 2 && (
                                     <span className="text-[9px] text-text-dim leading-none ml-0.5">
-                                      等 {uniqueRecipients.length} 人
+                                      {t("holdersOthers", { count: uniqueRecipients.length })}
                                     </span>
                                   )}
                                 </div>
@@ -364,11 +370,11 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                             <div className="flex gap-2 shrink-0">
                               <button onClick={() => { setDistributeItemId(item.id); setDistributeTargets([]); }}
                                 className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                                发放
+                                {t("distribute")}
                               </button>
                               <button onClick={() => handleDeleteItem(item.id, item.title)}
                                 className="bg-danger hover:opacity-90 text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                                删除
+                                {t("delete")}
                               </button>
                             </div>
                           </div>
@@ -382,17 +388,17 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               {/* Distribute dialog */}
               {distributeItemId !== null && (
                 <div className="bg-surface rounded-theme border border-border theme-border p-4 flex flex-col gap-3 shadow-md">
-                  <h4 className="font-bold text-text text-sm mb-1">选择发放目标</h4>
+                  <h4 className="font-bold text-text text-sm mb-1">{t("selectTarget")}</h4>
                   
-                  {/* Pinned "全员发放" */}
+                  {/* Pinned "Distribute to All" */}
                   <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute("all"); }}
                     className="w-full bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
-                    🌐 全员发放
+                    {t("distributeAll")}
                   </button>
 
                   <div className="flex items-center gap-2 text-text-dim text-[11px] my-1">
                     <span className="h-px bg-border flex-1"></span>
-                    <span>或选择多名玩家</span>
+                    <span>{t("selectMultipleHint")}</span>
                     <span className="h-px bg-border flex-1"></span>
                   </div>
 
@@ -449,7 +455,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDistributeItemId(null); setDistributeTargets([]); }}
                       className="flex-1 py-2 text-xs font-bold text-text-muted hover:text-text cursor-pointer text-center"
                     >
-                      取消
+                      {tCommon("cancel")}
                     </button>
                     <button
                       type="button"
@@ -457,7 +463,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       disabled={distributeTargets.length === 0}
                       className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 disabled:hover:bg-success text-white py-2 rounded font-bold text-xs cursor-pointer text-center"
                     >
-                      确认发放 ({distributeTargets.length})
+                      {t("distributeConfirm", { count: distributeTargets.length })}
                     </button>
                   </div>
                 </div>
@@ -465,9 +471,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
               {/* History */}
               <div>
-                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase tracking-wider">发放历史</h4>
+                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase tracking-wider">{t("distributeHistory")}</h4>
                 {history.length === 0 ? (
-                  <p className="text-sm text-text-muted">暂无记录</p>
+                  <p className="text-sm text-text-muted">{t("emptyHistory")}</p>
                 ) : (
                   <div className="flex flex-col gap-1 max-h-60 overflow-y-auto">
                     {history.map(h => (
@@ -475,7 +481,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                         <span className="font-bold text-text">{h.item?.title || `#${h.itemId}`}</span>
                         {" → "}
                         <span>{h.toUsername || `#${h.toUserId}`}</span>
-                        <span className="ml-2 text-text-dim">{h.action === "shared" ? "🔄共享" : "📤发放"}</span>
+                        <span className="ml-2 text-text-dim">{h.action === "shared" ? `🔄${t("logShared")}` : `📤${t("logSent")}`}</span>
                       </div>
                     ))}
                   </div>
@@ -493,16 +499,16 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
                       : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
                   }`}>
-                  全部
+                  {t("filterAll")}
                 </button>
-                {(["info", "character", "item"] as const).map(t => (
-                  <button key={t} onClick={() => setFilterType(t)}
+                {(["info", "character", "item"] as const).map(typeKey => (
+                  <button key={typeKey} onClick={() => setFilterType(typeKey)}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      filterType === t 
+                      filterType === typeKey 
                         ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
                         : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
                     }`}>
-                    {typeTabLabel(t)}
+                    {typeTabLabel(typeKey)}
                   </button>
                 ))}
               </div>
@@ -510,8 +516,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               {filteredBackpack.length === 0 ? (
                 <div className="text-center text-text-muted py-12 text-sm">
                   <div className="text-4xl mb-3 opacity-30">🎒</div>
-                  <p>暂无{filterType === "all" ? "" : typeTabLabel(filterType)}道具</p>
-                  <p className="text-xs mt-1 opacity-60">等待 KP 发放中...</p>
+                  <p>{t("emptyBackpack", { type: filterType === "all" ? "" : typeTabLabel(filterType) })}</p>
+                  <p className="text-xs mt-1 opacity-60">{t("waitingKp")}</p>
                 </div>
               ) : (
                 (() => {
@@ -579,7 +585,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
                 {detailItem.imageUrl && (
                   <div className="mt-3 p-2 bg-surface-alt rounded border border-border text-xs text-text-muted">
-                    🖼️ 图片预留 (imageUrl: {detailItem.imageUrl})
+                    {t("imgPlaceholder", { url: detailItem.imageUrl })}
                   </div>
                 )}
 
@@ -589,13 +595,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                     const itemDists = history.filter((h: any) => h.itemId === detailItem.id);
                     return (
                       <div className="mt-4 pt-4 border-t border-border">
-                        <h4 className="text-xs font-bold text-text-dim uppercase tracking-wider mb-3">📋 分发历史 ({itemDists.length} 次)</h4>
+                        <h4 className="text-xs font-bold text-text-dim uppercase tracking-wider mb-3">{t("historyCount", { count: itemDists.length })}</h4>
                         {itemDists.length === 0 ? (
                           <div className="text-center py-4 bg-surface-alt rounded-theme border border-dashed border-border/50">
-                            <p className="text-xs text-text-muted">该道具尚未发放给任何人。</p>
+                            <p className="text-xs text-text-muted">{t("historyEmpty")}</p>
                             <button onClick={() => { setDistributeItemId(detailItem.id); setDistributeTargets([]); setDetailItem(null); }}
                               className="mt-2 bg-primary hover:bg-primary-hover text-white text-[11px] font-bold px-3 py-1.5 rounded cursor-pointer transition">
-                              立即发放
+                              {t("distributeNow")}
                             </button>
                           </div>
                         ) : (
@@ -611,16 +617,16 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                                       {d.toUsername || `#${d.toUserId}`}
                                     </span>
                                     <span className="text-[10px] text-text-muted ml-2">
-                                      {d.action === "shared" ? "🔄 共享获得" : "📤 派发获得"}
+                                      {d.action === "shared" ? t("sharedGain") : t("sentGain")}
                                     </span>
                                   </div>
                                   <span className="text-[9px] text-text-dim bg-surface-alt px-1.5 py-0.5 rounded border border-border/40">
-                                    {new Date(d.createdAt).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(d.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
                                 {d.fromUsername && d.fromUserId !== userId && (
                                   <p className="text-[10px] text-text-dim mt-0.5">
-                                    来自玩家: <span className="italic">{d.fromUsername}</span>
+                                    {t("fromPlayer", { name: d.fromUsername || "" })}
                                   </p>
                                 )}
                               </div>
@@ -635,7 +641,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 {/* Share section */}
                 {detailDist && (
                   <div className="mt-4 pt-4 border-t border-border">
-                    <h4 className="text-sm font-bold text-text mb-2">🔄 共享给其他玩家</h4>
+                    <h4 className="text-sm font-bold text-text mb-2">{t("shareToOthers")}</h4>
                     {!shareTarget ? (
                       <div className="flex flex-col gap-1">
                         {players.filter(p => p.id !== userId).map(p => (
@@ -647,10 +653,10 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       </div>
                     ) : (
                       <div className="flex gap-2 items-center">
-                        <span className="text-sm text-text">共享给 {players.find(p => p.id === shareTarget)?.nickname}？</span>
+                        <span className="text-sm text-text">{t("shareConfirmHint", { name: players.find(p => p.id === shareTarget)?.nickname || "" })}</span>
                         <button onClick={() => handleShare(detailDist.itemId)}
-                          className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">确认</button>
-                        <button onClick={() => setShareTarget(null)} className="text-xs text-text-muted cursor-pointer">取消</button>
+                          className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">{t("confirm")}</button>
+                        <button onClick={() => setShareTarget(null)} className="text-xs text-text-muted cursor-pointer">{t("cancel")}</button>
                       </div>
                     )}
                   </div>

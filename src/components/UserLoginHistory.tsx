@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Monitor, Smartphone, Tablet, HelpCircle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 interface LoginRecord {
   id: number;
@@ -19,13 +18,6 @@ const deviceIcons: Record<string, React.ComponentType<{ className?: string }>> =
   unknown: HelpCircle,
 };
 
-const deviceLabels: Record<string, string> = {
-  desktop: "PC",
-  mobile: "手机",
-  tablet: "平板",
-  unknown: "未知",
-};
-
 export function parseLoginDate(dateStr: string): Date {
   if (!dateStr) return new Date();
   
@@ -37,10 +29,7 @@ export function parseLoginDate(dateStr: string): Date {
     isoStr = isoStr + ":00";
   }
   
-  // Check if it already has timezone information:
-  // - ends with Z
-  // - contains '+' after the 'T'
-  // - contains '-' after the time part starts (e.g. index > 10)
+  // Check if it already has timezone information
   const hasTimezone = isoStr.endsWith("Z") || 
                       isoStr.includes("+") || 
                       (isoStr.indexOf("-", 11) !== -1);
@@ -56,12 +45,14 @@ export function parseLoginDate(dateStr: string): Date {
 }
 
 export function UserLoginHistory({ records }: { records: LoginRecord[] }) {
-  const t = useTranslations("admin");
+  const t = useTranslations("device");
+  const ts = useTranslations("userSettings");
+  const locale = useLocale();
 
   if (records.length === 0) {
     return (
       <div className="text-center text-text-dim py-8 text-sm">
-        暂无登录记录
+        {ts("emptyHistory")}
       </div>
     );
   }
@@ -70,9 +61,9 @@ export function UserLoginHistory({ records }: { records: LoginRecord[] }) {
     <div className="space-y-2 max-h-80 overflow-y-auto">
       {records.map((r) => {
         const Icon = deviceIcons[r.deviceType] || HelpCircle;
-        const label = deviceLabels[r.deviceType] || "未知";
+        const label = t(r.deviceType) || r.deviceType;
         const parsedDate = parseLoginDate(r.loginAt);
-        const time = parsedDate.toLocaleString("zh-CN", {
+        const time = parsedDate.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
           month: "2-digit",
           day: "2-digit",
           hour: "2-digit",

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 
 export async function requireAdmin() {
   const session = await auth();
@@ -61,7 +62,10 @@ export async function changeOwnPassword(oldPassword: string, newPassword: string
   if (!user) throw new Error("User not found");
 
   const valid = await bcrypt.compare(oldPassword, user.passwordHash);
-  if (!valid) throw new Error("当前密码错误");
+  if (!valid) {
+    const t = await getTranslations("admin");
+    throw new Error(t("errorCurrentPassword"));
+  }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));

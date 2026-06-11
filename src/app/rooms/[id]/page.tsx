@@ -7,8 +7,10 @@ import { RoomClient } from "@/components/RoomClient";
 import { RoomThemeSetter } from "@/components/RoomThemeSetter";
 import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getTranslations("room");
   const { id } = await params;
   const roomId = parseInt(id);
 
@@ -23,9 +25,9 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   if (!room) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
-        <h1 className="text-2xl font-bold text-text-muted">房间不存在</h1>
+        <h1 className="text-2xl font-bold text-text-muted">{t("notFound")}</h1>
         <Link href="/" className="text-primary hover:underline">
-          返回大厅
+          {t("backToLobby")}
         </Link>
       </div>
     );
@@ -57,9 +59,9 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     } else {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
-          <h1 className="text-2xl font-bold text-text-muted">你还没有加入这个房间</h1>
+          <h1 className="text-2xl font-bold text-text-muted">{t("notJoined")}</h1>
           <Link href="/" className="text-primary hover:underline">
-            返回大厅加入
+            {t("backToJoin")}
           </Link>
         </div>
       );

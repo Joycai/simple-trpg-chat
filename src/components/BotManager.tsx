@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createBotAction, getRoomBotsAction, updateBotAction, triggerBotAction } from "@/app/actions/bot";
 import { getMyProviders } from "@/app/actions/ai-providers";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface BotInfo {
   id: number;
@@ -23,6 +24,10 @@ interface BotManagerProps {
 }
 
 export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
+  const t = useTranslations("bots");
+  const tCommon = useTranslations("common");
+  const tp = useTranslations("adminProviders");
+
   const [bots, setBots] = useState<BotInfo[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -123,12 +128,12 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-text">🤖 AI 助手管理</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl">×</button>
+          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
+          <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
         {loading ? (
-          <div className="text-center text-text-muted py-8">加载中...</div>
+          <div className="text-center text-text-muted py-8">{t("loading")}</div>
         ) : (
           <div className="flex flex-col gap-5">
             {/* Work Directory Info */}
@@ -141,22 +146,24 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
               </code>
               <div className="text-[10px] text-text-dim mt-2 space-y-0.5">
                 <div>• SQLite DB: <code className="text-text-muted">simple-trpg-chat/sqlite.db</code></div>
-                <div>• Bot 数据: <code className="text-text-muted">users 表（is_bot=true）+ botConfigJson 字段</code></div>
-                <div>• 上下文: <code className="text-text-muted">inventory_distributions（道具）+ messages（聊天历史）</code></div>
+                <div>• Bot Data: <code className="text-text-muted">{t("dataDesc")}</code></div>
+                <div>• Context: <code className="text-text-muted">{t("contextDesc")}</code></div>
               </div>
             </div>
 
             {/* Existing bots */}
             {bots.length > 0 && (
               <div>
-                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase">已创建的 Bot</h4>
+                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase">{t("createdBots")}</h4>
                 <div className="flex flex-col gap-2">
                   {bots.map(bot => (
                     <div key={bot.id} className="bg-surface-alt rounded-theme p-3 border border-border flex items-center gap-3">
                       <span className="text-xl">🤖</span>
                       <div className="flex-1">
                         <div className="text-sm font-bold text-text">{bot.nickname}</div>
-                        <div className="text-[10px] text-text-muted">{bot.config.model || "gpt-4o-mini"} · {bot.config.activation || "@mention"} 激活</div>
+                        <div className="text-[10px] text-text-muted">
+                          {t("activationDesc", { model: bot.config.model || "gpt-4o-mini", activation: bot.config.activation === "manual" ? t("activationManual") : t("activationMention") })}
+                        </div>
                       </div>
                       {isHost && (
                         <button
@@ -164,17 +171,17 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                             await triggerBotAction(roomId, bot.id);
                             router.refresh();
                           }}
-                          className="text-xs text-accent hover:bg-accent/10 px-2 py-1 rounded transition font-bold"
-                          title="手动触发 Bot"
+                          className="text-xs text-accent hover:bg-accent/10 px-2 py-1 rounded transition font-bold cursor-pointer"
+                          title={t("triggerManual")}
                         >
                           ⚡
                         </button>
                       )}
                       <button
                         onClick={() => startEdit(bot)}
-                        className="text-xs text-text-muted hover:text-primary px-2 py-1 rounded hover:bg-surface transition"
+                        className="text-xs text-text-muted hover:text-primary px-2 py-1 rounded hover:bg-surface transition cursor-pointer"
                       >
-                        ✏️ 编辑
+                        ✏️ {t("edit")}
                       </button>
                       <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold">ACTIVE</span>
                     </div>
@@ -185,34 +192,34 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
 
             {!showCreate && !editingBot && isHost && (
               <button onClick={() => setShowCreate(true)}
-                className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition">
-                ＋ 创建新 Bot
+                className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
+                ＋ {t("createBot")}
               </button>
             )}
 
             {/* Create / Edit form */}
             {(showCreate || editingBot) && (
               <div className="bg-surface-alt rounded-theme p-4 border border-primary/30 flex flex-col gap-3">
-                <h4 className="font-bold text-text text-sm">{editingBot ? "✏️ 编辑 Bot" : "创建 AI Bot"}</h4>
+                <h4 className="font-bold text-text text-sm">{editingBot ? t("editBot") : t("createBot")}</h4>
                 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">Bot 名称</label>
+                  <label className="text-xs text-text-dim">{t("name")}</label>
                   <input value={botName} onChange={e => setBotName(e.target.value)}
-                    placeholder="如：克苏鲁守秘人助手" className="p-2 border border-input-border bg-input-bg rounded text-text text-sm" />
+                    placeholder={t("namePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none" />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">显示昵称（用于 @提及）</label>
+                  <label className="text-xs text-text-dim">{t("nickname")}</label>
                   <input value={botNickname} onChange={e => setBotNickname(e.target.value)}
-                    placeholder="如：KP小助手" className="p-2 border border-input-border bg-input-bg rounded text-text text-sm font-mono" />
-                  <p className="text-[10px] text-text-muted">玩家发送 @{botNickname || "昵称"} 即可激活 Bot</p>
+                    placeholder={t("nicknamePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm font-mono outline-none" />
+                  <p className="text-[10px] text-text-muted">{t("nicknameHint", { name: botNickname || "..." })}</p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">System Prompt（角色设定）</label>
+                  <label className="text-xs text-text-dim">{t("prompt")}</label>
                   <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
-                    placeholder="你是一个TRPG跑团助手..." rows={4}
-                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none font-mono" />
+                    placeholder={t("promptPlaceholder")} rows={4}
+                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none font-mono outline-none" />
                 </div>
 
                 {providers.length > 0 && (
@@ -223,41 +230,41 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                       setProviderId(pid);
                       const p = providers.find(x => x.id === pid);
                       if (p) setModel(p.model || "gpt-4o");
-                    }} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm">
+                    }} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
                       {providers.map((p: any) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? "[共享]" : "[私有]"}</option>
+                        <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}</option>
                       ))}
                     </select>
-                    <p className="text-[10px] text-text-muted">选择 AI 模型提供商，模型将自动填充</p>
+                    <p className="text-[10px] text-text-muted">{tp("presetLabel")}</p>
                   </div>
                 )}
 
                 {providers.length > 0 && providerId && (
-                  <p className="text-[10px] text-text-muted">模型：<code className="text-text font-mono">{model}</code>（由所选 Provider 决定）</p>
+                  <p className="text-[10px] text-text-muted">{t("modelHint", { model })}</p>
                 )}
                 <div className="flex gap-3">
                   <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-xs text-text-dim">激活方式</label>
+                    <label className="text-xs text-text-dim">{t("activation")}</label>
                     <select value={activation} onChange={e => setActivation(e.target.value)}
-                      className="p-2 border border-input-border bg-input-bg rounded text-text text-sm">
-                      <option value="@mention">@提及</option>
-                      <option value="manual">手动</option>
+                      className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                      <option value="@mention">{t("activationMention")}</option>
+                      <option value="manual">{t("activationManual")}</option>
                     </select>
                   </div>
                 </div>
 
                 {/* Tool Selection */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">启用工具</label>
+                  <label className="text-xs text-text-dim">{t("tools")}</label>
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
-                      { key: "send_message", label: "💬 发送消息" },
-                      { key: "roll_dice", label: "🎲 投骰子" },
-                      { key: "inspect_item", label: "🔍 查看道具" },
-                      { key: "my_inventory", label: "🎒 我的背包" },
-                      { key: "my_clues", label: "🃏 我的线索" },
-                      { key: "my_character", label: "👤 角色状态" },
-                      { key: "search_history", label: "📜 搜索历史" },
+                      { key: "send_message", label: "toolSendMessage" },
+                      { key: "roll_dice", label: "toolRollDice" },
+                      { key: "inspect_item", label: "toolInspectItem" },
+                      { key: "my_inventory", label: "toolMyInventory" },
+                      { key: "my_clues", label: "toolMyClues" },
+                      { key: "my_character", label: "toolMyCharacter" },
+                      { key: "search_history", label: "toolSearchHistory" },
                     ].map(tool => (
                       <label key={tool.key} className={`flex items-center gap-1.5 p-1.5 rounded text-xs cursor-pointer transition ${
                         enableTools.includes(tool.key) ? "bg-primary/10 text-primary" : "bg-surface text-text-muted"
@@ -267,8 +274,8 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                             if (e.target.checked) setEnableTools([...enableTools, tool.key]);
                             else setEnableTools(enableTools.filter(t => t !== tool.key));
                           }}
-                          className="w-3.5 h-3.5 accent-primary" />
-                        {tool.label}
+                          className="w-3.5 h-3.5 accent-primary cursor-pointer" />
+                        {t(tool.label)}
                       </label>
                     ))}
                   </div>
@@ -279,10 +286,10 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                     setShowCreate(false);
                     cancelEdit();
                   }}
-                    className="flex-1 px-3 py-2 text-text-muted text-sm">取消</button>
+                    className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">{tCommon("cancel")}</button>
                   <button onClick={editingBot ? handleUpdate : handleCreate} disabled={!botName || !botNickname}
-                    className="flex-1 bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm">
-                    {editingBot ? "保存修改" : "创建 Bot"}
+                    className="flex-1 bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">
+                    {editingBot ? t("submitSave") : t("submitCreate")}
                   </button>
                 </div>
               </div>

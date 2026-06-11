@@ -5,6 +5,7 @@ import { updateNicknameAction } from "@/app/actions/room";
 import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { CharacterData, CocAttributes } from "@/lib/character-types";
 import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
 
@@ -13,7 +14,7 @@ interface CharacterPanelProps {
   userId: number;
   currentNickname: string;
   characterData?: string | null;
-  ruleTemplate?: string;
+  roomRuleTemplate?: string;
   onClose: () => void;
   onNicknameChange: (newNick: string) => void;
 }
@@ -26,20 +27,17 @@ interface SkillItem {
 
 type TabId = "attributes" | "skills" | "background";
 
-const COC_ATTR_LABELS: Record<keyof CocAttributes, string> = {
-  str: "力量 STR", con: "体质 CON", siz: "体型 SIZ", dex: "敏捷 DEX",
-  app: "外貌 APP", int: "智力 INT", pow: "意志 POW", edu: "教育 EDU", luck: "幸运 LUCK",
-};
-
 export function CharacterPanel({
   roomId,
   userId,
   currentNickname,
   characterData,
-  ruleTemplate: roomRuleTemplate,
+  roomRuleTemplate,
   onClose,
   onNicknameChange,
 }: CharacterPanelProps) {
+  const t = useTranslations("character");
+  const tCommon = useTranslations("common");
   const router = useRouter();
 
   // Tab
@@ -68,6 +66,7 @@ export function CharacterPanel({
       setInitDone(true);
     }
   }, [roomRuleTemplate, roomId, initDone]);
+  
   const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
   const derived = computeCocDerived(cocAttrs);
   const [bio, setBio] = useState(charData.bio || "");
@@ -154,9 +153,22 @@ export function CharacterPanel({
   };
 
   const tabs: { id: TabId; label: string; icon: string }[] = [
-    { id: "attributes", label: "属性", icon: "📊" },
-    { id: "skills", label: "技能", icon: "📋" },
-    { id: "background", label: "背景", icon: "📝" },
+    { id: "attributes", label: t("tabAttributes"), icon: "📊" },
+    { id: "skills", label: t("tabSkills"), icon: "📋" },
+    { id: "background", label: t("tabBackground"), icon: "📝" },
+  ];
+
+  // Map keys to the translation keys
+  const cocAttrKeys: { key: keyof CocAttributes; tKey: string }[] = [
+    { key: "str", tKey: "str" },
+    { key: "con", tKey: "con" },
+    { key: "siz", tKey: "siz" },
+    { key: "dex", tKey: "dex" },
+    { key: "app", tKey: "app" },
+    { key: "int", tKey: "int" },
+    { key: "pow", tKey: "pow" },
+    { key: "edu", tKey: "edu" },
+    { key: "luck", tKey: "luckAttr" },
   ];
 
   return (
@@ -164,8 +176,8 @@ export function CharacterPanel({
       <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-text">👤 角色档案</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl">×</button>
+          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
+          <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
         {/* Nickname */}
@@ -175,13 +187,13 @@ export function CharacterPanel({
             <div className="flex-1 flex gap-2">
               <input value={nickname} onChange={e => setNickname(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { setNickname(currentNickname); setEditingNick(false); } }}
-                className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text" autoFocus />
-              <button onClick={saveNickname} className="text-xs bg-primary text-white px-3 py-1.5 rounded font-bold">保存</button>
+                className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" autoFocus />
+              <button onClick={saveNickname} className="text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded font-bold cursor-pointer">{tCommon("confirm")}</button>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-between">
               <span className="font-bold text-text">{nickname}</span>
-              <button onClick={() => setEditingNick(true)} className="text-xs text-text-muted hover:text-text">✏️</button>
+              <button onClick={() => setEditingNick(true)} className="text-xs text-text-muted hover:text-text cursor-pointer">✏️</button>
             </div>
           )}
         </div>
@@ -191,7 +203,7 @@ export function CharacterPanel({
           {tabs.map(tab => (
             <button key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 text-sm font-medium transition border-b-2 ${
+              className={`flex-1 py-2 text-sm font-medium transition border-b-2 cursor-pointer ${
                 activeTab === tab.id
                   ? "border-primary text-primary"
                   : "border-transparent text-text-muted hover:text-text"
@@ -206,12 +218,12 @@ export function CharacterPanel({
           <div className="flex flex-col gap-4">
             {/* Resource Bars */}
             <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">📊 资源状态</label>
+              <label className="text-xs text-text-dim font-medium mb-2 block">{t("resourceStatus")}</label>
               <div className="flex flex-col gap-2">
                 {/* HP */}
                 <div>
                   <div className="flex justify-between text-xs text-text-muted mb-1">
-                    <span>❤️ 生命值</span>
+                    <span>❤️ {t("hp")}</span>
                     <span className="font-mono">{derived.hp}/{derived.hpMax}</span>
                   </div>
                   <div className={`h-3 bg-surface-alt rounded-full overflow-hidden border border-border ${derived.hpMax > 0 && derived.hp / derived.hpMax <= 0.25 ? "hp-critical" : ""}`}>
@@ -226,9 +238,9 @@ export function CharacterPanel({
                 {ruleTemplate === "coc7th" && (
                 <div>
                   {/* SAN */}
-                  <div>
+                  <div className="mb-2">
                     <div className="flex justify-between text-xs text-text-muted mb-1">
-                      <span>💜 理智值</span>
+                      <span>💜 {t("san")}</span>
                       <span className="font-mono">{derived.san}/{derived.sanMax}</span>
                     </div>
                     <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
@@ -238,9 +250,9 @@ export function CharacterPanel({
                   </div>
 
                   {/* MP */}
-                  <div>
+                  <div className="mb-2">
                     <div className="flex justify-between text-xs text-text-muted mb-1">
-                      <span>💙 魔法值</span>
+                      <span>💙 {t("mp")}</span>
                       <span className="font-mono">{derived.mp}/{derived.mpMax}</span>
                     </div>
                     <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
@@ -251,7 +263,7 @@ export function CharacterPanel({
 
                   {/* LUCK */}
                   <div className="flex justify-between text-xs text-text-muted">
-                    <span>🍀 幸运</span>
+                    <span>🍀 {t("luck")}</span>
                     <span className="font-mono">{derived.luck}</span>
                   </div>
                 </div>
@@ -262,14 +274,14 @@ export function CharacterPanel({
             {/* COC Attributes */}
             {ruleTemplate === "coc7th" && (
             <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">🎲 基础属性</label>
+              <label className="text-xs text-text-dim font-medium mb-2 block">{t("baseAttributes")}</label>
               <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(COC_ATTR_LABELS) as (keyof CocAttributes)[]).map(key => (
+                {cocAttrKeys.map(({ key, tKey }) => (
                   <div key={key} className="flex items-center gap-2 bg-surface-alt rounded p-2">
-                    <label className="text-xs text-text-muted w-16 shrink-0">{COC_ATTR_LABELS[key].split(" ")[0]}</label>
+                    <label className="text-xs text-text-muted w-16 shrink-0">{t(tKey).split(" ")[0]}</label>
                     <input type="number" min={0} max={99}
                       value={cocAttrs[key]} onChange={e => updateAttr(key, parseInt(e.target.value) || 0)}
-                      className="w-14 p-1 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono" />
+                      className="w-14 p-1 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
                     <span className="text-[10px] text-text-dim w-8 text-right">{Math.floor((cocAttrs[key] - 50) / 5)}</span>
                   </div>
                 ))}
@@ -280,7 +292,7 @@ export function CharacterPanel({
             {/* Derived */}
             {ruleTemplate === "coc7th" && (
             <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">📐 衍生值</label>
+              <label className="text-xs text-text-dim font-medium mb-2 block">{t("derivedAttributes")}</label>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="bg-surface-alt rounded p-2 text-center">
                   <span className="text-text-muted">MOV</span>
@@ -291,7 +303,7 @@ export function CharacterPanel({
                   <div className="font-bold text-text font-mono">{derived.db}</div>
                 </div>
                 <div className="bg-surface-alt rounded p-2 text-center">
-                  <span className="text-text-muted">体格</span>
+                  <span className="text-text-muted">{t("build")}</span>
                   <div className="font-bold text-text font-mono">{derived.build}</div>
                 </div>
               </div>
@@ -300,18 +312,18 @@ export function CharacterPanel({
 
             {ruleTemplate !== "coc7th" && (
               <p className="text-xs text-text-dim text-center py-2">
-                通用 d100 模式。使用 .st 指令设置技能，或在房间设置中切换到 COC 7th 规则模版。
+                {t("generalD100Hint")}
               </p>
             )}
 
             <button onClick={saveCharacterData}
-              className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm">
-              保存属性
+              className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition">
+              {t("saveAttributes")}
             </button>
 
             {/* Custom Attributes */}
             <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">🔧 自定义属性</label>
+              <label className="text-xs text-text-dim font-medium mb-2 block">{t("customAttributes")}</label>
               {customAttrs.length > 0 && (
                 <div className="flex flex-col gap-1 mb-2">
                   {customAttrs.map(attr => (
@@ -319,20 +331,20 @@ export function CharacterPanel({
                       <span className="flex-1 text-sm text-text">{attr.name}</span>
                       <span className="text-xs text-text-muted font-mono w-12 text-right">{attr.value}</span>
                       <button onClick={() => removeCustomAttr(attr.name)}
-                        className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition">🗑</button>
+                        className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
                     </div>
                   ))}
                 </div>
               )}
               <div className="flex gap-2">
                 <input value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
-                  placeholder="属性名（如：SAN、MP）" onKeyDown={e => e.key === "Enter" && addCustomAttr()}
-                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text" />
+                  placeholder={t("customAttrPlaceholder")} onKeyDown={e => e.key === "Enter" && addCustomAttr()}
+                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
                 <input type="number" min={0} max={999} value={newAttrValue}
                   onChange={e => setNewAttrValue(parseInt(e.target.value) || 0)}
-                  className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono" />
+                  className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
                 <button onClick={addCustomAttr}
-                  className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold">＋</button>
+                  className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
               </div>
             </div>
           </div>
@@ -342,12 +354,12 @@ export function CharacterPanel({
         {activeTab === "skills" && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-text-dim font-medium">📋 技能列表</label>
-              <span className="text-[10px] text-text-muted">也可用 .st 指令设置</span>
+              <label className="text-xs text-text-dim font-medium">{t("skillsList")}</label>
+              <span className="text-[10px] text-text-muted">{t("skillsHint")}</span>
             </div>
             <div className="flex flex-col gap-1 mb-3">
               {skills.length === 0 && (
-                <p className="text-xs text-text-dim italic text-center py-4">暂无技能，使用下方表单添加</p>
+                <p className="text-xs text-text-dim italic text-center py-4">{t("noSkills")}</p>
               )}
               {skills.map(s => (
                 <div key={s.id} className="flex items-center gap-2 bg-surface-alt rounded p-2 group">
@@ -358,19 +370,19 @@ export function CharacterPanel({
                   </div>
                   <span className="text-xs text-text-muted font-mono w-8 text-right">{s.skillValue}</span>
                   <button onClick={() => removeSkill(s.id)}
-                    className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition">🗑</button>
+                    className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
               <input value={newSkillName} onChange={e => setNewSkillName(e.target.value)}
-                placeholder="技能名" onKeyDown={e => e.key === "Enter" && addSkill()}
-                className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text" />
+                placeholder={t("skillNamePlaceholder")} onKeyDown={e => e.key === "Enter" && addSkill()}
+                className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
               <input type="number" min={1} max={99} value={newSkillValue}
                 onChange={e => setNewSkillValue(parseInt(e.target.value) || 1)}
-                className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono" />
+                className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
               <button onClick={addSkill}
-                className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold">＋</button>
+                className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
             </div>
           </div>
         )}
@@ -379,14 +391,14 @@ export function CharacterPanel({
         {activeTab === "background" && (
           <div className="flex flex-col gap-4">
             <div>
-              <label className="text-xs text-text-dim font-medium mb-1 block">📝 角色简介</label>
+              <label className="text-xs text-text-dim font-medium mb-1 block">{t("bioPlaceholder").slice(0, 4)}</label>
               <textarea value={bio} onChange={e => setBio(e.target.value)} onBlur={saveCharacterData}
-                placeholder="写下你的角色简介..." rows={6}
-                className="w-full p-2 border border-input-border bg-input-bg rounded text-sm text-text resize-none" />
+                placeholder={t("bioPlaceholder")} rows={6}
+                className="w-full p-2 border border-input-border bg-input-bg rounded text-sm text-text resize-none outline-none focus:ring-1 focus:ring-primary" />
             </div>
             <button onClick={saveCharacterData}
-              className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm">
-              保存背景
+              className="bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition">
+              {t("saveBio")}
             </button>
           </div>
         )}

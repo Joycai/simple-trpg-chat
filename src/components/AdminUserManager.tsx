@@ -67,7 +67,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const handleResetPassword = async () => {
     if (!resetTarget || !newPassword.trim()) return;
     if (newPassword.length < 3) {
-      setResetMsg(t("passwordTooShort") || "密码至少3位");
+      setResetMsg(t("passwordTooShort"));
       return;
     }
     try {
@@ -85,15 +85,15 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
 
   const handleToggleBan = async (userId: number, username: string, isBanned: boolean) => {
     const msg = isBanned 
-      ? (t("confirmUnban") || `确定要解封账号 ${username} 吗？`)
-      : (t("confirmBan") || `确定要封禁账号 ${username} 吗？这会强制使其下线。`);
+      ? t("confirmUnban", { username })
+      : t("confirmBan", { username });
       
     if (confirm(msg)) {
       try {
         await toggleBanUser(userId);
         router.refresh();
       } catch (e: any) {
-        alert(e.message || "操作失败");
+        alert(e.message || t("operationFailed"));
       }
     }
   };
@@ -105,27 +105,27 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
         {!showChangePwd ? (
           <button onClick={() => setShowChangePwd(true)}
             className="text-xs text-accent hover:text-accent-hover transition">
-            <Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("changePassword") || "修改密码"}
+            <Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("changePassword")}
           </button>
         ) : (
           <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
-            <h4 className="text-sm font-bold text-accent mb-2"><Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("changePassword") || "修改密码"}</h4>
+            <h4 className="text-sm font-bold text-accent mb-2"><Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("changePassword")}</h4>
             <div className="flex flex-col gap-2">
               <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)}
-                placeholder={t("currentPassword") || "当前密码"}
+                placeholder={t("currentPassword")}
                 className="p-2 bg-bg border border-border rounded text-text text-sm" />
               <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
-                placeholder={t("newPassword") || "新密码（至少3位）"}
+                placeholder={t("newPassword")}
                 className="p-2 bg-bg border border-border rounded text-text text-sm"
                 onKeyDown={e => e.key === "Enter" && handleChangePwd()} />
               <div className="flex gap-2">
                 <button onClick={handleChangePwd}
                   className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-bold text-sm">
-                  {t("confirm") || "确认"}
+                  {t("confirm")}
                 </button>
                 <button onClick={() => { setShowChangePwd(false); setOldPwd(""); setNewPwd(""); setPwdMsg(""); }}
                   className="text-text-dim hover:text-text text-sm px-2">
-                  {t("cancel") || "取消"}
+                  {t("cancel")}
                 </button>
               </div>
               {pwdMsg && (
@@ -146,25 +146,25 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
       {resetTarget !== null && (
         <div className="mb-4 bg-accent/10 border border-accent/20 rounded-lg p-4">
           <h4 className="text-sm font-bold text-accent mb-2">
-            <Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("resetPassword") || "重置密码"} — {allUsers.find(u => u.id === resetTarget)?.username}
+            <Key className="w-3.5 h-3.5 inline -mt-0.5" />{t("resetPassword")} — {allUsers.find(u => u.id === resetTarget)?.username}
           </h4>
           <div className="flex gap-2">
             <input
               type="text"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              placeholder={t("newPassword") || "输入新密码（至少3位）"}
+              placeholder={t("newPassword")}
               className="flex-1 p-2 bg-bg border border-border rounded text-text text-sm"
               autoFocus
               onKeyDown={e => e.key === "Enter" && handleResetPassword()}
             />
             <button onClick={handleResetPassword}
               className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-bold text-sm">
-              {t("confirm") || "确认"}
+              {t("confirm")}
             </button>
             <button onClick={() => { setResetTarget(null); setNewPassword(""); setResetMsg(""); }}
               className="text-text-dim hover:text-text text-sm px-2">
-              {t("cancel") || "取消"}
+              {t("cancel")}
             </button>
           </div>
           {resetMsg && (
@@ -225,7 +225,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                   </span>
                   {user.isBanned && (
                     <span className="ml-2 px-1.5 py-0.5 rounded bg-danger/10 text-danger text-[9px] font-bold">
-                      {t("bannedBadge") || "已封禁"}
+                      {t("bannedBadge")}
                     </span>
                   )}
                 </td>
@@ -243,7 +243,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                   <button
                     onClick={() => openHistory(user.id, user.username)}
                     className="text-text-muted/60 hover:text-text-muted text-xs transition"
-                    title="登录历史"
+                    title={t("loginHistory")}
                   >
                     <History className="w-3.5 h-3.5" />
                   </button>
@@ -256,14 +256,14 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                             ? "text-success hover:text-success/80" 
                             : "text-danger/60 hover:text-danger"
                         }`}
-                        title={user.isBanned ? (t("unban") || "解封") : (t("ban") || "封禁")}
+                        title={user.isBanned ? t("unban") : t("ban")}
                       >
                         <Ban className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => { setResetTarget(user.id); setNewPassword(""); setResetMsg(""); }}
                         className="text-accent/60 hover:text-accent text-xs transition"
-                        title={t("resetPassword") || "重置密码"}
+                        title={t("resetPassword")}
                       >
                         <Key className="w-4 h-4" />
                       </button>
@@ -290,13 +290,13 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
             <div className="flex items-center justify-between px-5 py-3 border-b border-border">
               <h3 className="font-bold text-text text-sm flex items-center gap-2">
                 <History className="w-4 h-4" />
-                登录历史 — {historyUser.username}
+                {t("loginHistoryTitle", { username: historyUser.username })}
               </h3>
               <button onClick={() => setHistoryUser(null)} className="text-text-muted hover:text-text text-lg leading-none">&times;</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loadingHistory ? (
-                <div className="text-center text-text-dim py-8 text-sm">加载中...</div>
+                <div className="text-center text-text-dim py-8 text-sm">{t("loading")}</div>
               ) : (
                 <UserLoginHistory records={historyRecords} />
               )}

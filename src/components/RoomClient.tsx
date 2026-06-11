@@ -70,6 +70,7 @@ export function RoomClient({
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
+  const tra = useTranslations("roomActions");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -225,7 +226,7 @@ export function RoomClient({
 
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.type === "system" && lastMsg.content.includes("道具")) {
+    if (lastMsg?.type === "system" && (lastMsg.content.includes("道具") || lastMsg.content.toLowerCase().includes("item"))) {
       getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
     }
   }, [messages, room.id]);
@@ -418,7 +419,7 @@ export function RoomClient({
         if (!result.success && result.error) {
           const errorMsg = {
             id: Date.now(), roomId: room.id, userId, nickname: "SYSTEM",
-            content: `❌ 指令错误: ${result.error}`,
+            content: tra("commandError", { error: result.error }),
             type: "system" as const, isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
           };
@@ -455,7 +456,7 @@ export function RoomClient({
           await rollDiceAction(room.id, faces, 1);
         }
       } else {
-        const value = prompt(`你尚未设置技能【${skillName}】。请输入技能数值（1-99）：`, "50");
+        const value = prompt(t("promptNoSkill", { skillName }), "50");
         if (value && !isNaN(parseInt(value))) {
           const v = parseInt(value);
           await upsertSkillAction(room.id, skillName, v);
@@ -484,10 +485,10 @@ export function RoomClient({
                     localStorage.setItem("trpg-sidebar-collapsed", "false");
                   }}
                   className="relative p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm flex items-center justify-center gap-1 cursor-pointer"
-                  title="展开私聊"
+                  title={t("tooltipExpandDm")}
                 >
                   <span className="text-sm">💬</span>
-                  <span className="text-xs font-bold hidden sm:inline">私聊</span>
+                  <span className="text-xs font-bold hidden sm:inline">{t("btnDm")}</span>
                   {totalUnread > 0 && (
                     <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
                       {totalUnread > 9 ? "9+" : totalUnread}
@@ -519,7 +520,7 @@ export function RoomClient({
                     ? "bg-surface text-primary border border-border/10 shadow-sm"
                     : "text-text-muted hover:text-text hover:bg-surface/30"
                 }`}
-                title="角色档案"
+                title={t("tooltipCharacter")}
               >
                 <Icons.User className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">{nickname}</span>
@@ -531,10 +532,10 @@ export function RoomClient({
                     ? "bg-surface text-primary border border-border/10 shadow-sm"
                     : "text-text-muted hover:text-text hover:bg-surface/30"
                 }`}
-                title="技能面板"
+                title={t("tooltipSkills")}
               >
                 <Icons.ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">技能</span>
+                <span className="hidden sm:inline">{t("btnSkills")}</span>
               </button>
               <button
                 onClick={() => {
@@ -547,10 +548,10 @@ export function RoomClient({
                     ? "bg-surface text-primary border border-border/10 shadow-sm"
                     : "text-text-muted hover:text-text hover:bg-surface/30"
                 }`}
-                title="道具背包"
+                title={t("tooltipInventory")}
               >
                 <Icons.Package className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">道具</span>
+                <span className="hidden sm:inline">{t("btnInventory")}</span>
                 {unreadItems > 0 && (
                   <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
                     {unreadItems > 9 ? "9+" : unreadItems}
@@ -569,10 +570,10 @@ export function RoomClient({
                       ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
                       : "text-accent/90 hover:text-accent hover:bg-accent/10"
                   }`}
-                  title="发起检定"
+                  title={t("tooltipCheck")}
                 >
                   <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">检定</span>
+                  <span className="hidden sm:inline">{t("btnCheck")}</span>
                 </button>
               )}
               <button
@@ -582,19 +583,19 @@ export function RoomClient({
                     ? "bg-surface text-primary border border-border/10 shadow-sm"
                     : "text-text-muted hover:text-text hover:bg-surface/30"
                 }`}
-                title="线索列表"
+                title={t("tooltipClues")}
               >
                 <Icons.Ticket className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">线索</span>
+                <span className="hidden sm:inline">{t("btnClues")}</span>
               </button>
               {isHost && (
                 <button
                   onClick={() => setShowAiImport(true)}
                   className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
-                  title="AI 智能导入"
+                  title={t("tooltipImport")}
                 >
                   <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">导入</span>
+                  <span className="hidden sm:inline">{t("btnImport")}</span>
                 </button>
               )}
               {isHost && (
@@ -605,7 +606,7 @@ export function RoomClient({
                       ? "bg-surface text-primary border border-border/10 shadow-sm"
                       : "text-text-muted hover:text-text hover:bg-surface/30"
                   }`}
-                  title="智能 NPC"
+                  title={t("tooltipBot")}
                 >
                   <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">Bot</span>
@@ -622,31 +623,31 @@ export function RoomClient({
                     ? "bg-surface text-primary border-border"
                     : "bg-surface-alt text-text-muted hover:text-text hover:bg-border border-transparent hover:border-border"
                 }`}
-                title="系统菜单"
+                title={t("tooltipSystem")}
               >
                 <Icons.Menu className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">系统</span>
+                <span className="hidden sm:inline">{t("btnSystem")}</span>
               </button>
               {showSystemMenu && (
                 <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30"
                   onClick={() => setShowSystemMenu(false)}>
                   <button onClick={() => { setShowMembers(true); }}
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                    <Icons.Users className="w-4 h-4" /> 在线成员 <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
+                    <Icons.Users className="w-4 h-4" /> {t("menuMembers")} <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
                   </button>
                   <button onClick={() => { setShowRoomInfo(true); }}
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                    <Icons.Info className="w-4 h-4" /> 房间信息
+                    <Icons.Info className="w-4 h-4" /> {t("menuInfo")}
                   </button>
                   {isHost && (
                     <div className="border-t border-border mt-1 pt-1">
                       <button onClick={() => { setShowExport(true); }}
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <Icons.Download className="w-4 h-4" /> 导出数据
+                        <Icons.Download className="w-4 h-4" /> {t("menuExport")}
                       </button>
                       <button onClick={() => { setShowSettings(true); }}
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <Icons.Settings className="w-4 h-4" /> 房间设置
+                        <Icons.Settings className="w-4 h-4" /> {t("menuSettings")}
                       </button>
                     </div>
                   )}
@@ -688,7 +689,7 @@ export function RoomClient({
           <div
             onMouseDown={handleResizeStart}
             className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-all duration-150 shrink-0 relative z-10 group"
-            title="拖动调整宽度，双击恢复默认"
+            title={t("tooltipResize")}
             onDoubleClick={() => {
               setSidebarWidth(200);
               localStorage.setItem("trpg-sidebar-width", "200");
@@ -702,7 +703,7 @@ export function RoomClient({
                 setSidebarCollapsed(true);
                 localStorage.setItem("trpg-sidebar-collapsed", "true");
               }}
-              title="收起侧边栏"
+              title={t("tooltipCollapseSidebar")}
             >
               <span className="text-[9px] text-text-muted hover:text-primary select-none">◀</span>
             </div>
@@ -731,7 +732,7 @@ export function RoomClient({
               {tabMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-50 py-20">
                   <span className="text-4xl mb-4">{activeTab === "public" ? "🏠" : "🔒"}</span>
-                  <p>{activeTab === "public" ? "公频尚无消息" : "开始你们的秘密谈话吧"}</p>
+                  <p>{activeTab === "public" ? t("publicEmpty") : t("dmEmpty")}</p>
                 </div>
               )}
             </div>
@@ -747,8 +748,8 @@ export function RoomClient({
             <div className="max-w-4xl mx-auto">
               {activeTab !== "public" && (
                   <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
-                    <span>🔒 正在与 {dmConversations.find(c => c.userId === activeTab)?.nickname} 私聊中...</span>
-                    <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">退出私聊 ×</button>
+                    <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname })}</span>
+                    <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
                   </div>
                 )}
               <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} />
@@ -758,7 +759,7 @@ export function RoomClient({
       </div>
 
       {showCharacter && (
-        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} ruleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
+        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} roomRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
       )}
       {showBotManager && (
         <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} />
@@ -776,12 +777,12 @@ export function RoomClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMembers(false)}>
           <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5">
-              <h3 className="font-bold text-lg text-text">👥 在线成员 <span className="text-sm text-text-muted font-normal ml-2">{playerCount + botCount} 人</span></h3>
+              <h3 className="font-bold text-lg text-text">{t("titleMembers")} <span className="text-sm text-text-muted font-normal ml-2">{t("countMembers", { count: playerCount + botCount })}</span></h3>
               <button onClick={() => setShowMembers(false)} className="text-text-muted hover:text-text text-xl">×</button>
             </div>
             <div className="flex gap-3 mb-4 text-xs">
-              <span className="bg-primary/10 text-primary px-2 py-1 rounded font-medium">👤 玩家 {playerCount}</span>
-              {botCount > 0 && <span className="bg-accent/10 text-accent px-2 py-1 rounded font-medium">🤖 Bot {botCount}</span>}
+              <span className="bg-primary/10 text-primary px-2 py-1 rounded font-medium">{t("labelPlayers", { count: playerCount })}</span>
+              {botCount > 0 && <span className="bg-accent/10 text-accent px-2 py-1 rounded font-medium">{t("labelBots", { count: botCount })}</span>}
             </div>
             <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
               {(players || []).map((p: any, i: number) => {
@@ -792,14 +793,14 @@ export function RoomClient({
                 return (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
                     <span>{isBot ? "🤖" : "👤"}</span>
-                    <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? "（我）" : ""}</span>
+                    <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? t("suffixMe") : ""}</span>
                     <div className="flex gap-2">
                         {!isMe && (
                           <button 
                              onClick={() => { handleTabChange(u.id); setShowMembers(false); }}
                              className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
                           >
-                           🔒 私聊
+                           🔒 {t("btnDm")}
                          </button>
                        )}
                        <span className="text-[10px] text-text-dim font-mono self-center">@{nick}</span>

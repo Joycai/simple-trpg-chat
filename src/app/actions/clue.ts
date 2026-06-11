@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/events";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Create a clue card with optional visibility targets.
@@ -122,6 +123,8 @@ export async function pushClueToChannelAction(
     }
   }
 
+  const t = await getTranslations("clueActions");
+
   // Broadcast as clue message
   let lastMsg: any;
   if (isPublic) {
@@ -129,7 +132,7 @@ export async function pushClueToChannelAction(
       roomId,
       userId: hostId,
       nickname: "Host",
-      content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![线索图片](${imageUrl})` : ""}`,
+      content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
       type: "clue",
       diceDetail: JSON.stringify({
         clueId: clue.id,
@@ -148,7 +151,7 @@ export async function pushClueToChannelAction(
         roomId,
         userId: hostId,
         nickname: "Host",
-        content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![线索图片](${imageUrl})` : ""}`,
+        content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
         type: "clue",
         diceDetail: JSON.stringify({
           clueId: clue.id,
@@ -173,7 +176,7 @@ export async function pushClueToChannelAction(
       roomId,
       userId: hostId,
       nickname: "Host",
-      content: `📤 已向 ${recipientNames || '玩家'} 发放线索：【${title}】`,
+      content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title }),
       type: "system",
       isPrivate: true,
     }).returning();
@@ -245,15 +248,17 @@ export async function revealClueToPlayersAction(
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
+  const t = await getTranslations("clueActions");
+
   // Fetch the clue to determine roomId
   const [clue] = await db.select().from(clueCards).where(eq(clueCards.id, clueId));
-  if (!clue) throw new Error("Clue not found");
+  if (!clue) throw new Error(t("notFound"));
 
   // Verify that the caller is the host of the room where the clue exists
   const { userId: hostId } = await checkRoomAccess(clue.roomId, true);
 
   if (!targetUserIds || targetUserIds.length === 0) {
-    throw new Error("Must specify at least one target user");
+    throw new Error(t("mustSpecifyTarget"));
   }
 
   // 1. Check if clue is already public (NULL userId)
@@ -302,7 +307,7 @@ export async function revealClueToPlayersAction(
       roomId: clue.roomId,
       userId: hostId,
       nickname: "Host",
-      content: `💡 您获得了新线索：【${clue.title}】，已加入您的线索册`,
+      content: t("clueReceived", { title: clue.title }),
       type: "system",
       isPrivate: true,
       targetUserId: uid,
@@ -321,7 +326,7 @@ export async function revealClueToPlayersAction(
     roomId: clue.roomId,
     userId: hostId,
     nickname: "Host",
-    content: `📤 已向 ${recipientNames || '玩家'} 发放线索：【${clue.title}】`,
+    content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: clue.title }),
     type: "system",
     isPrivate: true,
   }).returning();

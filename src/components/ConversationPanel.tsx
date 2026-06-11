@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getUnreadDMCountAction, markDMReadAction } from "@/app/actions/room";
+import { useTranslations } from "next-intl";
 
 interface DMConversation {
   userId: number;
@@ -34,6 +33,8 @@ export function ConversationPanel({
   collapsed,
   onToggleCollapse,
 }: ConversationPanelProps) {
+  const t = useTranslations("room");
+
   if (collapsed) return null;
 
   return (
@@ -43,11 +44,11 @@ export function ConversationPanel({
     >
       {/* Sidebar Header */}
       <div className="px-3 py-2 flex items-center justify-between border-b border-border bg-surface/50">
-        <span className="text-[10px] font-bold text-text-muted tracking-wider uppercase">聊天通道</span>
+        <span className="text-[10px] font-bold text-text-muted tracking-wider uppercase">{t("channels")}</span>
         <button
           onClick={onToggleCollapse}
           className="p-1 rounded hover:bg-border text-text-muted hover:text-text transition cursor-pointer text-xs flex items-center justify-center w-5 h-5"
-          title="收起侧边栏"
+          title={t("collapseSidebar")}
         >
           ◀
         </button>
@@ -64,7 +65,7 @@ export function ConversationPanel({
           }`}
         >
           <span className="text-base shrink-0">🏠</span>
-          <span className="truncate">公频消息</span>
+          <span className="truncate">{t("publicChat")}</span>
         </button>
       </div>
 
@@ -96,7 +97,7 @@ export function ConversationPanel({
 
         {dmConversations.length === 0 && (
           <div className="py-8 text-center text-text-dim text-[10px]">
-            暂无私聊成员
+            {t("noDmMembers")}
           </div>
         )}
       </div>
@@ -106,10 +107,10 @@ export function ConversationPanel({
         <button
           onClick={onStartDM}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg border border-dashed border-border hover:border-primary/50 transition cursor-pointer"
-          title="发起私聊"
+          title={t("startDm")}
         >
           <span className="text-sm">＋</span>
-          <span>发起私聊</span>
+          <span>{t("startDm")}</span>
         </button>
       </div>
     </div>

@@ -1,8 +1,9 @@
 import { db, sqlNow } from "@/db";
-import { roomSkills, rooms, roomMembers, messages } from "@/db/schema";
+import { roomSkills, rooms } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { rollDiceAction, sendMessageAction } from "@/app/actions/room";
 import { rollDie } from "@/lib/utils";
+import { getTranslations } from "next-intl/server";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -25,6 +26,8 @@ export async function executeCommand(
   if (!trimmed.startsWith(".")) {
     return { success: true, isCommand: false };
   }
+
+  const t = await getTranslations("commands");
 
   const parts = trimmed.slice(1).split(/\s+/);
   const cmd = parts[0].toLowerCase();
@@ -52,20 +55,17 @@ export async function executeCommand(
 
   // --- .help ---
   if (cmd === "help") {
-    const helpText = `📖 **指令帮助**
-.st 技能名 数值 — 设置技能（支持批量：.st 侦查50聆听60）
-.rc 技能名 — 技能检定（d100 vs 设定值）
-.rd<N> — 投骰（如 .rd100 .rd20 .rd10）
-.help — 显示此帮助`;
+    const helpText = t("helpText");
     const msg = await sendMessageAction(roomId, helpText, "system", undefined, true);
     return { success: true, isCommand: true, message: msg };
   }
 
-  return { success: false, isCommand: true, error: "Unknown command. Type .help for available commands." };
+  return { success: false, isCommand: true, error: t("unknownCommand") };
 }
 
 /** .st: Set/Update Skills */
 async function handleSetSkill(roomId: number, userId: number, args: string): Promise<CommandResult> {
+  const t = await getTranslations("commands");
   // Regex to match "SkillName Value" or "SkillNameValue" (compact)
   const regex = /([^0-9\s\.]+)\s*([0-9]+)/g;
   const updates: { name: string; value: number }[] = [];
@@ -76,7 +76,7 @@ async function handleSetSkill(roomId: number, userId: number, args: string): Pro
   }
 
   if (updates.length === 0) {
-    return { success: false, isCommand: true, error: "格式错误。正确用法：.st 侦查 50" };
+    return { success: false, isCommand: true, error: t("stUsageError") };
   }
 
   // UPSERT skills
@@ -93,19 +93,20 @@ async function handleSetSkill(roomId: number, userId: number, args: string): Pro
   }
 
   const summary = updates.map(u => `${u.name} ${u.value}`).join(", ");
-  const msg = await sendMessageAction(roomId, `📋 技能已更新：${summary}`, "system", undefined, true);
+  const msg = await sendMessageAction(roomId, t("stSuccess", { summary }), "system", undefined, true);
 
   return { success: true, isCommand: true, message: msg };
 }
 
 /** .rc: Roll Check (d100 vs Skill) */
 async function handleRollCheck(roomId: number, userId: number, args: string): Promise<CommandResult> {
+  const t = await getTranslations("commands");
   const skillName = args.trim();
-  if (!skillName) return { success: false, isCommand: true, error: "用法：.rc 侦查" };
+  if (!skillName) return { success: false, isCommand: true, error: t("rcUsageError") };
 
   // 1. Get room rules
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) return { success: false, isCommand: true, error: "Room not found" };
+  if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
 
   // 2. Get user skill value
   const [skill] = await db.select().from(roomSkills).where(
@@ -116,20 +117,20 @@ async function handleRollCheck(roomId: number, userId: number, args: string): Pr
     )
   );
 
-  if (!skill) return { success: false, isCommand: true, error: `技能 '${skillName}' 未设置。请先使用 .st 设置。` };
+  if (!skill) return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }) };
 
   // 3. Roll d100
   const roll = rollDie(100);
   const target = skill.skillValue;
   
-  let successLevel = roll <= target ? "成功" : "失败";
+  let successLevel = roll <= target ? t("success") : t("failure");
   let icon = roll <= target ? "✅" : "❌";
   let grade: "success" | "failure" | "critical" | "fumble" = roll <= target ? "success" : "failure";
 
   // 4. Apply COC 7th rules if enabled
   if (room.diceRules === 'coc7th') {
-    if (roll <= 5) { successLevel = "大成功！"; icon = "🟢"; grade = "critical"; }
-    else if (roll >= 96) { successLevel = "大失败！"; icon = "🔴"; grade = "fumble"; }
+    if (roll <= 5) { successLevel = t("critical"); icon = "🟢"; grade = "critical"; }
+    else if (roll >= 96) { successLevel = t("fumble"); icon = "🔴"; grade = "fumble"; }
   }
 
   const detail = JSON.stringify({
@@ -141,7 +142,7 @@ async function handleRollCheck(roomId: number, userId: number, args: string): Pr
     check: { skillName, target, roll, success: roll <= target, grade }
   });
 
-  const content = `🎲 ${skillName}检定：d100=${roll} / ${target} → ${successLevel} ${icon}`;
+  const content = t("checkMessage", { skillName, roll, target, successLevel, icon });
   const msg = await sendMessageAction(roomId, content, "dice", detail);
 
   return { success: true, isCommand: true, message: msg };
