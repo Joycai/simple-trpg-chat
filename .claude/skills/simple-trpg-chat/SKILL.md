@@ -66,7 +66,7 @@ pnpm dev          # Start dev server (Turbopack)
 pnpm build        # Production build
 pnpm db:push      # Sync Drizzle schema to SQLite
 pnpm db:studio    # Drizzle Studio (DB browser)
-bash setup.sh     # First-time setup (.env, deps, schema)
+bash setup.sh / setup.bat # First-time setup (.env, deps, schema)
 ```
 
 ### Key Files
