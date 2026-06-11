@@ -385,7 +385,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   <h4 className="font-bold text-text text-sm mb-1">选择发放目标</h4>
                   
                   {/* Pinned "全员发放" */}
-                  <button onClick={() => handleDistribute("all")}
+                  <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute("all"); }}
                     className="w-full bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
                     🌐 全员发放
                   </button>
@@ -403,12 +403,17 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       return (
                         <button
                           key={p.id}
-                          onClick={() => {
-                            if (isSelected) {
-                              setDistributeTargets(distributeTargets.filter(id => id !== p.id));
-                            } else {
-                              setDistributeTargets([...distributeTargets, p.id]);
-                            }
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDistributeTargets(prev => {
+                              if (prev.includes(p.id)) {
+                                return prev.filter(id => id !== p.id);
+                              } else {
+                                return [...prev, p.id];
+                              }
+                            });
                           }}
                           className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left transition border cursor-pointer ${
                             isSelected
@@ -426,13 +431,15 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   {/* Action buttons */}
                   <div className="flex gap-2 mt-2 pt-2 border-t border-border">
                     <button
-                      onClick={() => { setDistributeItemId(null); setDistributeTargets([]); }}
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDistributeItemId(null); setDistributeTargets([]); }}
                       className="flex-1 py-2 text-xs font-bold text-text-muted hover:text-text cursor-pointer text-center"
                     >
                       取消
                     </button>
                     <button
-                      onClick={() => handleDistribute(distributeTargets)}
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute(distributeTargets); }}
                       disabled={distributeTargets.length === 0}
                       className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 disabled:hover:bg-success text-white py-2 rounded font-bold text-xs cursor-pointer transition text-center"
                     >
