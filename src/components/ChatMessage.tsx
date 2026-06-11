@@ -104,7 +104,7 @@ export function ChatMessage({
         </div>
 
         <div
-          className={`rounded-theme px-3 py-2 shadow-sm break-words transition-colors ${
+          className={`chat-bubble ${isOwn ? "chat-bubble-own" : "chat-bubble-other"} rounded-theme px-3 py-2 shadow-sm break-words transition-colors ${
             isDice
               ? "bg-dice-card-bg border border-dice-card-border text-text"
               : isPrivate

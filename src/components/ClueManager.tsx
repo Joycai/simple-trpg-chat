@@ -124,7 +124,7 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
             ) : (
               <div className="flex flex-col gap-2">
                 {clues.map(clue => (
-                  <div key={clue.id} className="bg-surface-alt rounded-theme p-3 border border-border">
+                  <div key={clue.id} className="bg-surface-alt rounded-theme p-3 border border-border clue-card">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0">
                         <h5 className="text-sm font-bold text-text flex items-center gap-2">

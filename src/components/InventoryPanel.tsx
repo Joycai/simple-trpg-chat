@@ -214,7 +214,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 ) : (
                   <div className="flex flex-col gap-2">
                     {roomItems.map(item => (
-                      <div key={item.id} className="bg-surface-alt rounded-theme p-3 border border-border flex justify-between items-center">
+                      <div key={item.id} className="bg-surface-alt rounded-theme p-3 border border-border flex justify-between items-center inventory-card">
                         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailItem(item)}>
                           <div className="text-sm font-bold text-text truncate">{typeLabel(item.type)} {item.title}</div>
                           <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
@@ -301,7 +301,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   gridItems.push(
                     <div key={d ? d.id : `empty-${i}`}
                       className={d 
-                        ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
+                        ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
                         : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
                       }
                       onClick={() => { if (d) { setDetailItem((d as any).item); setDetailDist(d); } }}
@@ -348,7 +348,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   <button onClick={() => { setDetailItem(null); setShareTarget(null); }} className="text-text-muted hover:text-text">×</button>
                 </div>
 
-                <div className="bg-surface-alt rounded-theme p-4 text-sm text-text whitespace-pre-wrap border border-border">
+                <div className="bg-surface-alt rounded-theme p-4 text-sm text-text whitespace-pre-wrap border border-border item-detail-panel">
                   {formatContent(detailItem)}
                 </div>
 

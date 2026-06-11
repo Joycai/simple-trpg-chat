@@ -56,14 +56,101 @@
   background: linear-gradient(180deg, #2d1f14 0%, #3d2b1a 100%);
   border-right: 2px solid #8B4513;
 }
+
+/* Wood tab joinery and board style */
 [data-theme="shrine"] .conv-tab {
+  background: linear-gradient(90deg, rgba(70, 50, 35, 0.45) 0%, rgba(45, 30, 20, 0.25) 100%);
   border-left: 3px solid transparent;
-  transition: border-color 0.3s;
+  border-bottom: 1px solid rgba(28, 21, 16, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.25s ease-in-out;
+}
+[data-theme="shrine"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(100, 75, 55, 0.6) 0%, rgba(70, 48, 32, 0.35) 100%);
+  color: rgb(var(--theme-text)) !important;
 }
 [data-theme="shrine"] .conv-tab.active {
-  border-left-color: #c44040;
-  background: linear-gradient(90deg, rgba(196,64,64,0.15), transparent);
+  background: linear-gradient(90deg, rgba(200, 55, 35, 0.25) 0%, rgba(70, 40, 30, 0.15) 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgba(200, 55, 35, 0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: rgb(var(--theme-text)) !important;
 }
 [data-theme="shrine"] .conv-divider {
-  border-color: rgba(139,69,19,0.4);
+  border-color: rgba(139, 69, 19, 0.3);
+}
+
+/* Shrine fine washi paper cards (clues, inventory etc.) */
+[data-theme="shrine"] .clue-card,
+[data-theme="shrine"] .inventory-card,
+[data-theme="shrine"] .item-detail-panel {
+  background-color: #f6eedb !important;
+  /* Multi-layered background: semi-transparent solid color on top to soften the underlying texture, maximizing text readability */
+  background-image: linear-gradient(rgba(246, 238, 219, 0.965), rgba(246, 238, 219, 0.965)), var(--theme-surface-texture) !important;
+  background-size: 8px 8px !important;
+  border: 1px solid #755944 !important;
+  box-shadow: inset 0 0 16px rgba(139, 90, 43, 0.15),
+              1px 2px 4px rgba(0, 0, 0, 0.2) !important;
+  position: relative;
+  overflow: visible;
+  transition: all 0.2s ease;
+
+  /* Ink color overrides for readability on light paper background */
+  --theme-text: 46 31 19;
+  --theme-text-muted: 95 70 50;
+  --theme-text-dim: 120 95 75;
+  color: rgb(var(--theme-text)) !important;
+}
+
+[data-theme="shrine"] .clue-card:hover,
+[data-theme="shrine"] .inventory-card:hover {
+  border-color: rgb(var(--theme-primary)) !important;
+  box-shadow: inset 0 0 16px rgba(139, 90, 43, 0.15),
+              0 4px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Vermilion header line for paper cards */
+[data-theme="shrine"] .clue-card::before,
+[data-theme="shrine"] .inventory-card::before,
+[data-theme="shrine"] .item-detail-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: rgb(var(--theme-primary)) !important;
+}
+
+
+/* Shrine Chat Bubble Torii Decoration */
+[data-theme="shrine"] .chat-bubble {
+  position: relative;
+  overflow: visible !important;
+}
+[data-theme="shrine"] .chat-bubble-other::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c83723'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  z-index: 10;
+}
+[data-theme="shrine"] .chat-bubble-own::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c83723'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  z-index: 10;
 }

@@ -57,9 +57,9 @@ export function ConversationPanel({
       <div className="p-2">
         <button
           onClick={() => onTabChange("public")}
-          className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-bold transition-all duration-200 rounded-lg cursor-pointer ${
+          className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-bold transition-all duration-200 rounded-lg cursor-pointer conv-tab ${
             activeTab === "public"
-              ? "bg-primary/10 text-primary shadow-sm"
+              ? "bg-primary/10 text-primary shadow-sm active"
               : "text-text-muted hover:text-text hover:bg-surface/60"
           }`}
         >
@@ -68,7 +68,7 @@ export function ConversationPanel({
         </button>
       </div>
 
-      <div className="border-t border-border/40 mx-2"></div>
+      <div className="border-t border-border/40 mx-2 conv-divider"></div>
 
       {/* DM Conversations Section */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -76,9 +76,9 @@ export function ConversationPanel({
           <button
             key={conv.userId}
             onClick={() => onTabChange(conv.userId)}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-all duration-200 rounded-lg relative cursor-pointer ${
+            className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-all duration-200 rounded-lg relative cursor-pointer conv-tab ${
               activeTab === conv.userId
-                ? "bg-primary/10 text-primary font-bold shadow-sm"
+                ? "bg-primary/10 text-primary font-bold shadow-sm active"
                 : "text-text-muted hover:text-text hover:bg-surface/60"
             }`}
           >
