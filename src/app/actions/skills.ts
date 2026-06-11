@@ -7,6 +7,8 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
 
+import { syncCharacterSanity } from "@/lib/commands";
+
 export async function getMySkillsAction(roomId: number) {
   const session = await auth();
   if (!session) return [];
@@ -22,12 +24,24 @@ export async function upsertSkillAction(roomId: number, skillName: string, skill
   if (!session) throw new Error("Not authenticated");
   const userId = parseInt((session.user as any).id);
 
+  let normalizedSkillName = skillName.trim();
+  if (normalizedSkillName.toLowerCase() === "san" || normalizedSkillName === "san值") {
+    normalizedSkillName = "理智值";
+  }
+
   await db.insert(roomSkills).values({
-    roomId, userId, skillName, skillValue,
+    roomId,
+    userId,
+    skillName: normalizedSkillName,
+    skillValue,
   }).onConflictDoUpdate({
     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
     set: { skillValue, updatedAt: sqlNow() },
   });
+
+  if (normalizedSkillName === "理智值") {
+    await syncCharacterSanity(roomId, userId, skillValue);
+  }
 
   revalidatePath(`/rooms/${roomId}`);
 }

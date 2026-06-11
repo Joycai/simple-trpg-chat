@@ -594,7 +594,7 @@
     "separator": "、"
   },
   "commands": {
-    "helpText": "📖 **指令帮助**\n.st 技能名 数值 — 设置技能（支持批量：.st 侦查50聆听60）\n.rc 技能名 — 技能检定（d100 vs 设定值）\n.rd<N> — 投骰（如 .rd100 .rd20 .rd10）\n.help — 显示此帮助",
+    "helpText": "📖 **指令帮助**\n.st 技能名 数值 — 设置技能（支持批量：.st 侦查50聆听60）\n.rc 技能名 — 技能检定（d100 vs 设定值）\n.rd<N> — 投骰（如 .rd100 .rd20 .rd10）\n.sc [成功扣除]/[失败扣除] — 理智检定\n.help — 显示此帮助",
     "unknownCommand": "未知指令。输入 .help 查看可用指令。",
     "stUsageError": "格式错误。正确用法：.st 侦查 50",
     "stSuccess": "📋 技能已更新：{summary}",
@@ -605,7 +605,19 @@
     "failure": "失败",
     "critical": "大成功！",
     "fumble": "大失败！",
-    "checkMessage": "🎲 {skillName}检定：d100={roll} / {target} → {successLevel} {icon}"
+    "checkMessage": "🎲 {skillName}检定：d100={roll} / {target} → {successLevel} {icon}",
+    "scUsageError": "用法：.sc [成功扣除]/[失败扣除] (例如 .sc0/1 或 .sc1d6/1d10)",
+    "scNoSanity": "未设置理智值。请先使用 .st 理智值 [数值] 设置您的理智值。",
+    "scNotCoc7th": "理智检定（.sc）指令仅在 COC7th 规则房间中可用。",
+    "scCheckMessage": "🧠 理智检定：d100={roll} / {target} → {result}\n📉 理智值扣除：{deductExpr} = {deductVal} 点\n📊 理智值变化：{oldSan} → {newSan}",
+    "scWarningInsanity": "\n⚠️ 一次性扣除 5 点或以上理智值，可能进入临时疯狂状态！",
+    "scSuccess": "成功",
+    "scFailure": "失败",
+    "keptLabel": "保留",
+    "invalidDiceExpression": "无效的骰子表达式",
+    "diceCountRangeError": "骰子数量必须在 1 到 100 之间",
+    "diceFacesRangeError": "骰子面数必须在 1 到 1000 之间",
+    "diceKeepRangeError": "保留数量不能大于骰子总数"
   },
   "inventoryActions": {
     "alreadyHadAll": "⚠️ 全体成员此前已拥有道具：【{title}】，未重复发放",

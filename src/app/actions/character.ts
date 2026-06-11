@@ -84,7 +84,11 @@ export async function saveCharacterDataAction(
 
   // Recompute derived values if COC attributes changed
   if (merged.ruleTemplate === "coc7th" && merged.cocAttributes) {
+    const prevSan = existing.cocDerived?.san;
     merged.cocDerived = computeCocDerived(merged.cocAttributes);
+    if (prevSan !== undefined) {
+      merged.cocDerived.san = Math.min(prevSan, merged.cocDerived.sanMax);
+    }
   }
 
   await db.update(roomMembers)
@@ -120,7 +124,11 @@ export async function updateCocAttributesAction(
 
   existing.cocAttributes = { ...(existing.cocAttributes || COC_DEFAULT_ATTRIBUTES), ...attrs };
   existing.ruleTemplate = existing.ruleTemplate || "coc7th";
+  const prevSan = existing.cocDerived?.san;
   existing.cocDerived = computeCocDerived(existing.cocAttributes);
+  if (prevSan !== undefined) {
+    existing.cocDerived.san = Math.min(prevSan, existing.cocDerived.sanMax);
+  }
 
   await db.update(roomMembers)
     .set({ characterData: JSON.stringify(existing) })

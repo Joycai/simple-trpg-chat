@@ -162,8 +162,8 @@ export async function sendMessageAction(
     }
   }
 
-  // 1. Intercept for Bot Commands if it's a plain text message starting with '.'
-  if (type === "text" && content.startsWith(".")) {
+  // 1. Intercept for Bot Commands if it's a plain text message starting with '.' or '。'
+  if (type === "text" && (content.startsWith(".") || content.startsWith("。"))) {
     const result = await executeCommand(roomId, userId, content);
     if (result.isCommand) {
       if (!result.success) {

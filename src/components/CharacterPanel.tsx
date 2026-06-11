@@ -296,11 +296,11 @@ export function CharacterPanel({
                   <div className="mb-2">
                     <div className="flex justify-between text-xs text-text-muted mb-1">
                       <span>💜 {t("san")}</span>
-                      <span className="font-mono">{derived.san}/{derived.sanMax}</span>
+                      <span className="font-mono">{charData.cocDerived?.san !== undefined ? charData.cocDerived.san : derived.san}/{derived.sanMax}</span>
                     </div>
                     <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
                       <div className="h-full rounded-full transition-all duration-300 bg-purple-500"
-                        style={{ width: `${derived.sanMax > 0 ? Math.min(100, (derived.san / derived.sanMax) * 100) : 0}%` }} />
+                        style={{ width: `${derived.sanMax > 0 ? Math.min(100, ((charData.cocDerived?.san !== undefined ? charData.cocDerived.san : derived.san) / derived.sanMax) * 100) : 0}%` }} />
                     </div>
                   </div>
 
