@@ -94,9 +94,13 @@ export async function GET(
         // --- Privacy Filter V3.15 (Targeted notification fix) ---
         if (data.isPrivate) {
           if (data.targetUserId) {
-            // If it's a targeted private message, show it to the intended recipient and the sender.
-            // This prevents KP from seeing "You received..." messages sent to players.
-            if (userId !== data.targetUserId && userId !== data.userId) return;
+            // If it's a targeted system message, only the target user can see it
+            if (data.type === "system") {
+              if (userId !== data.targetUserId) return;
+            } else {
+              // Whisper/DM: recipient + sender see it
+              if (userId !== data.targetUserId && userId !== data.userId) return;
+            }
           } else {
             // Generic private message (no target): sender + host see it
             const isSender = data.userId === userId;

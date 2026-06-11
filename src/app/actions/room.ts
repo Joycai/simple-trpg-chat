@@ -2,7 +2,7 @@
 
 import { db, sqlNow, sqlBool } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray, or, desc, lt } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, lt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -456,13 +456,24 @@ export async function loadMoreMessagesAction(roomId: number, beforeMessageId: nu
   const { userId, isHost } = await checkRoomAccess(roomId, false);
 
   const visibilityCondition = isHost
-    ? eq(messages.roomId, roomId)
+    ? and(
+        eq(messages.roomId, roomId),
+        or(
+          not(eq(messages.isPrivate, true)),
+          not(eq(messages.type, "system")),
+          isNull(messages.targetUserId),
+          eq(messages.targetUserId, userId)
+        )
+      )
     : and(
         eq(messages.roomId, roomId),
         or(
           eq(messages.isPrivate, false),
-          eq(messages.userId, userId),
-          eq(messages.targetUserId, userId)
+          eq(messages.targetUserId, userId),
+          and(
+            eq(messages.userId, userId),
+            not(eq(messages.type, "system"))
+          )
         )
       );
 

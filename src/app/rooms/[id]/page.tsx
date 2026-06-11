@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers, messages, users } from "@/db/schema";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, isNull, not } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
 import { RoomThemeSetter } from "@/components/RoomThemeSetter";
@@ -76,13 +76,24 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   // Get visible messages: SQL-level visibility filter (R8)
   const visibilityCondition = isHost
-    ? eq(messages.roomId, roomId)
+    ? and(
+        eq(messages.roomId, roomId),
+        or(
+          not(eq(messages.isPrivate, true)),
+          not(eq(messages.type, "system")),
+          isNull(messages.targetUserId),
+          eq(messages.targetUserId, userId)
+        )
+      )
     : and(
         eq(messages.roomId, roomId),
         or(
           eq(messages.isPrivate, false),
-          eq(messages.userId, userId),
-          eq(messages.targetUserId, userId)
+          eq(messages.targetUserId, userId),
+          and(
+            eq(messages.userId, userId),
+            not(eq(messages.type, "system"))
+          )
         )
       );
 
