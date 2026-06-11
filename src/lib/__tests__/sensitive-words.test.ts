@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { parseSensitiveWords, checkSensitiveWords, DEFAULT_SENSITIVE_WORDS } from "../sensitive-words";
+import { parseSensitiveWords, checkSensitiveWords } from "../sensitive-words";
 
 // Mock database select query to return empty custom sensitive words
 vi.mock("@/db", () => {

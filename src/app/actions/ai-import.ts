@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 import { recordTokenUsage } from "@/lib/ai_usage";
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 // LLM output format for analyzed items
 interface AnalyzedItem {
@@ -23,25 +24,21 @@ export async function analyzeTextForImportAction(
   roomId: number,
   rawText: string
 ): Promise<{ success: boolean; items?: AnalyzedItem[]; error?: string }> {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    return { success: false, error: "只有主持人可以使用此功能" };
-  }
+  try {
+    const { userId } = await checkRoomAccess(roomId, true);
 
-  const userId = parseInt((session.user as any).id);
+    // Get first available AI provider (own or shared)
+    const [provider] = await db.select().from(aiProviders).where(
+      or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
+    ).orderBy(aiProviders.id);
+    if (!provider) {
+      return { success: false, error: "请先在个人设置中添加 AI Provider" };
+    }
 
-  // Get first available AI provider (own or shared)
-  const [provider] = await db.select().from(aiProviders).where(
-    or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
-  ).orderBy(aiProviders.id);
-  if (!provider) {
-    return { success: false, error: "请先在个人设置中添加 AI Provider" };
-  }
+    const apiKey = decrypt(provider.apiKeyEncrypted);
+    const endpoint = provider.apiEndpoint;
 
-  const apiKey = decrypt(provider.apiKeyEncrypted);
-  const endpoint = provider.apiEndpoint;
-
-  const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。
+    const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。
 
 输出格式（纯 JSON 数组，不要 markdown 代码块）：
 [
@@ -57,7 +54,6 @@ export async function analyzeTextForImportAction(
 - content 可以是字符串或对象
 - 只输出相关的内容，不要编造`;
 
-  try {
     const response = await fetch(`${endpoint}/chat/completions`, {
       method: "POST",
       headers: {
@@ -135,51 +131,48 @@ export async function batchImportItemsAction(
   roomId: number,
   items: AnalyzedItem[]
 ): Promise<{ success: boolean; imported: number; error?: string }> {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "host") {
-    return { success: false, imported: 0, error: "只有主持人可以导入" };
-  }
+  try {
+    const { userId } = await checkRoomAccess(roomId, true);
+    let imported = 0;
 
-  const userId = parseInt((session.user as any).id);
-  let imported = 0;
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        if (item.type === "clue") {
+          // Insert as clue card (visible to all by default)
+          const [clue] = await (tx.insert as any)(clueCards).values({
+            roomId,
+            creatorId: userId,
+            title: item.title,
+            content: typeof item.content === "string" ? item.content : JSON.stringify(item.content),
+          }).returning();
 
-  for (const item of items) {
-    try {
-      if (item.type === "clue") {
-        // Insert as clue card (visible to all by default)
-        const [clue] = await (db.insert as any)(clueCards).values({
-          roomId,
-          creatorId: userId,
-          title: item.title,
-          content: typeof item.content === "string" ? item.content : JSON.stringify(item.content),
-        }).returning();
+          // Make it visible to all
+          await tx.insert(clueVisibility).values({
+            clueId: clue.id,
+            userId: null, // public
+          });
 
-        // Make it visible to all
-        await db.insert(clueVisibility).values({
-          clueId: clue.id,
-          userId: null, // public
-        });
+          imported++;
+        } else {
+          // Insert as inventory item
+          await tx.insert(inventoryItems).values({
+            roomId,
+            creatorId: userId,
+            type: item.type as "info" | "character" | "item",
+            title: item.title,
+            contentJson: typeof item.content === "string"
+              ? JSON.stringify({ text: item.content })
+              : JSON.stringify(item.content),
+          });
 
-        imported++;
-      } else {
-        // Insert as inventory item
-        await db.insert(inventoryItems).values({
-          roomId,
-          creatorId: userId,
-          type: item.type as "info" | "character" | "item",
-          title: item.title,
-          contentJson: typeof item.content === "string"
-            ? JSON.stringify({ text: item.content })
-            : JSON.stringify(item.content),
-        });
-
-        imported++;
+          imported++;
+        }
       }
-    } catch {
-      // Skip failed items
-    }
-  }
+    });
 
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true, imported };
+    revalidatePath(`/rooms/${roomId}`);
+    return { success: true, imported };
+  } catch (err: any) {
+    return { success: false, imported: 0, error: err.message || "导入失败" };
+  }
 }

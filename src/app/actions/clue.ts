@@ -123,21 +123,49 @@ export async function pushClueToChannelAction(
   }
 
   // Broadcast as clue message
-  const [msg] = await db.insert(messages).values({
-    roomId,
-    userId: hostId,
-    nickname: "Host",
-    content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![线索图片](${imageUrl})` : ""}`,
-    type: "clue",
-    diceDetail: JSON.stringify({
-      clueId: clue.id,
-      isPublic,
-      visibleTo: isPublic ? "all" : targetUserIds,
-    }),
-  }).returning();
+  let lastMsg: any;
+  if (isPublic) {
+    const [msg] = await db.insert(messages).values({
+      roomId,
+      userId: hostId,
+      nickname: "Host",
+      content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![线索图片](${imageUrl})` : ""}`,
+      type: "clue",
+      diceDetail: JSON.stringify({
+        clueId: clue.id,
+        isPublic: true,
+        visibleTo: "all",
+      }),
+      isPrivate: false,
+    }).returning();
 
-  broadcastToRoom(roomId, msg);
-  return { clue, message: msg };
+    broadcastToRoom(roomId, msg);
+    lastMsg = msg;
+  } else {
+    // For private clues, insert a targeted private message for each recipient
+    for (const uid of targetUserIds!) {
+      const [msg] = await db.insert(messages).values({
+        roomId,
+        userId: hostId,
+        nickname: "Host",
+        content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![线索图片](${imageUrl})` : ""}`,
+        type: "clue",
+        diceDetail: JSON.stringify({
+          clueId: clue.id,
+          isPublic: false,
+          visibleTo: targetUserIds,
+        }),
+        isPrivate: true,
+        targetUserId: uid,
+      }).returning();
+
+      broadcastToRoom(roomId, msg);
+      lastMsg = msg;
+    }
+  }
+
+  revalidatePath(`/rooms/${roomId}`);
+  return { clue, message: lastMsg };
 }
 
 /**
@@ -206,7 +234,7 @@ export async function revealClueToPlayersAction(
   if (!clue) throw new Error("Clue not found");
 
   // Verify that the caller is the host of the room where the clue exists
-  await checkRoomAccess(clue.roomId, true);
+  const { userId: hostId } = await checkRoomAccess(clue.roomId, true);
 
   if (!targetUserIds || targetUserIds.length === 0) {
     throw new Error("Must specify at least one target user");
@@ -251,6 +279,21 @@ export async function revealClueToPlayersAction(
     userId: uid,
   }));
   await db.insert(clueVisibility).values(rows);
+
+  // 3. Send targeted private system message to each player
+  for (const uid of newTargetUserIds) {
+    const [msg] = await db.insert(messages).values({
+      roomId: clue.roomId,
+      userId: hostId,
+      nickname: "Host",
+      content: `💡 您获得了新线索：【${clue.title}】，已加入您的线索册`,
+      type: "system",
+      isPrivate: true,
+      targetUserId: uid,
+    }).returning();
+
+    broadcastToRoom(clue.roomId, msg);
+  }
 
   revalidatePath(`/rooms/${clue.roomId}`);
   return { clueId, revealedTo: newTargetUserIds };
