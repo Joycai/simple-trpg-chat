@@ -6,12 +6,14 @@ import { getMyProviders } from "@/app/actions/ai-providers";
 import { getBotPresetsAction } from "@/app/actions/bot-presets";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 
 interface BotInfo {
   id: number;
   nickname: string;
   memberId: number;
   name?: string;
+  avatarColor?: string | null;
   config: {
     name?: string; systemPrompt?: string; model?: string;
     activation?: string; enableTools?: string[]; providerId?: number;
@@ -28,6 +30,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
   const t = useTranslations("bots");
   const tCommon = useTranslations("common");
   const tp = useTranslations("adminProviders");
+  const tChar = useTranslations("character");
 
   const [bots, setBots] = useState<BotInfo[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -42,6 +45,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
   const [activation, setActivation] = useState("@mention");
   const [enableTools, setEnableTools] = useState<string[]>(["send_message", "roll_dice"]);
   const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
+  const [botColor, setBotColor] = useState<string>("#f43f5e");
   const [providers, setProviders] = useState<any[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);
 
@@ -97,6 +101,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
     setSystemPrompt("");
     setSelectedPresetId("");
     setAllowEditPrompt(true);
+    setBotColor("#f43f5e");
   };
 
   const handleCreate = async () => {
@@ -109,6 +114,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       activation,
       enableTools,
       providerId: providerId ?? undefined,
+      avatarColor: botColor,
     });
     setShowCreate(false);
     resetForm();
@@ -126,6 +132,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
       activation,
       enableTools,
       providerId: providerId ?? undefined,
+      avatarColor: botColor,
     });
     setEditingBot(null);
     resetForm();
@@ -142,6 +149,7 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
     setActivation(bot.config.activation || "@mention");
     setEnableTools(bot.config.enableTools || ["send_message", "roll_dice"]);
     if (bot.config.providerId) setProviderId(bot.config.providerId);
+    setBotColor(bot.avatarColor || getRandomColorForUser(bot.id));
     setShowCreate(false);
     setSelectedPresetId("");
     setAllowEditPrompt(true);
@@ -187,7 +195,15 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                 <div className="flex flex-col gap-2">
                   {bots.map(bot => (
                     <div key={bot.id} className="bg-surface-alt rounded-theme p-3 border border-border flex items-center gap-3">
-                      <span className="text-xl">🤖</span>
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm shrink-0"
+                        style={{
+                          backgroundColor: bot.avatarColor || getRandomColorForUser(bot.id),
+                          color: getContrastColor(bot.avatarColor || getRandomColorForUser(bot.id)),
+                        }}
+                      >
+                        🤖
+                      </div>
                       <div className="flex-1">
                         <div className="text-sm font-bold text-text">{bot.nickname}</div>
                         <div className="text-[10px] text-text-muted">
@@ -255,6 +271,54 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                   <input value={botNickname} onChange={e => setBotNickname(e.target.value)}
                     placeholder={t("nicknamePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm font-mono outline-none" />
                   <p className="text-[10px] text-text-muted">{t("nicknameHint", { name: botNickname || "..." })}</p>
+                </div>
+
+                {/* Avatar Color */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim font-medium">{tChar("avatarColor")}</label>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {PRESET_AVATAR_COLORS.map(preset => (
+                      <button
+                        key={preset.hex}
+                        type="button"
+                        onClick={() => setBotColor(preset.hex)}
+                        className={`w-6 h-6 rounded-full border transition cursor-pointer relative ${
+                          botColor.toLowerCase() === preset.hex.toLowerCase()
+                            ? "border-text scale-110 shadow-sm"
+                            : "border-transparent hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: preset.hex }}
+                        title={preset.name}
+                      >
+                        {botColor.toLowerCase() === preset.hex.toLowerCase() && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px]" style={{ color: preset.text }}>
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    {/* Custom Hex input */}
+                    <div className="flex items-center gap-1.5 ml-1.5">
+                      <input
+                        type="color"
+                        value={botColor.startsWith("#") && botColor.length === 7 ? botColor : "#6366f1"}
+                        onChange={e => setBotColor(e.target.value)}
+                        className="w-6 h-6 border-0 p-0 rounded-full cursor-pointer bg-transparent outline-none overflow-hidden"
+                      />
+                      <input
+                        type="text"
+                        value={botColor}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val.length <= 7) {
+                            setBotColor(val);
+                          }
+                        }}
+                        placeholder="#HEX"
+                        className="w-16 p-1 border border-input-border bg-input-bg rounded text-[10px] text-text font-mono outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">

@@ -144,7 +144,9 @@
     "selectMember": "Select member...",
     "btnRollTooltip": "Roll Dice",
     "btnPrivateTooltip": "Toggle Private Chat",
-    "whisperingPlaceholder": "Whispering..."
+    "whisperingPlaceholder": "Whispering...",
+    "resourceUnavailable": "Resources not configured",
+    "loading": "Loading..."
   },
   "dice": {
     "title": "Dice",
@@ -323,6 +325,7 @@
   },
   "common": {
     "error": "Error",
+    "confirm": "Confirm",
     "cancel": "Cancel",
     "close": "Close",
     "loading": "Loading..."
@@ -362,6 +365,9 @@
     "tabSkills": "Skills",
     "tabBackground": "Bio",
     "resourceStatus": "Resources",
+    "avatarColor": "Avatar Color",
+    "presetColors": "Preset Colors",
+    "customColor": "Custom Color",
     "hp": "HP",
     "san": "SAN",
     "mp": "MP",

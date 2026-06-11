@@ -22,6 +22,7 @@ import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/themes/types";
+import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import Link from "next/link";
 
 interface Room {
@@ -769,6 +770,9 @@ export function RoomClient({
                   onStartDM={handleTabChange}
                   onCheckRequest={handleCheckRequest}
                   isBot={!!players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.users?.isBot}
+                  roomId={room.id}
+                  hostId={room.hostId}
+                  avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.room_members?.avatarColor}
                 />
               ))}
               {Object.entries(typingBots)
@@ -815,7 +819,16 @@ export function RoomClient({
       </div>
 
       {showCharacter && (
-        <CharacterPanel roomId={room.id} userId={userId} currentNickname={nickname} characterData={characterData} roomRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowCharacter(false)} onNicknameChange={(newNick) => setNickname(newNick)} />
+        <CharacterPanel
+          roomId={room.id}
+          userId={userId}
+          currentNickname={nickname}
+          characterData={characterData}
+          roomRuleTemplate={(room as any).ruleTemplate || "basic"}
+          onClose={() => setShowCharacter(false)}
+          onNicknameChange={(newNick) => setNickname(newNick)}
+          avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
+        />
       )}
       {viewingPlayerId !== null && (
         <CharacterPanel
@@ -833,6 +846,7 @@ export function RoomClient({
           readOnly={true}
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
+          avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatarColor}
         />
       )}
       {showBotManager && (
@@ -866,7 +880,15 @@ export function RoomClient({
                 const isMe = u.id === userId;
                 return (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
-                    <span>{isBot ? "🤖" : "👤"}</span>
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm shrink-0 font-theme-mono"
+                      style={{
+                        backgroundColor: p.room_members?.avatarColor || getRandomColorForUser(u.id),
+                        color: getContrastColor(p.room_members?.avatarColor || getRandomColorForUser(u.id)),
+                      }}
+                    >
+                      {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
+                    </div>
                     <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? t("suffixMe") : ""}</span>
                     <div className="flex gap-2">
                         {isHost && !isMe && !isBot && (

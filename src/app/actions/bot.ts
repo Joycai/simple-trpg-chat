@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { getRandomColorForUser } from "@/lib/avatar-colors";
+import { broadcastToRoom } from "@/lib/events";
 
 /**
  * createBotAction
@@ -22,6 +24,7 @@ export async function createBotAction(
     activation: string;
     enableTools?: string[];
     providerId?: number;
+    avatarColor?: string;
   }
 ) {
   // Only room hosts can create bots in the room
@@ -53,6 +56,7 @@ export async function createBotAction(
     roomId,
     userId: botUser.id,
     nickname: data.nickname,
+    avatarColor: data.avatarColor || getRandomColorForUser(botUser.id),
   });
 
   revalidatePath(`/rooms/${roomId}`);
@@ -79,6 +83,7 @@ export async function getRoomBotsAction(roomId: number) {
     nickname: r.room_members.nickname,
     name: r.users.displayName,
     config: JSON.parse(r.users.botConfigJson || "{}"),
+    avatarColor: r.room_members.avatarColor,
   }));
 }
 
@@ -89,7 +94,7 @@ export async function getRoomBotsAction(roomId: number) {
 export async function updateBotAction(
   roomId: number,
   botUserId: number,
-  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number }
+  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number; avatarColor?: string }
 ) {
   // Only room hosts can edit bots
   await checkRoomAccess(roomId, true);
@@ -103,8 +108,14 @@ export async function updateBotAction(
     botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools || existingConfig.enableTools, providerId: data.providerId }),
   }).where(eq(users.id, botUserId));
 
-  await db.update(roomMembers).set({ nickname: data.nickname })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+  await db.update(roomMembers).set({
+    nickname: data.nickname,
+    avatarColor: data.avatarColor,
+  }).where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
 
   revalidatePath(`/rooms/${roomId}`);
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateNicknameAction, getRoomSkills } from "@/app/actions/room";
+import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction } from "@/app/actions/room";
 import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CharacterData, CocAttributes } from "@/lib/character-types";
 import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
+import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 
 interface CharacterPanelProps {
   roomId: number;
@@ -20,6 +21,7 @@ interface CharacterPanelProps {
   readOnly?: boolean;
   targetUserId?: number;
   loading?: boolean;
+  avatarColor?: string | null;
 }
 
 interface SkillItem {
@@ -41,6 +43,7 @@ export function CharacterPanel({
   readOnly = false,
   targetUserId,
   loading = false,
+  avatarColor,
 }: CharacterPanelProps) {
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
@@ -49,9 +52,10 @@ export function CharacterPanel({
   // Tab
   const [activeTab, setActiveTab] = useState<TabId>("attributes");
 
-  // Nickname
+  // Nickname & Color
   const [nickname, setNickname] = useState(currentNickname);
   const [editingNick, setEditingNick] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
 
   // Character data
@@ -105,6 +109,16 @@ export function CharacterPanel({
       onNicknameChange(nickname.trim());
     }
     setEditingNick(false);
+  };
+
+  const handleColorChange = async (color: string) => {
+    if (readOnly) return;
+    setSelectedColor(color);
+    try {
+      await updateRoomMemberColorAction(roomId, userId, color);
+    } catch (err) {
+      console.error("Failed to update avatar color:", err);
+    }
   };
 
   const saveCharacterData = async () => {
@@ -235,20 +249,81 @@ export function CharacterPanel({
           <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
-        {/* Nickname */}
-        <div className="flex items-center gap-3 bg-surface-alt rounded-theme p-3 mb-4">
-          <span className="text-2xl">👤</span>
-          {editingNick ? (
-            <div className="flex-1 flex gap-2">
-              <input value={nickname} onChange={e => setNickname(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { setNickname(currentNickname); setEditingNick(false); } }}
-                className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" autoFocus />
-              <button onClick={saveNickname} className="text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded font-bold cursor-pointer">{tCommon("confirm")}</button>
+        {/* Nickname & Avatar Color */}
+        <div className="flex flex-col gap-3.5 bg-surface-alt rounded-theme p-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-md transition-colors shrink-0"
+              style={{
+                backgroundColor: selectedColor,
+                color: getContrastColor(selectedColor),
+              }}
+            >
+              {nickname.charAt(0).toUpperCase()}
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-between">
-              <span className="font-bold text-text">{nickname}</span>
-              {!readOnly && <button onClick={() => setEditingNick(true)} className="text-xs text-text-muted hover:text-text cursor-pointer">✏️</button>}
+            {editingNick ? (
+              <div className="flex-1 flex gap-2">
+                <input value={nickname} onChange={e => setNickname(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { setNickname(currentNickname); setEditingNick(false); } }}
+                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" autoFocus />
+                <button onClick={saveNickname} className="text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded font-bold cursor-pointer">{tCommon("confirm")}</button>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-between">
+                <span className="font-bold text-text text-base">{nickname}</span>
+                {!readOnly && <button onClick={() => setEditingNick(true)} className="text-xs text-text-muted hover:text-text cursor-pointer">✏️</button>}
+              </div>
+            )}
+          </div>
+
+          {!readOnly && (
+            <div className="flex flex-col gap-1.5 border-t border-border/40 pt-2.5">
+              <label className="text-xs text-text-dim font-medium">{t("avatarColor")}</label>
+              <div className="flex flex-wrap gap-2 items-center">
+                {PRESET_AVATAR_COLORS.map(preset => (
+                  <button
+                    key={preset.hex}
+                    onClick={() => handleColorChange(preset.hex)}
+                    className={`w-6 h-6 rounded-full border transition cursor-pointer relative ${
+                      selectedColor.toLowerCase() === preset.hex.toLowerCase()
+                        ? "border-text scale-110 shadow-sm"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: preset.hex }}
+                    title={preset.name}
+                  >
+                    {selectedColor.toLowerCase() === preset.hex.toLowerCase() && (
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px]" style={{ color: preset.text }}>
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                ))}
+                {/* Custom Hex input */}
+                <div className="flex items-center gap-1.5 ml-1.5">
+                  <input
+                    type="color"
+                    value={selectedColor.startsWith("#") && selectedColor.length === 7 ? selectedColor : "#6366f1"}
+                    onChange={e => handleColorChange(e.target.value)}
+                    className="w-6 h-6 border-0 p-0 rounded-full cursor-pointer bg-transparent outline-none overflow-hidden"
+                  />
+                  <input
+                    type="text"
+                    value={selectedColor}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val.length <= 7) {
+                        setSelectedColor(val);
+                        if (val.match(/^#[0-9a-fA-F]{6}$/)) {
+                          handleColorChange(val);
+                        }
+                      }
+                    }}
+                    placeholder="#HEX"
+                    className="w-16 p-1 border border-input-border bg-input-bg rounded text-[10px] text-text font-mono outline-none"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>

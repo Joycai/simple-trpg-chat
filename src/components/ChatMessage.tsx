@@ -1,9 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatTime, formatDiceResult } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "./MarkdownRenderer";
+import { ResourceStatusTooltip } from "./ResourceStatusTooltip";
+import { getCharacterDataAction } from "@/app/actions/character";
+import { type CharacterData } from "@/lib/character-types";
+import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+
+// Cache structure for character resource data, keyed by `${roomId}-${senderId}`
+const characterCache = new Map<
+  string,
+  {
+    data: CharacterData | null;
+    promise?: Promise<CharacterData | null>;
+  }
+>();
 
 interface ChatMessageProps {
   nickname: string;
@@ -20,6 +33,9 @@ interface ChatMessageProps {
   onViewCharacter?: (userId: number, nickname: string) => void;
   onStartDM?: (userId: number) => void;
   onCheckRequest?: (skillName: string, diceType: string) => void;
+  roomId?: number;
+  hostId?: number;
+  avatarColor?: string | null;
 }
 
 export function ChatMessage({
@@ -37,11 +53,19 @@ export function ChatMessage({
   onViewCharacter,
   onStartDM,
   onCheckRequest,
+  roomId,
+  hostId,
+  avatarColor,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [mounted, setMounted] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [charData, setCharData] = useState<CharacterData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -53,6 +77,81 @@ export function ChatMessage({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const canView = !!(roomId && hostId && senderId && !isOwn && (
+    senderId !== hostId && (isHost ? true : !isBot)
+  ));
+
+  useEffect(() => {
+    if (!isHovered || !canView) return;
+
+    const updatePosition = () => {
+      if (avatarRef.current) {
+        const rect = avatarRef.current.getBoundingClientRect();
+        setCoords({
+          top: rect.top,
+          left: rect.right + 8,
+        });
+      }
+    };
+
+    updatePosition();
+
+    // Find nearest scrollable container
+    const scrollParent = avatarRef.current?.closest(".overflow-y-auto");
+    if (scrollParent) {
+      scrollParent.addEventListener("scroll", updatePosition);
+    }
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      if (scrollParent) {
+        scrollParent.removeEventListener("scroll", updatePosition);
+      }
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isHovered, canView]);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (!canView || !roomId || !senderId) return;
+
+    const cacheKey = `${roomId}-${senderId}`;
+    const cached = characterCache.get(cacheKey);
+
+    if (cached) {
+      if (cached.promise) {
+        setLoading(true);
+        cached.promise.then((data) => {
+          setCharData(data);
+          setLoading(false);
+        });
+      } else {
+        setCharData(cached.data);
+        setLoading(false);
+      }
+      return;
+    }
+
+    setLoading(true);
+    const promise = getCharacterDataAction(roomId, senderId)
+      .then((data) => {
+        characterCache.set(cacheKey, { data, promise: undefined });
+        return data;
+      })
+      .catch((err) => {
+        console.error("Failed to fetch character data for tooltip:", err);
+        characterCache.delete(cacheKey);
+        return null;
+      });
+
+    characterCache.set(cacheKey, { data: null, promise });
+
+    promise.then((data) => {
+      setCharData(data);
+      setLoading(false);
+    });
+  };
 
   // Check request rendering
   if (type === "check_request") {
@@ -94,17 +193,37 @@ export function ChatMessage({
 
   return (
     <div className={`flex gap-3 py-1.5 group animate-in fade-in slide-in-from-bottom-1 ${isOwn ? "flex-row-reverse" : ""}`}>
-      {/* Avatar */}
+      {/* Avatar Wrapper */}
       <div
-        className={`w-8 h-8 rounded-theme flex items-center justify-center text-xs font-bold shrink-0 transition shadow-sm ${
-          isPrivate
-            ? "bg-private-bg text-accent border-2 border-private-border"
-            : isOwn
-            ? "bg-primary/20 text-primary border border-primary/30"
-            : "bg-surface-alt text-text border border-border"
-        }`}
+        ref={avatarRef}
+        className="relative shrink-0"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {nickname.charAt(0).toUpperCase()}
+        <div
+          className={`w-8 h-8 rounded-theme flex items-center justify-center text-xs font-bold transition shadow-sm ${
+            isPrivate
+              ? "border-2 border-private-border"
+              : isOwn
+              ? "border border-primary/30"
+              : "border border-border"
+          }`}
+          style={{
+            backgroundColor: avatarColor || getRandomColorForUser(senderId || 0),
+            color: getContrastColor(avatarColor || getRandomColorForUser(senderId || 0)),
+          }}
+        >
+          {nickname.charAt(0).toUpperCase()}
+        </div>
+
+        {isHovered && canView && (
+          <ResourceStatusTooltip
+            loading={loading}
+            charData={charData}
+            nickname={nickname}
+            coords={coords}
+          />
+        )}
       </div>
 
       {/* Bubble */}

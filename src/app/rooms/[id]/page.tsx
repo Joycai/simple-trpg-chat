@@ -8,6 +8,7 @@ import { RoomThemeSetter } from "@/components/RoomThemeSetter";
 import type { ThemeId } from "@/themes/types";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { getRandomColorForUser } from "@/lib/avatar-colors";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
@@ -48,24 +49,23 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  if (!member && !isHost) {
+  if (!member && isHost) {
     // Auto-join the host if they weren't added as member
-    if (isHost) {
-      await db.insert(roomMembers).values({
-        roomId,
-        userId,
-        nickname: user.name || user.username || "Host",
-      });
-    } else {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
-          <h1 className="text-2xl font-bold text-text-muted">{t("notJoined")}</h1>
-          <Link href="/" className="text-primary hover:underline">
-            {t("backToJoin")}
-          </Link>
-        </div>
-      );
-    }
+    await db.insert(roomMembers).values({
+      roomId,
+      userId,
+      nickname: user.name || user.username || "Host",
+      avatarColor: getRandomColorForUser(userId),
+    });
+  } else if (!member) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
+        <h1 className="text-2xl font-bold text-text-muted">{t("notJoined")}</h1>
+        <Link href="/" className="text-primary hover:underline">
+          {t("backToJoin")}
+        </Link>
+      </div>
+    );
   }
 
   // Get updated member info

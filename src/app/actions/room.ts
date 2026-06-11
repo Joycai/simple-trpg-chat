@@ -12,6 +12,7 @@ import { rollDice } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { getTranslations } from "next-intl/server";
+import { getRandomColorForUser } from "@/lib/avatar-colors";
 
 // --- Room Actions ---
 
@@ -49,6 +50,7 @@ export async function createRoomAction(formData: FormData) {
       roomId: newRoom.id,
       userId: parseInt(session.user.id),
       nickname: session.user.name || "Host",
+      avatarColor: getRandomColorForUser(parseInt(session.user.id)),
     });
 
     revalidatePath("/");
@@ -84,6 +86,7 @@ export async function joinRoomAction(formData: FormData) {
         roomId,
         userId,
         nickname: (session.user as any).name || "Player",
+        avatarColor: getRandomColorForUser(userId),
       });
     }
 
@@ -125,6 +128,47 @@ export async function updateNicknameAction(roomId: number, nickname: string) {
   await db.update(roomMembers)
     .set({ nickname })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+export async function updateRoomMemberColorAction(roomId: number, targetUserId: number, color: string) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+
+  const userId = parseInt((session.user as any).id);
+
+  // 1. Get the room to check if the caller is the host
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) throw new Error("Room not found");
+  const isHost = room.hostId === userId;
+
+  // 2. Determine if allowed
+  let allowed = false;
+  if (targetUserId === userId) {
+    allowed = true; // Allowed to edit own color
+  } else if (isHost) {
+    // Host can edit bot colors. Let's verify targetUserId is indeed a bot in this room
+    const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
+    if (targetUser && targetUser.isBot) {
+      allowed = true;
+    }
+  }
+
+  if (!allowed) throw new Error("Unauthorized to change this user's color");
+
+  // 3. Update the color in roomMembers
+  await db.update(roomMembers)
+    .set({ avatarColor: color })
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, targetUserId)));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
 
   revalidatePath(`/rooms/${roomId}`);
 }

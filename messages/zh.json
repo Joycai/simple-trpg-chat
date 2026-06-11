@@ -144,7 +144,9 @@
     "selectMember": "选择成员...",
     "btnRollTooltip": "投骰子",
     "btnPrivateTooltip": "开启私聊模式",
-    "whisperingPlaceholder": "正在进行悄悄话..."
+    "whisperingPlaceholder": "正在进行悄悄话...",
+    "resourceUnavailable": "未设置资源状态",
+    "loading": "加载中..."
   },
   "dice": {
     "title": "骰点",
@@ -323,6 +325,7 @@
   },
   "common": {
     "error": "出错了",
+    "confirm": "确认",
     "cancel": "取消",
     "close": "关闭",
     "loading": "加载中..."
@@ -362,6 +365,9 @@
     "tabSkills": "技能",
     "tabBackground": "背景",
     "resourceStatus": "资源状态",
+    "avatarColor": "头像颜色",
+    "presetColors": "预设色彩",
+    "customColor": "自定义颜色",
     "hp": "生命值",
     "san": "理智值",
     "mp": "魔法值",

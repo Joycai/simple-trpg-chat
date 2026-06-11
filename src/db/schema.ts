@@ -79,6 +79,7 @@ export const roomMembers = pgTable('room_members', {
   nickname: text('nickname').notNull(),
   joinedAt: timestamp('joined_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   characterData: text('character_data'),
+  avatarColor: text('avatar_color'),
 });
 
 export const roomSkills = pgTable('room_skills', {
