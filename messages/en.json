@@ -170,7 +170,14 @@
     "exportFail": "Export failed",
     "exportHint": "Markdown: reading & scripts · JSON: programmatic",
     "changePassword": "Change Password",
-    "currentPassword": "Current Password"
+    "currentPassword": "Current Password",
+    "sensitiveWords": "Sensitive Word Moderation",
+    "sensitiveWordsDesc": "Configure keywords to moderate. Default political keywords are built-in and immutable. You can append custom words below (one per line).",
+    "defaultBlacklist": "Built-in Blacklist (Immutable)",
+    "customBlacklist": "Custom Blacklist (one per line)",
+    "saveConfig": "Save Configuration",
+    "saveSuccess": "Configuration saved successfully",
+    "saveFailed": "Failed to save, please try again"
   },
   "theme": {
     "default": "Default",

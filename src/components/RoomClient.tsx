@@ -188,8 +188,19 @@ export function RoomClient({
   // Filter messages by active tab (Task #43)
   const tabMessages = useMemo(() => {
     if (activeTab === "public") {
-      // Show non-private messages
-      return messages.filter(m => !m.isPrivate);
+      // Show public messages and private messages that are system warnings, check-requests,
+      // or belong inline to the public channel (e.g. private GM rolls/system warning messages)
+      return messages.filter(m => {
+        if (!m.isPrivate) return true;
+        
+        // Show private system/check messages only to the sender or target in the public feed
+        if (m.type === "system" || m.type === "check_request") {
+          return m.userId === userId || m.targetUserId === userId;
+        }
+        
+        // Show other private messages (like private rolls) in public only if they have no specific target (private to GM)
+        return !m.targetUserId;
+      });
     }
     // Show private messages between current user and active target
     return messages.filter(m => 

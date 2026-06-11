@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { AdminAiToggle } from "@/components/AdminAiToggle";
 import { AdminProviderManager } from "@/components/AdminProviderManager";
 import { SiteThemeSelector } from "@/components/SiteThemeSelector";
+import { AdminSensitiveWords } from "@/components/AdminSensitiveWords";
 import { getSiteTheme } from "@/app/actions/theme";
 import type { ThemeId } from "@/themes/types";
 import { Database, HardDrive } from "lucide-react";
@@ -13,6 +14,8 @@ export default async function AdminConfigPage() {
   const t = await getTranslations("admin");
   const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
+  const [wordsConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "sensitive_words"));
+  const sensitiveWords = wordsConfig?.value || "";
   const dbType = currentDialect;
   const siteTheme = await getSiteTheme();
 
@@ -46,6 +49,8 @@ export default async function AdminConfigPage() {
       </section>
 
       <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
+
+      <AdminSensitiveWords initialWords={sensitiveWords} />
 
       <AdminProviderManager />
 

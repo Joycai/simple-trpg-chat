@@ -170,7 +170,14 @@
     "exportFail": "导出失败",
     "exportHint": "Markdown：适合人工阅读和视频脚本 · JSON：适合程序化回放",
     "changePassword": "修改密码",
-    "currentPassword": "当前密码"
+    "currentPassword": "当前密码",
+    "sensitiveWords": "敏感词过滤设置",
+    "sensitiveWordsDesc": "配置发言拦截词汇。系统预置了与中国大陆政治相关的敏感词（默认且不可删除），您可以在下方添加额外的自定义敏感词（每行一个）。",
+    "defaultBlacklist": "系统预置词（不可删除）",
+    "customBlacklist": "自定义敏感词（每行一个）",
+    "saveConfig": "保存配置",
+    "saveSuccess": "配置已保存",
+    "saveFailed": "保存失败，请重试"
   },
   "theme": {
     "default": "默认",

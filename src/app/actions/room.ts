@@ -10,6 +10,7 @@ import { broadcastToRoom } from "@/lib/events";
 import { executeCommand } from "@/lib/commands";
 import { rollDice } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkSensitiveWords } from "@/lib/sensitive-words";
 
 // --- Room Actions ---
 
@@ -138,6 +139,25 @@ export async function sendMessageAction(
   targetUserId?: number // V3.14: Added targetUserId
 ) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
+
+  // 0. Scan for sensitive words
+  if (type === "text") {
+    const matchedWord = await checkSensitiveWords(content);
+    if (matchedWord) {
+      const [warningMsg] = await db.insert(messages).values({
+        roomId,
+        userId,
+        targetUserId: userId, // Targeted strictly to the sender
+        nickname: "SYSTEM",
+        content: `⚠️ 发送失败：您的消息中包含敏感词汇，已被系统拦截。`,
+        type: "system",
+        isPrivate: true,
+      }).returning();
+
+      broadcastToRoom(roomId, warningMsg);
+      return warningMsg;
+    }
+  }
 
   // 1. Intercept for Bot Commands if it's a plain text message starting with '.'
   if (type === "text" && content.startsWith(".")) {
