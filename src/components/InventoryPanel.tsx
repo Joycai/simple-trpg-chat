@@ -396,39 +396,48 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                     <span className="h-px bg-border flex-1"></span>
                   </div>
 
-                  {/* Player List checkboxes */}
+                  {/* Player List */}
                   <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
                     {players.filter(p => p.id !== userId).map(p => {
                       const isSelected = distributeTargets.includes(p.id);
                       return (
-                        <label
+                        <div
                           key={p.id}
-                          className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left transition border cursor-pointer select-none ${
+                          role="checkbox"
+                          aria-checked={isSelected}
+                          tabIndex={0}
+                          onClick={() => {
+                            setDistributeTargets(prev =>
+                              prev.includes(p.id)
+                                ? prev.filter(id => id !== p.id)
+                                : [...prev, p.id]
+                            );
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              setDistributeTargets(prev =>
+                                prev.includes(p.id)
+                                  ? prev.filter(id => id !== p.id)
+                                  : [...prev, p.id]
+                              );
+                            }
+                          }}
+                          className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left border cursor-pointer select-none ${
                             isSelected
                               ? "bg-primary/10 border-primary/40 text-primary font-medium"
                               : "bg-surface border-border/60 text-text hover:bg-surface-alt"
                           }`}
                         >
-                          <span className="flex items-center gap-1.5">
-                            <span>👤</span>
-                            <span>{p.nickname || p.username}</span>
+                          <span>👤 {p.nickname || p.username}</span>
+                          <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${
+                            isSelected
+                              ? "bg-primary border-primary text-white"
+                              : "border-input-border bg-input-bg"
+                          }`}>
+                            {isSelected && "✓"}
                           </span>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setDistributeTargets(prev => {
-                                if (checked) {
-                                  return prev.includes(p.id) ? prev : [...prev, p.id];
-                                } else {
-                                  return prev.filter(id => id !== p.id);
-                                }
-                              });
-                            }}
-                            className="w-4 h-4 rounded border-input-border text-primary focus:ring-primary cursor-pointer"
-                          />
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
@@ -446,7 +455,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       type="button"
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute(distributeTargets); }}
                       disabled={distributeTargets.length === 0}
-                      className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 disabled:hover:bg-success text-white py-2 rounded font-bold text-xs cursor-pointer transition text-center"
+                      className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 disabled:hover:bg-success text-white py-2 rounded font-bold text-xs cursor-pointer text-center"
                     >
                       确认发放 ({distributeTargets.length})
                     </button>
