@@ -401,29 +401,34 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                     {players.filter(p => p.id !== userId).map(p => {
                       const isSelected = distributeTargets.includes(p.id);
                       return (
-                        <button
+                        <label
                           key={p.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDistributeTargets(prev => {
-                              if (prev.includes(p.id)) {
-                                return prev.filter(id => id !== p.id);
-                              } else {
-                                return [...prev, p.id];
-                              }
-                            });
-                          }}
-                          className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left transition border cursor-pointer ${
+                          className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left transition border cursor-pointer select-none ${
                             isSelected
                               ? "bg-primary/10 border-primary/40 text-primary font-medium"
                               : "bg-surface border-border/60 text-text hover:bg-surface-alt"
                           }`}
                         >
-                          <span>👤 {p.nickname || p.username}</span>
-                          {isSelected && <span className="text-xs font-bold">✓</span>}
-                        </button>
+                          <span className="flex items-center gap-1.5">
+                            <span>👤</span>
+                            <span>{p.nickname || p.username}</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setDistributeTargets(prev => {
+                                if (checked) {
+                                  return prev.includes(p.id) ? prev : [...prev, p.id];
+                                } else {
+                                  return prev.filter(id => id !== p.id);
+                                }
+                              });
+                            }}
+                            className="w-4 h-4 rounded border-input-border text-primary focus:ring-primary cursor-pointer"
+                          />
+                        </label>
                       );
                     })}
                   </div>
