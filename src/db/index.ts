@@ -9,11 +9,11 @@ import * as pgSchema from './schema';
 function readDbConfig(): { url: string } {
   const configPath = path.join(process.cwd(), 'db.config.json');
   if (!fs.existsSync(configPath)) {
-    throw new Error('[DB] db.config.json not found. Run setup.sh to configure PostgreSQL.');
+    throw new Error('[DB] db.config.json not found. Run setup.sh (Linux/macOS) or setup.bat (Windows) to configure PostgreSQL.');
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   if (!config.url) {
-    throw new Error('[DB] PostgreSQL URL not configured. Run setup.sh.');
+    throw new Error('[DB] PostgreSQL URL not configured. Run setup.sh (Linux/macOS) or setup.bat (Windows).');
   }
   return { url: config.url };
 }

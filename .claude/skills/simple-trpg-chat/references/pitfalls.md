@@ -38,4 +38,4 @@ After `pnpm install`, `better-sqlite3` may need `pnpm rebuild better-sqlite3` fo
 Only `pnpm-lock.yaml` is used. `npm ci` will fail — use `pnpm install --frozen-lockfile` in CI.
 
 ### 10. AUTH_SECRET missing
-`.env` file required with `AUTH_SECRET=<random>`. Running from wrong directory (e.g., github-mirror) causes `MissingSecret` errors. Run `bash setup.sh` for first-time setup.
+`.env` file required with `AUTH_SECRET=<random>`. Running from wrong directory (e.g., github-mirror) causes `MissingSecret` errors. Run `bash setup.sh` or `setup.bat` for first-time setup.

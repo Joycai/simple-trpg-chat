@@ -55,12 +55,19 @@
 - **PostgreSQL** 15+ (可通过 Docker 快速拉取运行)
 
 ### 2. 一键配置与初始化
-项目根目录下准备了自动化引导脚本 `setup.sh`。只需运行以下命令：
+项目根目录下准备了自动化引导脚本。请根据你的操作系统运行对应的命令：
 
-```bash
-chmod +x setup.sh
-./setup.sh
-```
+- **Linux / macOS**:
+  ```bash
+  chmod +x setup.sh
+  ./setup.sh
+  ```
+
+- **Windows**:
+  双击运行根目录下的 `setup.bat`，或者在命令行中执行：
+  ```cmd
+  setup.bat
+  ```
 
 脚本将会依次引导你：
 1. **数据库配置**：输入 PostgreSQL 连接串（脚本中附带了 Docker 运行 PG 实例的提示命令）。
@@ -85,6 +92,7 @@ pnpm test            # 运行 Vitest 单元测试
 pnpm db:push         # 手动推送 Drizzle 数据库 schema
 pnpm db:studio       # 打开 Drizzle Studio 可视化数据库管理界面
 pnpm db:seed         # 手动向数据库填充初始数据
+pnpm db:doctor       # 运行环境与数据库诊断工具，并支持表结构一键更新
 ```
 
 ---
