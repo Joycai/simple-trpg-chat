@@ -11,8 +11,8 @@ export default async function AdminUsersPage() {
     <div className="p-6 flex flex-col gap-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-purple-100">{t("userManagement")}</h1>
-          <p className="text-sm text-purple-400/60 mt-1">{t("userManagementDesc")}</p>
+          <h1 className="text-2xl font-bold text-text">{t("userManagement")}</h1>
+          <p className="text-sm text-text-muted mt-1">{t("userManagementDesc")}</p>
         </div>
       </div>
       <AdminUserManager users={allUsers as any[]} />

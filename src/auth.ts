@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db, sqlNow } from "./db";
 import { users } from "./db/schema";
@@ -8,7 +8,11 @@ import crypto from "crypto";
 import { recordLogin } from "@/lib/login-history";
 import { authConfig } from "./auth.config";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+class BannedError extends CredentialsSignin {
+  code = "banned";
+}
+
+const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
   ...authConfig,
   providers: [
     Credentials({
@@ -21,6 +25,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const [user] = await db.select().from(users).where(eq(users.username, credentials.username as string));
         if (!user || user.isBot) return null;
+
+        if (user.isBanned) {
+          throw new BannedError();
+        }
 
         const isPasswordCorrect = await bcrypt.compare(credentials.password as string, user.passwordHash);
         if (!isPasswordCorrect) return null;
@@ -52,3 +60,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
 });
+
+export const auth = async (...args: any[]) => {
+  const session = await (nextAuthAuth as any)(...args);
+  if (session && (session as any).invalidated) {
+    return null;
+  }
+  return session;
+};
+
+export { handlers, signIn, signOut };

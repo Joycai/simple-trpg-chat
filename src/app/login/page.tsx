@@ -35,6 +35,8 @@ export default function LoginPage() {
         if (result?.error) {
           if (result.error === "CredentialsSignin") {
             setError(t("errorCredentials"));
+          } else if (result.error === "banned") {
+            setError(t("errorBanned"));
           } else {
             setError(t("errorUnknown"));
           }

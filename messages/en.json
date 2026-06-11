@@ -21,6 +21,7 @@
     "hint": "Default admin: admin / admin123",
     "errorEmpty": "Please enter username and password",
     "errorCredentials": "Invalid username or password",
+    "errorBanned": "Your account has been banned by an administrator and cannot log in.",
     "errorUnknown": "Login failed, please try again"
   },
   "lobby": {
@@ -104,6 +105,11 @@
   "admin": {
     "title": "Admin Dashboard",
     "createUser": "Create Account",
+    "ban": "Ban",
+    "unban": "Unban",
+    "bannedBadge": "Banned",
+    "confirmBan": "Are you sure you want to ban this account? This will force them offline.",
+    "confirmUnban": "Are you sure you want to unban this account?",
     "username": "Username",
     "displayName": "Display Name",
     "password": "Password",
@@ -127,6 +133,13 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "aiManageHint": "Manage AI settings on the AI Config page",
+    "serverLoad": "Server Load",
+    "cpu": "CPU Usage",
+    "memory": "Memory Usage",
+    "uptime": "System Uptime",
+    "processMemory": "Node Process Memory",
+    "os": "Environment",
+    "refresh": "Refresh",
     "userCount": "{count} users",
     "aiConfig": "AI Config",
     "aiConfigDesc": "Manage global AI Bot feature switch and settings",

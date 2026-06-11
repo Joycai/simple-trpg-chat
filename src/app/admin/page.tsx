@@ -23,8 +23,8 @@ export default async function AdminPage() {
     <div className="p-6 flex flex-col gap-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-purple-100">{t("dashboardTitle")}</h1>
-          <p className="text-sm text-purple-400/60 mt-1">{t("dashboardDesc")}</p>
+          <h1 className="text-2xl font-bold text-text">{t("dashboardTitle")}</h1>
+          <p className="text-sm text-text-muted mt-1">{t("dashboardDesc")}</p>
         </div>
       </div>
       <AdminDashboard

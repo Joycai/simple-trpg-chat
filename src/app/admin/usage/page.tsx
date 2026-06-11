@@ -29,8 +29,8 @@ export default async function AdminUsagePage() {
   return (
     <div className="p-6 flex flex-col gap-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-purple-100">{t("tokenUsage") || "Token 使用统计"}</h1>
-        <p className="text-sm text-purple-400/60 mt-1">统计每天每个用户每个 Provider 消耗的 Token 数量明细</p>
+        <h1 className="text-2xl font-bold text-text">{t("tokenUsage") || "Token 使用统计"}</h1>
+        <p className="text-sm text-text-muted mt-1">统计每天每个用户每个 Provider 消耗的 Token 数量明细</p>
       </div>
       <TokenUsageDashboard usages={usages} />
     </div>

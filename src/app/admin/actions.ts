@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
-async function requireAdmin() {
+export async function requireAdmin() {
   const session = await auth();
   if (!session || (session.user as any).role !== "admin") {
     throw new Error("Unauthorized: Admin access required");
@@ -65,5 +65,24 @@ export async function changeOwnPassword(oldPassword: string, newPassword: string
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  revalidatePath("/admin");
+}
+
+export async function toggleBanUser(id: number) {
+  await requireAdmin();
+
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+  if (!user) throw new Error("User not found");
+  if (user.username === "admin") throw new Error("Cannot ban the default admin");
+
+  const newBanStatus = !user.isBanned;
+
+  await db.update(users)
+    .set({
+      isBanned: newBanStatus,
+      sessionToken: newBanStatus ? null : user.sessionToken,
+    })
+    .where(eq(users.id, id));
+
   revalidatePath("/admin");
 }

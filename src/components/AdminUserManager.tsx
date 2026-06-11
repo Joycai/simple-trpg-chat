@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Key, History } from "lucide-react";
-import { createUser, deleteUser, resetPassword, changeOwnPassword } from "@/app/admin/actions";
+import { Key, History, Ban } from "lucide-react";
+import { createUser, deleteUser, resetPassword, changeOwnPassword, toggleBanUser } from "@/app/admin/actions";
 import { getUserLoginHistory } from "@/app/actions/login-history";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ interface User {
   username: string;
   displayName: string;
   role: string;
+  isBanned: boolean;
 }
 
 interface AdminUserManagerProps {
@@ -79,6 +80,21 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
     } catch {
       setResetMsg(t("passwordResetFail"));
       setResetStatus("error");
+    }
+  };
+
+  const handleToggleBan = async (userId: number, username: string, isBanned: boolean) => {
+    const msg = isBanned 
+      ? (t("confirmUnban") || `确定要解封账号 ${username} 吗？`)
+      : (t("confirmBan") || `确定要封禁账号 ${username} 吗？这会强制使其下线。`);
+      
+    if (confirm(msg)) {
+      try {
+        await toggleBanUser(userId);
+        router.refresh();
+      } catch (e: any) {
+        alert(e.message || "操作失败");
+      }
     }
   };
 
@@ -203,7 +219,16 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
             ) : (
               allUsers.map((user: any) => (
               <tr key={user.id} className="border-b border-border last:border-0 hover:bg-surface-alt transition">
-                <td className="py-3 font-mono text-sm text-text">{user.username}</td>
+                <td className="py-3 font-mono text-sm text-text">
+                  <span className={user.isBanned ? "text-danger line-through opacity-60" : ""}>
+                    {user.username}
+                  </span>
+                  {user.isBanned && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded bg-danger/10 text-danger text-[9px] font-bold">
+                      {t("bannedBadge") || "已封禁"}
+                    </span>
+                  )}
+                </td>
                 <td className="py-3 text-text text-sm">{user.displayName}</td>
                 <td className="py-3">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
@@ -223,13 +248,26 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                     <History className="w-3.5 h-3.5" />
                   </button>
                   {user.username !== "admin" && (
-                    <button
-                      onClick={() => { setResetTarget(user.id); setNewPassword(""); setResetMsg(""); }}
-                      className="text-accent/60 hover:text-accent text-xs transition"
-                      title={t("resetPassword") || "重置密码"}
-                    >
-                      <Key className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleToggleBan(user.id, user.username, user.isBanned)}
+                        className={`text-xs transition ${
+                          user.isBanned 
+                            ? "text-success hover:text-success/80" 
+                            : "text-danger/60 hover:text-danger"
+                        }`}
+                        title={user.isBanned ? (t("unban") || "解封") : (t("ban") || "封禁")}
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => { setResetTarget(user.id); setNewPassword(""); setResetMsg(""); }}
+                        className="text-accent/60 hover:text-accent text-xs transition"
+                        title={t("resetPassword") || "重置密码"}
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                   <form action={deleteUser.bind(null, user.id)} className="inline">
                     <button className="text-danger/60 hover:text-danger text-xs transition disabled:opacity-20"

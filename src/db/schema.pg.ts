@@ -54,6 +54,7 @@ export const users = pgTable('users', {
   botConfigJson: text('bot_config_json'),
   themePreference: text('theme_preference'),
   sessionToken: text('session_token'),
+  isBanned: boolean('is_banned').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });

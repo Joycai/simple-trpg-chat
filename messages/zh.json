@@ -21,6 +21,7 @@
     "hint": "初始管理员：admin / admin123",
     "errorEmpty": "请输入用户名和密码",
     "errorCredentials": "用户名或密码错误，请重试",
+    "errorBanned": "您的账号已被管理员封禁，无法登录",
     "errorUnknown": "登录失败，请稍后重试"
   },
   "lobby": {
@@ -104,6 +105,11 @@
   "admin": {
     "title": "Admin 后台",
     "createUser": "创建账号",
+    "ban": "封禁",
+    "unban": "解封",
+    "bannedBadge": "已封禁",
+    "confirmBan": "确定要封禁该账号吗？这会强制使其下线。",
+    "confirmUnban": "确定要解封该账号吗？",
     "username": "用户名",
     "displayName": "显示名称",
     "password": "密码",
@@ -127,6 +133,13 @@
     "enabled": "已启用",
     "disabled": "已禁用",
     "aiManageHint": "在 AI 配置页面管理 AI 设置",
+    "serverLoad": "服务器负载",
+    "cpu": "CPU 使用率",
+    "memory": "内存使用率",
+    "uptime": "系统运行时间",
+    "processMemory": "Node 进程内存",
+    "os": "运行环境",
+    "refresh": "刷新",
     "userCount": "{count} 用户",
     "aiConfig": "AI 配置",
     "aiConfigDesc": "管理 AI Bot 功能的全局开关和设置",
