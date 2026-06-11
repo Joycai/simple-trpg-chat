@@ -26,6 +26,35 @@ const deviceLabels: Record<string, string> = {
   unknown: "未知",
 };
 
+export function parseLoginDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  
+  // Replace space between date and time with 'T' for ISO conformance
+  let isoStr = dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T");
+  
+  // Normalize timezone offset with hours only (e.g. +08 or -05) to full offset (e.g. +08:00 or -05:00)
+  if (/[+-]\d{2}$/.test(isoStr)) {
+    isoStr = isoStr + ":00";
+  }
+  
+  // Check if it already has timezone information:
+  // - ends with Z
+  // - contains '+' after the 'T'
+  // - contains '-' after the time part starts (e.g. index > 10)
+  const hasTimezone = isoStr.endsWith("Z") || 
+                      isoStr.includes("+") || 
+                      (isoStr.indexOf("-", 11) !== -1);
+                      
+  const dateToParse = hasTimezone ? isoStr : isoStr + "Z";
+  const parsed = new Date(dateToParse);
+  
+  // Fallback to original string if parsing failed
+  if (isNaN(parsed.getTime())) {
+    return new Date(dateStr);
+  }
+  return parsed;
+}
+
 export function UserLoginHistory({ records }: { records: LoginRecord[] }) {
   const t = useTranslations("admin");
 
@@ -42,7 +71,8 @@ export function UserLoginHistory({ records }: { records: LoginRecord[] }) {
       {records.map((r) => {
         const Icon = deviceIcons[r.deviceType] || HelpCircle;
         const label = deviceLabels[r.deviceType] || "未知";
-        const time = new Date(r.loginAt + "Z").toLocaleString("zh-CN", {
+        const parsedDate = parseLoginDate(r.loginAt);
+        const time = parsedDate.toLocaleString("zh-CN", {
           month: "2-digit",
           day: "2-digit",
           hour: "2-digit",
