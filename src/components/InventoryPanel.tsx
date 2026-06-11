@@ -56,7 +56,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   const [contentFields, setContentFields] = useState({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
 
   // Distribute state
-  const [distributeTarget, setDistributeTarget] = useState<number | "all" | null>(null);
+  const [distributeTargets, setDistributeTargets] = useState<number[]>([]);
   const [distributeItemId, setDistributeItemId] = useState<number | null>(null);
 
   // Detail state
@@ -102,11 +102,20 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
     loadData();
   };
 
-  const handleDistribute = async () => {
-    if (!distributeItemId || !distributeTarget) return;
-    await distributeItemAction(roomId, distributeItemId, distributeTarget);
+  const handleDistribute = async (targets: number[] | "all") => {
+    if (!distributeItemId || !targets) return;
+    try {
+      if (targets === "all") {
+        await distributeItemAction(roomId, distributeItemId, "all");
+      } else {
+        if (targets.length === 0) return;
+        await Promise.all(targets.map(uid => distributeItemAction(roomId, distributeItemId, uid)));
+      }
+    } catch (err: any) {
+      alert(err.message || "发放失败");
+    }
     setDistributeItemId(null);
-    setDistributeTarget(null);
+    setDistributeTargets([]);
     router.refresh();
     loadData();
   };
@@ -353,7 +362,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                               )}
                             </div>
                             <div className="flex gap-2 shrink-0">
-                              <button onClick={() => { setDistributeItemId(item.id); setDistributeTarget(null); }}
+                              <button onClick={() => { setDistributeItemId(item.id); setDistributeTargets([]); }}
                                 className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
                                 发放
                               </button>
@@ -372,19 +381,64 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
               {/* Distribute dialog */}
               {distributeItemId !== null && (
-                <div className="bg-accent/10 border border-accent/30 rounded-theme theme-border p-4">
-                  <h4 className="font-bold text-text text-sm mb-3">选择发放目标</h4>
-                  <div className="flex flex-col gap-2 mb-3">
-                    <button onClick={() => { setDistributeTarget("all"); handleDistribute(); }}
-                      className="bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer">🌐 全员发放</button>
-                    {players.filter(p => p.id !== userId).map(p => (
-                      <button key={p.id} onClick={() => { setDistributeTarget(p.id); handleDistribute(); }}
-                        className="bg-surface hover:bg-surface-alt text-text py-2 px-3 rounded text-sm text-left transition cursor-pointer">
-                        👤 {p.nickname || p.username}
-                      </button>
-                    ))}
+                <div className="bg-surface rounded-theme border border-border theme-border p-4 flex flex-col gap-3 shadow-md">
+                  <h4 className="font-bold text-text text-sm mb-1">选择发放目标</h4>
+                  
+                  {/* Pinned "全员发放" */}
+                  <button onClick={() => handleDistribute("all")}
+                    className="w-full bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
+                    🌐 全员发放
+                  </button>
+
+                  <div className="flex items-center gap-2 text-text-dim text-[11px] my-1">
+                    <span className="h-px bg-border flex-1"></span>
+                    <span>或选择多名玩家</span>
+                    <span className="h-px bg-border flex-1"></span>
                   </div>
-                  <button onClick={() => setDistributeItemId(null)} className="text-xs text-text-muted hover:text-text cursor-pointer">取消</button>
+
+                  {/* Player List checkboxes */}
+                  <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                    {players.filter(p => p.id !== userId).map(p => {
+                      const isSelected = distributeTargets.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setDistributeTargets(distributeTargets.filter(id => id !== p.id));
+                            } else {
+                              setDistributeTargets([...distributeTargets, p.id]);
+                            }
+                          }}
+                          className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left transition border cursor-pointer ${
+                            isSelected
+                              ? "bg-primary/10 border-primary/40 text-primary font-medium"
+                              : "bg-surface border-border/60 text-text hover:bg-surface-alt"
+                          }`}
+                        >
+                          <span>👤 {p.nickname || p.username}</span>
+                          {isSelected && <span className="text-xs font-bold">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-border">
+                    <button
+                      onClick={() => { setDistributeItemId(null); setDistributeTargets([]); }}
+                      className="flex-1 py-2 text-xs font-bold text-text-muted hover:text-text cursor-pointer text-center"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => handleDistribute(distributeTargets)}
+                      disabled={distributeTargets.length === 0}
+                      className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 disabled:hover:bg-success text-white py-2 rounded font-bold text-xs cursor-pointer transition text-center"
+                    >
+                      确认发放 ({distributeTargets.length})
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -518,7 +572,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                         {itemDists.length === 0 ? (
                           <div className="text-center py-4 bg-surface-alt rounded-theme border border-dashed border-border/50">
                             <p className="text-xs text-text-muted">该道具尚未发放给任何人。</p>
-                            <button onClick={() => { setDistributeItemId(detailItem.id); setDistributeTarget(null); setDetailItem(null); }}
+                            <button onClick={() => { setDistributeItemId(detailItem.id); setDistributeTargets([]); setDetailItem(null); }}
                               className="mt-2 bg-primary hover:bg-primary-hover text-white text-[11px] font-bold px-3 py-1.5 rounded cursor-pointer transition">
                               立即发放
                             </button>
