@@ -143,4 +143,20 @@ describe("Commands - parseAndRollExpression", () => {
       expect(match![2]).toBe(args);
     }
   });
+
+  it("should match sanity check expressions with minus sign", () => {
+    const scRegex = /^([0-9a-zA-Z+-d\s]+)\s*\/\s*([0-9a-zA-Z+-d\s]+)$/i;
+    
+    const validCases = [
+      "0/1d6",
+      "1d3-1/1d6",
+      "1d6-2/1d10-1d2",
+      "1d6 + 1 / 1d20 - 5"
+    ];
+
+    for (const testCase of validCases) {
+      const match = testCase.match(scRegex);
+      expect(match).not.toBeNull();
+    }
+  });
 });

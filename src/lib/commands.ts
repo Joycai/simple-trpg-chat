@@ -1,7 +1,7 @@
 import { db, sqlNow } from "@/db";
 import { roomSkills, rooms, roomMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { rollDiceAction, sendMessageAction } from "@/app/actions/room";
+import { sendMessageAction } from "@/app/actions/room";
 import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 
@@ -82,17 +82,17 @@ export async function executeCommand(
 
   // --- .st (Set Skill) ---
   if (cmd === "st") {
-    return await handleSetSkill(roomId, userId, args);
+    return await handleSetSkill(roomId, userId, args, t);
   }
 
   // --- .rc (Roll Check) ---
   if (cmd === "rc") {
-    return await handleRollCheck(roomId, userId, args);
+    return await handleRollCheck(roomId, userId, args, t);
   }
 
   // --- .sc (Sanity Check) ---
   if (cmd === "sc") {
-    return await handleSanityCheck(roomId, userId, args);
+    return await handleSanityCheck(roomId, userId, args, t);
   }
 
   // --- .help ---
@@ -106,11 +106,13 @@ export async function executeCommand(
 }
 
 /** Sync sanity value to room_members.character_data under coc7th rules */
-export async function syncCharacterSanity(roomId: number, userId: number, newSan: number) {
+export async function syncCharacterSanity(roomId: number, userId: number, newSan: number): Promise<number> {
   const [member] = await db
     .select({ characterData: roomMembers.characterData })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  let finalSan = newSan;
 
   if (member?.characterData) {
     try {
@@ -119,10 +121,20 @@ export async function syncCharacterSanity(roomId: number, userId: number, newSan
         if (!data.cocDerived) {
           data.cocDerived = {};
         }
-        data.cocDerived.san = newSan;
-        if (typeof data.cocDerived.sanMax !== "number") {
-          data.cocDerived.sanMax = data.cocAttributes?.pow || newSan;
+        
+        // Cap sanity with maximum sanity if set, default to 99
+        let sanMax = 99;
+        if (typeof data.cocDerived.sanMax === "number") {
+          sanMax = data.cocDerived.sanMax;
+        } else if (typeof data.cocAttributes?.pow === "number") {
+          sanMax = data.cocAttributes.pow;
+          data.cocDerived.sanMax = sanMax;
+        } else {
+          data.cocDerived.sanMax = sanMax;
         }
+
+        finalSan = Math.min(Math.max(0, newSan), sanMax);
+        data.cocDerived.san = finalSan;
 
         await db.update(roomMembers)
           .set({ characterData: JSON.stringify(data) })
@@ -132,22 +144,39 @@ export async function syncCharacterSanity(roomId: number, userId: number, newSan
       console.error("Failed to sync character sanity", e);
     }
   }
+  return finalSan;
 }
 
 /** .st: Set/Update Skills */
-async function handleSetSkill(roomId: number, userId: number, args: string): Promise<CommandResult> {
-  const t = await getTranslations("commands");
+async function handleSetSkill(
+  roomId: number,
+  userId: number,
+  args: string,
+  t: any
+): Promise<CommandResult> {
   // Regex to match "SkillName Value" or "SkillNameValue" (compact)
   const regex = /([^0-9\s\.]+)\s*([0-9]+)/g;
   const updates: { name: string; value: number }[] = [];
   let match;
 
   while ((match = regex.exec(args)) !== null) {
-    let name = match[1];
+    let name = match[1].trim();
+    const value = parseInt(match[2]);
+
+    // Limit skill name length to prevent DB overflow / UI issues
+    if (name.length > 50) {
+      name = name.slice(0, 50);
+    }
+
+    // Skill value check (usually between 0 and 999)
+    if (value < 0 || value > 999) {
+      continue;
+    }
+
     if (name.toLowerCase() === "san" || name === "san值") {
       name = "理智值";
     }
-    updates.push({ name, value: parseInt(match[2]) });
+    updates.push({ name, value });
   }
 
   if (updates.length === 0) {
@@ -156,19 +185,22 @@ async function handleSetSkill(roomId: number, userId: number, args: string): Pro
 
   // UPSERT skills
   for (const item of updates) {
+    let skillVal = item.value;
+    if (item.name === "理智值") {
+      // syncCharacterSanity returns the capped sanity value
+      skillVal = await syncCharacterSanity(roomId, userId, item.value);
+      item.value = skillVal;
+    }
+
     await db.insert(roomSkills).values({
       roomId,
       userId,
       skillName: item.name,
-      skillValue: item.value,
+      skillValue: skillVal,
     }).onConflictDoUpdate({
       target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-      set: { skillValue: item.value, updatedAt: sqlNow() },
+      set: { skillValue: skillVal, updatedAt: sqlNow() },
     });
-
-    if (item.name === "理智值") {
-      await syncCharacterSanity(roomId, userId, item.value);
-    }
   }
 
   const summary = updates.map(u => `${u.name} ${u.value}`).join(", ");
@@ -178,8 +210,12 @@ async function handleSetSkill(roomId: number, userId: number, args: string): Pro
 }
 
 /** .rc: Roll Check (d100 vs Skill) */
-async function handleRollCheck(roomId: number, userId: number, args: string): Promise<CommandResult> {
-  const t = await getTranslations("commands");
+async function handleRollCheck(
+  roomId: number,
+  userId: number,
+  args: string,
+  t: any
+): Promise<CommandResult> {
   const skillName = args.trim();
   if (!skillName) return { success: false, isCommand: true, error: t("rcUsageError") };
 
@@ -228,9 +264,12 @@ async function handleRollCheck(roomId: number, userId: number, args: string): Pr
 }
 
 /** .sc: Sanity Check */
-async function handleSanityCheck(roomId: number, userId: number, args: string): Promise<CommandResult> {
-  const t = await getTranslations("commands");
-
+async function handleSanityCheck(
+  roomId: number,
+  userId: number,
+  args: string,
+  t: any
+): Promise<CommandResult> {
   // 1. Get room rules and verify it's coc7th
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
@@ -239,7 +278,8 @@ async function handleSanityCheck(roomId: number, userId: number, args: string): 
   }
 
   // 2. Parse arguments: success_deduction/failure_deduction
-  const scMatch = args.trim().match(/^([0-9a-zA-Z+d\s]+)\s*\/\s*([0-9a-zA-Z+d\s]+)$/i);
+  // Fixed Regex: Added '-' to allow negative adjustments or subtraction in expressions
+  const scMatch = args.trim().match(/^([0-9a-zA-Z+-d\s]+)\s*\/\s*([0-9a-zA-Z+-d\s]+)$/i);
   if (!scMatch) {
     return { success: false, isCommand: true, error: t("scUsageError") };
   }
@@ -265,7 +305,6 @@ async function handleSanityCheck(roomId: number, userId: number, args: string): 
   // 4. Roll d100 sanity check
   const roll = rollDie(100);
   const isSuccess = roll <= currentSan;
-  const statusLabel = isSuccess ? t("scSuccess") : t("scFailure");
   const resultLabel = isSuccess ? t("success") : t("failure");
 
   // 5. Roll deduction
@@ -276,20 +315,20 @@ async function handleSanityCheck(roomId: number, userId: number, args: string): 
   }
 
   const deductVal = rollResult.totalSum;
-  const newSan = Math.max(0, currentSan - deductVal);
+  
+  // Update character sheet sanity and retrieve the actual capped new sanity value
+  const finalNewSan = await syncCharacterSanity(roomId, userId, currentSan - deductVal);
 
-  // 6. Update database and sync character sheet sanity
+  // 6. Update database
   await db.insert(roomSkills).values({
     roomId,
     userId,
     skillName: "理智值",
-    skillValue: newSan,
+    skillValue: finalNewSan,
   }).onConflictDoUpdate({
     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-    set: { skillValue: newSan, updatedAt: sqlNow() },
+    set: { skillValue: finalNewSan, updatedAt: sqlNow() },
   });
-
-  await syncCharacterSanity(roomId, userId, newSan);
 
   // 7. Format messages and warnings
   let warning = "";
@@ -301,11 +340,10 @@ async function handleSanityCheck(roomId: number, userId: number, args: string): 
     roll,
     target: currentSan,
     result: resultLabel,
-    status: statusLabel,
     deductExpr: rollResult.display,
     deductVal,
     oldSan: currentSan,
-    newSan,
+    newSan: finalNewSan,
   }) + warning;
 
   // Compile detailed information for UI
@@ -325,10 +363,10 @@ async function handleSanityCheck(roomId: number, userId: number, args: string): 
     sanityCheck: {
       successExpression: successExpr,
       failureExpression: failureExpr,
-      deductExpression: rollResult.notation,
+      deductExpression: rollResult.display, // Fixed: Storing display representation (e.g. 1d6([4])) instead of raw notation
       deduction: deductVal,
       oldSanity: currentSan,
-      newSanity: newSan,
+      newSanity: finalNewSan,
       isSuccess,
     }
   });
