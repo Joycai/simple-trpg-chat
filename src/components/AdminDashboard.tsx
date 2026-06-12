@@ -197,7 +197,7 @@ export function AdminDashboard({
         </div>
 
         {/* Live Counters */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3 bg-bg/30 border border-border/40 rounded-lg flex items-center gap-3">
             <div className="p-2 rounded bg-primary/10 text-primary">
               <Users className="w-4 h-4" />
@@ -497,7 +497,7 @@ export function AdminDashboard({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatusBadge
                 label={t("uptime")}
                 value={

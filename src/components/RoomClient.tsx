@@ -99,6 +99,7 @@ export function RoomClient({
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
   const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
   const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
@@ -119,10 +120,24 @@ export function RoomClient({
       setUnreadCounts(merged);
     }).catch(() => {});
     const savedWidth = localStorage.getItem("trpg-sidebar-width");
-    const savedCollapsed = localStorage.getItem("trpg-sidebar-collapsed");
     if (savedWidth) setSidebarWidth(Number(savedWidth));
-    if (savedCollapsed) setSidebarCollapsed(savedCollapsed === "true");
   }, [room.id]);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarCollapsed(true);
+      } else {
+        const savedCollapsed = localStorage.getItem("trpg-sidebar-collapsed");
+        setSidebarCollapsed(savedCollapsed === "true");
+      }
+    };
+    checkIsMobile();
+    window.addEventListener("resize", checkIsMobile);
+    return () => window.removeEventListener("resize", checkIsMobile);
+  }, []);
 
   // Periodically prune seenIdsRef to prevent memory leaks in long-running sessions
   useEffect(() => {
@@ -162,6 +177,10 @@ export function RoomClient({
         [tab]: 0,
       }));
       markDMReadAction(room.id, tab).catch(() => {});
+    }
+    if (isMobile) {
+      setSidebarCollapsed(true);
+      localStorage.setItem("trpg-sidebar-collapsed", "true");
     }
   };
 
@@ -511,7 +530,7 @@ export function RoomClient({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-bg overflow-hidden text-text">
+    <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
       <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-stretch md:items-center">
           <div className="flex items-center justify-between md:justify-start gap-4">
@@ -600,58 +619,60 @@ export function RoomClient({
             </div>
 
             {/* Group 2: 跑团工具 (TRPG Tools Group) */}
-            <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
-              {isHost && (
+            {(!isMobile || isHost) && (
+              <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+                {isHost && (
+                  <button
+                    onClick={() => setShowCheckDialog(!showCheckDialog)}
+                    className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      showCheckDialog
+                        ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
+                        : "text-accent/90 hover:text-accent hover:bg-accent/10"
+                    }`}
+                    title={t("tooltipCheck")}
+                  >
+                    <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">{t("btnCheck")}</span>
+                  </button>
+                )}
                 <button
-                  onClick={() => setShowCheckDialog(!showCheckDialog)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    showCheckDialog
-                      ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
-                      : "text-accent/90 hover:text-accent hover:bg-accent/10"
-                  }`}
-                  title={t("tooltipCheck")}
-                >
-                  <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{t("btnCheck")}</span>
-                </button>
-              )}
-              <button
-                onClick={() => setShowClueManager(!showClueManager)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  showClueManager
-                    ? "bg-surface text-primary border border-border/10 shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-surface/30"
-                }`}
-                title={t("tooltipClues")}
-              >
-                <Icons.Ticket className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">{t("btnClues")}</span>
-              </button>
-              {isHost && (
-                <button
-                  onClick={() => setShowAiImport(true)}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
-                  title={t("tooltipImport")}
-                >
-                  <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{t("btnImport")}</span>
-                </button>
-              )}
-              {isHost && (
-                <button
-                  onClick={() => setShowBotManager(!showBotManager)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    showBotManager
+                  onClick={() => setShowClueManager(!showClueManager)}
+                  className={`hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showClueManager
                       ? "bg-surface text-primary border border-border/10 shadow-sm"
                       : "text-text-muted hover:text-text hover:bg-surface/30"
                   }`}
-                  title={t("tooltipBot")}
+                  title={t("tooltipClues")}
                 >
-                  <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">Bot</span>
+                  <Icons.Ticket className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnClues")}</span>
                 </button>
-              )}
-            </div>
+                {isHost && (
+                  <button
+                    onClick={() => setShowAiImport(true)}
+                    className="hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
+                    title={t("tooltipImport")}
+                  >
+                    <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">{t("btnImport")}</span>
+                  </button>
+                )}
+                {isHost && (
+                  <button
+                    onClick={() => setShowBotManager(!showBotManager)}
+                    className={`hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      showBotManager
+                        ? "bg-surface text-primary border border-border/10 shadow-sm"
+                        : "text-text-muted hover:text-text hover:bg-surface/30"
+                    }`}
+                    title={t("tooltipBot")}
+                  >
+                    <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">Bot</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Group 3: 系统菜单 (System Dropdown) */}
             <div className="relative">
@@ -678,6 +699,29 @@ export function RoomClient({
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                     <Icons.Info className="w-4 h-4" /> {t("menuInfo")}
                   </button>
+
+                  {/* Mobile-only menu items */}
+                  {isMobile && (
+                    <div className="border-t border-border mt-1 pt-1">
+                      <button onClick={() => { setShowClueManager(true); }}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                        <Icons.Ticket className="w-4 h-4" /> {t("btnClues")}
+                      </button>
+                      {isHost && (
+                        <>
+                          <button onClick={() => { setShowAiImport(true); }}
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-accent hover:bg-surface-alt transition">
+                            <Icons.Download className="w-4 h-4" /> {t("btnImport")}
+                          </button>
+                          <button onClick={() => { setShowBotManager(true); }}
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                            <Icons.Bot className="w-4 h-4" /> Bot
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   {isHost && (
                     <div className="border-t border-border mt-1 pt-1">
                       <button onClick={() => { setShowExport(true); }}
@@ -723,8 +767,19 @@ export function RoomClient({
           }}
         />
 
+        {/* Backdrop for mobile sidebar */}
+        {!sidebarCollapsed && isMobile && (
+          <div
+            className="fixed inset-0 bg-black/40 z-20 transition-opacity cursor-pointer"
+            onClick={() => {
+              setSidebarCollapsed(true);
+              localStorage.setItem("trpg-sidebar-collapsed", "true");
+            }}
+          />
+        )}
+
         {/* Resize Handle */}
-        {!sidebarCollapsed && (
+        {!sidebarCollapsed && !isMobile && (
           <div
             onMouseDown={handleResizeStart}
             className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-all duration-150 shrink-0 relative z-10 group"

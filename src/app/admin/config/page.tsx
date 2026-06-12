@@ -16,7 +16,7 @@ export default async function AdminConfigPage() {
   const siteTheme = await getSiteTheme();
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-3xl">
+    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-text">{t("systemConfig")}</h1>
         <p className="text-sm text-text-muted mt-1">{t("systemConfigDesc")}</p>

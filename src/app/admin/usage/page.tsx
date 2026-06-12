@@ -27,7 +27,7 @@ export default async function AdminUsagePage() {
     .orderBy(desc(aiTokenUsages.day), desc(aiTokenUsages.id));
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-6xl">
+    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold text-text">{t("title")}</h1>
         <p className="text-sm text-text-muted mt-1">{t("description")}</p>

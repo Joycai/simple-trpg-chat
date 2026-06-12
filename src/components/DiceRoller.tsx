@@ -68,7 +68,7 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
       </div>
 
       {/* Dice selection */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 mb-4">
         {DICE_TYPES.map((die) => (
           <button
             key={die.faces}

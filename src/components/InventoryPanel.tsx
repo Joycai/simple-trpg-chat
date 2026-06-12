@@ -174,7 +174,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" />
-      <div className="relative ml-auto w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="relative ml-auto w-full sm:w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">{t("title")}</h3>

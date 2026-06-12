@@ -69,7 +69,7 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
 
       {/* Sidebar drawer */}
       <div
-        className="relative ml-auto w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto"
+        className="relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

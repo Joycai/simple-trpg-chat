@@ -18,7 +18,7 @@ export default async function AdminAiFeaturesPage() {
   const presets = await getBotPresetsAction();
 
   return (
-    <div className="p-6 flex flex-col gap-6 max-w-5xl">
+    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-text">{t("aiFeatures")}</h1>
         <p className="text-sm text-text-muted mt-1">{t("aiConfigDesc")}</p>

@@ -39,8 +39,8 @@ export function ConversationPanel({
 
   return (
     <div
-      style={{ width: `${width}px` }}
-      className="flex flex-col bg-surface-alt border-r border-border h-full shrink-0 select-none shadow-sm relative conv-sidebar"
+      style={{ "--sidebar-width": `${width}px` } as React.CSSProperties}
+      className="flex flex-col bg-surface-alt border-r border-border h-full shrink-0 select-none relative conv-sidebar w-64 lg:w-[var(--sidebar-width)] lg:relative lg:flex absolute inset-y-0 left-0 z-30 shadow-2xl lg:shadow-none"
     >
       {/* Sidebar Header */}
       <div className="px-3 py-2 flex items-center justify-between border-b border-border bg-surface/50">

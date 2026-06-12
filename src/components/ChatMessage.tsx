@@ -227,7 +227,7 @@ export function ChatMessage({
       </div>
 
       {/* Bubble */}
-      <div className={`flex flex-col max-w-[80%] ${isOwn ? "items-end" : ""}`}>
+      <div className={`flex flex-col max-w-[90%] sm:max-w-[85%] md:max-w-[80%] ${isOwn ? "items-end" : ""}`}>
         <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""} relative`}>
           <span
             className={`text-[13px] font-semibold text-text-muted ${(!isBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
