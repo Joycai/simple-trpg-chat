@@ -22,7 +22,11 @@
     "errorEmpty": "Please enter username and password",
     "errorCredentials": "Invalid username or password",
     "errorBanned": "Your account has been banned by an administrator and cannot log in.",
-    "errorUnknown": "Login failed, please try again"
+    "errorUnknown": "Login failed, please try again",
+    "licenseAgreement": "Open Source License & Dual Licensing Description",
+    "licenseAgreementText": "Open Source License & User Terms",
+    "acceptLicensePrompt": "By logging in, you agree to the project's ",
+    "close": "Close"
   },
   "lobby": {
     "title": "🏠 Room Lobby",

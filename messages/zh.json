@@ -22,7 +22,11 @@
     "errorEmpty": "请输入用户名和密码",
     "errorCredentials": "用户名或密码错误，请重试",
     "errorBanned": "您的账号已被管理员封禁，无法登录",
-    "errorUnknown": "登录失败，请稍后重试"
+    "errorUnknown": "登录失败，请稍后重试",
+    "licenseAgreement": "开源许可协议与双重授权说明",
+    "licenseAgreementText": "开源协议与用户条款",
+    "acceptLicensePrompt": "登录即代表您同意本项目的",
+    "close": "关闭"
   },
   "lobby": {
     "title": "🏠 房间大厅",

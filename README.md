@@ -150,3 +150,29 @@ globalThis.__eventHub = eventHub;
 - **用户指南**：关于界面操作、各角色权限等更详细的使用方法，请参考 [用户手册](file:///Users/caizhengxu/github/simple-trpg-chat/docs/user-guide.md)。
 - **管理员指南**：关于系统设置、成员管理等，请参考 [管理员手册](file:///Users/caizhengxu/github/simple-trpg-chat/docs/admin-guide.md)。
 - **部署指南**：推荐使用 PM2 + Caddy 反向代理部署，详细配置参考 [部署文档](file:///Users/caizhengxu/github/simple-trpg-chat/Deployment.md)。
+
+---
+
+## 📄 开源许可证与双重授权 / License & Dual Licensing
+
+本项目采用 **GNU Affero General Public License v3.0 (AGPL-3.0)** 许可证，并提供**双重授权（Dual Licensing）**模式：
+
+- **开源与免费（AGPL-3.0）**：本项目对个人、娱乐及非商业用途完全免费开源。在 AGPL-3.0 协议下，您可以自由分发、修改和运行本项目，但**如果您将本项目或修改版部署到服务器上并通过网络提供服务，您必须无条件公开您的衍生版本全部源代码**，且同样使用 AGPL-3.0 许可证进行分发。
+- **商业授权限制**：如果您需要在**不公开源代码（闭源）**的情况下对本项目进行商业化运营、二次开发或嵌入商业系统，您**必须**向原作者 `Joycai` 申请获得一份单独的、免除开源义务的**商业许可证（Commercial License）**。未经授权，禁止任何违反 AGPL-3.0 开源义务的闭源商用行为。
+- **署名要求**：无论在何种授权模式下，二次开发版本均必须在关于页面或页脚清晰标注原作者 `Joycai` 及原项目 GitHub 链接：`https://github.com/Joycai/simple-trpg-chat`。
+- **免责声明**：本项目按“现状”提供，作者不对使用者造成的任何直接或间接法律问题承担责任。
+
+完整的开源协议文本请参见 [LICENSE](file:///Users/caizhengxu/github/simple-trpg-chat/LICENSE) 文件。
+
+---
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** and operates under a **Dual Licensing** model:
+
+- **Open Source & Free (AGPL-3.0)**: This project is free and open-source for personal use. You can copy, modify, and distribute it. However, under the terms of the AGPL-3.0, **if you host this software or its modifications on a server to offer network services to users, you must make the entire source code of your modified version publicly available** under the same AGPL-3.0 license.
+- **Commercial Use & Closed-Source Restriction**: If you wish to use, modify, or operate this software for commercial purposes **without complying with the AGPL-3.0 open-source obligation (i.e., closed-source)**, you **must** obtain a separate **Commercial License** from the original author `Joycai`.
+- **Attribution**: In all licensing models, any derivative works must preserve and clearly display credit to the original author (`Joycai`) and the link to the original GitHub repository.
+- **Disclaimer**: This software is provided "as is", and the author assumes no liability for any legal issues or damages arising from its use.
+
+For the full open-source license terms, please refer to the [LICENSE](file:///Users/caizhengxu/github/simple-trpg-chat/LICENSE) file.
+
+
