@@ -32,23 +32,23 @@ export function AdminProviderManager() {
       setName("OpenAI");
       setEndpoint("https://api.openai.com/v1");
       setModel("gpt-4o");
-      setTokenRateInput("0.00015");
-      setTokenRateCached("0.000075");
-      setTokenRateOutput("0.0006");
+      setTokenRateInput("0.15");
+      setTokenRateCached("0.075");
+      setTokenRateOutput("0.60");
     } else if (val === "deepseek-flash") {
       setName("DeepSeek");
       setEndpoint("https://api.deepseek.com");
       setModel("deepseek-v4-flash");
-      setTokenRateInput("0.000015");
-      setTokenRateCached("0.000005");
-      setTokenRateOutput("0.00006");
+      setTokenRateInput("0.015");
+      setTokenRateCached("0.005");
+      setTokenRateOutput("0.06");
     } else if (val === "deepseek-pro") {
       setName("DeepSeek");
       setEndpoint("https://api.deepseek.com");
       setModel("deepseek-v4-pro");
-      setTokenRateInput("0.00015");
-      setTokenRateCached("0.000075");
-      setTokenRateOutput("0.0006");
+      setTokenRateInput("0.15");
+      setTokenRateCached("0.075");
+      setTokenRateOutput("0.60");
     } else if (val === "custom") {
       setName("");
       setEndpoint("");

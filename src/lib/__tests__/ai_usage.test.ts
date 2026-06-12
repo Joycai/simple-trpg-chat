@@ -40,13 +40,13 @@ describe("AI Usage & Billing Deductions", () => {
   });
 
   it("should calculate and deduct point balance for shared providers", async () => {
-    // Mock provider is shared and rates
+    // Mock provider is shared and rates per 1M tokens
     const mockProvider = {
       id: 1,
       isShared: true,
-      tokenRateInput: 0.01,
-      tokenRateCached: 0.005,
-      tokenRateOutput: 0.02,
+      tokenRateInput: 0.15,
+      tokenRateCached: 0.075,
+      tokenRateOutput: 0.60,
     };
     
     // Mock user has role 'player' and 50 points
@@ -79,9 +79,9 @@ describe("AI Usage & Billing Deductions", () => {
     });
 
     // Run token recorder
-    // Input: 100, Cached: 50, Output: 200
-    // Expected points: (100 * 0.01) + (50 * 0.005) + (200 * 0.02) = 1.0 + 0.25 + 4.0 = 5.25 points
-    await recordTokenUsage(10, 1, 100, 50, 200);
+    // Input: 1,000,000, Cached: 2,000,000, Output: 500,000
+    // Expected points: (1.0 * 0.15) + (2.0 * 0.075) + (0.5 * 0.60) = 0.15 + 0.15 + 0.30 = 0.60 points
+    await recordTokenUsage(10, 1, 1000000, 2000000, 500000);
 
     // Verify insert token usage stats is called
     expect(db.insert).toHaveBeenCalled();

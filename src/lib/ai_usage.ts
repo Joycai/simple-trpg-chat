@@ -46,7 +46,7 @@ export async function recordTokenUsage(
         const rateInput = Number(provider.tokenRateInput || 0);
         const rateCached = Number(provider.tokenRateCached || 0);
         const rateOutput = Number(provider.tokenRateOutput || 0);
-        const points = (inputTokens * rateInput) + (cachedInputTokens * rateCached) + (outputTokens * rateOutput);
+        const points = ((inputTokens / 1_000_000) * rateInput) + ((cachedInputTokens / 1_000_000) * rateCached) + ((outputTokens / 1_000_000) * rateOutput);
 
         if (points > 0) {
           await db.update(users)
