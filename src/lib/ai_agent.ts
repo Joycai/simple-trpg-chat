@@ -182,6 +182,15 @@ export async function runAgent(
     return;
   }
 
+  // 3. Verify quota for shared provider
+  if (aiConfig.isShared) {
+    const [hostUser] = await db.select().from(users).where(eq(users.id, room.hostId)).limit(1);
+    if (hostUser && hostUser.role !== "admin" && Number(hostUser.aiPoints || 0) <= 0) {
+      console.log(`[runAgent] Host ${room.hostId} quota exhausted for shared provider. Skipping bot run.`);
+      return;
+    }
+  }
+
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);
   const endpoint = aiConfig.apiEndpoint;
 
@@ -798,6 +807,15 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   if (!aiConfig) {
     console.error(`[summarizeHistoryAction] Configured AI Provider (ID: ${config.providerId}) not found for bot ${botUserId}`);
     return;
+  }
+
+  // Verify quota for shared provider
+  if (aiConfig.isShared) {
+    const [hostUser] = await db.select().from(users).where(eq(users.id, room.hostId)).limit(1);
+    if (hostUser && hostUser.role !== "admin" && Number(hostUser.aiPoints || 0) <= 0) {
+      console.log(`[summarizeHistoryAction] Host ${room.hostId} quota exhausted for shared provider. Skipping summary.`);
+      return;
+    }
   }
 
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);

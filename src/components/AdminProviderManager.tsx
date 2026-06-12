@@ -22,6 +22,9 @@ export function AdminProviderManager() {
   const [msg, setMsg] = useState("");
   const [testing, setTesting] = useState(false);
   const [preset, setPreset] = useState("custom");
+  const [tokenRateInput, setTokenRateInput] = useState("0");
+  const [tokenRateCached, setTokenRateCached] = useState("0");
+  const [tokenRateOutput, setTokenRateOutput] = useState("0");
 
   const handlePresetChange = (val: string) => {
     setPreset(val);
@@ -29,18 +32,30 @@ export function AdminProviderManager() {
       setName("OpenAI");
       setEndpoint("https://api.openai.com/v1");
       setModel("gpt-4o");
+      setTokenRateInput("0.00015");
+      setTokenRateCached("0.000075");
+      setTokenRateOutput("0.0006");
     } else if (val === "deepseek-flash") {
       setName("DeepSeek");
       setEndpoint("https://api.deepseek.com");
       setModel("deepseek-v4-flash");
+      setTokenRateInput("0.000015");
+      setTokenRateCached("0.000005");
+      setTokenRateOutput("0.00006");
     } else if (val === "deepseek-pro") {
       setName("DeepSeek");
       setEndpoint("https://api.deepseek.com");
       setModel("deepseek-v4-pro");
+      setTokenRateInput("0.00015");
+      setTokenRateCached("0.000075");
+      setTokenRateOutput("0.0006");
     } else if (val === "custom") {
       setName("");
       setEndpoint("");
       setModel("");
+      setTokenRateInput("0");
+      setTokenRateCached("0");
+      setTokenRateOutput("0");
     }
   };
 
@@ -55,14 +70,20 @@ export function AdminProviderManager() {
     if (!name.trim() || !endpoint.trim() || (!editId && !key.trim())) {
       setMsg(tp("msgRequireFields")); return;
     }
+    const rates = {
+      tokenRateInput: parseFloat(tokenRateInput) || 0,
+      tokenRateCached: parseFloat(tokenRateCached) || 0,
+      tokenRateOutput: parseFloat(tokenRateOutput) || 0,
+    };
     try {
       if (editId) {
-        await updateProvider(editId, { name, apiEndpoint: endpoint, apiKey: key || undefined, model, isShared });
+        await updateProvider(editId, { name, apiEndpoint: endpoint, apiKey: key || undefined, model, isShared, ...rates });
       } else {
-        await createProvider({ name, apiEndpoint: endpoint, apiKey: key, model, isShared });
+        await createProvider({ name, apiEndpoint: endpoint, apiKey: key, model, isShared, ...rates });
       }
       setMsg(tp("msgSaved")); setShowForm(false); setEditId(null);
       setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false);
+      setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0");
       await load();
     } catch (e: any) { setMsg(e.message || t("saveFailed")); }
   };
@@ -87,9 +108,26 @@ export function AdminProviderManager() {
                   {p.isShared && <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-theme flex items-center gap-0.5"><Globe className="w-3 h-3" /> {tp("shared")}</span>}
                 </div>
                 <div className="text-xs text-text-muted truncate font-theme-mono">{p.model} · {p.apiEndpoint}</div>
+                {p.isShared && (
+                  <div className="text-[10px] text-accent mt-0.5 font-theme-mono">
+                    {tp("rateInput")}: {p.tokenRateInput ?? 0} | {tp("rateCached")}: {p.tokenRateCached ?? 0} | {tp("rateOutput")}: {p.tokenRateOutput ?? 0}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1 ml-2">
-                <button onClick={() => { setEditId(p.id); setName(p.name); setEndpoint(p.apiEndpoint); setModel(p.model); setIsShared(!!p.isShared); setKey(""); setPreset("custom"); setShowForm(true); }}
+                <button onClick={() => {
+                  setEditId(p.id);
+                  setName(p.name);
+                  setEndpoint(p.apiEndpoint);
+                  setModel(p.model);
+                  setIsShared(!!p.isShared);
+                  setTokenRateInput(String(p.tokenRateInput ?? 0));
+                  setTokenRateCached(String(p.tokenRateCached ?? 0));
+                  setTokenRateOutput(String(p.tokenRateOutput ?? 0));
+                  setKey("");
+                  setPreset("custom");
+                  setShowForm(true);
+                }}
                   className="p-1 text-text-muted hover:text-text cursor-pointer"><Pencil className="w-3.5 h-3.5" /></button>
                 <button onClick={async () => { try { await deleteProvider(p.id); await load(); } catch {} }}
                   className="p-1 text-text-muted hover:text-danger cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -101,7 +139,7 @@ export function AdminProviderManager() {
       )}
 
       {!showForm ? (
-        <button onClick={() => { setEditId(null); setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false); setPreset("custom"); setShowForm(true); }}
+        <button onClick={() => { setEditId(null); setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false); setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0"); setPreset("custom"); setShowForm(true); }}
           className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-border rounded-theme text-sm text-text-muted hover:text-text hover:border-primary/50 transition font-medium cursor-pointer">
           <Plus className="w-4 h-4" /> {tp("addProvider")}
         </button>
@@ -129,6 +167,50 @@ export function AdminProviderManager() {
             <input type="checkbox" checked={isShared} onChange={e => setIsShared(e.target.checked)} className="rounded font-theme" />
             <Globe className="w-3.5 h-3.5" /> {tp("shareLabel")}
           </label>
+          {isShared && (
+            <div className="space-y-2 p-2.5 bg-bg rounded-theme border border-border mt-1 animate-in fade-in duration-200">
+              <p className="text-[10px] font-bold text-accent uppercase tracking-wider">Quota Coefficient Settings</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[9px] text-text-dim mb-0.5 font-medium">{tp("rateInput")}</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={tokenRateInput}
+                    onChange={e => setTokenRateInput(e.target.value)}
+                    placeholder="0.0001"
+                    className="w-full p-1.5 bg-surface border border-border rounded text-text text-xs outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-text-dim mb-0.5 font-medium">{tp("rateCached")}</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={tokenRateCached}
+                    onChange={e => setTokenRateCached(e.target.value)}
+                    placeholder="0.00005"
+                    className="w-full p-1.5 bg-surface border border-border rounded text-text text-xs outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-text-dim mb-0.5 font-medium">{tp("rateOutput")}</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={tokenRateOutput}
+                    onChange={e => setTokenRateOutput(e.target.value)}
+                    placeholder="0.0002"
+                    className="w-full p-1.5 bg-surface border border-border rounded text-text text-xs outline-none"
+                  />
+                </div>
+              </div>
+              <p className="text-[9px] text-text-dim">{tp("ratePlaceholder")}</p>
+            </div>
+          )}
           {msg && <p className={`text-xs ${msg === tp("msgSaved") ? "text-success" : "text-danger"}`}>{msg}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={async () => {

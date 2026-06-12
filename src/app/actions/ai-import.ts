@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { aiProviders, inventoryItems, clueCards, clueVisibility } from "@/db/schema";
+import { aiProviders, inventoryItems, clueCards, clueVisibility, users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
@@ -35,6 +35,14 @@ export async function analyzeTextForImportAction(
     ).orderBy(aiProviders.id);
     if (!provider) {
       return { success: false, error: t("errNoProvider") };
+    }
+
+    // Verify quota for shared provider
+    if (provider.isShared) {
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (user && user.role !== "admin" && Number(user.aiPoints || 0) <= 0) {
+        return { success: false, error: t("errNoQuota") };
+      }
     }
 
     const apiKey = decrypt(provider.apiKeyEncrypted);

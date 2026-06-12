@@ -6,7 +6,7 @@
  *         | clue_cards | clue_visibility
  */
 
-import { pgTable, text, integer, serial, boolean, timestamp, unique, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, serial, boolean, timestamp, unique, index, doublePrecision } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // ============================================================
@@ -55,6 +55,7 @@ export const users = pgTable('users', {
   themePreference: text('theme_preference'),
   sessionToken: text('session_token'),
   isBanned: boolean('is_banned').notNull().default(false),
+  aiPoints: doublePrecision('ai_points').notNull().default(0.0),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
@@ -267,6 +268,9 @@ export const aiProviders = pgTable('ai_providers', {
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
+  tokenRateInput: doublePrecision('token_rate_input').notNull().default(0.0),
+  tokenRateCached: doublePrecision('token_rate_cached').notNull().default(0.0),
+  tokenRateOutput: doublePrecision('token_rate_output').notNull().default(0.0),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });

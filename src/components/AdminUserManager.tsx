@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Key, History, Ban } from "lucide-react";
-import { createUser, deleteUser, resetPassword, changeOwnPassword, toggleBanUser } from "@/app/admin/actions";
+import { Key, History, Ban, Coins } from "lucide-react";
+import { createUser, deleteUser, resetPassword, changeOwnPassword, toggleBanUser, updateUserAiPoints } from "@/app/admin/actions";
 import { getUserLoginHistory } from "@/app/actions/login-history";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ interface User {
   displayName: string;
   role: string;
   isBanned: boolean;
+  aiPoints: number;
 }
 
 interface AdminUserManagerProps {
@@ -27,6 +28,13 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [newPassword, setNewPassword] = useState("");
   const [resetMsg, setResetMsg] = useState("");
   const [resetStatus, setResetStatus] = useState<"" | "success" | "error">("");
+
+  // AI Points edit states
+  const [creditTarget, setCreditTarget] = useState<number | null>(null);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditMsg, setCreditMsg] = useState("");
+  const [creditStatus, setCreditStatus] = useState<"" | "success" | "error">("");
+
   // Change own password
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [oldPwd, setOldPwd] = useState("");
@@ -37,6 +45,27 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [historyUser, setHistoryUser] = useState<{ id: number; username: string } | null>(null);
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const handleUpdateCredits = async () => {
+    if (creditTarget === null) return;
+    const amount = parseFloat(creditAmount);
+    if (isNaN(amount) || amount < 0) {
+      setCreditMsg(t("pointsRequireAmount"));
+      setCreditStatus("error");
+      return;
+    }
+    try {
+      await updateUserAiPoints(creditTarget, amount);
+      setCreditMsg(t("pointsUpdateOk"));
+      setCreditStatus("success");
+      setCreditTarget(null);
+      setCreditAmount("");
+      router.refresh();
+    } catch (e: any) {
+      setCreditMsg(e.message || t("pointsUpdateFail"));
+      setCreditStatus("error");
+    }
+  };
 
   const openHistory = async (userId: number, username: string) => {
     setHistoryUser({ id: userId, username });
@@ -175,6 +204,41 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
         </div>
       )}
 
+      {/* AI Points Edit Dialog */}
+      {creditTarget !== null && (
+        <div className="mb-4 bg-accent/10 border border-accent/20 rounded-lg p-4">
+          <h4 className="text-sm font-bold text-accent mb-2">
+            <Coins className="w-3.5 h-3.5 inline -mt-0.5" /> {t("editAiPoints")} — {allUsers.find(u => u.id === creditTarget)?.username}
+          </h4>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={creditAmount}
+              onChange={e => setCreditAmount(e.target.value)}
+              placeholder={t("pointsAmountPlaceholder")}
+              className="flex-1 p-2 bg-bg border border-border rounded text-text text-sm"
+              autoFocus
+              onKeyDown={e => e.key === "Enter" && handleUpdateCredits()}
+            />
+            <button onClick={handleUpdateCredits}
+              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-bold text-sm">
+              {t("confirm")}
+            </button>
+            <button onClick={() => { setCreditTarget(null); setCreditAmount(""); setCreditMsg(""); }}
+              className="text-text-dim hover:text-text text-sm px-2">
+              {t("cancel")}
+            </button>
+          </div>
+          {creditMsg && (
+            <p className={`text-xs mt-2 ${creditStatus === "error" ? "text-danger" : "text-success"}`}>
+              {creditMsg}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Create User Form */}
       <details className="mb-4">
         <summary className="text-sm text-text-muted cursor-pointer hover:text-text transition mb-3">
@@ -210,6 +274,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
               <th className="pb-2.5 font-medium">{t("username")}</th>
               <th className="pb-2.5 font-medium">{t("displayName")}</th>
               <th className="pb-2.5 font-medium">{t("role")}</th>
+              <th className="pb-2.5 font-medium">{t("aiPoints")}</th>
               <th className="pb-2.5 font-medium text-right">{t("actions")}</th>
             </tr>
           </thead>
@@ -239,6 +304,9 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                     {user.role}
                   </span>
                 </td>
+                <td className="py-3 font-mono text-sm text-text">
+                  {user.role === "admin" ? "∞" : (user.aiPoints ?? 0).toFixed(2)}
+                </td>
                 <td className="py-3 text-right flex items-center justify-end gap-2">
                   <button
                     onClick={() => openHistory(user.id, user.username)}
@@ -267,6 +335,15 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                       >
                         <Key className="w-4 h-4" />
                       </button>
+                      {user.role !== "admin" && (
+                        <button
+                          onClick={() => { setCreditTarget(user.id); setCreditAmount(String(user.aiPoints ?? 0)); setCreditMsg(""); }}
+                          className="text-accent/60 hover:text-accent text-xs transition"
+                          title={t("editAiPoints")}
+                        >
+                          <Coins className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </>
                   )}
                   <form action={deleteUser.bind(null, user.id)} className="inline">

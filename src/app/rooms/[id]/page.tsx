@@ -116,9 +116,18 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     .where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
 
-  // Load valid providers for this room (either owned by the room's host or isShared is true)
+  // Load room host user info to verify credits
+  const [hostUser] = await db
+    .select({ role: users.role, aiPoints: users.aiPoints })
+    .from(users)
+    .where(eq(users.id, room.hostId))
+    .limit(1);
+
+  const isHostQuotaOk = !hostUser || hostUser.role === "admin" || Number(hostUser.aiPoints || 0) > 0;
+
+  // Load valid providers for this room (either owned by the room's host or isShared is true and host has quota)
   const roomProviders = await db
-    .select({ id: aiProviders.id })
+    .select({ id: aiProviders.id, isShared: aiProviders.isShared })
     .from(aiProviders)
     .where(
       or(
@@ -126,7 +135,10 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         eq(aiProviders.isShared, true)
       )
     );
-  const validProviderIds = roomProviders.map(p => p.id);
+  
+  const validProviderIds = roomProviders
+    .filter(p => !p.isShared || isHostQuotaOk)
+    .map(p => p.id);
 
   return (
     <>

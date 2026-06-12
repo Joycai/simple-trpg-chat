@@ -14,6 +14,9 @@ export interface ProviderData {
   apiKey?: string;       // plain text (new/updated), or undefined to keep existing
   model: string;
   isShared?: boolean;    // admin only
+  tokenRateInput?: number;
+  tokenRateCached?: number;
+  tokenRateOutput?: number;
 }
 
 // ============================================================
@@ -40,6 +43,9 @@ export async function createProvider(data: ProviderData) {
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
     model: data.model || "gpt-4o",
     isShared: sql`${sql.raw((isAdmin && data.isShared) ? "TRUE" : "FALSE")}`,
+    tokenRateInput: data.tokenRateInput ?? 0.0,
+    tokenRateCached: data.tokenRateCached ?? 0.0,
+    tokenRateOutput: data.tokenRateOutput ?? 0.0,
     updatedAt: sqlNow(),
   }).returning();
 
@@ -70,6 +76,9 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
 
   if (isAdmin) {
     values.isShared = sql`${sql.raw((data.isShared ?? existing.isShared) ? "TRUE" : "FALSE")}`;
+    if (data.tokenRateInput !== undefined) values.tokenRateInput = data.tokenRateInput;
+    if (data.tokenRateCached !== undefined) values.tokenRateCached = data.tokenRateCached;
+    if (data.tokenRateOutput !== undefined) values.tokenRateOutput = data.tokenRateOutput;
   }
 
   await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));

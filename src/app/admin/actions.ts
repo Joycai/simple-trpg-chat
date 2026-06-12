@@ -90,3 +90,19 @@ export async function toggleBanUser(id: number) {
 
   revalidatePath("/admin");
 }
+
+export async function updateUserAiPoints(id: number, points: number) {
+  await requireAdmin();
+
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+  if (!user) throw new Error("User not found");
+  if (user.role === "admin") throw new Error("Cannot modify points for admin users");
+
+  await db.update(users)
+    .set({
+      aiPoints: points
+    })
+    .where(eq(users.id, id));
+
+  revalidatePath("/admin");
+}
