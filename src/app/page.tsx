@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers } from "@/db/schema";
+import { rooms, roomMembers, systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -19,6 +19,10 @@ export default async function HomePage() {
   const userId = parseInt(user.id) || 0;
   const isHost = user.role === "host";
   const isAdmin = user.role === "admin";
+
+  // Get site title
+  const [titleConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_title"));
+  const siteTitle = titleConfig?.value || "Simple TRPG Chat";
 
   // Get all active rooms
   const allRooms = await db
@@ -41,7 +45,7 @@ export default async function HomePage() {
       <header className="bg-header-bg border-b border-header-border p-4 text-text shadow-sm overflow-visible">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold inline-flex items-center gap-1.5"><Dices className="w-5 h-5" /> Simple TRPG Chat</h1>
+            <h1 className="text-xl font-bold inline-flex items-center gap-1.5"><Dices className="w-5 h-5" /> {siteTitle}</h1>
             {isAdmin && (
               <Link href="/admin" className="text-xs bg-danger/20 text-danger border border-danger/30 px-2 py-1 rounded hover:bg-danger/30 transition">
                 {t("admin")}

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { SiteThemeSelector } from "@/components/SiteThemeSelector";
 import { AdminSensitiveWords } from "@/components/AdminSensitiveWords";
+import { AdminTitleConfig } from "@/components/AdminTitleConfig";
 import { getSiteTheme } from "@/app/actions/theme";
 import type { ThemeId } from "@/themes/types";
 import { Database, HardDrive } from "lucide-react";
@@ -12,6 +13,8 @@ export default async function AdminConfigPage() {
   const t = await getTranslations("admin");
   const [wordsConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "sensitive_words"));
   const sensitiveWords = wordsConfig?.value || "";
+  const [titleConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_title"));
+  const siteTitle = titleConfig?.value || "";
   const dbType = currentDialect;
   const siteTheme = await getSiteTheme();
 
@@ -35,6 +38,8 @@ export default async function AdminConfigPage() {
         </div>
         <p className="text-[10px] text-text-dim mt-2">{t("dbConfigHint")}</p>
       </section>
+
+      <AdminTitleConfig initialTitle={siteTitle} />
 
       <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
 
