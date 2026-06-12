@@ -4,12 +4,16 @@ import { getLocale, getMessages } from "next-intl/server";
 import { AppProvider } from "@/components/AppProvider";
 import { getSiteTheme, getUserThemePreference } from "@/app/actions/theme";
 import { recordPageVisit } from "@/lib/stats";
+import { getCachedSiteTitle } from "@/lib/config";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Simple TRPG Chat",
-  description: "A lightweight web-based TRPG tool for multi-player chat and dice rolling",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const siteTitle = await getCachedSiteTitle();
+  return {
+    title: siteTitle,
+    description: "A lightweight web-based TRPG tool for multi-player chat and dice rolling",
+  };
+}
 
 export default async function RootLayout({
   children,

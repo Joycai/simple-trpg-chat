@@ -4,7 +4,7 @@ import { db, sqlNow } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 /**
  * System Config (Admin Only)
@@ -30,6 +30,7 @@ export async function updateSystemConfig(key: string, value: string) {
   });
 
   revalidatePath("/admin");
+  revalidatePath("/", "layout");
 }
 
 // ============================================================

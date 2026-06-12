@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import { getCachedSiteTitle } from "@/lib/config";
 import { LobbyClient } from "@/components/LobbyClient";
 import { Dices } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -21,8 +22,7 @@ export default async function HomePage() {
   const isAdmin = user.role === "admin";
 
   // Get site title
-  const [titleConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_title"));
-  const siteTitle = titleConfig?.value || "Simple TRPG Chat";
+  const siteTitle = await getCachedSiteTitle();
 
   // Get all active rooms
   const allRooms = await db
