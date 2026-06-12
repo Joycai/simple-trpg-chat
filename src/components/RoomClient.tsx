@@ -15,6 +15,7 @@ import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
 import { SkillPanel } from "./SkillPanel";
+import { UserSettingsPanel } from "./UserSettingsPanel";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
@@ -59,6 +60,8 @@ interface RoomClientProps {
   characterData?: string | null;
   aiEnabled?: boolean;
   validProviderIds?: number[];
+  userName: string;
+  userRole: string;
 }
 
 export function RoomClient({
@@ -73,10 +76,13 @@ export function RoomClient({
   characterData,
   aiEnabled = false,
   validProviderIds = [],
+  userName,
+  userRole,
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
   const tra = useTranslations("roomActions");
+  const ts = useTranslations("userSettings");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -97,6 +103,7 @@ export function RoomClient({
   const [showCheckDialog, setShowCheckDialog] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
+  const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
@@ -764,6 +771,14 @@ export function RoomClient({
                       </button>
                     </div>
                   )}
+
+                  {/* Personal Settings / Dashboard */}
+                  <div className="border-t border-border mt-1 pt-1">
+                    <button onClick={() => { setShowUserSettings(true); }}
+                      className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                      <Icons.User className="w-4 h-4" /> {ts("title")}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1041,6 +1056,9 @@ export function RoomClient({
       )}
       {showSkills && (
         <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} />
+      )}
+      {showUserSettings && (
+        <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />
       )}
     </div>
   );

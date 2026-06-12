@@ -4,18 +4,32 @@ import { db } from "@/db";
 
 // Mock database and sql helper
 vi.mock("@/db", () => {
-  const mockInsert = vi.fn().mockReturnValue({
-    values: vi.fn().mockReturnValue({
-      onConflictDoUpdate: vi.fn().mockResolvedValue(null)
-    })
+  const mockInsert = vi.fn().mockImplementation(() => {
+    const chain = {
+      values: vi.fn().mockImplementation(() => {
+        const promise = Promise.resolve(null);
+        return Object.assign(promise, {
+          onConflictDoUpdate: vi.fn().mockResolvedValue(null)
+        });
+      })
+    };
+    return chain;
   });
   
-  const mockSelect = vi.fn().mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue([])
-      })
-    })
+  const mockSelect = vi.fn().mockImplementation(() => {
+    const limitFn = vi.fn().mockImplementation(() => {
+      const promise = Promise.resolve([]);
+      return Object.assign(promise, {
+        for: vi.fn().mockResolvedValue([]),
+      });
+    });
+    return {
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: limitFn,
+        }),
+      }),
+    };
   });
 
   const mockUpdate = vi.fn().mockReturnValue({
@@ -24,11 +38,20 @@ vi.mock("@/db", () => {
     })
   });
 
+  const mockTransaction = vi.fn().mockImplementation(async (cb) => {
+    return await cb({
+      insert: mockInsert,
+      select: mockSelect,
+      update: mockUpdate,
+    });
+  });
+
   return {
     db: {
       insert: mockInsert,
       select: mockSelect,
       update: mockUpdate,
+      transaction: mockTransaction,
     },
     sqlNow: vi.fn(),
   };
@@ -69,19 +92,26 @@ describe("AI Usage & Billing Deductions", () => {
     });
 
     selectMock.mockImplementationOnce(() => {
+      const limitFn = vi.fn().mockImplementation(() => {
+        const promise = Promise.resolve([mockUser]);
+        return Object.assign(promise, {
+          for: vi.fn().mockResolvedValue([mockUser])
+        });
+      });
       return {
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser])
+            limit: limitFn
           })
         })
       } as any;
     });
 
     // Run token recorder
-    // Input: 1,000,000, Cached: 2,000,000, Output: 500,000
+    // Total Input: 3,000,000, Cached: 2,000,000, Output: 500,000
+    // Net Input: 3,000,000 - 2,000,000 = 1,000,000
     // Expected points: (1.0 * 0.15) + (2.0 * 0.075) + (0.5 * 0.60) = 0.15 + 0.15 + 0.30 = 0.60 points
-    await recordTokenUsage(10, 1, 1000000, 2000000, 500000);
+    await recordTokenUsage(10, 1, 3000000, 2000000, 500000);
 
     // Verify insert token usage stats is called
     expect(db.insert).toHaveBeenCalled();
@@ -117,10 +147,16 @@ describe("AI Usage & Billing Deductions", () => {
     });
 
     selectMock.mockImplementationOnce(() => {
+      const limitFn = vi.fn().mockImplementation(() => {
+        const promise = Promise.resolve([mockUser]);
+        return Object.assign(promise, {
+          for: vi.fn().mockResolvedValue([mockUser])
+        });
+      });
       return {
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockUser])
+            limit: limitFn
           })
         })
       } as any;

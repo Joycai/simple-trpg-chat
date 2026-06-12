@@ -180,6 +180,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   skills: many(roomSkills),
   sentDistributions: many(inventoryDistributions, { relationName: 'sender' }),
   receivedDistributions: many(inventoryDistributions, { relationName: 'recipient' }),
+  aiPointLogs: many(aiPointLogs),
 }));
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({
@@ -322,4 +323,25 @@ export const botPresets = pgTable('bot_presets', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
+
+// ============================================================
+// AI Point Change History/Logs
+// ============================================================
+
+export const aiPointLogs = pgTable('ai_point_logs', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  amount: doublePrecision('amount').notNull(),
+  beforePoints: doublePrecision('before_points').notNull(),
+  afterPoints: doublePrecision('after_points').notNull(),
+  type: text('type').notNull(), // 'usage' | 'admin'
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, (t) => ({
+  idxUserIdCreatedAt: index('idx_ai_point_logs_user_created').on(t.userId, t.createdAt),
+}));
+
+export const aiPointLogsRelations = relations(aiPointLogs, ({ one }) => ({
+  user: one(users, { fields: [aiPointLogs.userId], references: [users.id] }),
+}));
 

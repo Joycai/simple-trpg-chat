@@ -155,6 +155,8 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         roomDiceRules={(room as any).diceRules || "basic"}
         aiEnabled={aiEnabled}
         validProviderIds={validProviderIds}
+        userName={user.name || user.username}
+        userRole={user.role}
       />
     </>
   );

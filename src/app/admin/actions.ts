@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, aiPointLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
@@ -94,15 +94,30 @@ export async function toggleBanUser(id: number) {
 export async function updateUserAiPoints(id: number, points: number) {
   await requireAdmin();
 
-  const [user] = await db.select().from(users).where(eq(users.id, id));
-  if (!user) throw new Error("User not found");
-  if (user.role === "admin") throw new Error("Cannot modify points for admin users");
+  await db.transaction(async (tx) => {
+    const [user] = await tx.select().from(users).where(eq(users.id, id)).for('update');
+    if (!user) throw new Error("User not found");
+    if (user.role === "admin") throw new Error("Cannot modify points for admin users");
 
-  await db.update(users)
-    .set({
-      aiPoints: points
-    })
-    .where(eq(users.id, id));
+    const beforePoints = Number(user.aiPoints || 0);
+    const afterPoints = Math.max(0, Number(points.toFixed(6)));
+
+    await tx.update(users)
+      .set({
+        aiPoints: afterPoints
+      })
+      .where(eq(users.id, id));
+
+    // Log the change
+    await tx.insert(aiPointLogs).values({
+      userId: id,
+      amount: afterPoints - beforePoints,
+      beforePoints,
+      afterPoints,
+      type: "admin",
+      description: "Admin adjusted points",
+    });
+  });
 
   revalidatePath("/admin");
 }
