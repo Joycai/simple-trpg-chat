@@ -57,6 +57,8 @@ interface RoomClientProps {
   roomDiceRules?: string;
   players?: any[];
   characterData?: string | null;
+  aiEnabled?: boolean;
+  validProviderIds?: number[];
 }
 
 export function RoomClient({
@@ -69,6 +71,8 @@ export function RoomClient({
   roomDiceRules,
   players = [],
   characterData,
+  aiEnabled = false,
+  validProviderIds = [],
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
@@ -184,16 +188,40 @@ export function RoomClient({
     }
   };
 
+  // Helper to check bot status
+  const getBotStatus = (usersRecord: any) => {
+    if (!usersRecord?.isBot) return { isBotDisabled: false, isProviderError: false };
+    if (!aiEnabled) return { isBotDisabled: true, isProviderError: false };
+    
+    try {
+      const cfg = JSON.parse(usersRecord.botConfigJson || "{}");
+      const pid = cfg.providerId;
+      if (!pid || !validProviderIds.includes(pid)) {
+        return { isBotDisabled: false, isProviderError: true };
+      }
+    } catch {
+      return { isBotDisabled: false, isProviderError: true };
+    }
+    
+    return { isBotDisabled: false, isProviderError: false };
+  };
+
   // Build mention targets (players + bots, excluding self)
   const mentionTargets = useMemo(() => {
     return (players || [])
       .filter((p: any) => (p.users?.id || p.user_id) !== userId)
-      .map((p: any) => ({
-        id: p.users?.id || p.user_id,
-        nickname: p.room_members?.nickname || p.users?.displayName || `#${p.users?.id || p.user_id}`,
-        isBot: !!p.users?.isBot,
-      }));
-  }, [players, userId]);
+      .map((p: any) => {
+        const u = p.users || p.user;
+        const { isBotDisabled, isProviderError } = getBotStatus(u);
+        return {
+          id: u?.id || p.user_id,
+          nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
+          isBot: !!u?.isBot,
+          isBotDisabled,
+          isProviderError,
+        };
+      });
+  }, [players, userId, aiEnabled, validProviderIds]);
 
   // Build DM conversations
   const dmConversations = useMemo(() => {
@@ -202,6 +230,8 @@ export function RoomClient({
       nickname: p.nickname,
       isBot: p.isBot,
       unread: unreadCounts[p.id] || 0,
+      isBotDisabled: p.isBotDisabled,
+      isProviderError: p.isProviderError,
     }));
   }, [mentionTargets, unreadCounts]);
 
@@ -905,7 +935,7 @@ export function RoomClient({
         />
       )}
       {showBotManager && (
-        <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} />
+        <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} aiEnabled={aiEnabled} validProviderIds={validProviderIds} />
       )}
       {showClueManager && (
         <ClueManager roomId={room.id} isHost={isHost} players={mentionTargets.map(p => ({ id: p.id, nickname: p.nickname }))} onClose={() => setShowClueManager(false)} />
@@ -933,18 +963,40 @@ export function RoomClient({
                 const nick = p.room_members?.nickname || u.displayName || u.username || "#" + u.id;
                 const isBot = !!u.isBot;
                 const isMe = u.id === userId;
+                const { isBotDisabled, isProviderError } = getBotStatus(u);
                 return (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm shrink-0 font-theme-mono"
-                      style={{
-                        backgroundColor: p.room_members?.avatarColor || getRandomColorForUser(u.id),
-                        color: getContrastColor(p.room_members?.avatarColor || getRandomColorForUser(u.id)),
-                      }}
-                    >
-                      {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
+                    <div className="relative shrink-0">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm font-theme-mono"
+                        style={{
+                          backgroundColor: p.room_members?.avatarColor || getRandomColorForUser(u.id),
+                          color: getContrastColor(p.room_members?.avatarColor || getRandomColorForUser(u.id)),
+                        }}
+                      >
+                        {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
+                      </div>
+                      {isBot && isBotDisabled && (
+                        <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={t("aiDisabled")}>🚫</div>
+                      )}
+                      {isBot && !isBotDisabled && isProviderError && (
+                        <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none" title={t("providerError")}>⚠️</div>
+                      )}
                     </div>
-                    <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"}`}>{nick}{isMe ? t("suffixMe") : ""}</span>
+                    <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"} flex items-center flex-wrap gap-1`}>
+                      <span>{nick}</span>
+                      {isMe && <span>{t("suffixMe")}</span>}
+                      {isBot && isBotDisabled && (
+                        <span className="text-[10px] font-normal px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
+                          {t("tagDisabled")}
+                        </span>
+                      )}
+                      {isBot && !isBotDisabled && isProviderError && (
+                        <span className="text-[10px] font-normal px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
+                          {t("tagProviderError")}
+                        </span>
+                      )}
+                    </span>
                     <div className="flex gap-2">
                         {isHost && !isMe && !isBot && (
                           <button

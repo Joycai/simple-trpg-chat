@@ -1,6 +1,6 @@
 import { db, sqlNow } from "@/db";
 import { recordTokenUsage } from "@/lib/ai_usage";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig } from "@/db/schema";
 import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom } from "@/lib/events";
@@ -156,6 +156,13 @@ export async function runAgent(
 
   if (!room || !botUser) return;
 
+  // 1. Verify global AI switch
+  const [globalAiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
+  if (globalAiConfig?.value !== "true") {
+    console.log(`[runAgent] Bot ${botUserId} skipped because AI features are globally disabled`);
+    return;
+  }
+
   const botCfg = parseBotConfig(botUser.botConfigJson);
 
   if (!botCfg.providerId) {
@@ -166,6 +173,12 @@ export async function runAgent(
   const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.id, botCfg.providerId));
   if (!aiConfig) {
     console.error(`[runAgent] Configured AI Provider (ID: ${botCfg.providerId}) not found for bot ${botUserId}`);
+    return;
+  }
+
+  // 2. Verify that provider is owned by the room's host or is shared globally
+  if (aiConfig.ownerId !== room.hostId && !aiConfig.isShared) {
+    console.error(`[runAgent] AI Provider (ID: ${botCfg.providerId}) is neither owned by room host ${room.hostId} nor shared globally.`);
     return;
   }
 

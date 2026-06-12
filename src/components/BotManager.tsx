@@ -24,13 +24,16 @@ interface BotManagerProps {
   roomId: number;
   isHost: boolean;
   onClose: () => void;
+  aiEnabled: boolean;
+  validProviderIds: number[];
 }
 
-export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
+export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderIds }: BotManagerProps) {
   const t = useTranslations("bots");
   const tCommon = useTranslations("common");
   const tp = useTranslations("adminProviders");
   const tChar = useTranslations("character");
+  const tRoom = useTranslations("room");
 
   const [bots, setBots] = useState<BotInfo[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -192,44 +195,90 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
               <div>
                 <h4 className="text-xs text-text-dim font-medium mb-2 uppercase">{t("createdBots")}</h4>
                 <div className="flex flex-col gap-2">
-                  {bots.map(bot => (
-                    <div key={bot.id} className="bg-surface-alt rounded-theme p-3 border border-border flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm shrink-0"
-                        style={{
-                          backgroundColor: bot.avatarColor || getRandomColorForUser(bot.id),
-                          color: getContrastColor(bot.avatarColor || getRandomColorForUser(bot.id)),
-                        }}
-                      >
-                        🤖
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-bold text-text">{bot.nickname}</div>
-                        <div className="text-[10px] text-text-muted">
-                          {t("activationDesc", { model: bot.config.model || "gpt-4o-mini", activation: bot.config.activation === "manual" ? t("activationManual") : t("activationMention") })}
+                  {bots.map(bot => {
+                    const isBotDisabled = !aiEnabled;
+                    const providerId = bot.config.providerId;
+                    const isProviderError = !providerId || !validProviderIds.includes(providerId);
+
+                    return (
+                      <div key={bot.id} className="bg-surface-alt rounded-theme p-3 border border-border flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm font-theme-mono"
+                            style={{
+                              backgroundColor: bot.avatarColor || getRandomColorForUser(bot.id),
+                              color: getContrastColor(bot.avatarColor || getRandomColorForUser(bot.id)),
+                            }}
+                          >
+                            🤖
+                          </div>
+                          {isBotDisabled && (
+                            <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[10px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={tRoom("aiDisabled")}>🚫</div>
+                          )}
+                          {!isBotDisabled && isProviderError && (
+                            <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[10px] leading-none border border-border p-[1px] shadow-sm select-none" title={tRoom("providerError")}>⚠️</div>
+                          )}
                         </div>
-                      </div>
-                      {isHost && (
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-text flex items-center flex-wrap gap-1.5">
+                            <span className="truncate">{bot.nickname}</span>
+                            {isBotDisabled && (
+                              <span className="text-[9px] font-normal px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
+                                {tRoom("tagDisabled")}
+                              </span>
+                            )}
+                            {!isBotDisabled && isProviderError && (
+                              <span className="text-[9px] font-normal px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
+                                {tRoom("tagProviderError")}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-text-muted truncate">
+                            {t("activationDesc", { model: bot.config.model || "gpt-4o-mini", activation: bot.config.activation === "manual" ? t("activationManual") : t("activationMention") })}
+                          </div>
+                          {!isBotDisabled && isProviderError && (
+                            <div className="text-[9px] text-yellow-500 mt-1 select-none font-medium animate-pulse">
+                              ⚠️ {tRoom("providerError")}
+                            </div>
+                          )}
+                          {isBotDisabled && (
+                            <div className="text-[9px] text-red-500 mt-1 select-none font-medium">
+                              🚫 {tRoom("aiDisabled")}
+                            </div>
+                          )}
+                        </div>
+                        {isHost && (
+                          <button
+                            onClick={async () => {
+                              await triggerBotAction(roomId, bot.id);
+                              router.refresh();
+                            }}
+                            className="text-xs text-accent hover:bg-accent/10 px-2 py-1 rounded transition font-bold cursor-pointer shrink-0"
+                            title={t("triggerManual")}
+                          >
+                            ⚡
+                          </button>
+                        )}
                         <button
-                          onClick={async () => {
-                            await triggerBotAction(roomId, bot.id);
-                            router.refresh();
-                          }}
-                          className="text-xs text-accent hover:bg-accent/10 px-2 py-1 rounded transition font-bold cursor-pointer"
-                          title={t("triggerManual")}
+                          onClick={() => startEdit(bot)}
+                          className="text-xs text-text-muted hover:text-primary px-2 py-1 rounded hover:bg-surface transition cursor-pointer shrink-0"
                         >
-                          ⚡
+                          ✏️ {t("edit")}
                         </button>
-                      )}
-                      <button
-                        onClick={() => startEdit(bot)}
-                        className="text-xs text-text-muted hover:text-primary px-2 py-1 rounded hover:bg-surface transition cursor-pointer"
-                      >
-                        ✏️ {t("edit")}
-                      </button>
-                      <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold">ACTIVE</span>
-                    </div>
-                  ))}
+                        {isBotDisabled ? (
+                          <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded font-bold select-none shrink-0">
+                            {tRoom("tagDisabled")}
+                          </span>
+                        ) : isProviderError ? (
+                          <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded font-bold select-none shrink-0 animate-pulse">
+                            {tRoom("tagProviderError")}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold select-none shrink-0">ACTIVE</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

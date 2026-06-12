@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers, messages, users } from "@/db/schema";
+import { rooms, roomMembers, messages, users, systemConfig, aiProviders } from "@/db/schema";
 import { eq, and, or, desc, isNull, not } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
@@ -109,6 +109,25 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   const visibleMessages = roomMessages.reverse();
 
+  // Load global AI enabled toggle
+  const [aiConfig] = await db
+    .select()
+    .from(systemConfig)
+    .where(eq(systemConfig.key, "ai_enabled"));
+  const aiEnabled = aiConfig?.value === "true";
+
+  // Load valid providers for this room (either owned by the room's host or isShared is true)
+  const roomProviders = await db
+    .select({ id: aiProviders.id })
+    .from(aiProviders)
+    .where(
+      or(
+        eq(aiProviders.ownerId, room.hostId),
+        eq(aiProviders.isShared, true)
+      )
+    );
+  const validProviderIds = roomProviders.map(p => p.id);
+
   return (
     <>
       <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} />
@@ -122,6 +141,8 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         characterData={currentMember?.characterData || null}
         roomTheme={(room.theme as ThemeId) || "default"}
         roomDiceRules={(room as any).diceRules || "basic"}
+        aiEnabled={aiEnabled}
+        validProviderIds={validProviderIds}
       />
     </>
   );

@@ -8,6 +8,8 @@ interface DMConversation {
   isBot: boolean;
   unread: number;
   lastMessage?: string;
+  isBotDisabled?: boolean;
+  isProviderError?: boolean;
 }
 
 interface ConversationPanelProps {
@@ -83,8 +85,28 @@ export function ConversationPanel({
                 : "text-text-muted hover:text-text hover:bg-surface/60"
             }`}
           >
-            <span className="text-base shrink-0">{conv.isBot ? "🤖" : "👤"}</span>
-            <span className="truncate text-left flex-1 pr-4">{conv.nickname}</span>
+            <div className="relative shrink-0 flex items-center">
+              <span className="text-base">{conv.isBot ? "🤖" : "👤"}</span>
+              {conv.isBot && conv.isBotDisabled && (
+                <div className="absolute -bottom-1 -right-1 bg-surface-alt rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={t("aiDisabled")}>🚫</div>
+              )}
+              {conv.isBot && !conv.isBotDisabled && conv.isProviderError && (
+                <div className="absolute -bottom-1 -right-1 bg-surface-alt rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none" title={t("providerError")}>⚠️</div>
+              )}
+            </div>
+            <span className="truncate text-left flex-1 pr-4 flex items-center gap-1">
+              <span className="truncate">{conv.nickname}</span>
+              {conv.isBot && conv.isBotDisabled && (
+                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none scale-90 origin-left shrink-0">
+                  {t("tagDisabled")}
+                </span>
+              )}
+              {conv.isBot && !conv.isBotDisabled && conv.isProviderError && (
+                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none scale-90 origin-left shrink-0 animate-pulse">
+                  {t("tagProviderError")}
+                </span>
+              )}
+            </span>
 
             {/* Unread badge */}
             {conv.unread > 0 && (

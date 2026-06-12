@@ -8,6 +8,8 @@ interface MentionTarget {
   id: number;
   nickname: string;
   isBot: boolean;
+  isBotDisabled?: boolean;
+  isProviderError?: boolean;
 }
 
 interface ChatInputProps {
@@ -19,6 +21,7 @@ interface ChatInputProps {
 
 export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocked = false }: ChatInputProps) {
   const t = useTranslations("chat");
+  const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -158,8 +161,18 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
                 i === mentionIndex ? "bg-primary/10 text-primary" : "text-text hover:bg-surface-alt"
               }`}
             >
-              <span>{m.isBot ? "🤖" : "👤"}</span>
-              <span className="font-mono">@{m.nickname}</span>
+              <span>{m.isBot ? (m.isBotDisabled ? "🚫" : m.isProviderError ? "⚠️" : "🤖") : "👤"}</span>
+              <span className="font-mono flex-1 text-left">@{m.nickname}</span>
+              {m.isBot && m.isBotDisabled && (
+                <span className="text-[9px] px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none scale-90 shrink-0">
+                  🚫 {tRoom("tagDisabled")}
+                </span>
+              )}
+              {m.isBot && !m.isBotDisabled && m.isProviderError && (
+                <span className="text-[9px] px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none scale-90 shrink-0 animate-pulse">
+                  ⚠️ {tRoom("tagProviderError")}
+                </span>
+              )}
             </button>
           ))}
           <div className="text-[10px] text-text-dim px-3 pt-1 border-t border-border mt-1">
@@ -180,7 +193,12 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
             >
               <option value="" disabled>{t("selectMember")}</option>
               {mentions.map(m => (
-                <option key={m.id} value={m.id}>{m.isBot ? "🤖" : "👤"} {m.nickname}</option>
+                <option key={m.id} value={m.id}>
+                  {m.isBot ? (m.isBotDisabled ? "🚫" : m.isProviderError ? "⚠️" : "🤖") : "👤"}{" "}
+                  {m.nickname}
+                  {m.isBot && m.isBotDisabled ? ` [${tRoom("tagDisabled")}]` : ""}
+                  {m.isBot && !m.isBotDisabled && m.isProviderError ? ` [${tRoom("tagProviderError")}]` : ""}
+                </option>
               ))}
             </select>
             <button 
