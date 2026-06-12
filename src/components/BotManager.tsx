@@ -182,7 +182,6 @@ export function BotManager({ roomId, isHost, onClose }: BotManagerProps) {
                 {typeof window !== "undefined" ? window.location.origin : ""}/api/rooms/{roomId}
               </code>
               <div className="text-[10px] text-text-dim mt-2 space-y-0.5">
-                <div>• SQLite DB: <code className="text-text-muted">simple-trpg-chat/sqlite.db</code></div>
                 <div>• Bot Data: <code className="text-text-muted">{t("dataDesc")}</code></div>
                 <div>• Context: <code className="text-text-muted">{t("contextDesc")}</code></div>
               </div>

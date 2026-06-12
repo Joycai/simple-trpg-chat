@@ -8,7 +8,7 @@ This guide covers deploying **Simple TRPG Chat** in production using **PM2** as 
 Internet → Caddy (TLS + reverse proxy) → PM2 (cluster mode: 1 instance*) → Node.js (next start)
 ```
 
-> \* SQLite 不支持多进程并发写，所以 cluster mode 只开 **1 个实例**。PM2 在这里主要负责进程守护、优雅重启、日志管理。
+> * 由于实时消息（SSE）是基于进程内 `EventEmitter` 分发的，多进程部署会导致不同实例间无法直接共享消息事件。因此，目前 PM2 的 Node 实例上限为 **1 个**。PM2 在这里主要负责进程守护、优雅重启、日志管理。
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ Edit `.env.local` with your secrets.
 ## 3. Push Database Schema & Build
 
 ```bash
-# Initialize SQLite database
+# Initialize PostgreSQL database
 npm run db:push
 
 # Build the Next.js app
@@ -181,8 +181,8 @@ pm2 reload trpg-chat         # 优雅重启，仅切实例，无停机
 ## 8. Database Backup
 
 ```bash
-# Add to crontab: daily backup at 4:00 AM
-0 4 * * * cp /opt/simple-trpg-chat/sqlite.db /opt/simple-trpg-chat/backups/sqlite-$(date +\%Y\%m\%d).db && find /opt/simple-trpg-chat/backups -name "*.db" -mtime +30 -delete
+# Add to crontab: daily PostgreSQL database backup at 4:00 AM
+0 4 * * * pg_dump -U username database_name | gzip > /opt/simple-trpg-chat/backups/db-$(date +\%Y\%m\%d).sql.gz && find /opt/simple-trpg-chat/backups -name "*.sql.gz" -mtime +30 -delete
 ```
 
 ---
@@ -192,16 +192,16 @@ pm2 reload trpg-chat         # 优雅重启，仅切实例，无停机
 | 组件 | 选型理由 |
 |------|----------|
 | **PM2** | 进程守护 + 优雅重启 + 日志轮转 + 启动自启。比 systemd 更懂 Node.js 生态 |
-| **cluster: 1** | SQLite 不支持多进程并发写，1 个实例是上限。如需扩容，需迁到 Postgres |
+| **cluster: 1** | 单进程限制：由于进程内 EventEmitter 限制，1 个实例是上限。如需分布式部署需配合 Redis/PubSub 适配器。 |
 | **Caddy** | 自动 TLS（Let's Encrypt），配置简单，一条 `reverse_proxy` 搞定 |
-| **fork mode** | 不能用 cluster mode（多进程），所以用 fork 而非 cluster |
+| **fork mode** | 不能用 cluster mode（多进程），所以用 fork 模式以防跨进程消息丢失。 |
 
 ## 补充：多核/多机架构
 
 如果未来需要扩容，流程是：
 
 ```
-1. SQLite → Postgres
+1. 进程内 EventEmitter → Redis Pub/Sub 消息适配器
 2. 本地文件 → S3/MinIO
 3. Session 内存 → Redis
 4. PM2 instance 开多核
