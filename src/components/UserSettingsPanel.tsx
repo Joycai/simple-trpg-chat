@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, History, X, Key, Bot, Plus, Trash2, Pencil, BarChart3, Coins } from "lucide-react";
+import { Shield, History, X, Bot, Plus, Trash2, Pencil, BarChart3, Coins } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
-import { useRouter } from "next/navigation";
 import { changeOwnPassword } from "@/app/admin/actions";
 import { getMyLoginHistory } from "@/app/actions/login-history";
 import { getMyProviders, createProvider, updateProvider, deleteProvider, getMyPrivateTokenUsages } from "@/app/actions/ai-providers";
@@ -26,7 +25,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const tp = useTranslations("adminProviders");
   const ttu = useTranslations("tokenUsage");
   const locale = useLocale();
-  const router = useRouter();
+
 
   const [tab, setTab] = useState<Tab>("security");
   const [oldPwd, setOldPwd] = useState("");
@@ -35,10 +34,12 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [pwdOk, setPwdOk] = useState(false);
   const [records, setRecords] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   
   // AI providers
   const [providers, setProviders] = useState<any[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
+  const [providersError, setProvidersError] = useState("");
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [editProviderId, setEditProviderId] = useState<number | null>(null);
   const [provName, setProvName] = useState("");
@@ -46,6 +47,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [provKey, setProvKey] = useState("");
   const [provModel, setProvModel] = useState("gpt-4o");
   const [provMsg, setProvMsg] = useState("");
+  const [provSuccess, setProvSuccess] = useState(false);
   const [testing, setTesting] = useState(false);
   const [preset, setPreset] = useState("custom");
 
@@ -71,16 +73,31 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   };
   const [usageRecords, setUsageRecords] = useState<any[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
+  const [usageError, setUsageError] = useState("");
   const [pointsInfo, setPointsInfo] = useState<any>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
+  const [pointsError, setPointsError] = useState("");
 
   const handleTestConnection = async () => {
-    if (!provEndpoint.trim() || !provKey.trim()) { setProvMsg(tp("msgRequireTestFields")); return; }
-    setTesting(true); setProvMsg("");
+    if (!provEndpoint.trim() || !provKey.trim()) {
+      setProvMsg(tp("msgRequireTestFields"));
+      setProvSuccess(false);
+      return;
+    }
+    setTesting(true); setProvMsg(""); setProvSuccess(false);
     try {
       const result = await testAiConnection(provEndpoint.trim(), provKey.trim(), provModel || "gpt-4o");
-      setProvMsg(result.success ? tp("msgConnectOk") : `❌ ${result.error}`);
-    } catch (e: any) { setProvMsg(`❌ ${e.message}`); }
+      if (result.success) {
+        setProvMsg(tp("msgConnectOk"));
+        setProvSuccess(true);
+      } else {
+        setProvMsg(`❌ ${result.error}`);
+        setProvSuccess(false);
+      }
+    } catch (e: any) {
+      setProvMsg(`❌ ${e.message}`);
+      setProvSuccess(false);
+    }
     setTesting(false);
   };
 
@@ -93,25 +110,43 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   useEffect(() => {
     if (tab === "history") {
       setLoadingHistory(true);
-      getMyLoginHistory().then(setRecords).catch(() => {}).finally(() => setLoadingHistory(false));
+      setHistoryError("");
+      getMyLoginHistory()
+        .then(setRecords)
+        .catch((e: any) => setHistoryError(e.message || "Failed to load login history"))
+        .finally(() => setLoadingHistory(false));
     }
     if (tab === "ai") {
       setLoadingProviders(true);
-      getMyProviders().then(setProviders).catch(() => {}).finally(() => setLoadingProviders(false));
+      setProvidersError("");
+      getMyProviders()
+        .then(setProviders)
+        .catch((e: any) => setProvidersError(e.message || "Failed to load AI providers"))
+        .finally(() => setLoadingProviders(false));
     }
     if (tab === "ai-usage") {
       setLoadingUsage(true);
-      getMyPrivateTokenUsages().then(setUsageRecords).catch(() => {}).finally(() => setLoadingUsage(false));
+      setUsageError("");
+      getMyPrivateTokenUsages()
+        .then(setUsageRecords)
+        .catch((e: any) => setUsageError(e.message || "Failed to load usage statistics"))
+        .finally(() => setLoadingUsage(false));
     }
     if (tab === "ai-points") {
       setLoadingPoints(true);
-      getMyAiPointsInfo().then(setPointsInfo).catch(() => {}).finally(() => setLoadingPoints(false));
+      setPointsError("");
+      getMyAiPointsInfo()
+        .then(setPointsInfo)
+        .catch((e: any) => setPointsError(e.message || "Failed to load AI points info"))
+        .finally(() => setLoadingPoints(false));
     }
   }, [tab]);
 
   const handleSaveProvider = async () => {
     if (!provName.trim() || !provEndpoint.trim() || (!editProviderId && !provKey.trim())) {
-      setProvMsg(tp("msgRequireFields")); return;
+      setProvMsg(tp("msgRequireFields"));
+      setProvSuccess(false);
+      return;
     }
     try {
       if (editProviderId) {
@@ -119,16 +154,26 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       } else {
         await createProvider({ name: provName, apiEndpoint: provEndpoint, apiKey: provKey, model: provModel });
       }
-      setProvMsg(tp("msgSaved")); setShowAddProvider(false); setEditProviderId(null);
+      setProvMsg(tp("msgSaved"));
+      setProvSuccess(true);
+      setShowAddProvider(false); setEditProviderId(null);
       setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o");
       const list = await getMyProviders();
       setProviders(list);
-    } catch (e: any) { setProvMsg(e.message || t("saveFailed")); }
+    } catch (e: any) {
+      setProvMsg(e.message || t("saveFailed"));
+      setProvSuccess(false);
+    }
   };
 
   const handleDeleteProvider = async (id: number) => {
-    try { await deleteProvider(id); setProviders(providers.filter(p => p.id !== id)); }
-    catch (e: any) { setProvMsg(e.message || t("saveFailed")); }
+    try {
+      await deleteProvider(id);
+      setProviders(providers.filter(p => p.id !== id));
+    } catch (e: any) {
+      setProvMsg(e.message || t("saveFailed"));
+      setProvSuccess(false);
+    }
   };
 
   const handleChangePwd = async () => {
@@ -163,7 +208,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
         <div className="px-5 py-3 bg-surface-alt/40 border-b border-border flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border border-primary/20">
-              {userName[0]?.toUpperCase()}
+              {(userName || "")[0]?.toUpperCase() || "?"}
             </div>
             <div>
               <div className="text-sm font-semibold text-text flex items-center gap-2">
@@ -267,10 +312,14 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                     <History className="w-5 h-5 text-primary" />
                     {ts("tabHistory")}
                   </h4>
-                  <p className="text-xs text-text-muted">{ts("emptyHistory") ? "你的账号最近登录记录" : ""}</p>
+                  <p className="text-xs text-text-muted">
+                    {records.length > 0 ? ts("historyDesc") : ""}
+                  </p>
                 </div>
                 {loadingHistory ? (
                   <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
+                ) : historyError ? (
+                  <div className="text-center text-danger py-8 text-sm">{historyError}</div>
                 ) : (
                   <div className="bg-surface-alt/30 border border-border rounded-theme p-3">
                     <UserLoginHistory records={records} />
@@ -292,6 +341,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                 <div className="space-y-3">
                   {loadingProviders ? (
                     <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
+                  ) : providersError ? (
+                    <div className="text-center text-danger py-8 text-sm">{providersError}</div>
                   ) : (
                     providers.filter((p: any) => p.isOwner).map((p) => (
                       <div key={p.id} className="flex items-center justify-between p-3.5 bg-surface-alt rounded-theme border border-border hover:border-primary/40 transition">
@@ -310,6 +361,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                                 setProvModel(p.model);
                                 setProvKey("");
                                 setPreset("custom");
+                                setProvMsg("");
+                                setProvSuccess(false);
                                 setShowAddProvider(true);
                               }}
                               className="p-1.5 text-text-muted hover:text-text hover:bg-surface-alt rounded transition cursor-pointer"
@@ -337,6 +390,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                         setProvKey("");
                         setProvModel("gpt-4o");
                         setPreset("custom");
+                        setProvMsg("");
+                        setProvSuccess(false);
                         setShowAddProvider(true);
                       }}
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 border border-dashed border-border rounded-theme text-sm text-text-muted hover:text-text hover:border-primary transition font-semibold cursor-pointer"
@@ -407,7 +462,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                       </div>
 
                       {provMsg && (
-                        <p className={`text-xs font-semibold ${provMsg === tp("msgSaved") || provMsg === tp("msgConnectOk") ? "text-success" : "text-danger"}`}>
+                        <p className={`text-xs font-semibold ${provSuccess ? "text-success" : "text-danger"}`}>
                           {provMsg}
                         </p>
                       )}
@@ -450,12 +505,14 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                     {ts("tabAiUsage")}
                   </h4>
                   <p className="text-xs text-text-muted">
-                    私有大模型提供商的 Token 消耗量统计（按每日聚合）
+                    {ts("aiUsageDesc")}
                   </p>
                 </div>
 
                 {loadingUsage ? (
                   <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
+                ) : usageError ? (
+                  <div className="text-center text-danger py-8 text-sm">{usageError}</div>
                 ) : usageRecords.length > 0 ? (
                   <div className="space-y-4">
                     {/* Summary Cards */}
@@ -519,10 +576,27 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
                 {loadingPoints ? (
                   <div className="text-center text-text-dim py-8 text-sm">{tp("loading")}</div>
+                ) : pointsError ? (
+                  <div className="text-center text-danger py-8 text-sm flex flex-col items-center gap-2">
+                    <span>{pointsError}</span>
+                    <button
+                      onClick={() => {
+                        setLoadingPoints(true);
+                        setPointsError("");
+                        getMyAiPointsInfo()
+                          .then(setPointsInfo)
+                          .catch((e: any) => setPointsError(e.message || "Failed to load"))
+                          .finally(() => setLoadingPoints(false));
+                      }}
+                      className="text-xs text-primary hover:underline cursor-pointer"
+                    >
+                      {locale === "zh" ? "重试" : "Retry"}
+                    </button>
+                  </div>
                 ) : pointsInfo ? (
                   <div className="space-y-4">
                     {/* Balance Card */}
-                    <div className="bg-primary/5 border border-primary/20 rounded-theme p-4.5 text-center shadow-sm relative overflow-hidden">
+                    <div className="bg-primary/5 border border-primary/20 rounded-theme p-5 text-center shadow-sm relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 pointer-events-none" />
                       <div className="text-xs text-text-muted font-bold mb-1 flex items-center justify-center gap-1.5 relative z-10">
                         <Coins className="w-4 h-4 text-primary" /> {ts("currentBalance")}

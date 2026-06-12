@@ -42,7 +42,7 @@ export async function createProvider(data: ProviderData) {
     apiEndpoint: data.apiEndpoint.trim(),
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
     model: data.model || "gpt-4o",
-    isShared: sql`${sql.raw((isAdmin && data.isShared) ? "TRUE" : "FALSE")}`,
+    isShared: isAdmin && !!data.isShared,
     tokenRateInput: Math.max(0, Number(data.tokenRateInput) || 0.0),
     tokenRateCached: Math.max(0, Number(data.tokenRateCached) || 0.0),
     tokenRateOutput: Math.max(0, Number(data.tokenRateOutput) || 0.0),
@@ -75,7 +75,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   // Admin: always write isShared (checkbox passes true/false)
 
   if (isAdmin) {
-    values.isShared = sql`${sql.raw((data.isShared ?? existing.isShared) ? "TRUE" : "FALSE")}`;
+    values.isShared = data.isShared ?? existing.isShared;
     if (data.tokenRateInput !== undefined) values.tokenRateInput = Math.max(0, Number(data.tokenRateInput) || 0.0);
     if (data.tokenRateCached !== undefined) values.tokenRateCached = Math.max(0, Number(data.tokenRateCached) || 0.0);
     if (data.tokenRateOutput !== undefined) values.tokenRateOutput = Math.max(0, Number(data.tokenRateOutput) || 0.0);
@@ -131,7 +131,7 @@ export async function getMyProviders() {
 
 }
 
-/** Get all providers (admin only, for management) */
+/** Get admin's own providers (admin only, for personal management) */
 export async function getAllProviders() {
   const session = await auth();
   if (!session || (session.user as any).role !== "admin") {

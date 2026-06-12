@@ -13,11 +13,11 @@ export async function recordTokenUsage(
   outputTokens: number
 ) {
   try {
-    // Generate YYYY-MM-DD string in local timezone
+    // Generate YYYY-MM-DD string in UTC timezone to keep consistency with points history query
     const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const date = String(today.getDate()).padStart(2, '0');
+    const year = today.getUTCFullYear();
+    const month = String(today.getUTCMonth() + 1).padStart(2, '0');
+    const date = String(today.getUTCDate()).padStart(2, '0');
     const dayStr = `${year}-${month}-${date}`;
 
     await db.transaction(async (tx) => {
