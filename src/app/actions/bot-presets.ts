@@ -5,9 +5,13 @@ import { botPresets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
+import { auth } from "@/auth";
 
 export async function getBotPresetsAction() {
-  await requireAdmin();
+  const session = await auth();
+  if (!session) return [];
+  const role = (session.user as any).role;
+  if (role !== "host" && role !== "admin") return [];
   return await db.select().from(botPresets).orderBy(botPresets.name);
 }
 

@@ -1,7 +1,7 @@
 import { db, sqlNow } from "@/db";
 import { recordTokenUsage } from "@/lib/ai_usage";
 import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig } from "@/db/schema";
-import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
+import { eq, and, asc, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom, emitToUser } from "@/lib/events";
 import { rollDice } from "@/lib/utils";
@@ -813,7 +813,7 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   // Count new messages since last summary
   const newMsgs = await db.select().from(messages)
     .where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)))
-    .orderBy(desc(messages.id))
+    .orderBy(asc(messages.id))
     .limit(500);
   
   if (newMsgs.length < 30) return; // Threshold not met
