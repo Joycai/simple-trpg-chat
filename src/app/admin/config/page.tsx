@@ -2,12 +2,23 @@ import { db, currentDialect } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
+import type { Metadata } from "next";
 import { SiteThemeSelector } from "@/components/SiteThemeSelector";
 import { AdminSensitiveWords } from "@/components/AdminSensitiveWords";
 import { AdminTitleConfig } from "@/components/AdminTitleConfig";
+import { AdminFaviconConfig } from "@/components/AdminFaviconConfig";
 import { getSiteTheme } from "@/app/actions/theme";
+import { getCachedSiteTitle } from "@/lib/config";
 import type { ThemeId } from "@/themes/types";
 import { Database, HardDrive } from "lucide-react";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const [t, siteTitle] = await Promise.all([
+    getTranslations("admin"),
+    getCachedSiteTitle(),
+  ]);
+  return { title: `${t("systemConfig")} | ${siteTitle}` };
+}
 
 export default async function AdminConfigPage() {
   const t = await getTranslations("admin");
@@ -15,6 +26,8 @@ export default async function AdminConfigPage() {
   const sensitiveWords = wordsConfig?.value || "";
   const [titleConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_title"));
   const siteTitle = titleConfig?.value || "";
+  const [faviconConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_favicon"));
+  const siteFavicon = faviconConfig?.value ?? "";
   const dbType = currentDialect;
   const siteTheme = await getSiteTheme();
 
@@ -40,6 +53,8 @@ export default async function AdminConfigPage() {
       </section>
 
       <AdminTitleConfig initialTitle={siteTitle} />
+
+      <AdminFaviconConfig initialFavicon={siteFavicon} />
 
       <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
 

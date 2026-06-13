@@ -4,6 +4,7 @@ import { db, sqlNow } from "@/db";
 import { users, systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { revalidatePath } from "next/cache";
 import type { ThemeId } from "@/themes/types";
 
 /** Safe userId extraction — guards against NaN */
@@ -67,6 +68,36 @@ export async function getUserThemePreference(): Promise<ThemeId | null> {
     .where(eq(users.id, userId));
 
   return (user?.themePreference as ThemeId) || null;
+}
+
+/**
+ * Update the site favicon (admin only).
+ * Accepts a base64 data URL or empty string to reset to the static favicon.ico.
+ */
+export async function updateSiteFavicon(dataUrl: string): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+  if (!session || (session.user as any).role !== "admin") {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  if (dataUrl !== "" && !dataUrl.startsWith("data:image/")) {
+    return { success: false, error: "Invalid format" };
+  }
+  if (dataUrl.length > 700_000) {
+    return { success: false, error: "File too large" };
+  }
+
+  await db
+    .insert(systemConfig)
+    .values({ key: "site_favicon", value: dataUrl, updatedAt: sqlNow() })
+    .onConflictDoUpdate({
+      target: systemConfig.key,
+      set: { value: dataUrl, updatedAt: sqlNow() },
+    });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/admin");
+  return { success: true };
 }
 
 /**

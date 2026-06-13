@@ -18,3 +18,19 @@ export const getCachedSiteTitle = unstable_cache(
   ["site_title_cache"],
   { tags: ["system_config"] }
 );
+
+/**
+ * Get the site favicon (base64 data URL) from system config with caching.
+ * Returns empty string when not set — layout.tsx falls back to static favicon.ico.
+ */
+export const getCachedSiteFavicon = unstable_cache(
+  async () => {
+    const [row] = await db
+      .select()
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "site_favicon"));
+    return row?.value ?? "";
+  },
+  ["site_favicon_cache"],
+  { tags: ["system_config"] }
+);
