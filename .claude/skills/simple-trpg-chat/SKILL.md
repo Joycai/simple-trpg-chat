@@ -1,7 +1,7 @@
 ---
 name: simple-trpg-chat
 description: >-
-  Expert knowledge for the Simple TRPG Chat project — a lightweight web-based TRPG tool built with Next.js 16, Drizzle ORM (SQLite/PostgreSQL), SSE real-time chat, AI Bot Agent, dice system, inventory, clue cards, character sheets, and multi-theme support. Use this skill whenever working on this project's codebase, adding features, fixing bugs, understanding the data model (12 tables), following development conventions (feature branches, PR workflow, pnpm, CI), or navigating the architecture (SSE privacy filter V3.15, Bot-as-User pattern, Server Actions, i18n with next-intl). Also use for questions about core concepts (Room, Bot, Dice, Character, Inventory, Clue, Private Chat, Markdown, Theme) or when troubleshooting common pitfalls.
+  Expert knowledge for the Simple TRPG Chat project — a lightweight web-based TRPG tool built with Next.js 16, Drizzle ORM (PostgreSQL), SSE real-time chat, AI Bot Agent, dice system, inventory, clue cards, character sheets, and multi-theme support. Use this skill whenever working on this project's codebase, adding features, fixing bugs, understanding the data model (16 tables), following development conventions (feature branches, PR workflow, pnpm, CI), or navigating the architecture (SSE privacy filter V3.15, Bot-as-User pattern, Server Actions, i18n with next-intl). Also use for questions about core concepts (Room, Bot, Dice, Character, Inventory, Clue, Private Chat, Markdown, Theme) or when troubleshooting common pitfalls.
 ---
 
 # Simple TRPG Chat — Project Knowledge
@@ -16,12 +16,15 @@ A lightweight, web-based TRPG (Tabletop Role-Playing Game) tool built with **Nex
 |-------|-----------|
 | Framework | Next.js 16 (App Router, Turbopack dev) |
 | Language | TypeScript |
-| ORM | Drizzle ORM (SQLite default, PostgreSQL optional) |
+| ORM | Drizzle ORM (PostgreSQL via `postgres` driver) |
 | Auth | NextAuth.js v5 (Credentials provider) |
 | Realtime | SSE (Server-Sent Events via ReadableStream) |
 | Styling | Tailwind CSS 4 + CSS Variables (4 themes) |
 | i18n | next-intl (zh-CN / en) |
-| Package Manager | pnpm |
+| Validation | zod |
+| Icons | lucide-react |
+| Testing | vitest |
+| Package Manager | pnpm (>= 10, Node >= 20) |
 | CI/CD | GitHub Actions (Node 20/22 matrix) |
 
 All file paths below are relative to the project root.
@@ -34,7 +37,7 @@ All file paths below are relative to the project root.
 |---------|----------|---------|
 | **Room** | Game session with key-based access | `rooms` table, theme/diceRules/ruleTemplate settings |
 | **User Roles** | Admin / Host(KP) / Player / Bot | Admin→`/admin`, Host manages rooms, Bot is virtual user |
-| **Bot (AI Agent)** | Bot-as-User: `is_bot=true`, config in `botConfigJson` | 7 tools, @mention or manual activation, LLM via host_ai_config |
+| **Bot (AI Agent)** | Bot-as-User: `is_bot=true`, config in `botConfigJson` | 8 tools, @mention or manual activation, LLM via `aiProviders` table |
 | **SSE** | `GET /api/rooms/[id]/events` | globalThis EventEmitter, 15s heartbeat, V3.15 privacy filter |
 | **Dice** | `.rd<N>` / `.rc <name>` / `.st <name> <value>` | Server-side calculation, COC 7th critical/fumble |
 | **Character** | `room_members.character_data` JSON | COC7th auto-init 8 attrs + derived, or generic d100 |
@@ -64,23 +67,28 @@ All file paths below are relative to the project root.
 ```bash
 pnpm dev          # Start dev server (Turbopack)
 pnpm build        # Production build
-pnpm db:push      # Sync Drizzle schema to SQLite
+pnpm start        # Start production server
+pnpm test         # Run tests (vitest run)
+pnpm lint         # ESLint
+pnpm db:push      # Push Drizzle schema to PostgreSQL
 pnpm db:studio    # Drizzle Studio (DB browser)
+pnpm db:seed      # Seed database (creates admin / admin123)
+pnpm db:doctor    # Environment & DB diagnostics
 bash setup.sh / setup.bat # First-time setup (.env, deps, schema)
 ```
 
 ### Key Files
 | File | Purpose |
 |------|---------|
-| `src/db/schema.ts` | All table definitions |
-| `src/db/index.ts` | DB adapter (SQLite/PG switching) |
+| `src/db/schema.ts` | All 16 table definitions |
+| `src/db/index.ts` | Drizzle PostgreSQL client |
 | `src/app/actions/room.ts` | Room, message, dice actions |
-| `src/lib/ai_agent.ts` | Bot Agent engine |
-| `src/lib/commands.ts` | `.st` / `.rc` / `.rd` parser |
-| `src/components/RoomClient.tsx` | Main room UI (760+ lines) |
+| `src/lib/ai_agent.ts` | Bot Agent engine (8 tools) |
+| `src/lib/commands.ts` | `.st` / `.rc` / `.sc` / `.rd` parser |
+| `src/components/RoomClient.tsx` | Main room UI orchestrator |
 | `src/app/api/rooms/[id]/events/route.ts` | SSE endpoint |
 | `src/app/globals.css` | Theme CSS variables |
-| `src/instrumentation.ts` | Server startup hook |
+| `src/lib/events.ts` | globalThis EventEmitter singleton |
 | `.github/workflows/ci.yml` | CI pipeline |
 
 ### Common Patterns

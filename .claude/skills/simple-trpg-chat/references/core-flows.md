@@ -16,7 +16,7 @@
 ## Bot Activation
 1. Message contains `@botNickname` → `runAgent(botUserId, roomId)` triggered (in `src/lib/ai_agent.ts`)
 2. `buildAgentContext()` assembles: system prompt + inventory items (knowledge base) + sliding window (20 recent messages) + historical summary
-3. POST to Host AI endpoint (`host_ai_config`) with tool definitions
+3. POST to Host AI endpoint (`ai_providers`) with tool definitions
 4. LLM responds with text OR function_call → tool executor runs → result fed back to LLM
 5. Final text response sent as chat message via `sendMessageAction`
 6. History compression: when messages exceed threshold (30), old messages summarized into `historicalSummary`
@@ -38,6 +38,6 @@
 
 ## AI Smart Import (#50)
 1. Host pastes raw text → `analyzeTextForImportAction`
-2. LLM (via `host_ai_config`) analyzes text → returns structured JSON: `[{ type, title, content }]`
+2. LLM (via `ai_providers`) analyzes text → returns structured JSON: `[{ type, title, content }]`
 3. Preview list with type icons, editable content
 4. Confirm → `batchImportItemsAction` writes to `inventory_items` + `clue_cards`
