@@ -15,6 +15,16 @@ async function seed() {
   }).onConflictDoNothing();
 
   console.log("Admin user created (username: admin, password: admin123)");
+
+  const testPasswordHash = await bcrypt.hash("test1234", 10);
+  await db.insert(users).values({
+    username: "testuser",
+    passwordHash: testPasswordHash,
+    role: "user",
+    displayName: "Test User",
+  }).onConflictDoNothing();
+
+  console.log("Test user created (username: testuser, password: test1234)");
 }
 
 seed().catch(console.error);
