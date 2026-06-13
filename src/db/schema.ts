@@ -115,7 +115,10 @@ export const messages = pgTable('messages', {
   diceDetail: text('dice_detail'),
   isPrivate: boolean('is_private').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-});
+}, (t) => ({
+  idx_messages_room_id_id: index('idx_messages_room_id_id').on(t.roomId, t.id),
+  idx_messages_user_id: index('idx_messages_user_id').on(t.userId),
+}));
 
 export const systemConfig = pgTable('system_config', {
   key: text('key').primaryKey(),

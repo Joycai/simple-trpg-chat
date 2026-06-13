@@ -22,6 +22,7 @@
     "errorEmpty": "Please enter username and password",
     "errorCredentials": "Invalid username or password",
     "errorBanned": "Your account has been banned by an administrator and cannot log in.",
+    "errorRateLimit": "Too many failed login attempts. Please try again in 1 minute.",
     "errorUnknown": "Login failed, please try again",
     "licenseAgreement": "Open Source License & Dual Licensing Description",
     "licenseAgreementText": "Open Source License & User Terms",

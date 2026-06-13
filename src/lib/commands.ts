@@ -52,16 +52,10 @@ export async function executeCommand(
 
   // --- .rd / .r (Dice roll expressions) ---
   if (cmd === "rd" || cmd === "r") {
-    if (cmd === "rd") {
-      if (!args.trim()) {
-        args = "1d100";
-      } else if (/^\d+(?![dD])/.test(args.trim())) {
-        args = "1d" + args.trim();
-      }
-    } else {
-      if (!args.trim()) {
-        args = "1d100";
-      }
+    if (!args.trim()) {
+      args = "1d100";
+    } else if (/^\d+(?![dD])/.test(args.trim())) {
+      args = "1d" + args.trim();
     }
 
     const rollResult = parseAndRollExpression(args, t);
@@ -173,7 +167,8 @@ async function handleSetSkill(
       continue;
     }
 
-    if (name.toLowerCase() === "san" || name === "san值") {
+    const lowerName = name.toLowerCase();
+    if (lowerName === "san" || lowerName === "san值") {
       name = "理智值";
     }
     updates.push({ name, value });

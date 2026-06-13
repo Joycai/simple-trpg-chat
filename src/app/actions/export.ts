@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { messages, roomMembers, rooms, users } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, gt } from "drizzle-orm";
 import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
@@ -51,10 +51,28 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) throw new Error("Room not found");
 
-  // All messages in chronological order
-  const allMessages = await db.select().from(messages)
-    .where(eq(messages.roomId, roomId))
-    .orderBy(asc(messages.createdAt));
+  // All messages in chronological order (batch fetched to prevent DB client OOM)
+  const chunkSize = 5000;
+  let lastId = 0;
+  let hasMore = true;
+  const allMessages: Array<typeof messages.$inferSelect> = [];
+
+  while (hasMore) {
+    const chunk = await db.select().from(messages)
+      .where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)))
+      .orderBy(asc(messages.id))
+      .limit(chunkSize);
+
+    if (chunk.length === 0) {
+      hasMore = false;
+    } else {
+      allMessages.push(...chunk);
+      lastId = chunk[chunk.length - 1].id;
+      if (chunk.length < chunkSize) {
+        hasMore = false;
+      }
+    }
+  }
 
   // Members for nickname lookup
   const members = await db.select().from(roomMembers)

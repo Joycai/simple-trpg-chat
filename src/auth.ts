@@ -7,9 +7,16 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { recordLogin } from "@/lib/login-history";
 import { authConfig } from "./auth.config";
+import { headers } from "next/headers";
+
+import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
 
 class BannedError extends CredentialsSignin {
   code = "banned";
+}
+
+class RateLimitError extends CredentialsSignin {
+  code = "rate_limit";
 }
 
 const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
@@ -23,15 +30,41 @@ const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
 
-        const [user] = await db.select().from(users).where(eq(users.username, credentials.username as string));
-        if (!user || user.isBot) return null;
+        let ip = "127.0.0.1";
+        try {
+          const h = await headers();
+          ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "127.0.0.1";
+        } catch {}
+
+        const username = credentials.username as string;
+        const ipKey = `ip:${ip}`;
+        const userKey = `user:${username}`;
+
+        if (isLocked(ipKey, 10) || isLocked(userKey, 5)) {
+          throw new RateLimitError();
+        }
+
+        const [user] = await db.select().from(users).where(eq(users.username, username));
+        if (!user || user.isBot) {
+          recordFailure(ipKey);
+          recordFailure(userKey);
+          return null;
+        }
 
         if (user.isBanned) {
           throw new BannedError();
         }
 
         const isPasswordCorrect = await bcrypt.compare(credentials.password as string, user.passwordHash);
-        if (!isPasswordCorrect) return null;
+        if (!isPasswordCorrect) {
+          recordFailure(ipKey);
+          recordFailure(userKey);
+          return null;
+        }
+
+        // Reset rate limit on success
+        clearAttempts(ipKey);
+        clearAttempts(userKey);
 
         // Single-session: generate new token to invalidate old sessions
         // Try-catch: column may not exist if DB hasn't been migrated

@@ -30,33 +30,37 @@ export async function createBotAction(
   // Only room hosts can create bots in the room
   await checkRoomAccess(roomId, true);
 
-  // 1. Create a "Shadow User" for the bot
+  // 1. Create a "Shadow User" for the bot (atomic transaction)
   const botUsername = `bot_${crypto.randomBytes(4).toString("hex")}`;
-  const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+  const passwordHash = "is_bot"; // Bots never log in directly; avoid expensive bcrypt hash
 
-  const [botUser] = await db.insert(users).values({
-    username: botUsername,
-    passwordHash,
-    displayName: data.name,
-    isBot: true,
-    botConfigJson: JSON.stringify({
+  const botUser = await db.transaction(async (tx) => {
+    const [userRecord] = await tx.insert(users).values({
+      username: botUsername,
+      passwordHash,
+      displayName: data.name,
+      isBot: true,
+      botConfigJson: JSON.stringify({
+        roomId,
+        systemPrompt: data.systemPrompt,
+        model: data.model,
+        activation: data.activation,
+        enableTools: data.enableTools || ["send_message", "roll_dice"],
+        providerId: data.providerId,
+        historicalSummary: "",
+        lastSummarizedMsgId: 0
+      }),
+    }).returning();
+
+    // 2. Add the bot to the room members
+    await tx.insert(roomMembers).values({
       roomId,
-      systemPrompt: data.systemPrompt,
-      model: data.model,
-      activation: data.activation,
-      enableTools: data.enableTools || ["send_message", "roll_dice"],
-      providerId: data.providerId,
-      historicalSummary: "",
-      lastSummarizedMsgId: 0
-    }),
-  }).returning();
+      userId: userRecord.id,
+      nickname: data.nickname,
+      avatarColor: data.avatarColor || getRandomColorForUser(userRecord.id),
+    });
 
-  // 2. Add the bot to the room members
-  await db.insert(roomMembers).values({
-    roomId,
-    userId: botUser.id,
-    nickname: data.nickname,
-    avatarColor: data.avatarColor || getRandomColorForUser(botUser.id),
+    return userRecord;
   });
 
   revalidatePath(`/rooms/${roomId}`);
@@ -128,13 +132,7 @@ export async function deleteBotAction(roomId: number, botUserId: number) {
   // Only room hosts can delete bots
   await checkRoomAccess(roomId, true);
 
-  await db.delete(roomMembers).where(
-    and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, botUserId)
-    )
-  );
-
+  // Deleting the shadow user cascades automatically to delete room membership
   await db.delete(users).where(eq(users.id, botUserId));
 
   revalidatePath(`/rooms/${roomId}`);

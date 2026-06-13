@@ -2,7 +2,7 @@
 
 import { db, sqlNow, sqlBool } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray, or, desc, lt, isNull, not } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, asc, lt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -123,10 +123,15 @@ export async function updateNicknameAction(roomId: number, nickname: string) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
+  const trimmed = nickname.trim();
+  if (!trimmed || trimmed.length > 50) {
+    throw new Error("Invalid nickname (must be between 1 and 50 characters)");
+  }
+
   const userId = parseInt((session.user as any).id);
 
   await db.update(roomMembers)
-    .set({ nickname })
+    .set({ nickname: trimmed })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
   broadcastToRoom(roomId, {
@@ -184,6 +189,11 @@ export async function sendMessageAction(
   targetUserId?: number // V3.14: Added targetUserId
 ) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
+
+  const trimmedContent = content.trim();
+  if (type === "text" && (!trimmedContent || trimmedContent.length > 10000)) {
+    throw new Error("Message content must be between 1 and 10000 characters");
+  }
 
   const t = await getTranslations("roomActions");
 
@@ -251,7 +261,9 @@ export async function sendMessageAction(
       const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
       if (targetUser && targetUser.isBot) {
         // Trigger Agent (async)
-        import("@/lib/ai_agent").then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true }));
+        import("@/lib/ai_agent")
+          .then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true }))
+          .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (private DM):", err));
       }
     } else if (!isPrivate) {
       // Check if any bot in the room is mentioned
@@ -263,7 +275,9 @@ export async function sendMessageAction(
       for (const m of roomBots) {
         if (m.user.isBot && (content.includes(`@${m.user.displayName}`) || content.includes(`@${m.nickname}`))) {
           // Trigger Agent (async)
-          import("@/lib/ai_agent").then(({ runAgent }) => runAgent(m.userId, roomId, { triggeringUserId: userId, isPrivate: false }));
+          import("@/lib/ai_agent")
+            .then(({ runAgent }) => runAgent(m.userId, roomId, { triggeringUserId: userId, isPrivate: false }))
+            .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (mention):", err));
         }
       }
     }
@@ -351,11 +365,35 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
 // --- Data Fetching ---
 
 export async function getRoomMessages(roomId: number) {
+  const { userId, isHost } = await checkRoomAccess(roomId, false);
+
+  const visibilityCondition = isHost
+    ? and(
+        eq(messages.roomId, roomId),
+        or(
+          not(eq(messages.isPrivate, true)),
+          not(eq(messages.type, "system")),
+          isNull(messages.targetUserId),
+          eq(messages.targetUserId, userId)
+        )
+      )
+    : and(
+        eq(messages.roomId, roomId),
+        or(
+          eq(messages.isPrivate, false),
+          eq(messages.targetUserId, userId),
+          and(
+            eq(messages.userId, userId),
+            not(eq(messages.type, "system"))
+          )
+        )
+      );
+
   return await db
     .select()
     .from(messages)
-    .where(eq(messages.roomId, roomId))
-    .orderBy(messages.createdAt);
+    .where(visibilityCondition)
+    .orderBy(asc(messages.id));
 }
 
 export async function getRoomSkills(roomId: number, userId: number) {

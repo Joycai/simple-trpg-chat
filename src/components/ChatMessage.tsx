@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { formatTime, formatDiceResult } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -38,7 +38,7 @@ interface ChatMessageProps {
   avatarColor?: string | null;
 }
 
-export function ChatMessage({
+export const ChatMessage = memo(function ChatMessage({
   nickname,
   content,
   type,
@@ -310,4 +310,4 @@ export function ChatMessage({
       </div>
     </div>
   );
-}
+});

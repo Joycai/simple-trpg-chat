@@ -21,12 +21,13 @@ export async function isSessionValid(userId: string, tokenSession: string): Prom
     sessionCache.set(userId, { token: dbToken || "", isBanned, expires: now + CACHE_TTL });
     return dbToken === tokenSession && !isBanned;
   } catch {
-    return true; // DB error: don't block user
+    return false; // DB error: block user (fail-closed)
   }
 }
 
 export const authConfig = {
-  trustHost: true,
+  trustHost: process.env.NODE_ENV === "development" || process.env.AUTH_TRUST_HOST === "true",
+  useSecureCookies: process.env.NODE_ENV === "production",
   pages: {
     signIn: "/login",
   },
@@ -74,7 +75,9 @@ export const authConfig = {
           try {
             const valid = await isSessionValid(token.sub, token.sessionToken as string);
             if (!valid) (session as any).invalidated = true;
-          } catch { /* validation failure is non-blocking */ }
+          } catch {
+            (session as any).invalidated = true; // validation failure is blocking (fail-closed)
+          }
         }
       }
       return session;

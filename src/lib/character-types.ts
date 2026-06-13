@@ -111,6 +111,11 @@ export function computeCocDerived(attrs: CocAttributes): CocDerived {
   else if (strPlusSiz <= 124) { db = "0"; build = 0; }
   else if (strPlusSiz <= 164) { db = "+1D4"; build = 1; }
   else if (strPlusSiz <= 204) { db = "+1D6"; build = 2; }
+  else {
+    const steps = Math.floor((strPlusSiz - 205) / 80) + 3;
+    db = `+${steps - 1}D6`;
+    build = steps;
+  }
 
   // MOV based on DEX+SIZ
   let mov = 8;

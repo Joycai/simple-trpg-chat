@@ -5,21 +5,20 @@ import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { requireAdmin } from "@/app/admin/actions";
 
 /**
  * System Config (Admin Only)
  */
 
 export async function getSystemConfig(key: string): Promise<string | null> {
+  await requireAdmin();
   const [config] = await db.select().from(systemConfig).where(eq(systemConfig.key, key));
   return config?.value || null;
 }
 
 export async function updateSystemConfig(key: string, value: string) {
-  const session = await auth();
-  if (!session || (session.user as any).role !== "admin") {
-    throw new Error("Unauthorized");
-  }
+  await requireAdmin();
 
   await db.insert(systemConfig).values({
     key,
@@ -28,6 +27,11 @@ export async function updateSystemConfig(key: string, value: string) {
     target: systemConfig.key,
     set: { value, updatedAt: sqlNow() },
   });
+
+  if (key === "sensitive_words") {
+    const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
+    clearSensitiveWordsCache();
+  }
 
   revalidatePath("/admin");
   revalidatePath("/", "layout");

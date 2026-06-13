@@ -36,20 +36,18 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   const isHost = room.hostId === userId;
 
-  // Get all room members (for player list)
-  const members = await db
+  // 1. Get all room members (for player list)
+  let members = await db
     .select()
     .from(roomMembers)
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(eq(roomMembers.roomId, roomId));
 
-  // Check if user is a member
-  const [member] = await db
-    .select()
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+  // 2. Check if user is a member (lookup in memory first to save DB query)
+  let currentMemberJoint = members.find(m => m.room_members.userId === userId);
+  let currentMember = currentMemberJoint?.room_members || null;
 
-  if (!member && isHost) {
+  if (!currentMember && isHost) {
     // Auto-join the host if they weren't added as member
     await db.insert(roomMembers).values({
       roomId,
@@ -57,7 +55,16 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       nickname: user.name || user.username || "Host",
       avatarColor: getRandomColorForUser(userId),
     });
-  } else if (!member) {
+    
+    // Re-fetch members to include the host
+    members = await db
+      .select()
+      .from(roomMembers)
+      .innerJoin(users, eq(roomMembers.userId, users.id))
+      .where(eq(roomMembers.roomId, roomId));
+    currentMemberJoint = members.find(m => m.room_members.userId === userId);
+    currentMember = currentMemberJoint?.room_members || null;
+  } else if (!currentMember) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
         <h1 className="text-2xl font-bold text-text-muted">{t("notJoined")}</h1>
@@ -67,12 +74,6 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       </div>
     );
   }
-
-  // Get updated member info
-  const [currentMember] = await db
-    .select()
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
   const currentNickname = currentMember?.nickname || user.name || user.username || "Player";
 
@@ -99,42 +100,37 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         )
       );
 
-  // Load latest 100 messages initially (R8)
-  const roomMessages = await db
-    .select()
-    .from(messages)
-    .where(visibilityCondition)
-    .orderBy(desc(messages.id))
-    .limit(100);
+  // 3. Parallelized queries (P9)
+  const [roomMessages, [aiConfig], [hostUser], roomProviders] = await Promise.all([
+    db
+      .select()
+      .from(messages)
+      .where(visibilityCondition)
+      .orderBy(desc(messages.id))
+      .limit(100),
+    db
+      .select()
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "ai_enabled")),
+    db
+      .select({ role: users.role, aiPoints: users.aiPoints })
+      .from(users)
+      .where(eq(users.id, room.hostId))
+      .limit(1),
+    db
+      .select({ id: aiProviders.id, isShared: aiProviders.isShared })
+      .from(aiProviders)
+      .where(
+        or(
+          eq(aiProviders.ownerId, room.hostId),
+          eq(aiProviders.isShared, true)
+        )
+      )
+  ]);
 
   const visibleMessages = roomMessages.reverse();
-
-  // Load global AI enabled toggle
-  const [aiConfig] = await db
-    .select()
-    .from(systemConfig)
-    .where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
-
-  // Load room host user info to verify credits
-  const [hostUser] = await db
-    .select({ role: users.role, aiPoints: users.aiPoints })
-    .from(users)
-    .where(eq(users.id, room.hostId))
-    .limit(1);
-
   const isHostQuotaOk = !hostUser || hostUser.role === "admin" || Number(hostUser.aiPoints || 0) > 0;
-
-  // Load valid providers for this room (either owned by the room's host or isShared is true and host has quota)
-  const roomProviders = await db
-    .select({ id: aiProviders.id, isShared: aiProviders.isShared })
-    .from(aiProviders)
-    .where(
-      or(
-        eq(aiProviders.ownerId, room.hostId),
-        eq(aiProviders.isShared, true)
-      )
-    );
   
   const validProviderIds = roomProviders
     .filter(p => !p.isShared || isHostQuotaOk)

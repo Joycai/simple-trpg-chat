@@ -11,11 +11,11 @@ declare global {
   var __userConnections: Map<number, Set<ActiveConnection>> | undefined;
 }
 
-// Format a Date object as YYYY-MM-DD local string
+// Format a Date object as YYYY-MM-DD UTC string
 function formatDate(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 

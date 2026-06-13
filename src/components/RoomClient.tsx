@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CharacterPanel } from "./CharacterPanel";
@@ -180,7 +180,7 @@ export function RoomClient({
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  const handleTabChange = (tab: "public" | number) => {
+  const handleTabChange = useCallback((tab: "public" | number) => {
     setActiveTab(tab);
     if (tab !== "public") {
       setUnreadCounts((prev) => ({
@@ -193,7 +193,7 @@ export function RoomClient({
       setSidebarCollapsed(true);
       localStorage.setItem("trpg-sidebar-collapsed", "true");
     }
-  };
+  }, [room.id, isMobile]);
 
   // Helper to check bot status
   const getBotStatus = (usersRecord: any) => {
@@ -305,49 +305,55 @@ export function RoomClient({
     }
   };
 
-  const handleScroll = async () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const threshold = 150; 
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-    isAtBottomRef.current = atBottom;
-    setShowScrollButton(!atBottom);
+  const scrollTimeoutRef = useRef<number | null>(null);
 
-    // Infinite scroll load more (R8)
-    if (el.scrollTop < 10 && hasMore && !loadingMore && messages.length > 0) {
-      setLoadingMore(true);
-      const oldestId = messages[0].id;
-      try {
-        const older: any[] = await loadMoreMessagesAction(room.id, oldestId, 50);
-        if (older.length < 50) {
-          setHasMore(false);
+  const handleScroll = useCallback(() => {
+    if (scrollTimeoutRef.current !== null) return;
+    scrollTimeoutRef.current = window.requestAnimationFrame(async () => {
+      scrollTimeoutRef.current = null;
+      const el = scrollRef.current;
+      if (!el) return;
+      const threshold = 150; 
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+      isAtBottomRef.current = atBottom;
+      setShowScrollButton(!atBottom);
+
+      // Infinite scroll load more (R8)
+      if (el.scrollTop < 10 && hasMore && !loadingMore && messages.length > 0) {
+        setLoadingMore(true);
+        const oldestId = messages[0].id;
+        try {
+          const older: any[] = await loadMoreMessagesAction(room.id, oldestId, 50);
+          if (older.length < 50) {
+            setHasMore(false);
+          }
+          if (older.length > 0) {
+            const prevScrollHeight = el.scrollHeight;
+
+            // Add to seenIdsRef
+            older.forEach(m => seenIdsRef.current.add(String(m.id)));
+
+            setMessages(prev => {
+              const filteredOlder = older.filter(o => !prev.some(p => p.id === o.id));
+              return [...filteredOlder, ...prev];
+            });
+
+            // Adjust scroll position after rendering to keep it stable
+            requestAnimationFrame(() => {
+              if (scrollRef.current) {
+                const delta = scrollRef.current.scrollHeight - prevScrollHeight;
+                scrollRef.current.scrollTop = delta;
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load more messages:", err);
+        } finally {
+          setLoadingMore(false);
         }
-        if (older.length > 0) {
-          const prevScrollHeight = el.scrollHeight;
-
-          // Add to seenIdsRef
-          older.forEach(m => seenIdsRef.current.add(String(m.id)));
-
-          setMessages(prev => {
-            const filteredOlder = older.filter(o => !prev.some(p => p.id === o.id));
-            return [...filteredOlder, ...prev];
-          });
-
-          // Adjust scroll position after rendering to keep it stable
-          requestAnimationFrame(() => {
-            if (scrollRef.current) {
-              const delta = scrollRef.current.scrollHeight - prevScrollHeight;
-              scrollRef.current.scrollTop = delta;
-            }
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load more messages:", err);
-      } finally {
-        setLoadingMore(false);
       }
-    }
-  };
+    });
+  }, [room.id, hasMore, loadingMore, messages.length]);
 
   useEffect(() => {
     if (isAtBottomRef.current) {
@@ -477,7 +483,7 @@ export function RoomClient({
     };
   }, [room.id, userId, isHost]);
 
-  const handleSendMessage = async (
+  const handleSendMessage = useCallback(async (
     content: string, 
     type: "text" | "dice", 
     diceDetail?: string, 
@@ -518,14 +524,14 @@ export function RoomClient({
         await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }
     } catch (e) { console.error(e); }
-  };
+  }, [room.id, userId, activeTab]);
 
   const handleNicknameSave = async (newNickname: string) => {
     await updateNicknameAction(room.id, newNickname);
     setNickname(newNickname);
   };
 
-  const handleViewPlayerCard = async (targetUserId: number, targetNickname: string) => {
+  const handleViewPlayerCard = useCallback(async (targetUserId: number, targetNickname: string) => {
     setShowMembers(false);
     setViewingPlayerId(targetUserId);
     setViewingPlayerNickname(targetNickname);
@@ -538,9 +544,9 @@ export function RoomClient({
     } finally {
       setLoadingPlayerCard(false);
     }
-  };
+  }, [room.id]);
 
-  const handleCheckRequest = (skillName: string, diceType: string) => {
+  const handleCheckRequest = useCallback((skillName: string, diceType: string) => {
     getMySkillsAction(room.id).then(async (skills) => {
       const skill = skills.find((s: any) => s.skillName === skillName);
       if (skill) {
@@ -564,7 +570,7 @@ export function RoomClient({
         }
       }
     });
-  };
+  }, [room.id, userId, t]);
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">

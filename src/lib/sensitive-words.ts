@@ -14,17 +14,33 @@ export function parseSensitiveWords(raw: string): string[] {
     .filter(w => w.length > 0);
 }
 
+let cachedCustomWords: string[] | null = null;
+let cacheExpiresAt = 0;
+const CACHE_DURATION = 60000; // 60 seconds
+
+export function clearSensitiveWordsCache() {
+  cachedCustomWords = null;
+  cacheExpiresAt = 0;
+}
+
 /**
  * Fetches the custom sensitive words configured in the admin panel.
  */
 export async function getCustomSensitiveWords(): Promise<string[]> {
+  const now = Date.now();
+  if (cachedCustomWords !== null && cacheExpiresAt > now) {
+    return cachedCustomWords;
+  }
+
   try {
     const [row] = await db
       .select({ value: systemConfig.value })
       .from(systemConfig)
       .where(eq(systemConfig.key, "sensitive_words"));
 
-    return parseSensitiveWords(row?.value || "");
+    cachedCustomWords = parseSensitiveWords(row?.value || "");
+    cacheExpiresAt = now + CACHE_DURATION;
+    return cachedCustomWords;
   } catch {
     // If table isn't migrated or DB not ready
     return [];
@@ -49,10 +65,13 @@ export async function checkSensitiveWords(content: string): Promise<string | nul
   if (!content) return null;
   
   const keywords = await getAllSensitiveWords();
-  const lowerContent = content.toLowerCase();
+  // Normalize Unicode (NFKC) and strip zero-width characters to prevent simple bypasses
+  const normalized = content.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "");
+  const lowerContent = normalized.toLowerCase();
   
   for (const keyword of keywords) {
-    if (lowerContent.includes(keyword.toLowerCase())) {
+    const normalizedKeyword = keyword.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "").toLowerCase();
+    if (normalizedKeyword && lowerContent.includes(normalizedKeyword)) {
       return keyword;
     }
   }

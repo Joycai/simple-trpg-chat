@@ -113,6 +113,13 @@ export async function GET(
           const idStr = String(data.id);
           if (sentIds.has(idStr)) return;
           sentIds.add(idStr);
+          // Prevent Set from growing indefinitely (FIFO pruning)
+          if (sentIds.size > 200) {
+            const oldest = sentIds.values().next().value;
+            if (oldest !== undefined) {
+              sentIds.delete(oldest);
+            }
+          }
         }
 
         const payload = `data: ${JSON.stringify(data)}\n\n`;

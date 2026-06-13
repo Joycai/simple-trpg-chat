@@ -64,9 +64,10 @@ export async function buildAgentContext(
   botUser: any,
   room: any,
   roomId: number,
-  botUserId: number
+  botUserId: number,
+  preParsedConfig?: any
 ) {
-  const config = parseBotConfig(botUser.botConfigJson);
+  const config = preParsedConfig || parseBotConfig(botUser.botConfigJson);
   const sysPrompt = config.systemPrompt;
   const summary = config.historicalSummary || "";
 
@@ -77,7 +78,8 @@ export async function buildAgentContext(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, botUserId)
       ),
-      with: { item: true }
+      with: { item: true },
+      limit: 100
     }),
     db.select().from(messages)
       .where(
@@ -194,7 +196,7 @@ export async function runAgent(
   const apiKey = decrypt(aiConfig.apiKeyEncrypted);
   const endpoint = aiConfig.apiEndpoint;
 
-  const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId);
+  const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
   const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
 
 

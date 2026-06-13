@@ -32,6 +32,12 @@ pnpm db:seed         # Seed database (tsx src/db/seed.ts)
 pnpm db:doctor       # Environment & Database diagnostics (tsx src/db/doctor.ts)
 ```
 
+## Environment & Toolchains
+
+Determine the host OS to select the correct setup scripts and container commands:
+- **Windows (PowerShell)**: Run `setup.ps1` or `setup.bat`. For container management, use `podman.exe` (typically installed at `~/AppData/Local/Programs/Podman/podman.exe`) or `docker`. Use the `&` operator to invoke executables if their paths contain spaces or aren't in the global `PATH`.
+- **macOS/Linux**: Run `setup.sh`. Use native `podman` or `docker` commands directly.
+
 ## Project Structure
 
 ```

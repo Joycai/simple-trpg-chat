@@ -42,6 +42,8 @@ export function LoginForm({ siteTitle }: LoginFormProps) {
             setError(t("errorCredentials"));
           } else if (result.error === "banned") {
             setError(t("errorBanned"));
+          } else if (result.error === "rate_limit") {
+            setError(t("errorRateLimit"));
           } else {
             setError(t("errorUnknown"));
           }
