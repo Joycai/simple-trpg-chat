@@ -9,7 +9,8 @@ import { getCharacterDataAction } from "@/app/actions/character";
 import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 
-// Cache structure for character resource data, keyed by `${roomId}-${senderId}`
+// LRU-capped cache (max 200 entries) for character resource data, keyed by `${roomId}-${senderId}`
+const CHAR_CACHE_MAX = 200;
 const characterCache = new Map<
   string,
   {
@@ -17,6 +18,15 @@ const characterCache = new Map<
     promise?: Promise<CharacterData | null>;
   }
 >();
+
+function setCacheEntry(key: string, value: { data: CharacterData | null; promise?: Promise<CharacterData | null> }) {
+  if (!characterCache.has(key) && characterCache.size >= CHAR_CACHE_MAX) {
+    // Evict oldest entry
+    const oldest = characterCache.keys().next().value;
+    if (oldest !== undefined) characterCache.delete(oldest);
+  }
+  characterCache.set(key, value);
+}
 
 interface ChatMessageProps {
   nickname: string;
@@ -136,7 +146,7 @@ export const ChatMessage = memo(function ChatMessage({
     setLoading(true);
     const promise = getCharacterDataAction(roomId, senderId)
       .then((data) => {
-        characterCache.set(cacheKey, { data, promise: undefined });
+        setCacheEntry(cacheKey, { data, promise: undefined });
         return data;
       })
       .catch((err) => {
@@ -145,7 +155,7 @@ export const ChatMessage = memo(function ChatMessage({
         return null;
       });
 
-    characterCache.set(cacheKey, { data: null, promise });
+    setCacheEntry(cacheKey, { data: null, promise });
 
     promise.then((data) => {
       setCharData(data);

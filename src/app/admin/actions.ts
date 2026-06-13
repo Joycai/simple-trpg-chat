@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users, aiPointLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { invalidateSessionCache } from "@/auth.config";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -87,6 +88,9 @@ export async function toggleBanUser(id: number) {
       sessionToken: newBanStatus ? null : user.sessionToken,
     })
     .where(eq(users.id, id));
+
+  // Immediately invalidate the session cache so the ban takes effect without delay
+  invalidateSessionCache(String(id));
 
   revalidatePath("/admin");
 }

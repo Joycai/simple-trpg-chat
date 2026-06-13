@@ -16,8 +16,20 @@ export const broadcastToRoom = (roomId: number, data: any) => {
   eventHub.emit(`room:${roomId}`, data);
 };
 
+/** Emit an event only to connections belonging to a specific user (for private typing indicators etc.) */
+export const emitToUser = (roomId: number, targetUserId: number, data: any) => {
+  eventHub.emit(`room:${roomId}:user:${targetUserId}`, data);
+};
+
 export const subscribeToRoom = (roomId: number, callback: (data: any) => void) => {
   const eventName = `room:${roomId}`;
+  eventHub.on(eventName, callback);
+  return () => eventHub.off(eventName, callback);
+};
+
+/** Subscribe to events targeted at a specific user within a room */
+export const subscribeToUser = (roomId: number, userId: number, callback: (data: any) => void) => {
+  const eventName = `room:${roomId}:user:${userId}`;
   eventHub.on(eventName, callback);
   return () => eventHub.off(eventName, callback);
 };

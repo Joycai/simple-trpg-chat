@@ -1,5 +1,16 @@
 export const loginLimitMap = new Map<string, { count: number; resetTime: number }>();
 
+const WINDOW_MS = 60 * 1000;
+
+// Periodically sweep expired entries to prevent unbounded memory growth
+// Note: this rate limiter is single-process only and not effective in multi-worker deployments
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of loginLimitMap) {
+    if (now > record.resetTime) loginLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 export function isLocked(key: string, limit = 5): boolean {
   const now = Date.now();
   const record = loginLimitMap.get(key);

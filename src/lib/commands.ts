@@ -310,9 +310,10 @@ async function handleSanityCheck(
   }
 
   const deductVal = rollResult.totalSum;
+  const clampedDeduct = Math.max(0, deductVal);
   
   // Update character sheet sanity and retrieve the actual capped new sanity value
-  const finalNewSan = await syncCharacterSanity(roomId, userId, currentSan - deductVal);
+  const finalNewSan = await syncCharacterSanity(roomId, userId, currentSan - clampedDeduct);
 
   // 6. Update database
   await db.insert(roomSkills).values({

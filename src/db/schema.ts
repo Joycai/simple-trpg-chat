@@ -118,6 +118,7 @@ export const messages = pgTable('messages', {
 }, (t) => ({
   idx_messages_room_id_id: index('idx_messages_room_id_id').on(t.roomId, t.id),
   idx_messages_user_id: index('idx_messages_user_id').on(t.userId),
+  idx_messages_target_user_id: index('idx_messages_target_user_id').on(t.targetUserId),
 }));
 
 export const systemConfig = pgTable('system_config', {
@@ -270,6 +271,7 @@ export const aiProviders = pgTable('ai_providers', {
   name: text('name').notNull(),
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
   tokenRateInput: doublePrecision('token_rate_input').notNull().default(0.0),

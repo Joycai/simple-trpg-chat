@@ -45,17 +45,24 @@ interface ExportRoomData {
  * E1: Query all room data and assemble structured export data.
  */
 export async function exportRoomDataAction(roomId: number): Promise<ExportRoomData> {
-  await checkRoomAccess(roomId, true);
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   // Room info
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) throw new Error("Room not found");
 
-  // All messages in chronological order (batch fetched to prevent DB client OOM)
+  // Members for nickname lookup
+  const members = await db.select().from(roomMembers)
+    .where(eq(roomMembers.roomId, roomId));
+  const memberMap = new Map(members.map(m => [m.userId, m]));
+
+  // Build timeline by streaming message chunks — never accumulate all messages in memory
+  const timeline: ExportTimelineItem[] = [];
+  const privateMap: Record<string, ExportTimelineItem[]> = {};
+
   const chunkSize = 5000;
   let lastId = 0;
   let hasMore = true;
-  const allMessages: Array<typeof messages.$inferSelect> = [];
 
   while (hasMore) {
     const chunk = await db.select().from(messages)
@@ -66,48 +73,42 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
     if (chunk.length === 0) {
       hasMore = false;
     } else {
-      allMessages.push(...chunk);
+      for (const msg of chunk) {
+        const item: ExportTimelineItem = {
+          time: msg.createdAt,
+          type: msg.type as ExportTimelineItem["type"],
+          nickname: msg.nickname,
+          userId: msg.userId,
+          content: msg.content,
+          isPrivate: msg.isPrivate,
+          targetUserId: msg.targetUserId,
+        };
+
+        if (msg.diceDetail) {
+          item.diceDetail = msg.diceDetail;
+        }
+
+        if (msg.isPrivate && msg.targetUserId) {
+          // Exclude player-to-player whispers — only include host-sent private messages
+          if (msg.userId !== hostId) {
+            continue;
+          }
+          // Group private messages by conversation pair
+          const pair = [Math.min(msg.userId, msg.targetUserId), Math.max(msg.userId, msg.targetUserId)];
+          const key = pair.join("-");
+          if (!privateMap[key]) privateMap[key] = [];
+          const targetMember = memberMap.get(msg.targetUserId);
+          item.targetNickname = targetMember?.nickname || `#${msg.targetUserId}`;
+          privateMap[key].push(item);
+        } else {
+          timeline.push(item);
+        }
+      }
+
       lastId = chunk[chunk.length - 1].id;
       if (chunk.length < chunkSize) {
         hasMore = false;
       }
-    }
-  }
-
-  // Members for nickname lookup
-  const members = await db.select().from(roomMembers)
-    .where(eq(roomMembers.roomId, roomId));
-  const memberMap = new Map(members.map(m => [m.userId, m]));
-
-  // Build timeline
-  const timeline: ExportTimelineItem[] = [];
-  const privateMap: Record<string, ExportTimelineItem[]> = {};
-
-  for (const msg of allMessages) {
-    const item: ExportTimelineItem = {
-      time: msg.createdAt,
-      type: msg.type as ExportTimelineItem["type"],
-      nickname: msg.nickname,
-      userId: msg.userId,
-      content: msg.content,
-      isPrivate: msg.isPrivate,
-      targetUserId: msg.targetUserId,
-    };
-
-    if (msg.diceDetail) {
-      item.diceDetail = msg.diceDetail;
-    }
-
-    if (msg.isPrivate && msg.targetUserId) {
-      // Group private messages by conversation pair
-      const pair = [Math.min(msg.userId, msg.targetUserId), Math.max(msg.userId, msg.targetUserId)];
-      const key = pair.join("-");
-      if (!privateMap[key]) privateMap[key] = [];
-      const targetMember = memberMap.get(msg.targetUserId);
-      item.targetNickname = targetMember?.nickname || `#${msg.targetUserId}`;
-      privateMap[key].push(item);
-    } else {
-      timeline.push(item);
     }
   }
 

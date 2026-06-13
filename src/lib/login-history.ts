@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { loginHistory } from "@/db/schema";
 import type { DeviceType } from "@/db/schema";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { headers } from "next/headers";
 
 /** Parse User-Agent to detect device type */
@@ -44,23 +44,17 @@ export async function recordLogin(userId: number) {
       deviceType,
     });
 
-    // Cleanup: keep only last 30 records per user
-    const rows = await db
-      .select({ id: loginHistory.id })
-      .from(loginHistory)
-      .where(eq(loginHistory.userId, userId))
-      .orderBy(desc(loginHistory.loginAt))
-      .offset(30);
-
-    if (rows.length > 0) {
-      const idsToDelete = rows.map((r) => r.id);
-      await db.delete(loginHistory).where(
-        and(
-          eq(loginHistory.userId, userId),
-          inArray(loginHistory.id, idsToDelete)
+    // Cleanup: keep only last 30 records per user (single query)
+    await db.execute(sql`
+      DELETE FROM ${loginHistory}
+      WHERE ${loginHistory.userId} = ${userId}
+        AND ${loginHistory.id} NOT IN (
+          SELECT ${loginHistory.id} FROM ${loginHistory}
+          WHERE ${loginHistory.userId} = ${userId}
+          ORDER BY ${loginHistory.loginAt} DESC
+          LIMIT 30
         )
-      );
-    }
+    `);
   } catch (error) {
     // Silent fail — don't block login if logging fails
     console.error("[recordLogin] failed:", error);

@@ -83,9 +83,14 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         eq(messages.roomId, roomId),
         or(
           not(eq(messages.isPrivate, true)),
-          not(eq(messages.type, "system")),
-          isNull(messages.targetUserId),
-          eq(messages.targetUserId, userId)
+          and(
+            eq(messages.isPrivate, true),
+            or(
+              isNull(messages.targetUserId),
+              eq(messages.targetUserId, userId),
+              eq(messages.userId, userId)
+            )
+          )
         )
       )
     : and(

@@ -3,7 +3,7 @@ import { recordTokenUsage } from "@/lib/ai_usage";
 import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig } from "@/db/schema";
 import { eq, and, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom, emitToUser } from "@/lib/events";
 import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { z } from "zod";
@@ -127,6 +127,7 @@ export async function buildAgentContext(
 }
 
 const agentCooldowns = new Map<number, number>();
+const AGENT_COOLDOWN_MS = 3000;
 
 /**
  * runAgent
@@ -138,8 +139,12 @@ export async function runAgent(
   triggeringInfo?: { triggeringUserId: number; isPrivate: boolean }
 ) {
   const now = Date.now();
+  // Prune stale cooldown entries to prevent the map from growing indefinitely
+  for (const [id, ts] of agentCooldowns) {
+    if (now - ts > AGENT_COOLDOWN_MS) agentCooldowns.delete(id);
+  }
   const lastRun = agentCooldowns.get(botUserId) || 0;
-  if (now - lastRun < 3000) {
+  if (now - lastRun < AGENT_COOLDOWN_MS) {
     console.log(`[RateLimit] Bot ${botUserId} skipped due to 3s cooldown`);
     return;
   }
@@ -410,7 +415,7 @@ export async function runAgent(
     targetUserId = room.hostId;
   }
 
-  broadcastToRoom(roomId, {
+  const typingStartEvent = {
     type: "typing",
     botUserId,
     nickname: botNickname,
@@ -418,7 +423,14 @@ export async function runAgent(
     isPrivate: replyIsPrivate,
     targetUserId: targetUserId,
     userId: botUserId
-  });
+  };
+  // Use targeted emit for private replies so other room members don't see the typing indicator
+  if (replyIsPrivate && targetUserId) {
+    emitToUser(roomId, targetUserId, typingStartEvent);
+    if (targetUserId !== room.hostId) emitToUser(roomId, room.hostId, typingStartEvent);
+  } else {
+    broadcastToRoom(roomId, typingStartEvent);
+  }
 
   // Declare accumulated token counters
   let accumulatedInputTokens = 0;
@@ -505,7 +517,9 @@ export async function runAgent(
         break;
       }
 
-      const toolCallPromises = assistantMessage.tool_calls.map(async (toolCall: any) => {
+      const toolCallResults: any[] = [];
+      for (const toolCall of assistantMessage.tool_calls) {
+        // Execute tool calls sequentially to avoid DB race conditions on concurrent writes
         const functionName = toolCall.function.name;
         const args = JSON.parse(toolCall.function.arguments);
         let result;
@@ -754,18 +768,17 @@ export async function runAgent(
           result = { error: e instanceof Error ? e.message : String(e) };
         }
 
-        return { role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) };
-      });
+        toolCallResults.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
+      }
 
-      const toolResults = await Promise.all(toolCallPromises);
-      currentContext.push(...toolResults);
+      currentContext.push(...toolCallResults);
     }
   } finally {
     if (accumulatedInputTokens > 0 || accumulatedOutputTokens > 0) {
       recordTokenUsage(room.hostId, aiConfig.id, accumulatedInputTokens, accumulatedCachedInputTokens, accumulatedOutputTokens)
         .catch(err => console.error("[runAgent] Error saving accumulated token usage:", err));
     }
-    broadcastToRoom(roomId, {
+    const typingEndEvent = {
       type: "typing",
       botUserId,
       nickname: botNickname,
@@ -773,7 +786,13 @@ export async function runAgent(
       isPrivate: replyIsPrivate,
       targetUserId: targetUserId,
       userId: botUserId
-    });
+    };
+    if (replyIsPrivate && targetUserId) {
+      emitToUser(roomId, targetUserId, typingEndEvent);
+      if (targetUserId !== room.hostId) emitToUser(roomId, room.hostId, typingEndEvent);
+    } else {
+      broadcastToRoom(roomId, typingEndEvent);
+    }
   }
 
   // 5. Trigger Incremental Summarization (Task #36)
@@ -792,7 +811,10 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   const lastId = config.lastSummarizedMsgId;
 
   // Count new messages since last summary
-  const newMsgs = await db.select().from(messages).where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)));
+  const newMsgs = await db.select().from(messages)
+    .where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)))
+    .orderBy(desc(messages.id))
+    .limit(500);
   
   if (newMsgs.length < 30) return; // Threshold not met
 

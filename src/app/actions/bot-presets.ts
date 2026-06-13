@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 
 export async function getBotPresetsAction() {
+  await requireAdmin();
   return await db.select().from(botPresets).orderBy(botPresets.name);
 }
 

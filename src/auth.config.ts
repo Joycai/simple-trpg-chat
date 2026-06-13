@@ -4,6 +4,10 @@ import type { NextAuthConfig } from "next-auth";
 const sessionCache = new Map<string, { token: string; isBanned: boolean; expires: number }>();
 const CACHE_TTL = 30000; // 30 seconds
 
+export function invalidateSessionCache(userId: string) {
+  sessionCache.delete(userId);
+}
+
 export async function isSessionValid(userId: string, tokenSession: string): Promise<boolean> {
   const cached = sessionCache.get(userId);
   const now = Date.now();
@@ -54,6 +58,9 @@ export const authConfig = {
       if (isLoggedIn && isAdmin && nextUrl.pathname === "/") {
         return Response.redirect(new URL("/admin", nextUrl));
       }
+
+      // Redirect unauthenticated users to login for all protected routes
+      if (!isLoggedIn) return Response.redirect(new URL("/login", nextUrl));
 
       return true;
     },

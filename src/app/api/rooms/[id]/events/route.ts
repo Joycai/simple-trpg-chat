@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { subscribeToRoom } from "@/lib/events";
+import { subscribeToRoom, subscribeToUser } from "@/lib/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
@@ -113,12 +113,10 @@ export async function GET(
           const idStr = String(data.id);
           if (sentIds.has(idStr)) return;
           sentIds.add(idStr);
-          // Prevent Set from growing indefinitely (FIFO pruning)
+          // Bulk-prune to keep set bounded (drop oldest 50 when over limit)
           if (sentIds.size > 200) {
-            const oldest = sentIds.values().next().value;
-            if (oldest !== undefined) {
-              sentIds.delete(oldest);
-            }
+            const toDelete = Array.from(sentIds).slice(0, 50);
+            for (const id of toDelete) sentIds.delete(id);
           }
         }
 
@@ -131,6 +129,18 @@ export async function GET(
       };
 
       const unsubscribe = subscribeToRoom(roomId, listener);
+
+      // User-targeted events (typing indicators, etc.) — no privacy filter needed
+      const userListener = (data: any) => {
+        if (data.id) {
+          const idStr = String(data.id);
+          if (sentIds.has(idStr)) return;
+          sentIds.add(idStr);
+        }
+        const payload = `data: ${JSON.stringify(data)}\n\n`;
+        try { controller.enqueue(encoder.encode(payload)); } catch { /* */ }
+      };
+      const userUnsubscribe = subscribeToUser(roomId, userId, userListener);
 
       // Send initial heartbeat
       controller.enqueue(encoder.encode(": heartbeat\n\n"));
@@ -150,7 +160,8 @@ export async function GET(
         closed = true;
         clearInterval(heartbeat);
         unsubscribe();
-        
+        userUnsubscribe();
+
         // Decrement connection count
         const conns = userConnections.get(userId);
         if (conns) {
@@ -163,6 +174,8 @@ export async function GET(
           console.error("[STATS] Error updating peak online on disconnect:", err);
         });
       };
+      // Assign real cleanup to connRecord now that it's fully defined
+      connRecord.cleanup = cleanup;
 
       req.signal.addEventListener("abort", cleanup);
     },

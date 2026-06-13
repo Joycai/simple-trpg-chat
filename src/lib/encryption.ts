@@ -54,7 +54,13 @@ function getEncryptionKey(): Buffer {
     throw new Error("AI_ENCRYPTION_KEY environment variable is missing!");
   }
 
-  const salt = process.env.AI_ENCRYPTION_SALT || "salt";
+  const salt = process.env.AI_ENCRYPTION_SALT;
+  if (!salt) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AI_ENCRYPTION_SALT environment variable is required in production!");
+    }
+    return crypto.scryptSync(rawKey, "salt", 32);
+  }
   // Ensure it's exactly 32 bytes
   return crypto.scryptSync(rawKey, salt, 32);
 }

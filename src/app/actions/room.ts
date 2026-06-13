@@ -25,9 +25,17 @@ export async function createRoomAction(formData: FormData) {
 
     const name = formData.get("name") as string;
     const customKey = formData.get("key") as string;
-    const theme = (formData.get("theme") as Theme) || "default";
-    const diceRules = (formData.get("diceRules") as DiceRules) || "basic";
-    const ruleTemplate = (formData.get("ruleTemplate") as RuleTemplate) || "basic";
+    const themeRaw = (formData.get("theme") as string) || "default";
+    const diceRulesRaw = (formData.get("diceRules") as string) || "basic";
+    const ruleTemplateRaw = (formData.get("ruleTemplate") as string) || "basic";
+
+    const { THEMES, DICE_RULES, RULE_TEMPLATES } = await import("@/db/schema");
+    if (!THEMES.includes(themeRaw as Theme)) return { success: false, error: "Invalid theme" };
+    if (!DICE_RULES.includes(diceRulesRaw as DiceRules)) return { success: false, error: "Invalid diceRules" };
+    if (!RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) return { success: false, error: "Invalid ruleTemplate" };
+    const theme = themeRaw as Theme;
+    const diceRules = diceRulesRaw as DiceRules;
+    const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
     if (!name || !name.trim()) return { success: false, error: "Room name is required" };
 
@@ -157,10 +165,13 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
   if (targetUserId === userId) {
     allowed = true; // Allowed to edit own color
   } else if (isHost) {
-    // Host can edit bot colors. Let's verify targetUserId is indeed a bot in this room
-    const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
+    // Host can edit bot colors — verify target is a bot and belongs to this room
+    const [targetUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, targetUserId));
     if (targetUser && targetUser.isBot) {
-      allowed = true;
+      const [botInRoom] = await db.select({ id: roomMembers.id })
+        .from(roomMembers)
+        .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, targetUserId)));
+      if (botInRoom) allowed = true;
     }
   }
 
@@ -266,20 +277,23 @@ export async function sendMessageAction(
           .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (private DM):", err));
       }
     } else if (!isPrivate) {
-      // Check if any bot in the room is mentioned
-      const roomBots = await db.query.roomMembers.findMany({
-        where: eq(roomMembers.roomId, roomId),
-        with: { user: true }
-      });
-
-      for (const m of roomBots) {
-        if (m.user.isBot && (content.includes(`@${m.user.displayName}`) || content.includes(`@${m.nickname}`))) {
-          // Trigger Agent (async)
-          import("@/lib/ai_agent")
-            .then(({ runAgent }) => runAgent(m.userId, roomId, { triggeringUserId: userId, isPrivate: false }))
-            .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (mention):", err));
-        }
-      }
+      // Check for bot mentions async — don't block the response
+      const capturedContent = content;
+      const capturedRoomId = roomId;
+      const capturedUserId = userId;
+      import("@/lib/ai_agent")
+        .then(async ({ runAgent }) => {
+          const roomBots = await db.query.roomMembers.findMany({
+            where: eq(roomMembers.roomId, capturedRoomId),
+            with: { user: true }
+          });
+          for (const m of roomBots) {
+            if (m.user.isBot && (capturedContent.includes(`@${m.user.displayName}`) || capturedContent.includes(`@${m.nickname}`))) {
+              await runAgent(m.userId, capturedRoomId, { triggeringUserId: capturedUserId, isPrivate: false });
+            }
+          }
+        })
+        .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (mention):", err));
     }
   }
 
@@ -346,9 +360,17 @@ export async function requestSkillCheckAction(
 export async function updateRoomSettingsAction(roomId: number, formData: FormData) {
   await checkRoomAccess(roomId, true);
 
-  const theme = ((formData.get("theme") as string) || "default") as Theme;
-  const diceRules = ((formData.get("diceRules") as string) || "basic") as DiceRules;
-  const ruleTemplate = ((formData.get("ruleTemplate") as string) || "basic") as RuleTemplate;
+  const themeRaw = ((formData.get("theme") as string) || "default");
+  const diceRulesRaw = ((formData.get("diceRules") as string) || "basic");
+  const ruleTemplateRaw = ((formData.get("ruleTemplate") as string) || "basic");
+
+  const { THEMES, DICE_RULES, RULE_TEMPLATES } = await import("@/db/schema");
+  if (!THEMES.includes(themeRaw as Theme)) throw new Error("Invalid theme");
+  if (!DICE_RULES.includes(diceRulesRaw as DiceRules)) throw new Error("Invalid diceRules");
+  if (!RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) throw new Error("Invalid ruleTemplate");
+  const theme = themeRaw as Theme;
+  const diceRules = diceRulesRaw as DiceRules;
+  const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
   await db.update(rooms).set({ theme, diceRules, ruleTemplate }).where(eq(rooms.id, roomId));
   
@@ -372,9 +394,14 @@ export async function getRoomMessages(roomId: number) {
         eq(messages.roomId, roomId),
         or(
           not(eq(messages.isPrivate, true)),
-          not(eq(messages.type, "system")),
-          isNull(messages.targetUserId),
-          eq(messages.targetUserId, userId)
+          and(
+            eq(messages.isPrivate, true),
+            or(
+              isNull(messages.targetUserId),
+              eq(messages.targetUserId, userId),
+              eq(messages.userId, userId)
+            )
+          )
         )
       )
     : and(
@@ -475,44 +502,40 @@ export async function upsertSkillAction(roomId: number, userId: number, skillNam
 
 export async function getUnreadDMCountAction(roomId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
-  const { messages, roomDmReads } = await import("@/db/schema");
-  const { db, sqlBool } = await import("@/db");
-  const { eq, and, sql, not } = await import("drizzle-orm");
-  
-  // Get all read timestamps for the current user in this room
-  const readRecords = await db
-    .select()
-    .from(roomDmReads)
-    .where(and(eq(roomDmReads.roomId, roomId), eq(roomDmReads.userId, userId)));
-  
-  const lastReadMap: Record<number, string> = {};
-  for (const record of readRecords) {
-    lastReadMap[record.partnerUserId] = record.lastReadAt;
-  }
-  
-  // Get targeted private messages (DMs) in this room
-  const results = await db
+  const { roomDmReads } = await import("@/db/schema");
+
+  // Single SQL query: count unread DMs per sender using a LEFT JOIN against read timestamps
+  const rows = await db
     .select({
       senderId: messages.userId,
-      createdAt: messages.createdAt,
+      count: sql<number>`cast(count(*) as int)`,
     })
     .from(messages)
+    .leftJoin(
+      roomDmReads,
+      and(
+        eq(roomDmReads.roomId, roomId),
+        eq(roomDmReads.userId, userId),
+        eq(roomDmReads.partnerUserId, messages.userId)
+      )
+    )
     .where(
       and(
         eq(messages.roomId, roomId),
         eq(messages.targetUserId, userId),
         sql`${messages.isPrivate} = ${sqlBool(true)}`,
         not(eq(messages.userId, userId)),
+        or(
+          isNull(roomDmReads.lastReadAt),
+          sql`${messages.createdAt} > ${roomDmReads.lastReadAt}`
+        )
       )
-    );
-  
+    )
+    .groupBy(messages.userId);
+
   const counts: Record<number, number> = {};
-  for (const msg of results) {
-    const senderId = msg.senderId;
-    const lastRead = lastReadMap[senderId];
-    if (!lastRead || msg.createdAt > lastRead) {
-      counts[senderId] = (counts[senderId] || 0) + 1;
-    }
+  for (const row of rows) {
+    counts[row.senderId] = row.count;
   }
   return counts;
 }
@@ -547,9 +570,14 @@ export async function loadMoreMessagesAction(roomId: number, beforeMessageId: nu
         eq(messages.roomId, roomId),
         or(
           not(eq(messages.isPrivate, true)),
-          not(eq(messages.type, "system")),
-          isNull(messages.targetUserId),
-          eq(messages.targetUserId, userId)
+          and(
+            eq(messages.isPrivate, true),
+            or(
+              isNull(messages.targetUserId),
+              eq(messages.targetUserId, userId),
+              eq(messages.userId, userId)
+            )
+          )
         )
       )
     : and(

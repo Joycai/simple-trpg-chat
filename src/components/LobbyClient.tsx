@@ -33,9 +33,10 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const keyInputRef = useRef<HTMLInputElement>(null);
 
   const generateRandomKey = () => {
+    const arr = new Uint8Array(8);
+    crypto.getRandomValues(arr);
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let key = "";
-    for (let i = 0; i < 8; i++) key += chars[Math.floor(Math.random() * chars.length)];
+    const key = Array.from(arr, b => chars[b % chars.length]).join("");
     if (keyInputRef.current) {
       keyInputRef.current.value = key;
       keyInputRef.current.focus();

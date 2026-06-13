@@ -223,6 +223,14 @@ export async function getCharacterDataAction(roomId: number, targetUserId?: numb
 
   const userId = targetUserId || callerId;
 
+  // If requesting another user's data, verify they are also a member of this room
+  if (targetUserId && targetUserId !== callerId) {
+    const [targetMember] = await db.select({ id: roomMembers.id })
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, targetUserId)));
+    if (!targetMember) return null;
+  }
+
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
     .where(and(

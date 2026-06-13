@@ -18,13 +18,18 @@ let cachedCustomWords: string[] | null = null;
 let cacheExpiresAt = 0;
 const CACHE_DURATION = 60000; // 60 seconds
 
+// Promise lock: coalesce concurrent refresh requests into a single DB call
+let refreshPromise: Promise<string[]> | null = null;
+
 export function clearSensitiveWordsCache() {
   cachedCustomWords = null;
   cacheExpiresAt = 0;
+  refreshPromise = null;
 }
 
 /**
  * Fetches the custom sensitive words configured in the admin panel.
+ * Uses a promise lock to avoid concurrent DB calls when cache expires.
  */
 export async function getCustomSensitiveWords(): Promise<string[]> {
   const now = Date.now();
@@ -32,19 +37,28 @@ export async function getCustomSensitiveWords(): Promise<string[]> {
     return cachedCustomWords;
   }
 
-  try {
-    const [row] = await db
-      .select({ value: systemConfig.value })
-      .from(systemConfig)
-      .where(eq(systemConfig.key, "sensitive_words"));
+  // If another request is already refreshing, wait for it
+  if (refreshPromise) return refreshPromise;
 
-    cachedCustomWords = parseSensitiveWords(row?.value || "");
-    cacheExpiresAt = now + CACHE_DURATION;
-    return cachedCustomWords;
-  } catch {
-    // If table isn't migrated or DB not ready
-    return [];
-  }
+  refreshPromise = (async () => {
+    try {
+      const [row] = await db
+        .select({ value: systemConfig.value })
+        .from(systemConfig)
+        .where(eq(systemConfig.key, "sensitive_words"));
+
+      cachedCustomWords = parseSensitiveWords(row?.value || "");
+      cacheExpiresAt = now + CACHE_DURATION;
+      return cachedCustomWords;
+    } catch {
+      // If table isn't migrated or DB not ready
+      return [];
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 /**

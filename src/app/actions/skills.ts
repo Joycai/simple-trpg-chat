@@ -3,16 +3,13 @@
 import { db, sqlNow } from "@/db";
 import { roomSkills } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-
+import { checkRoomAccess } from "@/lib/auth-helpers";
 
 import { syncCharacterSanity } from "@/lib/commands";
 
 export async function getMySkillsAction(roomId: number) {
-  const session = await auth();
-  if (!session) return [];
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
 
   return await db.select().from(roomSkills)
     .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)))
@@ -20,9 +17,7 @@ export async function getMySkillsAction(roomId: number) {
 }
 
 export async function upsertSkillAction(roomId: number, skillName: string, skillValue: number) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
 
   let normalizedSkillName = skillName.trim();
   if (normalizedSkillName.toLowerCase() === "san" || normalizedSkillName === "san值") {
@@ -47,9 +42,7 @@ export async function upsertSkillAction(roomId: number, skillName: string, skill
 }
 
 export async function deleteSkillAction(roomId: number, skillId: number) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false);
 
   await db.delete(roomSkills).where(
     and(eq(roomSkills.id, skillId), eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId))

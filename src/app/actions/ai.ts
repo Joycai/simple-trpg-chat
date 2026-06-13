@@ -42,6 +42,10 @@ export async function updateSystemConfig(key: string, value: string) {
 // ============================================================
 
 export async function testAiConnection(endpoint: string, apiKey: string, model: string) {
+  const session = await auth();
+  if (!session) return { success: false, error: "Unauthorized" };
+  const role = (session.user as any).role;
+  if (role !== "host" && role !== "admin") return { success: false, error: "Unauthorized" };
   try {
     const response = await fetch(`${endpoint}/chat/completions`, {
       method: "POST",

@@ -5,6 +5,7 @@ import { aiProviders, aiTokenUsages } from "@/db/schema";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
+import { validateApiEndpoint } from "@/lib/url-guard";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 
@@ -36,11 +37,15 @@ export async function createProvider(data: ProviderData) {
     throw new Error(t("msgRequireFields"));
   }
 
+  const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
+  if (!endpointCheck.valid) throw new Error(endpointCheck.error);
+
   const [provider] = await db.insert(aiProviders).values({
     ownerId: userId,
     name: data.name.trim(),
     apiEndpoint: data.apiEndpoint.trim(),
     apiKeyEncrypted: encrypt(data.apiKey.trim()),
+    apiKeyHint: data.apiKey.trim().slice(-4),
     model: data.model || "gpt-4o",
     isShared: isAdmin && !!data.isShared,
     tokenRateInput: Math.max(0, Number(data.tokenRateInput) || 0.0),
@@ -67,10 +72,15 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
 
   const values: any = { updatedAt: sqlNow() };
   if (data.name?.trim()) values.name = data.name.trim();
-  if (data.apiEndpoint?.trim()) values.apiEndpoint = data.apiEndpoint.trim();
+  if (data.apiEndpoint?.trim()) {
+    const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
+    if (!endpointCheck.valid) throw new Error(endpointCheck.error);
+    values.apiEndpoint = data.apiEndpoint.trim();
+  }
   if (data.model?.trim()) values.model = data.model.trim();
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
     values.apiKeyEncrypted = encrypt(data.apiKey.trim());
+    values.apiKeyHint = data.apiKey.trim().slice(-4);
   }
   // Admin: always write isShared (checkbox passes true/false)
 
@@ -172,9 +182,10 @@ export async function getProviderKey(providerId: number): Promise<string> {
 // ============================================================
 
 function maskProviderKey(p: typeof aiProviders.$inferSelect) {
+  const hint = p.apiKeyHint ?? decrypt(p.apiKeyEncrypted).slice(-4);
   return {
     ...p,
-    apiKeyEncrypted: "••••••••" + (decrypt(p.apiKeyEncrypted).slice(-4)),
+    apiKeyEncrypted: "••••••••" + hint,
   };
 }
 

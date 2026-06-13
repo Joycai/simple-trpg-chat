@@ -104,7 +104,13 @@ export async function updateBotAction(
   await checkRoomAccess(roomId, true);
 
   const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
-  if (!botUser) throw new Error("Bot not found");
+  if (!botUser || !botUser.isBot) throw new Error("Bot not found");
+
+  // Verify the bot is actually a member of this room
+  const [botMember] = await db.select({ id: roomMembers.id })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+  if (!botMember) throw new Error("Bot is not a member of this room");
   const existingConfig = JSON.parse(botUser.botConfigJson || "{}");
 
   await db.update(users).set({
@@ -131,6 +137,15 @@ export async function updateBotAction(
 export async function deleteBotAction(roomId: number, botUserId: number) {
   // Only room hosts can delete bots
   await checkRoomAccess(roomId, true);
+
+  // Verify the bot is a member of this room and is actually a bot
+  const [botUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, botUserId));
+  if (!botUser || !botUser.isBot) throw new Error("Bot not found");
+
+  const [botMember] = await db.select({ id: roomMembers.id })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+  if (!botMember) throw new Error("Bot is not a member of this room");
 
   // Deleting the shadow user cascades automatically to delete room membership
   await db.delete(users).where(eq(users.id, botUserId));

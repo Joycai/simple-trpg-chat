@@ -163,8 +163,11 @@ function InlineRenderer({ text }: { text: string }) {
         // Link
         const linkMatch = part.match(/^\[(.+?)\]\((.+?)\)$/);
         if (linkMatch) {
+          const href = /^https?:\/\//i.test(linkMatch[2]) || /^mailto:/i.test(linkMatch[2])
+            ? linkMatch[2]
+            : "#";
           return (
-            <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
+            <a key={i} href={href} target="_blank" rel="noopener noreferrer"
               className="text-primary hover:underline">
               {linkMatch[1]}
             </a>

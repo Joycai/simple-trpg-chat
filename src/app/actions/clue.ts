@@ -261,6 +261,15 @@ export async function revealClueToPlayersAction(
     throw new Error(t("mustSpecifyTarget"));
   }
 
+  // Validate that all targetUserIds are members of the clue's room
+  const { roomMembers: roomMembersTable } = await import("@/db/schema");
+  const memberRows = await db.select({ userId: roomMembersTable.userId })
+    .from(roomMembersTable)
+    .where(and(eq(roomMembersTable.roomId, clue.roomId)));
+  const memberSet = new Set(memberRows.map(m => m.userId));
+  const invalidTargets = targetUserIds.filter(uid => !memberSet.has(uid));
+  if (invalidTargets.length > 0) throw new Error(t("invalidTargets") || "One or more target users are not members of this room");
+
   // 1. Check if clue is already public (NULL userId)
   const [isPublic] = await db
     .select()

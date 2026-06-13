@@ -1,5 +1,9 @@
 "use client";
 
+// Decrementing counter for local-only ephemeral message IDs (never persisted to DB).
+// Negative IDs guarantee no collision with real DB auto-increment IDs.
+let localEphemeralId = -1;
+
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -150,11 +154,12 @@ export function RoomClient({
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
 
-  // Periodically prune seenIdsRef to prevent memory leaks in long-running sessions
+  // Incremental pruning: when seenIdsRef exceeds 500, drop the oldest half
+  // instead of rebuilding from messages (avoids O(n) rebuild on every batch).
   useEffect(() => {
     if (seenIdsRef.current.size > 500) {
-      // Rebuild from current messages — keeps dedup for visible messages, frees old IDs
-      seenIdsRef.current = new Set(messages.map(m => String(m.id)));
+      const toDelete = Array.from(seenIdsRef.current).slice(0, 250);
+      for (const id of toDelete) seenIdsRef.current.delete(id);
     }
   }, [messages.length]);
 
@@ -443,7 +448,7 @@ export function RoomClient({
                   m.content === data.content &&
                   m.type === data.type &&
                   m.targetUserId === data.targetUserId &&
-                  typeof m.id === 'number' && m.id > 1000000000000
+                  typeof m.id === 'number' && m.id < 0
                 );
                 if (optIndex !== -1) {
                   const copy = [...prev];
@@ -499,12 +504,13 @@ export function RoomClient({
       finalTargetId = activeTab;
     }
 
+    // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
     if (content.startsWith(".") && type === "text") {
       try {
         const result = await executeCommandAction(room.id, userId, content);
         if (!result.success && result.error) {
           const errorMsg = {
-            id: Date.now(), roomId: room.id, userId, nickname: "SYSTEM",
+            id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
             content: tra("commandError", { error: result.error }),
             type: "system" as const, isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
