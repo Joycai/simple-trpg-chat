@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 @AGENTS.md
 
 ## Project Overview
@@ -25,14 +27,17 @@
 
 ## Quick Commands
 
+Requires **Node.js >= 20** and **pnpm >= 10** (`corepack enable pnpm`).
+
 ```bash
 pnpm dev        # Dev server (http://localhost:3000)
 pnpm build      # Production build
+pnpm start      # Start production server
 pnpm lint       # ESLint
 pnpm test       # Run tests (vitest run)
 pnpm db:push    # Push schema to PostgreSQL
 pnpm db:studio  # Drizzle Studio GUI
-pnpm db:seed    # Seed database
+pnpm db:seed    # Seed database (creates admin / admin123)
 pnpm db:doctor  # Environment & DB diagnostics
 ```
 
@@ -118,6 +123,10 @@ Engine: `src/lib/commands.ts`
 - **Error handling**: Server actions return result objects, never throw
 - **Validation**: Use `zod` at action boundaries
 - **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`
+
+## License
+
+AGPL-3.0 with dual licensing — commercial closed-source use requires a separate license from the author. Attribution to `Joycai` and the original repo is required in all derivative works.
 
 ## Environment Variables
 
