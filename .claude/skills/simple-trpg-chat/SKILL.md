@@ -6,47 +6,18 @@ description: >-
 
 # Simple TRPG Chat — Project Knowledge
 
-## Overview
+> Tech stack, commands, and project structure are in `CLAUDE.md`. This skill covers non-obvious concepts, conventions, and gotchas.
 
-A lightweight, web-based TRPG (Tabletop Role-Playing Game) tool built with **Next.js 16 (App Router)**, supporting real-time chat, dice rolling, AI bot assistants, inventory management, clue cards, and character sheets.
+## Core Concepts (Non-obvious only)
 
-### Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router, Turbopack dev) |
-| Language | TypeScript |
-| ORM | Drizzle ORM (PostgreSQL via `postgres` driver) |
-| Auth | NextAuth.js v5 (Credentials provider) |
-| Realtime | SSE (Server-Sent Events via ReadableStream) |
-| Styling | Tailwind CSS 4 + CSS Variables (4 themes) |
-| i18n | next-intl (zh-CN / en) |
-| Validation | zod |
-| Icons | lucide-react |
-| Testing | vitest |
-| Package Manager | pnpm (>= 10, Node >= 20) |
-| CI/CD | GitHub Actions (Node 20/22 matrix) |
-
-All file paths below are relative to the project root.
-
----
-
-## Core Concepts (Quick Reference)
-
-| Concept | Key Idea | Details |
-|---------|----------|---------|
-| **Room** | Game session with key-based access | `rooms` table, theme/diceRules/ruleTemplate settings |
-| **User Roles** | Admin / Host(KP) / Player / Bot | Admin→`/admin`, Host manages rooms, Bot is virtual user |
-| **Bot (AI Agent)** | Bot-as-User: `is_bot=true`, config in `botConfigJson` | 8 tools, @mention or manual activation, LLM via `aiProviders` table |
-| **SSE** | `GET /api/rooms/[id]/events` | globalThis EventEmitter, 15s heartbeat, V3.15 privacy filter |
-| **Dice** | `.rd<N>` / `.rc <name>` / `.st <name> <value>` | Server-side calculation, COC 7th critical/fumble |
-| **Character** | `room_members.character_data` JSON | COC7th auto-init 8 attrs + derived, or generic d100 |
-| **Inventory** | `inventory_items` + `inventory_distributions` | RPG grid, unread badges, host-excluded "all" distro |
-| **Clue Cards** | `clue_cards` + `clue_visibility` | Host creates, pushes to channel, visibility-controlled |
-| **DM/Private Chat** | Left TAB sidebar, lock-in mode | `room_dm_reads` for persisted unread state |
-| **Markdown** | Lightweight custom renderer | Headings, tables, code blocks, inline formatting |
-| **Theme** | CSS Variables + `data-theme` | 4 themes: default/parchment/cthulhu/shrine |
-| **AI Import** | Paste text → LLM splits → batch import | `analyzeTextForImportAction` → inventory_items + clue_cards |
+| Concept | Key Idea |
+|---------|----------|
+| **Bot (AI Agent)** | Bot-as-User: `is_bot=true` + `botConfigJson`. 8 tools. Triggered by @mention. LLM via `ai_providers` table (AES-256-GCM encrypted keys). |
+| **SSE Privacy Filter V3.15** | `targetUserId` set → sender + target only (host NOT included). `targetUserId` null + private → sender + host only. |
+| **DM/Private Chat** | `isPrivate=true` + `targetUserId`. `room_dm_reads` tracks unread per pair. Rendered in left-sidebar tab. |
+| **Character** | `room_members.character_data` JSON. COC 7th: 8 core attrs + derived (HP/SAN/MP). Skills in separate `room_skills`, synced for sanity. |
+| **AI Import** | Host pastes raw text → LLM splits → batch import into `inventory_items` + `clue_cards`. |
+| **AI Points** | Non-admin usage of shared providers deducts from `users.aiPoints`. Logged in `ai_point_logs`. |
 
 ---
 
@@ -63,47 +34,34 @@ All file paths below are relative to the project root.
 - **@水月** — UI/UX design
 - **@Janney** — Documentation + progress tracking
 
-### Commands
-```bash
-pnpm dev          # Start dev server (Turbopack)
-pnpm build        # Production build
-pnpm start        # Start production server
-pnpm test         # Run tests (vitest run)
-pnpm lint         # ESLint
-pnpm db:push      # Push Drizzle schema to PostgreSQL
-pnpm db:studio    # Drizzle Studio (DB browser)
-pnpm db:seed      # Seed database (creates admin / admin123)
-pnpm db:doctor    # Environment & DB diagnostics
-bash setup.sh / setup.bat # First-time setup (.env, deps, schema)
-```
+---
 
-### Key Files
+## Key Files
+
 | File | Purpose |
 |------|---------|
 | `src/db/schema.ts` | All 16 table definitions |
-| `src/db/index.ts` | Drizzle PostgreSQL client |
-| `src/app/actions/room.ts` | Room, message, dice actions |
 | `src/lib/ai_agent.ts` | Bot Agent engine (8 tools) |
 | `src/lib/commands.ts` | `.st` / `.rc` / `.sc` / `.rd` parser |
+| `src/lib/events.ts` | globalThis EventEmitter singleton |
 | `src/components/RoomClient.tsx` | Main room UI orchestrator |
 | `src/app/api/rooms/[id]/events/route.ts` | SSE endpoint |
 | `src/app/globals.css` | Theme CSS variables |
-| `src/lib/events.ts` | globalThis EventEmitter singleton |
-| `.github/workflows/ci.yml` | CI pipeline |
 
-### Common Patterns
-- **Server Actions**: `"use server"` in `src/app/actions/` — called from client
-- **Privacy**: `isPrivate` + `targetUserId` pattern
-- **Component integration**: Must import AND render in RoomClient (common omission)
-- **DB changes**: `pnpm db:push` + restart dev server
-- **i18n**: `useTranslations()` client, `getTranslations()` server
+## Common Patterns
+
+- **Server Actions**: `"use server"` in `src/app/actions/` — called from client components
+- **Privacy**: `isPrivate` + `targetUserId` for DMs and targeted notifications
+- **Component integration**: Must import AND render in `RoomClient` — common omission when adding panels
+- **DB changes**: `pnpm db:push` + restart dev server after `schema.ts` edits
+- **i18n**: `useTranslations()` client-side, `getTranslations()` server-side
 
 ---
 
 ## Reference Files
 
-For detailed information, read these files as needed:
+Read on demand — not auto-loaded:
 
-- **`references/data-model.md`** — Complete table schemas with columns, constraints, and extension points. Read when working on schema changes, adding new tables, or understanding data relationships.
-- **`references/core-flows.md`** — Step-by-step flows for Room creation, SSE messaging, Bot activation, Dice rolls, Item distribution, and AI Smart Import. Read when implementing or debugging these features.
-- **`references/pitfalls.md`** — 10 recurring issues with root causes and fixes. Read when troubleshooting bugs, especially around component rendering, SSE duplicates, database sync, or environment setup.
+- **`references/data-model.md`** — 16-table schema with columns and extension points. Read when working on schema changes or understanding data relationships.
+- **`references/core-flows.md`** — Step-by-step flows: Room creation, SSE messaging, Bot activation, Dice rolls, Item distribution, AI Smart Import.
+- **`references/pitfalls.md`** — 10 recurring issues with root causes and fixes. Read when troubleshooting SSE, database, or environment issues.
