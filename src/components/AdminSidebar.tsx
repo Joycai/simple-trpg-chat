@@ -9,9 +9,10 @@ import type { ReactNode } from "react";
 
 interface AdminSidebarProps {
   onLogout: () => Promise<void>;
+  siteName: string;
 }
 
-export function AdminSidebar({ onLogout }: AdminSidebarProps) {
+export function AdminSidebar({ onLogout, siteName }: AdminSidebarProps) {
   const t = useTranslations("admin");
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -61,7 +62,7 @@ export function AdminSidebar({ onLogout }: AdminSidebarProps) {
             <h2 className="text-lg font-bold text-text tracking-wide">
               {t("sidebarTitle")}
             </h2>
-            <p className="text-[10px] text-text-dim mt-1 uppercase tracking-widest">{t("sidebarSubtitle")}</p>
+            <p className="text-[10px] text-text-dim mt-1 uppercase tracking-widest">{siteName}</p>
           </div>
           <button
             onClick={closeSidebar}
