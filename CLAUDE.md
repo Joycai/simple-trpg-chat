@@ -4,192 +4,124 @@
 
 ## Project Overview
 
-**Simple TRPG Chat** — a lightweight, web-based tabletop RPG (TRPG) tool for multi-player chat, dice rolling, skill checks, inventory management, and optional AI-driven bot NPCs. Built for small-group sessions (e.g., Call of Cthulhu, D&D).
+**Simple TRPG Chat** — lightweight web-based TRPG tool (Call of Cthulhu, D&D) with multi-player chat, dice, skill checks, inventory, clue cards, character sheets, and optional AI bot NPCs.
 
 ## Tech Stack
 
-| Layer        | Technology                                                  |
-| ------------ | ----------------------------------------------------------- |
-| Framework    | Next.js 16.2.6 (App Router)                                |
-| Language     | TypeScript 5                                                |
-| React        | React 19                                                    |
-| Styling      | Tailwind CSS v4 (with `@tailwindcss/postcss`)               |
-| Database     | PostgreSQL via `postgres` + Drizzle ORM                     |
-| Auth         | NextAuth v5 (beta) with Credentials provider                |
-| i18n         | `next-intl` v4 (zh/en, default: zh)                        |
-| AI           | OpenAI-compatible API (configurable endpoint per host)      |
-| Markdown     | `react-markdown` + `remark-gfm`                            |
+| Layer      | Technology                                          |
+| ---------- | --------------------------------------------------- |
+| Framework  | Next.js 16.2.6 (App Router)                        |
+| Language   | TypeScript 5                                        |
+| React      | React 19                                            |
+| Styling    | Tailwind CSS v4 (`@tailwindcss/postcss`)            |
+| Database   | PostgreSQL via `postgres` + Drizzle ORM             |
+| Auth       | NextAuth v5 beta, Credentials provider              |
+| i18n       | `next-intl` v4 (zh/en, default: zh)                |
+| AI         | OpenAI-compatible API, configurable per host        |
+| Markdown   | `react-markdown` + `remark-gfm`                    |
+| Icons      | `lucide-react`                                      |
+| Validation | `zod`                                               |
+| Testing    | `vitest`                                            |
 
 ## Quick Commands
 
 ```bash
-pnpm dev             # Start dev server (http://localhost:3000)
-pnpm build           # Production build
-pnpm lint            # ESLint
-pnpm db:push         # Push schema to PostgreSQL (drizzle-kit push)
-pnpm db:studio       # Open Drizzle Studio GUI
-pnpm db:seed         # Seed database (tsx src/db/seed.ts)
-pnpm db:doctor       # Environment & Database diagnostics (tsx src/db/doctor.ts)
+pnpm dev        # Dev server (http://localhost:3000)
+pnpm build      # Production build
+pnpm lint       # ESLint
+pnpm test       # Run tests (vitest run)
+pnpm db:push    # Push schema to PostgreSQL
+pnpm db:studio  # Drizzle Studio GUI
+pnpm db:seed    # Seed database
+pnpm db:doctor  # Environment & DB diagnostics
 ```
-
-## Environment & Toolchains
-
-Determine the host OS to select the correct setup scripts and container commands:
-- **Windows (PowerShell)**: Run `setup.ps1` or `setup.bat`. For container management, use `podman.exe` (typically installed at `~/AppData/Local/Programs/Podman/podman.exe`) or `docker`. Use the `&` operator to invoke executables if their paths contain spaces or aren't in the global `PATH`.
-- **macOS/Linux**: Run `setup.sh`. Use native `podman` or `docker` commands directly.
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx            # Root layout (NextIntl + AppProvider)
-│   ├── page.tsx              # Home / lobby page
-│   ├── globals.css           # Theme CSS variables + Tailwind @theme
-│   ├── login/                # Login page
-│   ├── rooms/[id]/           # Room chat page (dynamic route)
-│   ├── admin/                # Admin panel (role-gated)
-│   ├── actions/              # Server Actions
-│   │   ├── room.ts           # Room CRUD, dice, messages
-│   │   ├── ai.ts             # AI config management
-│   │   ├── bot.ts            # Bot user CRUD
-│   │   ├── inventory.ts      # Inventory item management
-│   │   └── message.ts        # Message-related actions
-│   └── api/
-│       ├── auth/             # NextAuth route handler
-│       └── rooms/[id]/       # SSE streaming endpoint for real-time chat
-├── components/               # React client components
-│   ├── RoomClient.tsx        # Main chat room UI
-│   ├── LobbyClient.tsx       # Room list / lobby
-│   ├── ChatInput.tsx         # Message input with command support
-│   ├── ChatMessage.tsx       # Single message renderer
-│   ├── DiceRoller.tsx        # Dice rolling UI
-│   ├── SkillPanel.tsx        # Character skill management
-│   ├── InventoryPanel.tsx    # Item inventory (host→player distribution)
-│   ├── BotManager.tsx        # AI bot configuration panel
-│   ├── HostAiSettings.tsx    # Per-host AI endpoint/key settings
-│   ├── MarkdownRenderer.tsx  # Markdown rendering component
-│   ├── ThemeProvider.tsx      # Theme context provider
-│   ├── ThemeSwitcher.tsx     # Theme selection UI
-│   └── ...
-├── db/
-│   ├── index.ts              # Drizzle client (postgres)
-│   ├── schema.ts             # All table definitions + relations
-│   └── seed.ts               # Database seeding script
-├── lib/
-│   ├── ai_agent.ts           # AI bot agent loop (tool-use, summarization)
-│   ├── commands.ts           # Chat command engine (.st, .rc, .rd, .help)
-│   ├── encryption.ts         # AES-256-GCM encryption for API keys
-│   ├── events.ts             # In-process EventEmitter for real-time SSE
-│   └── utils.ts              # Dice rolling, time formatting helpers
-├── i18n/
-│   └── request.ts            # next-intl server config (default: zh)
-├── themes/
-│   └── types.ts              # Theme IDs and metadata
-├── auth.ts                   # NextAuth full config (Credentials provider)
-├── auth.config.ts            # Auth callbacks (JWT, session, route guards)
-└── proxy.ts                  # Middleware (auth-protected routes)
+│   ├── actions/               # 17 Server Actions ("use server")
+│   ├── admin/                 # Admin panel (ai/, config/, usage/, users/)
+│   ├── api/rooms/[id]/events/ # SSE endpoint — GET /api/rooms/[id]/events
+│   ├── login/
+│   └── rooms/[id]/
+├── components/                # 35+ React client components ("use client")
+├── db/                        # Drizzle client, 16-table schema, seed
+├── lib/                       # 15 utility/service modules
+├── i18n/                      # next-intl server config (default: zh)
+├── themes/                    # 4 themes; each has themes/<name>/theme.css
+├── types/                     # next-auth.d.ts type augmentation
+├── auth.ts / auth.config.ts   # NextAuth full config + callbacks
+└── proxy.ts                   # Auth middleware
 
-messages/                     # i18n translation files
-├── zh.json
-└── en.json
-
-drizzle/                      # Migration SQL files
-drizzle.config.ts             # Drizzle Kit configuration
-db.config.json                # Database connection config (auto-generated by setup.sh / setup.ps1)
+messages/{zh,en}.json          # i18n translation files
+db.config.json                 # DB connection config (auto-generated)
 ```
 
-## Architecture & Key Patterns
+## Architecture
 
-### Database
+For deep dives into specific systems, see `docs/`:
 
-- **ORM**: Drizzle ORM with `postgres` driver (PostgreSQL). Schema lives in `src/db/schema.ts`.
-- **Tables**: `users`, `rooms`, `room_members`, `messages`, `room_skills`, `system_config`, `ai_providers`, `inventory_items`, `inventory_distributions`.
-- **Migrations**: Use `pnpm db:push` for schema sync (push-based, no migration files needed for dev).
-- **Path alias**: `@/db` → `src/db`.
+| Topic | File |
+| ----- | ---- |
+| Database — 16 tables, schema, relations | `docs/arch/database.md` |
+| Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
+| AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
+| Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
+| Admin — users, config, stats, filtering | `docs/arch/admin-panel.md` |
 
-### Authentication
+### ⚠️ Critical: EventEmitter must use globalThis
 
-- NextAuth v5 beta with Credentials provider (username + bcrypt password).
-- Auth config split into `auth.config.ts` (callbacks, no provider deps) and `auth.ts` (full config with DB).
-- Middleware in `src/proxy.ts` protects all routes except `/api`, `/login`, `/_next/*`, `/favicon.ico`.
-- Admin routes require `role === 'admin'`.
-- Session carries `id`, `name`, `username`, `role`.
-
-### Real-time Messaging
-
-- **SSE (Server-Sent Events)** via API route at `/api/rooms/[id]/stream` (or similar).
-- In-process `EventEmitter` hub in `src/lib/events.ts` — broadcasts messages per room.
-- No external message broker; single-process only.
-
-#### ⚠️ 生产模式 EventEmitter 跨 Worker 共享（易错警告）
-
-Next.js 生产模式下，不同路由可能运行在不同 Worker 中。`EventEmitter` 必须通过 `globalThis` 全局共享，否则 SSE 订阅者和消息发送者各自持有独立的 EventEmitter 实例，消息永远不会到达。
+Next.js production runs multiple workers. The EventEmitter singleton **must** be persisted to `globalThis` unconditionally — never gate on `NODE_ENV`:
 
 ```ts
-// ✅ 正确：始终持久化到 globalThis（dev + production）
+// ✅ Always
 const eventHub = globalThis.__eventHub || new EventEmitter();
-globalThis.__eventHub = eventHub;  // 不可加 NODE_ENV 条件！
+globalThis.__eventHub = eventHub;
 
-// ❌ 错误：生产环境下两个路由用不同 EventEmitter
+// ❌ Never — production workers won't share the hub
 if (process.env.NODE_ENV !== "production") {
-  globalThis.__eventHub = eventHub;  // production 不执行！
+  globalThis.__eventHub = eventHub;
 }
 ```
 
-**原则**：任何 SSR 应用中的单例跨请求/跨路由共享，都必须通过 `globalThis` 持久化，且**不可**根据 `NODE_ENV` 条件跳过。
-
 ### Theming
 
-- 4 themes: `default`, `parchment`, `cthulhu`, `shrine`.
-- Implemented via CSS custom properties on `[data-theme]` attribute.
-- Theme variables mapped to Tailwind utilities via `@theme inline` block in `globals.css`.
-- Always use semantic Tailwind classes (e.g., `bg-surface`, `text-text`, `border-border`) — never hardcode colors.
+4 themes: `default`, `parchment`, `cthulhu`, `shrine`. Each has `src/themes/<name>/theme.css`. Always use semantic Tailwind classes (`bg-surface`, `text-text`, `border-border`) — never hardcode colors. Variables mapped via `@theme inline` in `globals.css`.
 
 ### Chat Commands
 
-- Prefix: `.` (dot commands)
-- `.st <skill> <value>` — Set/update skills (batch: `.st 侦查50聆听60`)
-- `.rc <skill>` — Roll check (d100 vs skill value)
-- `.rd<N>` — Quick dice roll (e.g., `.rd100`, `.rd20`)
-- `.help` — Show command help
-- Engine: `src/lib/commands.ts`
+Prefix `.` or `。` (Chinese full-stop accepted):
 
-### AI Bot System
+- `.st <skill> <value>` — set skill (batch: `.st 侦查50聆听60`)
+- `.rc <skill>` — d100 roll check vs skill value
+- `.sc <s>/<f>` — sanity check (COC 7th)
+- `.rd<N>` / `.r<N>` — dice roll (supports expressions like `3d100k2+2d20`)
+- `.help` — show help
 
-- Bot users have `isBot: true` and JSON config in `botConfigJson`.
-- AI agent loop in `src/lib/ai_agent.ts` supports tools: `roll_dice`, `send_message`, `inspect_item`.
-- Each host configures their own API endpoint/key via `host_ai_config` table (encrypted with AES-256-GCM).
-- Incremental history summarization after every 30 messages.
+Engine: `src/lib/commands.ts`
 
-### Inventory System
+### Authentication
 
-- Host creates inventory items (types: `info`, `character`, `item`).
-- Items are distributed to players via `inventory_distributions`.
-- Players can share items with each other.
-- Unread badge support via `viewed` field.
-
-### i18n
-
-- `next-intl` with server-side locale detection.
-- Translation files in `messages/{zh,en}.json`.
-- Default locale: `zh` (Chinese).
-- Refer to [Codebase Mapping & i18n Reference Index](file:///Users/caizhengxu/.gemini/antigravity/brain/c5595299-01bc-4d24-9a5d-632015f10ad9/codebase_index.md) for components, namespaces, and audit/scan helper scripts.
+- NextAuth v5 beta, Credentials provider (username + bcrypt). Config split: `auth.config.ts` (callbacks) + `auth.ts` (full config with DB).
+- `proxy.ts` protects all routes except `/api`, `/login`, `/_next/*`, `/favicon.ico`.
+- Admin requires `role === 'admin'`. Session carries: `id`, `name`, `username`, `role`.
 
 ## Coding Conventions
 
-- **Path aliases**: `@/*` maps to `src/*` (configured in `tsconfig.json`).
-- **Server Actions**: Place in `src/app/actions/`. Use `"use server"` directive.
-- **Components**: Client components in `src/components/`. Use `"use client"` directive.
-- **Styling**: Tailwind CSS v4 with theme-aware semantic tokens. Do NOT use arbitrary color values — use the CSS variable-backed utilities defined in `globals.css`.
-- **Database queries**: Use Drizzle query builder with standard async patterns.
-- **Database configuration**: `db.config.json` at project root (auto-generated by `setup.sh` or `setup.ps1`). Only PostgreSQL is supported. The file contains `{ "type": "postgresql", "url": "postgres://..." }`.
-- **Error handling**: Server actions return result objects; do not throw from actions.
-- **Types**: Enums and types co-located in schema (`src/db/schema.ts`) and theme types (`src/themes/types.ts`).
+- **Path alias**: `@/*` → `src/*`
+- **Server Actions**: `src/app/actions/`, `"use server"` directive
+- **Client components**: `src/components/`, `"use client"` directive
+- **Styling**: Semantic Tailwind tokens only — never arbitrary colors
+- **Database**: Drizzle query builder; `db.config.json` holds `{ "type": "postgresql", "url": "..." }`
+- **Error handling**: Server actions return result objects, never throw
+- **Validation**: Use `zod` at action boundaries
+- **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`
 
 ## Environment Variables
 
-| Variable            | Required | Description                                    |
-| ------------------- | -------- | ---------------------------------------------- |
-| `AUTH_SECRET`       | Yes      | NextAuth secret for JWT signing                |
-| `AI_ENCRYPTION_KEY` | Prod     | Key for AES-256-GCM encryption of AI API keys. Falls back to `dev-secret-key` in development. |
+| Variable          | Required | Description                                                              |
+| ----------------- | -------- | ------------------------------------------------------------------------ |
+| `AUTH_SECRET`     | Yes      | NextAuth JWT signing secret                                              |
+| `AI_ENCRYPTION_KEY` | Prod   | AES-256-GCM key for AI API keys (dev falls back to `dev-secret-key`)    |
