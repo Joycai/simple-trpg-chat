@@ -11,7 +11,6 @@ import { CharacterPanel } from "./CharacterPanel";
 import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
-import { ClueManager } from "./ClueManager";
 import { AiImportPanel } from "./AiImportPanel";
 import { Icons } from "./icons";
 import { ExportButton } from "./ExportButton";
@@ -102,7 +101,6 @@ export function RoomClient({
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showBotManager, setShowBotManager] = useState(false);
-  const [showClueManager, setShowClueManager] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -695,18 +693,6 @@ export function RoomClient({
                     <span className="hidden sm:inline">{t("btnCheck")}</span>
                   </button>
                 )}
-                <button
-                  onClick={() => setShowClueManager(!showClueManager)}
-                  className={`hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    showClueManager
-                      ? "bg-surface text-primary border border-border/10 shadow-sm"
-                      : "text-text-muted hover:text-text hover:bg-surface/30"
-                  }`}
-                  title={t("tooltipClues")}
-                >
-                  <Icons.Ticket className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{t("btnClues")}</span>
-                </button>
                 {isHost && (
                   <button
                     onClick={() => setShowAiImport(true)}
@@ -763,10 +749,6 @@ export function RoomClient({
                   {/* Mobile-only menu items */}
                   {isMobile && (
                     <div className="border-t border-border mt-1 pt-1">
-                      <button onClick={() => { setShowClueManager(true); }}
-                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <Icons.Ticket className="w-4 h-4" /> {t("btnClues")}
-                      </button>
                       {isHost && (
                         <>
                           <button onClick={() => { setShowAiImport(true); }}
@@ -978,9 +960,6 @@ export function RoomClient({
       )}
       {showBotManager && (
         <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} aiEnabled={aiEnabled} validProviderIds={validProviderIds} />
-      )}
-      {showClueManager && (
-        <ClueManager roomId={room.id} isHost={isHost} players={mentionTargets.map(p => ({ id: p.id, nickname: p.nickname }))} onClose={() => setShowClueManager(false)} />
       )}
       {showAiImport && (
         <AiImportPanel roomId={room.id} onClose={() => setShowAiImport(false)} />
