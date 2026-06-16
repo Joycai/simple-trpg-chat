@@ -429,10 +429,12 @@
     "title": "道具栏",
     "tabManage": "道具管理",
     "tabBackpack": "我的背包",
+    "tabClue": "线索",
     "tabInfo": "信息",
     "tabChar": "人物",
     "tabItem": "物品",
     "createItem": "创建道具",
+    "typeClue": "🃏 线索",
     "typeInfo": "📄 信息",
     "typeChar": "👤 人物信息",
     "typeItem": "🎒 物品",
@@ -476,7 +478,11 @@
     "shareConfirmHint": "共享给 {name}？",
     "confirm": "确认",
     "cancel": "取消",
-    "deleteConfirm": "确定要删除道具【{title}】吗？删除后所有玩家背包中的该道具也将同步消失。"
+    "deleteConfirm": "确定要删除道具【{title}】吗？删除后所有玩家背包中的该道具也将同步消失。",
+    "cluePushLog": "📤 向 {recipients} 发放了线索【{title}】",
+    "defaultPlayers": "所有玩家",
+    "defaultPlayer": "玩家",
+    "defaultTeammate": "队友"
   },
   "clues": {
     "title": "线索管理",

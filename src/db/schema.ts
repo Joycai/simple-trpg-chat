@@ -31,7 +31,7 @@ export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
 export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request'] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
-export const INVENTORY_ITEM_TYPES = ['info', 'character', 'item'] as const;
+export const INVENTORY_ITEM_TYPES = ['clue', 'info', 'character', 'item'] as const;
 export type InventoryItemType = (typeof INVENTORY_ITEM_TYPES)[number];
 
 export const INVENTORY_ACTIONS = ['created', 'shared'] as const;
@@ -145,7 +145,7 @@ export const inventoryDistributions = pgTable('inventory_distributions', {
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   itemId: integer('item_id').notNull().references(() => inventoryItems.id, { onDelete: 'cascade' }),
   fromUserId: integer('from_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  toUserId: integer('to_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  toUserId: integer('to_user_id').references(() => users.id, { onDelete: 'cascade' }),
   action: text('action').notNull().default('created'),
   viewed: boolean('viewed').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),

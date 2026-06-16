@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 interface InventoryItem {
   id: number;
-  type: "info" | "character" | "item";
+  type: "clue" | "info" | "character" | "item";
   title: string;
   contentJson: string;
   imageUrl: string | null;
@@ -40,8 +40,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   const locale = useLocale();
 
   const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
-  const [filterType, setFilterType] = useState<"all" | "info" | "character" | "item">("all");
-  const [manageFilterType, setManageFilterType] = useState<"all" | "info" | "character" | "item">("all");
+  const [filterType, setFilterType] = useState<"all" | "clue" | "info" | "character" | "item">("all");
+  const [manageFilterType, setManageFilterType] = useState<"all" | "clue" | "info" | "character" | "item">("all");
   const [manageFilterDist, setManageFilterDist] = useState<"all" | "undistributed" | "distributed">("all");
   const [myItems, setMyItems] = useState<any[]>([]);
   const [roomItems, setRoomItems] = useState<any[]>([]);
@@ -56,7 +56,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
   // Create form state
   const [showCreate, setShowCreate] = useState(false);
-  const [itemType, setItemType] = useState<"info" | "character" | "item">("info");
+  const [itemType, setItemType] = useState<"clue" | "info" | "character" | "item">("info");
   const [title, setTitle] = useState("");
   const [contentFields, setContentFields] = useState({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
 
@@ -95,7 +95,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
   const handleCreate = async () => {
     let contentJson: Record<string, string> = {};
-    if (itemType === "info") contentJson = { text: contentFields.text };
+    if (itemType === "clue") contentJson = { text: contentFields.text };
+    else if (itemType === "info") contentJson = { text: contentFields.text };
     else if (itemType === "character") contentJson = { basicInfo: contentFields.basicInfo, detail: contentFields.detail };
     else contentJson = { appearance: contentFields.appearance, extra: contentFields.extra };
 
@@ -153,15 +154,15 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
   const formatContent = (item: InventoryItem): string => {
     try {
       const c = JSON.parse(item.contentJson);
-      if (item.type === "info") return c.text || "";
+      if (item.type === "clue" || item.type === "info") return c.text || "";
       if (item.type === "character") return `${c.basicInfo || ""}\n${c.detail || ""}`;
       return `${c.appearance || ""}\n${c.extra || ""}`;
     } catch { return item.contentJson; }
   };
 
-  const typeLabel = (tStr: string) => ({ info: t("typeInfo"), character: t("typeChar"), item: t("typeItem") }[tStr] || tStr);
-  const typeTabLabel = (tStr: string) => ({ info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
-  const typeEmoji = (tStr: string) => ({ info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
+  const typeLabel = (tStr: string) => ({ clue: t("typeClue"), info: t("typeInfo"), character: t("typeChar"), item: t("typeItem") }[tStr] || tStr);
+  const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
+  const typeEmoji = (tStr: string) => ({ clue: "🃏", info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
   const isNew = (d: any) => d.viewed === false || d.viewed === 0;
 
   // Filter backpack dynamically
@@ -212,13 +213,14 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                   <h4 className="font-bold text-text text-sm">{t("createItem")}</h4>
                   <select value={itemType} onChange={e => setItemType(e.target.value as any)}
                     className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                    <option value="clue">{t("typeClue")}</option>
                     <option value="info">{t("typeInfo")}</option>
                     <option value="character">{t("typeChar")}</option>
                     <option value="item">{t("typeItem")}</option>
                   </select>
                   <input value={title} onChange={e => setTitle(e.target.value)}
                     placeholder={t("titlePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  {itemType === "info" && (
+                  {(itemType === "clue" || itemType === "info") && (
                     <textarea value={contentFields.text} onChange={e => setContentFields({...contentFields, text: e.target.value})}
                       placeholder={t("contentPlaceholder")} rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                   )}
@@ -255,11 +257,11 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       }`}>
                       {t("filterAll")}
                     </button>
-                    {(["info", "character", "item"] as const).map(typeKey => (
+                    {(["clue", "info", "character", "item"] as const).map(typeKey => (
                       <button key={typeKey} onClick={() => setManageFilterType(typeKey)}
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
-                          manageFilterType === typeKey 
-                            ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                          manageFilterType === typeKey
+                            ? "bg-primary text-primary-foreground shadow-sm filter-tab-active"
                             : "bg-surface text-text-muted hover:text-text border border-border/50"
                         }`}>
                         {typeTabLabel(typeKey)}
@@ -495,17 +497,17 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
               <div className="flex flex-wrap gap-1.5">
                 <button onClick={() => setFilterType("all")}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    filterType === "all" 
-                      ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                    filterType === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm filter-tab-active"
                       : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
                   }`}>
                   {t("filterAll")}
                 </button>
-                {(["info", "character", "item"] as const).map(typeKey => (
+                {(["clue", "info", "character", "item"] as const).map(typeKey => (
                   <button key={typeKey} onClick={() => setFilterType(typeKey)}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      filterType === typeKey 
-                        ? "bg-primary text-primary-foreground shadow-sm filter-tab-active" 
+                      filterType === typeKey
+                        ? "bg-primary text-primary-foreground shadow-sm filter-tab-active"
                         : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
                     }`}>
                     {typeTabLabel(typeKey)}

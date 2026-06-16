@@ -1,13 +1,14 @@
 "use server";
 
 import { db, sqlBool } from "@/db";
-import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
-import { eq, and, not, desc, inArray, count, sql } from "drizzle-orm";
+import { inventoryItems, inventoryDistributions, roomMembers, users, messages } from "@/db/schema";
+import { eq, and, not, desc, inArray, count, sql, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { sendMessageAction } from "./room";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
+import { broadcastToRoom } from "@/lib/events";
 
 /**
  * createInventoryItemAction
@@ -15,7 +16,7 @@ import { getTranslations } from "next-intl/server";
 export async function createInventoryItemAction(
   roomId: number,
   data: {
-    type: "info" | "character" | "item";
+    type: "clue" | "info" | "character" | "item";
     title: string;
     content: any;
     imageUrl?: string;
@@ -339,4 +340,142 @@ export async function deleteInventoryItemAction(roomId: number, itemId: number) 
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
+}
+
+/**
+ * publishClueAction - Publish a clue (make it visible to players)
+ * Creates distribution records for targeted users or public (toUserId=null for all)
+ */
+export async function publishClueAction(
+  roomId: number,
+  itemId: number,
+  targetUserIds?: number[]
+) {
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
+
+  // Verify item exists and is a clue
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  if (!item) throw new Error("Item not found");
+  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+  if (item.type !== 'clue') throw new Error("Item is not a clue");
+
+  const isPublic = !targetUserIds || targetUserIds.length === 0;
+  const t = await getTranslations("inventoryActions");
+
+  if (isPublic) {
+    // Check if already public
+    const [hasPublic] = await db.select().from(inventoryDistributions).where(
+      and(eq(inventoryDistributions.itemId, itemId), sql`${inventoryDistributions.toUserId} IS NULL`)
+    ).limit(1);
+
+    if (!hasPublic) {
+      await db.insert(inventoryDistributions).values({
+        roomId,
+        itemId,
+        fromUserId: hostId,
+        toUserId: null,
+        action: 'created',
+      });
+    }
+
+    // Broadcast as message
+    const [msg] = await db.insert(messages).values({
+      roomId,
+      userId: hostId,
+      nickname: "Host",
+      content: `🃏 **${item.title}**\n\n${JSON.parse(item.contentJson)?.text || item.contentJson}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
+      type: "clue",
+      diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: true }),
+      isPrivate: false,
+    }).returning();
+
+    broadcastToRoom(roomId, msg);
+  } else {
+    // Targeted clue - filter out users who already have it
+    const existing = await db.select({ toUserId: inventoryDistributions.toUserId }).from(inventoryDistributions).where(
+      and(eq(inventoryDistributions.itemId, itemId), inArray(inventoryDistributions.toUserId, targetUserIds))
+    );
+    const existingUserIds = new Set(existing.map((e: any) => e.toUserId).filter(Boolean));
+    const newTargetIds = targetUserIds.filter(id => !existingUserIds.has(id));
+
+    if (newTargetIds.length > 0) {
+      const rows = newTargetIds.map(uid => ({
+        roomId,
+        itemId,
+        fromUserId: hostId,
+        toUserId: uid,
+        action: 'created' as const,
+      }));
+      await db.insert(inventoryDistributions).values(rows);
+    }
+
+    // Send targeted messages
+    const content = JSON.parse(item.contentJson)?.text || item.contentJson;
+    for (const uid of newTargetIds) {
+      const [msg] = await db.insert(messages).values({
+        roomId,
+        userId: hostId,
+        nickname: "Host",
+        content: `🃏 **${item.title}**\n\n${content}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
+        type: "clue",
+        diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: false, visibleTo: newTargetIds }),
+        isPrivate: true,
+        targetUserId: uid,
+      }).returning();
+
+      broadcastToRoom(roomId, msg);
+    }
+
+    // Send host log
+    if (newTargetIds.length > 0) {
+      const recipients = await db.select({ name: users.displayName }).from(users).where(inArray(users.id, newTargetIds));
+      const recipientNames = recipients.map(r => r.name).join(", ");
+      const [hostMsg] = await db.insert(messages).values({
+        roomId,
+        userId: hostId,
+        nickname: "Host",
+        content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: item.title }),
+        type: "system",
+        isPrivate: true,
+      }).returning();
+      broadcastToRoom(roomId, hostMsg);
+    }
+  }
+
+  revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
+}
+
+/**
+ * getUnifiedInventoryAction - Get all inventory items visible to the user, including clues
+ */
+export async function getUnifiedInventoryAction(roomId: number) {
+  const { userId } = await checkRoomAccess(roomId, false);
+
+  // Get inventory items from distributions
+  const distributions = await db.query.inventoryDistributions.findMany({
+    where: and(
+      eq(inventoryDistributions.roomId, roomId),
+      or(
+        sql`${inventoryDistributions.toUserId} IS NULL`, // public clues
+        eq(inventoryDistributions.toUserId, userId)       // user's items
+      )
+    ),
+    with: { item: true, sender: true },
+    orderBy: [desc(inventoryDistributions.createdAt)]
+  });
+
+  return distributions.map((d: any) => ({
+    id: d.item.id,
+    type: d.item.type,
+    title: d.item.title,
+    content: d.item.contentJson,
+    imageUrl: d.item.imageUrl,
+    creatorId: d.item.creatorId,
+    createdAt: d.item.createdAt,
+    distributionId: d.id,
+    fromUserId: d.fromUserId,
+    distributedAt: d.createdAt,
+    fromUsername: d.sender?.displayName || d.sender?.username
+  }));
 }

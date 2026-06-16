@@ -429,10 +429,12 @@
     "title": "Inventory",
     "tabManage": "Manage Items",
     "tabBackpack": "My Backpack",
+    "tabClue": "Clue",
     "tabInfo": "Info",
     "tabChar": "Character",
     "tabItem": "Item",
     "createItem": "Create New Item",
+    "typeClue": "🃏 Clue",
     "typeInfo": "📄 Info",
     "typeChar": "👤 Character Info",
     "typeItem": "🎒 Item",
@@ -476,7 +478,11 @@
     "shareConfirmHint": "Share with {name}?",
     "confirm": "Confirm",
     "cancel": "Cancel",
-    "deleteConfirm": "Are you sure you want to delete item \"{title}\"? Deleting it will remove it from all players' backpacks too."
+    "deleteConfirm": "Are you sure you want to delete item \"{title}\"? Deleting it will remove it from all players' backpacks too.",
+    "cluePushLog": "📤 Sent clue \"{title}\" to {recipients}",
+    "defaultPlayers": "all players",
+    "defaultPlayer": "player",
+    "defaultTeammate": "teammate"
   },
   "clues": {
     "title": "Clues Management",
