@@ -601,3 +601,45 @@ export async function loadMoreMessagesAction(roomId: number, beforeMessageId: nu
 
   return results.reverse();
 }
+
+// --- Avatar Actions ---
+
+export async function uploadAvatarAction(
+  roomId: number,
+  imageData: string
+) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+
+  const userId = parseInt((session.user as any).id);
+
+  // Validate room membership
+  const [member] = await db
+    .select()
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  if (!member) throw new Error("You are not a member of this room");
+
+  // Validate the image data
+  if (!imageData.startsWith("data:image/")) {
+    throw new Error("Invalid image data");
+  }
+
+  // Enforce size limit (~350KB base64)
+  if (imageData.length > 500000) {
+    throw new Error("Image is too large");
+  }
+
+  // Update the avatar in the database
+  await db.update(roomMembers)
+    .set({ avatar: imageData })
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
+
+  revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
+}

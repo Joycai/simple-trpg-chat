@@ -20,6 +20,7 @@ import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
+import { AvatarCropper } from "./AvatarCropper";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
@@ -109,6 +110,7 @@ export function RoomClient({
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showAvatarCropper, setShowAvatarCropper] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
@@ -633,6 +635,14 @@ export function RoomClient({
                 <span className="hidden sm:inline">{nickname}</span>
               </button>
               <button
+                onClick={() => setShowAvatarCropper(true)}
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-text-muted hover:text-text hover:bg-surface/30"
+                title="Set Avatar"
+              >
+                <Icons.Image className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Avatar</span>
+              </button>
+              <button
                 onClick={() => setShowSkills(!showSkills)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
                   showSkills
@@ -865,28 +875,32 @@ export function RoomClient({
         <div className="flex-1 flex flex-col relative min-w-0">
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
             <div className="max-w-4xl mx-auto flex flex-col gap-1">
-              {tabMessages.map((msg) => (
-                <ChatMessage
-                  key={msg.id}
-                  nickname={msg.nickname}
-                  content={msg.content}
-                  type={msg.type as any}
-                  diceDetail={msg.diceDetail}
-                  isPrivate={msg.isPrivate}
-                  createdAt={msg.createdAt}
-                  isOwn={msg.userId === userId}
-                  userId={userId}
-                  senderId={msg.userId}
-                  isHost={isHost}
-                  onViewCharacter={handleViewPlayerCard}
-                  onStartDM={handleTabChange}
-                  onCheckRequest={handleCheckRequest}
-                  isBot={!!players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.users?.isBot}
-                  roomId={room.id}
-                  hostId={room.hostId}
-                  avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId)?.room_members?.avatarColor}
-                />
-              ))}
+              {tabMessages.map((msg) => {
+                const playerData = players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId);
+                return (
+                  <ChatMessage
+                    key={msg.id}
+                    nickname={msg.nickname}
+                    content={msg.content}
+                    type={msg.type as any}
+                    diceDetail={msg.diceDetail}
+                    isPrivate={msg.isPrivate}
+                    createdAt={msg.createdAt}
+                    isOwn={msg.userId === userId}
+                    userId={userId}
+                    senderId={msg.userId}
+                    isHost={isHost}
+                    onViewCharacter={handleViewPlayerCard}
+                    onStartDM={handleTabChange}
+                    onCheckRequest={handleCheckRequest}
+                    isBot={!!playerData?.users?.isBot}
+                    roomId={room.id}
+                    hostId={room.hostId}
+                    avatarColor={playerData?.room_members?.avatarColor}
+                    avatar={playerData?.room_members?.avatar}
+                  />
+                );
+              })}
               {Object.entries(typingBots)
                 .filter(([botId, bot]) => {
                   if (bot.isPrivate) {
@@ -1071,6 +1085,15 @@ export function RoomClient({
       )}
       {showUserSettings && (
         <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />
+      )}
+      {showAvatarCropper && (
+        <AvatarCropper
+          roomId={room.id}
+          onClose={() => setShowAvatarCropper(false)}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

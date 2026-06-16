@@ -46,6 +46,7 @@ interface ChatMessageProps {
   roomId?: number;
   hostId?: number;
   avatarColor?: string | null;
+  avatar?: string | null;
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -66,6 +67,7 @@ export const ChatMessage = memo(function ChatMessage({
   roomId,
   hostId,
   avatarColor,
+  avatar,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
@@ -210,21 +212,35 @@ export const ChatMessage = memo(function ChatMessage({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div
-          className={`w-8 h-8 rounded-theme flex items-center justify-center text-xs font-bold transition shadow-sm ${
-            isPrivate
-              ? "border-2 border-private-border"
-              : isOwn
-              ? "border border-primary/30"
-              : "border border-border"
-          }`}
-          style={{
-            backgroundColor: avatarColor || getRandomColorForUser(senderId || 0),
-            color: getContrastColor(avatarColor || getRandomColorForUser(senderId || 0)),
-          }}
-        >
-          {nickname.charAt(0).toUpperCase()}
-        </div>
+        {avatar ? (
+          <img
+            src={avatar}
+            alt={nickname}
+            className={`w-8 h-8 rounded-theme flex-shrink-0 transition shadow-sm ${
+              isPrivate
+                ? "border-2 border-private-border"
+                : isOwn
+                ? "border border-primary/30"
+                : "border border-border"
+            }`}
+          />
+        ) : (
+          <div
+            className={`w-8 h-8 rounded-theme flex items-center justify-center text-xs font-bold transition shadow-sm ${
+              isPrivate
+                ? "border-2 border-private-border"
+                : isOwn
+                ? "border border-primary/30"
+                : "border border-border"
+            }`}
+            style={{
+              backgroundColor: avatarColor || getRandomColorForUser(senderId || 0),
+              color: getContrastColor(avatarColor || getRandomColorForUser(senderId || 0)),
+            }}
+          >
+            {nickname.charAt(0).toUpperCase()}
+          </div>
+        )}
 
         {isHovered && canView && (
           <ResourceStatusTooltip

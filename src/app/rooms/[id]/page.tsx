@@ -37,11 +37,33 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const isHost = room.hostId === userId;
 
   // 1. Get all room members (for player list)
-  let members = await db
-    .select()
-    .from(roomMembers)
-    .innerJoin(users, eq(roomMembers.userId, users.id))
-    .where(eq(roomMembers.roomId, roomId));
+  let members;
+  try {
+    members = await db
+      .select({
+        room_members: {
+          id: roomMembers.id,
+          roomId: roomMembers.roomId,
+          userId: roomMembers.userId,
+          nickname: roomMembers.nickname,
+          joinedAt: roomMembers.joinedAt,
+          characterData: roomMembers.characterData,
+          avatarColor: roomMembers.avatarColor,
+          avatar: roomMembers.avatar,
+        },
+        users: users,
+      })
+      .from(roomMembers)
+      .innerJoin(users, eq(roomMembers.userId, users.id))
+      .where(eq(roomMembers.roomId, roomId));
+  } catch {
+    // Fallback if avatar column doesn't exist yet
+    members = await db
+      .select()
+      .from(roomMembers)
+      .innerJoin(users, eq(roomMembers.userId, users.id))
+      .where(eq(roomMembers.roomId, roomId));
+  }
 
   // 2. Check if user is a member (lookup in memory first to save DB query)
   let currentMemberJoint = members.find(m => m.room_members.userId === userId);

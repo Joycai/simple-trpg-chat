@@ -765,5 +765,18 @@
     "cluePrefix": "🃏 **{name}** pushed a clue",
     "privateLogs": "🔒 Private Logs",
     "characterSnapshot": "👤 Character Snapshots"
+  },
+  "avatar": {
+    "title": "Set Avatar",
+    "selectImage": "Select an image from your device",
+    "uploadButton": "Choose Image",
+    "dragToCrop": "Drag to move, drag corner to resize. Max size: 512×512px",
+    "changeImage": "Change Image",
+    "confirmButton": "Save Avatar",
+    "uploading": "Uploading...",
+    "previewLabel": "Preview (96×96)",
+    "errorInvalidFile": "Invalid file type. Please choose an image.",
+    "errorFileTooLarge": "File is too large (max 5MB)",
+    "errorUploadFailed": "Failed to upload avatar"
   }
 }

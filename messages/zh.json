@@ -765,5 +765,18 @@
     "cluePrefix": "🃏 **{name}** 推送了线索",
     "privateLogs": "🔒 私聊记录",
     "characterSnapshot": "👤 角色状态快照"
+  },
+  "avatar": {
+    "title": "设置头像",
+    "selectImage": "从您的设备中选择图像",
+    "uploadButton": "选择图像",
+    "dragToCrop": "拖动可移动，拖动角落可调整大小。最大尺寸：512×512 像素",
+    "changeImage": "更改图像",
+    "confirmButton": "保存头像",
+    "uploading": "上传中...",
+    "previewLabel": "预览 (96×96)",
+    "errorInvalidFile": "无效的文件类型。请选择图像。",
+    "errorFileTooLarge": "文件过大（最多 5MB）",
+    "errorUploadFailed": "头像上传失败"
   }
 }
