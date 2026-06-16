@@ -88,6 +88,7 @@ export function RoomClient({
   const tn = useTranslations("nav");
   const tra = useTranslations("roomActions");
   const ts = useTranslations("userSettings");
+  const tAvatar = useTranslations("avatar");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -637,10 +638,10 @@ export function RoomClient({
               <button
                 onClick={() => setShowAvatarCropper(true)}
                 className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-text-muted hover:text-text hover:bg-surface/30"
-                title={t("btnAvatar")}
+                title={tAvatar("btnAvatar")}
               >
                 <Icons.Image className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">{t("btnAvatar")}</span>
+                <span className="hidden sm:inline">{tAvatar("btnAvatar")}</span>
               </button>
               <button
                 onClick={() => setShowSkills(!showSkills)}
