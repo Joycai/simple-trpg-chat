@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { aiProviders, inventoryItems, clueCards, clueVisibility, users } from "@/db/schema";
+import { aiProviders, inventoryItems, inventoryDistributions, users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
@@ -135,7 +135,8 @@ export async function analyzeTextForImportAction(
 }
 
 /**
- * A3: Batch import analyzed items into inventory_items and/or clue_cards.
+ * A3: Batch import analyzed items into inventory_items with proper type handling.
+ * Clues are now stored as inventoryItems with type='clue' in the unified system.
  */
 export async function batchImportItemsAction(
   roomId: number,
@@ -148,36 +149,29 @@ export async function batchImportItemsAction(
 
     await db.transaction(async (tx) => {
       for (const item of items) {
+        // Insert all items (including clues) into inventoryItems
+        const [newItem] = await (tx.insert as any)(inventoryItems).values({
+          roomId,
+          creatorId: userId,
+          type: item.type as "clue" | "info" | "character" | "item",
+          title: item.title,
+          contentJson: typeof item.content === "string"
+            ? JSON.stringify({ text: item.content })
+            : JSON.stringify(item.content),
+        }).returning();
+
+        // For clues, create a public visibility record (toUserId=null)
         if (item.type === "clue") {
-          // Insert as clue card (visible to all by default)
-          const [clue] = await (tx.insert as any)(clueCards).values({
+          await tx.insert(inventoryDistributions).values({
             roomId,
-            creatorId: userId,
-            title: item.title,
-            content: typeof item.content === "string" ? item.content : JSON.stringify(item.content),
-          }).returning();
-
-          // Make it visible to all
-          await tx.insert(clueVisibility).values({
-            clueId: clue.id,
-            userId: null, // public
+            itemId: newItem.id,
+            fromUserId: userId,
+            toUserId: null, // public visibility
+            action: "created",
           });
-
-          imported++;
-        } else {
-          // Insert as inventory item
-          await tx.insert(inventoryItems).values({
-            roomId,
-            creatorId: userId,
-            type: item.type as "info" | "character" | "item",
-            title: item.title,
-            contentJson: typeof item.content === "string"
-              ? JSON.stringify({ text: item.content })
-              : JSON.stringify(item.content),
-          });
-
-          imported++;
         }
+
+        imported++;
       }
     });
 
