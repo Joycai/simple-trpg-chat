@@ -767,6 +767,7 @@
     "characterSnapshot": "👤 Character Snapshots"
   },
   "avatar": {
+    "btnAvatar": "Avatar",
     "title": "Set Avatar",
     "selectImage": "Select an image from your device",
     "uploadButton": "Choose Image",

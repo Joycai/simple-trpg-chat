@@ -767,6 +767,7 @@
     "characterSnapshot": "👤 角色状态快照"
   },
   "avatar": {
+    "btnAvatar": "头像",
     "title": "设置头像",
     "selectImage": "从您的设备中选择图像",
     "uploadButton": "选择图像",
