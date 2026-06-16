@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction } from "@/app/actions/room";
-import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction } from "@/app/actions/character";
+import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -22,6 +22,7 @@ interface CharacterPanelProps {
   targetUserId?: number;
   loading?: boolean;
   avatarColor?: string | null;
+  isGM?: boolean;
 }
 
 interface SkillItem {
@@ -44,10 +45,14 @@ export function CharacterPanel({
   targetUserId,
   loading = false,
   avatarColor,
+  isGM = false,
 }: CharacterPanelProps) {
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
   const router = useRouter();
+
+  // Determine if resources can be edited (owner or GM)
+  const canEditResources = !readOnly || isGM;
 
   // Tab
   const [activeTab, setActiveTab] = useState<TabId>("attributes");
@@ -87,6 +92,11 @@ export function CharacterPanel({
   const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
   const [newAttrName, setNewAttrName] = useState("");
   const [newAttrValue, setNewAttrValue] = useState(10);
+
+  // Resource current values
+  const [currentHp, setCurrentHp] = useState(charData.cocDerived?.hp_current ?? derived.hp);
+  const [currentSan, setCurrentSan] = useState(charData.cocDerived?.san_current ?? derived.san);
+  const [currentMp, setCurrentMp] = useState(charData.cocDerived?.mp_current ?? derived.mp);
 
   // Skills
   const [skills, setSkills] = useState<SkillItem[]>([]);
@@ -135,6 +145,24 @@ export function CharacterPanel({
       router.refresh();
     } catch (e) {
       console.error("Failed to save character data", e);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    }
+  };
+
+  const saveResourceValues = async () => {
+    setSaveStatus("saving");
+    try {
+      await updateResourcesAction(roomId, targetUserId || userId, {
+        hp_current: currentHp,
+        san_current: currentSan,
+        mp_current: currentMp,
+      });
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+      router.refresh();
+    } catch (e) {
+      console.error("Failed to save resource values", e);
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
@@ -354,13 +382,22 @@ export function CharacterPanel({
                 <div>
                   <div className="flex justify-between text-xs text-text-muted mb-1">
                     <span>❤️ {t("hp")}</span>
-                    <span className="font-mono">{derived.hp}/{derived.hpMax}</span>
+                    {canEditResources ? (
+                      <div className="flex gap-1 items-center">
+                        <input type="number" min={0} max={derived.hpMax}
+                          value={currentHp} onChange={e => setCurrentHp(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.hpMax)))}
+                          className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
+                        <span className="font-mono text-[11px] w-8">{currentHp}/{derived.hpMax}</span>
+                      </div>
+                    ) : (
+                      <span className="font-mono">{currentHp}/{derived.hpMax}</span>
+                    )}
                   </div>
-                  <div className={`h-3 bg-surface-alt rounded-full overflow-hidden border border-border ${derived.hpMax > 0 && derived.hp / derived.hpMax <= 0.25 ? "hp-critical" : ""}`}>
+                  <div className={`h-3 bg-surface-alt rounded-full overflow-hidden border border-border ${derived.hpMax > 0 && currentHp / derived.hpMax <= 0.25 ? "hp-critical" : ""}`}>
                     <div className={`h-full rounded-full transition-all duration-300 hp-bar-fill ${
-                      derived.hpMax > 0 && derived.hp / derived.hpMax > 0.5 ? "bg-success" :
-                      derived.hpMax > 0 && derived.hp / derived.hpMax > 0.25 ? "bg-accent" : "bg-danger"
-                    }`} style={{ width: `${derived.hpMax > 0 ? Math.min(100, (derived.hp / derived.hpMax) * 100) : 0}%` }} />
+                      derived.hpMax > 0 && currentHp / derived.hpMax > 0.5 ? "bg-success" :
+                      derived.hpMax > 0 && currentHp / derived.hpMax > 0.25 ? "bg-accent" : "bg-danger"
+                    }`} style={{ width: `${derived.hpMax > 0 ? Math.min(100, (currentHp / derived.hpMax) * 100) : 0}%` }} />
                   </div>
                 </div>
 
@@ -371,11 +408,20 @@ export function CharacterPanel({
                   <div className="mb-2">
                     <div className="flex justify-between text-xs text-text-muted mb-1">
                       <span>💜 {t("san")}</span>
-                      <span className="font-mono">{charData.cocDerived?.san !== undefined ? charData.cocDerived.san : derived.san}/{derived.sanMax}</span>
+                      {canEditResources ? (
+                        <div className="flex gap-1 items-center">
+                          <input type="number" min={0} max={derived.sanMax}
+                            value={currentSan} onChange={e => setCurrentSan(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.sanMax)))}
+                            className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
+                          <span className="font-mono text-[11px] w-8">{currentSan}/{derived.sanMax}</span>
+                        </div>
+                      ) : (
+                        <span className="font-mono">{currentSan}/{derived.sanMax}</span>
+                      )}
                     </div>
                     <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
                       <div className="h-full rounded-full transition-all duration-300 bg-purple-500"
-                        style={{ width: `${derived.sanMax > 0 ? Math.min(100, ((charData.cocDerived?.san !== undefined ? charData.cocDerived.san : derived.san) / derived.sanMax) * 100) : 0}%` }} />
+                        style={{ width: `${derived.sanMax > 0 ? Math.min(100, (currentSan / derived.sanMax) * 100) : 0}%` }} />
                     </div>
                   </div>
 
@@ -383,11 +429,20 @@ export function CharacterPanel({
                   <div className="mb-2">
                     <div className="flex justify-between text-xs text-text-muted mb-1">
                       <span>💙 {t("mp")}</span>
-                      <span className="font-mono">{derived.mp}/{derived.mpMax}</span>
+                      {canEditResources ? (
+                        <div className="flex gap-1 items-center">
+                          <input type="number" min={0} max={derived.mpMax}
+                            value={currentMp} onChange={e => setCurrentMp(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.mpMax)))}
+                            className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
+                          <span className="font-mono text-[11px] w-8">{currentMp}/{derived.mpMax}</span>
+                        </div>
+                      ) : (
+                        <span className="font-mono">{currentMp}/{derived.mpMax}</span>
+                      )}
                     </div>
                     <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
                       <div className="h-full rounded-full transition-all duration-300 bg-blue-500"
-                        style={{ width: `${derived.mpMax > 0 ? Math.min(100, (derived.mp / derived.mpMax) * 100) : 0}%` }} />
+                        style={{ width: `${derived.mpMax > 0 ? Math.min(100, (currentMp / derived.mpMax) * 100) : 0}%` }} />
                     </div>
                   </div>
 
@@ -448,9 +503,55 @@ export function CharacterPanel({
             )}
 
             {!readOnly && (
-              <button onClick={saveCharacterData}
+              <div className="flex gap-2">
+                <button onClick={saveCharacterData}
+                  disabled={saveStatus === "saving"}
+                  className={`flex-1 text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
+                    saveStatus === "success" ? "bg-success" :
+                    saveStatus === "error" ? "bg-danger" :
+                    "bg-primary hover:bg-primary-hover"
+                  }`}>
+                  {saveStatus === "saving" ? (
+                    <>
+                      <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
+                      {t("saving") || "保存中..."}
+                    </>
+                  ) : saveStatus === "success" ? (
+                    <>✓ {t("saveSuccess") || "保存成功"}</>
+                  ) : saveStatus === "error" ? (
+                    <>× {t("saveFailed") || "保存失败"}</>
+                  ) : (
+                    t("saveAttributes")
+                  )}
+                </button>
+                {ruleTemplate === "coc7th" && (
+                  <button onClick={saveResourceValues}
+                    disabled={saveStatus === "saving"}
+                    className={`flex-1 text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
+                      saveStatus === "success" ? "bg-success" :
+                      saveStatus === "error" ? "bg-danger" :
+                      "bg-primary hover:bg-primary-hover"
+                    }`}>
+                    {saveStatus === "saving" ? (
+                      <>
+                        <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
+                        {t("saving") || "保存中..."}
+                      </>
+                    ) : saveStatus === "success" ? (
+                      <>✓ {t("saveSuccess") || "保存成功"}</>
+                    ) : saveStatus === "error" ? (
+                      <>× {t("saveFailed") || "保存失败"}</>
+                    ) : (
+                      t("saveResources") || "保存资源"
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+            {canEditResources && readOnly && isGM && ruleTemplate === "coc7th" && (
+              <button onClick={saveResourceValues}
                 disabled={saveStatus === "saving"}
-                className={`text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
+                className={`w-full text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
                   saveStatus === "success" ? "bg-success" :
                   saveStatus === "error" ? "bg-danger" :
                   "bg-primary hover:bg-primary-hover"
@@ -465,7 +566,7 @@ export function CharacterPanel({
                 ) : saveStatus === "error" ? (
                   <>× {t("saveFailed") || "保存失败"}</>
                 ) : (
-                  t("saveAttributes")
+                  t("saveResources") || "保存资源"
                 )}
               </button>
             )}

@@ -407,6 +407,7 @@
     "build": "体格",
     "generalD100Hint": "通用 d100 模式。使用 .st 指令设置技能，或在房间设置中切换到 COC 7th 规则模版。",
     "saveAttributes": "保存属性",
+    "saveResources": "保存资源",
     "customAttributes": "自定义属性",
     "customAttrPlaceholder": "属性名（如：SAN、MP）",
     "skillsList": "技能列表",

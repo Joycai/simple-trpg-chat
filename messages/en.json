@@ -407,6 +407,7 @@
     "build": "Build",
     "generalD100Hint": "Generic d100 mode. Use .st command to set skills, or change template to COC 7th in room settings.",
     "saveAttributes": "Save Attributes",
+    "saveResources": "Save Resources",
     "customAttributes": "Custom Stats",
     "customAttrPlaceholder": "Stat name (e.g. SAN, MP)",
     "skillsList": "Skills List",

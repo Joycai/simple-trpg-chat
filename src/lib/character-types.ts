@@ -26,10 +26,13 @@ export interface CocAttributes {
 export interface CocDerived {
   hp: number;      // Hit Points ((CON+SIZ)/10)
   hpMax: number;
+  hp_current?: number; // Current HP (if adjusted)
   san: number;     // Sanity (POW)
   sanMax: number;
+  san_current?: number; // Current Sanity (if adjusted)
   mp: number;      // Magic Points (POW/5)
   mpMax: number;
+  mp_current?: number; // Current MP (if adjusted)
   mov: number;     // Movement Rate
   db: string;      // Damage Bonus
   build: number;   // Build

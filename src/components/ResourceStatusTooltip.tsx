@@ -59,17 +59,17 @@ export function ResourceStatusTooltip({
                 <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
                   <span>❤️ {tChar("hp")}</span>
                   <span className="font-mono">
-                    {charData.cocDerived.hp}/{charData.cocDerived.hpMax}
+                    {charData.cocDerived.hp_current ?? charData.cocDerived.hp}/{charData.cocDerived.hpMax}
                   </span>
                 </div>
                 <div className="h-2 bg-surface-alt rounded-full overflow-hidden border border-border/50">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
                       charData.cocDerived.hpMax > 0 &&
-                      charData.cocDerived.hp / charData.cocDerived.hpMax > 0.5
+                      (charData.cocDerived.hp_current ?? charData.cocDerived.hp) / charData.cocDerived.hpMax > 0.5
                         ? "bg-success"
                         : charData.cocDerived.hpMax > 0 &&
-                          charData.cocDerived.hp / charData.cocDerived.hpMax > 0.25
+                          (charData.cocDerived.hp_current ?? charData.cocDerived.hp) / charData.cocDerived.hpMax > 0.25
                         ? "bg-accent"
                         : "bg-danger"
                     }`}
@@ -78,7 +78,7 @@ export function ResourceStatusTooltip({
                         charData.cocDerived.hpMax > 0
                           ? Math.min(
                               100,
-                              (charData.cocDerived.hp / charData.cocDerived.hpMax) * 100
+                              ((charData.cocDerived.hp_current ?? charData.cocDerived.hp) / charData.cocDerived.hpMax) * 100
                             )
                           : 0
                       }%`,
@@ -92,7 +92,7 @@ export function ResourceStatusTooltip({
                 <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
                   <span>💜 {tChar("san")}</span>
                   <span className="font-mono">
-                    {charData.cocDerived.san}/{charData.cocDerived.sanMax}
+                    {charData.cocDerived.san_current ?? charData.cocDerived.san}/{charData.cocDerived.sanMax}
                   </span>
                 </div>
                 <div className="h-2 bg-surface-alt rounded-full overflow-hidden border border-border/50">
@@ -103,7 +103,7 @@ export function ResourceStatusTooltip({
                         charData.cocDerived.sanMax > 0
                           ? Math.min(
                               100,
-                              (charData.cocDerived.san / charData.cocDerived.sanMax) * 100
+                              ((charData.cocDerived.san_current ?? charData.cocDerived.san) / charData.cocDerived.sanMax) * 100
                             )
                           : 0
                       }%`,
@@ -117,7 +117,7 @@ export function ResourceStatusTooltip({
                 <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
                   <span>💙 {tChar("mp")}</span>
                   <span className="font-mono">
-                    {charData.cocDerived.mp}/{charData.cocDerived.mpMax}
+                    {charData.cocDerived.mp_current ?? charData.cocDerived.mp}/{charData.cocDerived.mpMax}
                   </span>
                 </div>
                 <div className="h-2 bg-surface-alt rounded-full overflow-hidden border border-border/50">
@@ -128,7 +128,7 @@ export function ResourceStatusTooltip({
                         charData.cocDerived.mpMax > 0
                           ? Math.min(
                               100,
-                              (charData.cocDerived.mp / charData.cocDerived.mpMax) * 100
+                              ((charData.cocDerived.mp_current ?? charData.cocDerived.mp) / charData.cocDerived.mpMax) * 100
                             )
                           : 0
                       }%`,

@@ -241,3 +241,83 @@ export async function getCharacterDataAction(roomId: number, targetUserId?: numb
   if (!member?.characterData) return null;
   return JSON.parse(member.characterData) as CharacterData;
 }
+
+/**
+ * Update resource current values (HP, SAN, MP).
+ * Allows the resource owner to update, or the room host/admin to update any player's resources.
+ */
+export async function updateResourcesAction(
+  roomId: number,
+  targetUserId: number,
+  resources: {
+    hp_current?: number;
+    san_current?: number;
+    mp_current?: number;
+  }
+) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const callerId = parseInt((session.user as any).id);
+  const callerRole = (session.user as any).role;
+
+  // Check membership
+  const [caller] = await db.select({ id: roomMembers.id })
+    .from(roomMembers)
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, callerId)
+    ));
+  if (!caller) throw new Error("Not a member of this room");
+
+  // Check authorization: must be owner, room host, or admin
+  const [room] = await db.select({ hostId: rooms.hostId })
+    .from(rooms)
+    .where(eq(rooms.id, roomId));
+  if (!room) throw new Error("Room not found");
+
+  const isOwner = callerId === targetUserId;
+  const isHost = callerId === room.hostId;
+  const isAdmin = callerRole === "admin";
+
+  if (!isOwner && !isHost && !isAdmin) {
+    throw new Error("Unauthorized to update this character's resources");
+  }
+
+  // Verify target user is a member
+  const [targetMember] = await db.select({ characterData: roomMembers.characterData })
+    .from(roomMembers)
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, targetUserId)
+    ));
+  if (!targetMember) throw new Error("Target user is not a member of this room");
+
+  const charData: CharacterData = targetMember.characterData
+    ? JSON.parse(targetMember.characterData)
+    : { ruleTemplate: "basic" };
+
+  // Update resource current values
+  if (!charData.cocDerived) {
+    charData.cocDerived = { hp: 0, hpMax: 0, san: 0, sanMax: 0, mp: 0, mpMax: 0, mov: 0, db: "0", build: 0, luck: 0 };
+  }
+
+  if (resources.hp_current !== undefined) {
+    charData.cocDerived.hp_current = Math.max(0, Math.min(resources.hp_current, charData.cocDerived.hpMax));
+  }
+  if (resources.san_current !== undefined) {
+    charData.cocDerived.san_current = Math.max(0, Math.min(resources.san_current, charData.cocDerived.sanMax));
+  }
+  if (resources.mp_current !== undefined) {
+    charData.cocDerived.mp_current = Math.max(0, Math.min(resources.mp_current, charData.cocDerived.mpMax));
+  }
+
+  await db.update(roomMembers)
+    .set({ characterData: JSON.stringify(charData) })
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, targetUserId)
+    ));
+
+  revalidatePath(`/rooms/${roomId}`);
+  return charData;
+}

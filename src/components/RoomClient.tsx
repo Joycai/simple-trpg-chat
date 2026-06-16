@@ -956,6 +956,7 @@ export function RoomClient({
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
           avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatarColor}
+          isGM={isHost}
         />
       )}
       {showBotManager && (
@@ -1019,7 +1020,7 @@ export function RoomClient({
                       )}
                     </span>
                     <div className="flex gap-2">
-                        {isHost && !isMe && !isBot && (
+                        {isHost && !isMe && (
                           <button
                             onClick={() => handleViewPlayerCard(u.id, nick)}
                             className="bg-primary/10 hover:bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
