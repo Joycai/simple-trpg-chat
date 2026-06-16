@@ -107,6 +107,28 @@ Prefix `.` or `。` (Chinese full-stop accepted):
 
 Engine: `src/lib/commands.ts`
 
+### Avatar System
+
+Users can upload and crop custom avatars for each room they join. Avatars are stored as base64 JPEG in the database (max 512×512px per room membership).
+
+**Features:**
+- Individual avatars per room (same user has different avatars in different rooms)
+- Canvas-based drag-to-crop UI with live preview
+- Fallback to colored letter badge if no avatar set
+- Avatar displayed in chat messages next to user nickname
+
+**Implementation:**
+- Component: `src/components/AvatarCropper.tsx` (client-side upload/crop)
+- Action: `src/app/actions/room.ts` → `uploadAvatarAction()`
+- Database: `roomMembers.avatar` (text, nullable, base64 JPEG)
+- i18n: `messages/{en,zh}.json` → `avatar.*` keys
+
+**Database Migration Required:**
+The `avatar` column was added to `roomMembers` table schema. If upgrading, run:
+```bash
+pnpm db:push  # Interactive mode — answer "No" to ai_token_usages truncate prompt if it appears
+```
+
 ### Authentication
 
 - NextAuth v5 beta, Credentials provider (username + bcrypt). Config split: `auth.config.ts` (callbacks) + `auth.ts` (full config with DB).
