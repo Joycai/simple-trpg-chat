@@ -745,7 +745,15 @@
     "status": "状态",
     "statusActive": "🟢 运行中",
     "statusClosed": "⚫ 已关闭",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "editButton": "编辑",
+    "regenerateButton": "重新生成",
+    "regenerateWarning": "⚠️ 这将更改房间密钥。现有玩家需要新密钥才能重新加入。",
+    "regenerateConfirm": "重新生成密钥",
+    "regenerating": "生成中...",
+    "saveFailed": "保存失败",
+    "save": "保存",
+    "saving": "保存中..."
   },
   "skills": {
     "title": "📋 技能面板",

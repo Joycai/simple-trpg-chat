@@ -373,7 +373,7 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
   await db.update(rooms).set({ theme, diceRules, ruleTemplate }).where(eq(rooms.id, roomId));
-  
+
   broadcastToRoom(roomId, {
     type: "room_settings_updated",
     theme,
@@ -382,6 +382,37 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   });
 
   revalidatePath(`/rooms/${roomId}`);
+}
+
+export async function updateRoomNameAction(roomId: number, newName: string) {
+  await checkRoomAccess(roomId, true);
+
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed.length > 100) {
+    throw new Error("Room name must be between 1 and 100 characters");
+  }
+
+  await db.update(rooms).set({ name: trimmed }).where(eq(rooms.id, roomId));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
+export async function regenerateRoomPasswordAction(roomId: number) {
+  await checkRoomAccess(roomId, true);
+
+  const newPassword = crypto.randomBytes(4).toString("hex");
+  await db.update(rooms).set({ secretKey: newPassword }).where(eq(rooms.id, roomId));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
+
+  revalidatePath(`/rooms/${roomId}`);
+  return { secretKey: newPassword };
 }
 
 // --- Data Fetching ---

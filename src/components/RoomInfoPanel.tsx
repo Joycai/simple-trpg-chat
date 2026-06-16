@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { updateRoomNameAction, regenerateRoomPasswordAction } from "@/app/actions/room";
 
 interface RoomInfoPanelProps {
   room: {
@@ -23,6 +26,14 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
   const t = useTranslations("roomInfo");
   const ts = useTranslations("roomSettings");
   const tt = useTranslations("themes");
+  const tCommon = useTranslations("common");
+  const router = useRouter();
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState(room.name);
+  const [savingName, setSavingName] = useState(false);
+  const [regeneratingPassword, setRegeneratingPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [error, setError] = useState("");
 
   const getRuleTemplateLabel = (val: string) => {
     if (val === "basic") return ts("ruleTemplateBasic");
@@ -34,6 +45,34 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
     if (val === "basic") return ts("diceRulesBasic");
     if (val === "coc7th") return ts("diceRulesCoc7th");
     return val;
+  };
+
+  const handleSaveName = async () => {
+    setSavingName(true);
+    setError("");
+    try {
+      await updateRoomNameAction(room.id, newName);
+      setEditingName(false);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || t("saveFailed"));
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleRegeneratePassword = async () => {
+    setRegeneratingPassword(true);
+    setError("");
+    try {
+      await regenerateRoomPasswordAction(room.id);
+      setShowPasswordConfirm(false);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || t("saveFailed"));
+    } finally {
+      setRegeneratingPassword(false);
+    }
   };
 
   return (
@@ -50,9 +89,57 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
           {/* Room name */}
           <div>
             <label className="text-[10px] text-text-dim uppercase tracking-wider font-medium mb-1 block">{t("nameLabel")}</label>
-            <p className="text-text font-bold text-lg">{room.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-text font-bold text-lg flex-1">{room.name}</p>
+              {isHost && !editingName && (
+                <button
+                  onClick={() => {
+                    setEditingName(true);
+                    setNewName(room.name);
+                  }}
+                  className="text-xs text-primary hover:text-primary-hover transition"
+                >
+                  {t("editButton")}
+                </button>
+              )}
+            </div>
             <p className="text-[10px] text-text-muted font-mono">#{room.id}</p>
           </div>
+
+          {/* Edit name modal */}
+          {isHost && editingName && (
+            <div className="bg-surface-alt border border-border rounded-lg p-4 flex flex-col gap-3">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={t("nameLabel")}
+                maxLength={100}
+                className="p-2 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
+                autoFocus
+              />
+              {error && (
+                <div className="bg-danger/10 border border-danger/30 text-danger text-xs px-2 py-1 rounded">
+                  {error}
+                </div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setEditingName(false)}
+                  className="px-3 py-1.5 text-xs text-text-muted hover:text-text transition"
+                >
+                  {tCommon("cancel")}
+                </button>
+                <button
+                  onClick={handleSaveName}
+                  disabled={savingName || !newName.trim()}
+                  className="px-3 py-1.5 text-xs bg-primary hover:bg-primary-hover disabled:opacity-50 text-white rounded transition"
+                >
+                  {savingName ? t("saving") : t("save")}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Rules */}
           <div className="bg-surface-alt rounded-theme p-4 border border-border">
@@ -84,11 +171,43 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
           {/* Secret key — Host only */}
           {isHost && (
             <div className="bg-danger/5 border border-danger/20 rounded-theme p-4">
-              <label className="text-[10px] text-danger uppercase tracking-wider font-medium mb-1 block">{t("secretKey")}</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] text-danger uppercase tracking-wider font-medium block">{t("secretKey")}</label>
+                {!showPasswordConfirm && (
+                  <button
+                    onClick={() => setShowPasswordConfirm(true)}
+                    className="text-xs text-danger hover:text-danger/80 transition"
+                  >
+                    {t("regenerateButton")}
+                  </button>
+                )}
+              </div>
               <code className="block bg-bg border border-danger/20 rounded p-2 font-mono font-bold text-sm text-center text-danger tracking-widest select-all">
                 {room.secretKey}
               </code>
               <p className="text-[10px] text-text-dim mt-1">{t("secretKeyDesc")}</p>
+
+              {/* Regenerate confirmation */}
+              {showPasswordConfirm && (
+                <div className="mt-3 pt-3 border-t border-danger/20 flex flex-col gap-2">
+                  <p className="text-xs text-danger">{t("regenerateWarning")}</p>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setShowPasswordConfirm(false)}
+                      className="px-3 py-1.5 text-xs text-text-muted hover:text-text transition"
+                    >
+                      {tCommon("cancel")}
+                    </button>
+                    <button
+                      onClick={handleRegeneratePassword}
+                      disabled={regeneratingPassword}
+                      className="px-3 py-1.5 text-xs bg-danger hover:bg-danger/80 disabled:opacity-50 text-white rounded transition"
+                    >
+                      {regeneratingPassword ? t("regenerating") : t("regenerateConfirm")}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

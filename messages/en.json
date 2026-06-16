@@ -745,7 +745,15 @@
     "status": "Status",
     "statusActive": "🟢 Active",
     "statusClosed": "⚫ Closed",
-    "createdAt": "Created At"
+    "createdAt": "Created At",
+    "editButton": "Edit",
+    "regenerateButton": "Regenerate",
+    "regenerateWarning": "⚠️ This will change the room password. Existing players will need the new key to rejoin.",
+    "regenerateConfirm": "Regenerate Password",
+    "regenerating": "Regenerating...",
+    "saveFailed": "Failed to save changes",
+    "save": "Save",
+    "saving": "Saving..."
   },
   "skills": {
     "title": "📋 Skills Panel",
