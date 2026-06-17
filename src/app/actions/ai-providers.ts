@@ -182,7 +182,11 @@ export async function getProviderKey(providerId: number): Promise<string> {
     throw new Error("Unauthorized: Access to this API provider is restricted");
   }
 
-  return decrypt(provider.apiKeyEncrypted);
+  try {
+    return decrypt(provider.apiKeyEncrypted);
+  } catch {
+    throw new Error("Provider API key cannot be decrypted — please delete and re-create this provider.");
+  }
 }
 
 // ============================================================
@@ -190,7 +194,10 @@ export async function getProviderKey(providerId: number): Promise<string> {
 // ============================================================
 
 function maskProviderKey(p: typeof aiProviders.$inferSelect) {
-  const hint = p.apiKeyHint ?? decrypt(p.apiKeyEncrypted).slice(-4);
+  let hint = p.apiKeyHint ?? "";
+  if (!hint) {
+    try { hint = decrypt(p.apiKeyEncrypted).slice(-4); } catch {}
+  }
   return {
     ...p,
     apiKeyEncrypted: "••••••••" + hint,
