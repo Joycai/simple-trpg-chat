@@ -45,7 +45,12 @@ export async function analyzeTextForImportAction(
       }
     }
 
-    const apiKey = decrypt(provider.apiKeyEncrypted);
+    let apiKey: string;
+    try {
+      apiKey = decrypt(provider.apiKeyEncrypted);
+    } catch {
+      return { success: false, error: "Provider API key cannot be decrypted — please delete and re-create this provider." };
+    }
     const endpoint = provider.apiEndpoint;
 
     const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。

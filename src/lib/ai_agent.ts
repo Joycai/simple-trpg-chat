@@ -198,7 +198,13 @@ export async function runAgent(
     }
   }
 
-  const apiKey = decrypt(aiConfig.apiKeyEncrypted);
+  let apiKey: string;
+  try {
+    apiKey = decrypt(aiConfig.apiKeyEncrypted);
+  } catch {
+    console.error(`[runAgent] Provider API key cannot be decrypted (key mismatch) — delete and re-create the provider.`);
+    return;
+  }
   const endpoint = aiConfig.apiEndpoint;
 
   const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
@@ -842,7 +848,13 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
     }
   }
 
-  const apiKey = decrypt(aiConfig.apiKeyEncrypted);
+  let apiKey: string;
+  try {
+    apiKey = decrypt(aiConfig.apiKeyEncrypted);
+  } catch {
+    console.error(`[summarizeHistoryAction] Provider API key cannot be decrypted (key mismatch) — delete and re-create the provider.`);
+    return;
+  }
   const endpoint = aiConfig.apiEndpoint;
 
   const msgText = newMsgs.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
