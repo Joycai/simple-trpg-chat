@@ -23,16 +23,27 @@ interface AnalyzedItem {
  */
 export async function analyzeTextForImportAction(
   roomId: number,
-  rawText: string
+  rawText: string,
+  providerId?: number
 ): Promise<{ success: boolean; items?: AnalyzedItem[]; error?: string }> {
   const t = await getTranslations("aiImport");
   try {
     const { userId } = await checkRoomAccess(roomId, true);
 
-    // Get first available AI provider (own or shared)
-    const [provider] = await db.select().from(aiProviders).where(
-      or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
-    ).orderBy(aiProviders.id);
+    // Resolve the AI provider: use the explicitly selected one if given (and the
+    // user is authorized to use it), otherwise fall back to the first available.
+    let provider;
+    if (providerId) {
+      [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
+      if (!provider || (provider.ownerId !== userId && !provider.isShared)) {
+        return { success: false, error: t("errNoProvider") };
+      }
+    } else {
+      // Get first available AI provider (own or shared)
+      [provider] = await db.select().from(aiProviders).where(
+        or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true))
+      ).orderBy(aiProviders.id);
+    }
     if (!provider) {
       return { success: false, error: t("errNoProvider") };
     }

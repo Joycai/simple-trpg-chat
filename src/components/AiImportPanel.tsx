@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { analyzeTextForImportAction, batchImportItemsAction } from "@/app/actions/ai-import";
+import { getMyProviders } from "@/app/actions/ai-providers";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -28,6 +29,7 @@ const TYPE_COLORS: Record<string, string> = {
 export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const t = useTranslations("aiImport");
   const tCommon = useTranslations("common");
+  const tp = useTranslations("adminProviders");
   const router = useRouter();
   const [step, setStep] = useState<Step>("input");
   const [rawText, setRawText] = useState("");
@@ -36,13 +38,22 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [error, setError] = useState("");
+  const [providers, setProviders] = useState<any[]>([]);
+  const [providerId, setProviderId] = useState<number | null>(null);
+
+  useEffect(() => {
+    getMyProviders().then(list => {
+      setProviders(list);
+      if (list.length > 0) setProviderId(list[0].id);
+    }).catch(() => { /* leave empty; server falls back to first available */ });
+  }, []);
 
   const handleAnalyze = async () => {
     if (!rawText.trim()) return;
     setAnalyzing(true);
     setError("");
     try {
-      const result = await analyzeTextForImportAction(roomId, rawText.trim());
+      const result = await analyzeTextForImportAction(roomId, rawText.trim(), providerId ?? undefined);
       if (result.success && result.items) {
         setItems(result.items);
         setStep("preview");
@@ -106,6 +117,21 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
               <p className="text-sm text-text-muted">
                 {t("description")}
               </p>
+              {providers.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim">{t("providerLabel")}</label>
+                  <select
+                    value={providerId ?? ""}
+                    onChange={e => setProviderId(parseInt(e.target.value))}
+                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                    {providers.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <textarea
                 value={rawText}
                 onChange={e => setRawText(e.target.value)}

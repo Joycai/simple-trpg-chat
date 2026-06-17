@@ -569,7 +569,8 @@
     "errNoValidItems": "没有通过验证的可导入条目",
     "errRequestFailGeneral": "请求失败",
     "errImportFailed": "导入失败",
-    "errNoQuota": "AI 资源额度已耗尽，无法使用共享 AI 接口"
+    "errNoQuota": "AI 资源额度已耗尽，无法使用共享 AI 接口",
+    "providerLabel": "AI Provider"
   },
   "hostCheck": {
     "title": "🎯 发起检定",

@@ -569,7 +569,8 @@
     "errNoValidItems": "No valid importable items found",
     "errRequestFailGeneral": "Request failed",
     "errImportFailed": "Import failed",
-    "errNoQuota": "AI credit quota exhausted. Shared AI provider is unavailable."
+    "errNoQuota": "AI credit quota exhausted. Shared AI provider is unavailable.",
+    "providerLabel": "AI Provider"
   },
   "hostCheck": {
     "title": "🎯 Request Skill Check",
