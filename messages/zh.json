@@ -570,6 +570,9 @@
     "errRequestFailGeneral": "请求失败",
     "errImportFailed": "导入失败",
     "errNoQuota": "AI 资源额度已耗尽，无法使用共享 AI 接口",
+    "errTimeout": "AI 分析超时，请重试",
+    "errCancelled": "已取消分析",
+    "btnCancel": "取消",
     "providerLabel": "AI Provider"
   },
   "hostCheck": {

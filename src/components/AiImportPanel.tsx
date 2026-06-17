@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { analyzeTextForImportAction, batchImportItemsAction } from "@/app/actions/ai-import";
+import { useState, useEffect, useRef } from "react";
+import { startTextImportAnalysisAction, cancelTextImportAnalysisAction, batchImportItemsAction } from "@/app/actions/ai-import";
 import { getMyProviders } from "@/app/actions/ai-providers";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -40,6 +40,8 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const [error, setError] = useState("");
   const [providers, setProviders] = useState<any[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);
+  const jobIdRef = useRef<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     getMyProviders().then(list => {
@@ -48,23 +50,68 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
     }).catch(() => { /* leave empty; server falls back to first available */ });
   }, []);
 
+  // Clear analyzing state and any pending client-side timeout.
+  const finishAnalyzing = () => {
+    setAnalyzing(false);
+    jobIdRef.current = null;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // Listen for async analysis results delivered over SSE (re-dispatched by RoomClient).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const data = (e as CustomEvent).detail;
+      if (!data || data.jobId !== jobIdRef.current) return;
+      if (data.success && data.items) {
+        setItems(data.items);
+        setStep("preview");
+      } else if (!data.cancelled) {
+        setError(data.error || tCommon("error"));
+      }
+      finishAnalyzing();
+    };
+    window.addEventListener("ai-import-result", handler);
+    return () => {
+      window.removeEventListener("ai-import-result", handler);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [tCommon]);
+
   const handleAnalyze = async () => {
     if (!rawText.trim()) return;
     setAnalyzing(true);
     setError("");
     try {
-      const result = await analyzeTextForImportAction(roomId, rawText.trim(), providerId ?? undefined);
-      if (result.success && result.items) {
-        setItems(result.items);
-        setStep("preview");
-      } else {
+      const result = await startTextImportAnalysisAction(roomId, rawText.trim(), providerId ?? undefined);
+      if (!result.success || !result.jobId) {
         setError(result.error || tCommon("error"));
+        finishAnalyzing();
+        return;
       }
+      // Result will arrive asynchronously via the "ai-import-result" window event.
+      jobIdRef.current = result.jobId;
+      // Client-side fallback timeout in case the SSE result never arrives.
+      timeoutRef.current = setTimeout(() => {
+        if (jobIdRef.current) {
+          setError(t("errTimeout"));
+          finishAnalyzing();
+        }
+      }, 90000);
     } catch (e: any) {
       setError(e.message || tCommon("error"));
-    } finally {
-      setAnalyzing(false);
+      finishAnalyzing();
     }
+  };
+
+  const handleCancel = () => {
+    const jobId = jobIdRef.current;
+    if (jobId) {
+      cancelTextImportAnalysisAction(roomId, jobId).catch(() => { /* best-effort */ });
+    }
+    finishAnalyzing();
   };
 
   const updateItem = (index: number, field: string, value: any) => {
@@ -123,7 +170,8 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
                   <select
                     value={providerId ?? ""}
                     onChange={e => setProviderId(parseInt(e.target.value))}
-                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                    disabled={analyzing}
+                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none disabled:opacity-50">
                     {providers.map((p: any) => (
                       <option key={p.id} value={p.id}>
                         {p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}
@@ -138,18 +186,35 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
                 placeholder={`${t("placeholder")}\n\n${t("exampleHeader")}\n${t("example1")}\n${t("example2")}\n${t("example3")}`}
                 rows={12}
                 maxLength={5000}
-                className="w-full p-3 border border-input-border bg-input-bg rounded-theme text-sm text-text resize-none font-mono leading-relaxed outline-none"
+                disabled={analyzing}
+                className="w-full p-3 border border-input-border bg-input-bg rounded-theme text-sm text-text resize-none font-mono leading-relaxed outline-none disabled:opacity-50"
               />
               <div className="flex justify-between items-center text-xs text-text-dim">
                 <span>{rawText.length}/5000</span>
                 {error && <span className="text-danger">{error}</span>}
               </div>
-              <button
-                onClick={handleAnalyze}
-                disabled={analyzing || !rawText.trim()}
-                className="w-full bg-accent hover:bg-accent-hover disabled:opacity-40 text-white py-3 rounded-theme font-bold transition cursor-pointer">
-                {analyzing ? t("btnAnalyzing") : t("btnAnalyze")}
-              </button>
+              {analyzing ? (
+                <div className="flex gap-2">
+                  <button
+                    disabled
+                    className="flex-1 bg-accent/70 text-white py-3 rounded-theme font-bold flex items-center justify-center gap-2 cursor-default">
+                    <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                    {t("btnAnalyzing")}
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 bg-surface-alt hover:bg-border text-text py-3 rounded-theme font-bold transition cursor-pointer">
+                    {t("btnCancel")}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAnalyze}
+                  disabled={!rawText.trim()}
+                  className="w-full bg-accent hover:bg-accent-hover disabled:opacity-40 text-white py-3 rounded-theme font-bold transition cursor-pointer">
+                  {t("btnAnalyze")}
+                </button>
+              )}
             </>
           )}
 
@@ -224,7 +289,8 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
               <button
                 onClick={handleImport}
                 disabled={importing || items.length === 0}
-                className="w-full bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-3 rounded-theme font-bold transition cursor-pointer">
+                className="w-full bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-3 rounded-theme font-bold transition cursor-pointer flex items-center justify-center gap-2">
+                {importing && <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />}
                 {importing ? t("btnImporting") : t("btnConfirmImport", { count: items.length })}
               </button>
             </>

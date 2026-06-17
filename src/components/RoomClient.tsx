@@ -395,6 +395,12 @@ export function RoomClient({
             router.refresh();
             return;
           }
+          if (data.type === "ai_import_result") {
+            // Forward async AI-import results to the AiImportPanel via a window event,
+            // so we reuse this single SSE connection instead of opening a second one.
+            window.dispatchEvent(new CustomEvent("ai-import-result", { detail: data }));
+            return;
+          }
           if (data.type === "typing") {
             setTypingBots((prev) => {
               const next = { ...prev };

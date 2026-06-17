@@ -3,12 +3,15 @@
 import { db } from "@/db";
 import { aiProviders, inventoryItems, inventoryDistributions, users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
-import { auth } from "@/auth";
 import { decrypt } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 import { recordTokenUsage } from "@/lib/ai_usage";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
+import { emitToUser } from "@/lib/events";
+
+type Translator = Awaited<ReturnType<typeof getTranslations>>;
+type Provider = typeof aiProviders.$inferSelect;
 
 // LLM output format for analyzed items
 interface AnalyzedItem {
@@ -17,22 +20,35 @@ interface AnalyzedItem {
   content: string | Record<string, string>;
 }
 
+// Registry of in-flight analysis jobs so they can be cancelled.
+// Persisted on globalThis per the project's singleton convention (see src/lib/events.ts).
+declare global {
+  var __aiImportJobs: Map<string, AbortController> | undefined;
+}
+const importJobs = globalThis.__aiImportJobs || new Map<string, AbortController>();
+globalThis.__aiImportJobs = importJobs;
+
 /**
- * A1: Analyze raw text using Host's AI config and return structured items.
- * Only Host with AI configured can use this.
+ * A1: Start an async background analysis of raw text using the Host's AI config.
+ *
+ * Validation (auth, provider resolution, quota, key decryption) runs synchronously
+ * and returns immediately. The long-running LLM call is launched as a detached
+ * background task so it never blocks the Next.js Server Action queue (which would
+ * freeze the rest of the UI). The result is delivered to the requesting user over
+ * the existing SSE channel as an `ai_import_result` event.
  */
-export async function analyzeTextForImportAction(
+export async function startTextImportAnalysisAction(
   roomId: number,
   rawText: string,
   providerId?: number
-): Promise<{ success: boolean; items?: AnalyzedItem[]; error?: string }> {
+): Promise<{ success: boolean; jobId?: string; error?: string }> {
   const t = await getTranslations("aiImport");
   try {
     const { userId } = await checkRoomAccess(roomId, true);
 
     // Resolve the AI provider: use the explicitly selected one if given (and the
     // user is authorized to use it), otherwise fall back to the first available.
-    let provider;
+    let provider: Provider | undefined;
     if (providerId) {
       [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
       if (!provider || (provider.ownerId !== userId && !provider.isShared)) {
@@ -62,6 +78,60 @@ export async function analyzeTextForImportAction(
     } catch {
       return { success: false, error: "Provider API key cannot be decrypted — please delete and re-create this provider." };
     }
+
+    // Register the job and launch the analysis without awaiting it.
+    const jobId = crypto.randomUUID();
+    const controller = new AbortController();
+    importJobs.set(jobId, controller);
+
+    void runAnalysis(roomId, userId, rawText, provider, apiKey, jobId, controller, t)
+      .finally(() => importJobs.delete(jobId));
+
+    return { success: true, jobId };
+  } catch (e: any) {
+    return { success: false, error: e.message || t("errRequestFailGeneral") };
+  }
+}
+
+/**
+ * Cancel an in-flight analysis job. Best-effort: aborts the outbound LLM fetch
+ * if the job is still running on this worker.
+ */
+export async function cancelTextImportAnalysisAction(
+  roomId: number,
+  jobId: string
+): Promise<{ success: boolean }> {
+  try {
+    await checkRoomAccess(roomId, true);
+  } catch {
+    return { success: false };
+  }
+  const controller = importJobs.get(jobId);
+  if (controller) {
+    controller.abort();
+    importJobs.delete(jobId);
+  }
+  return { success: true };
+}
+
+/**
+ * Background worker: calls the LLM, parses the result and emits it to the
+ * requesting user over SSE. Never throws — all outcomes are reported via emit.
+ */
+async function runAnalysis(
+  roomId: number,
+  userId: number,
+  rawText: string,
+  provider: Provider,
+  apiKey: string,
+  jobId: string,
+  controller: AbortController,
+  t: Translator
+): Promise<void> {
+  const emit = (data: Record<string, any>) =>
+    emitToUser(roomId, userId, { type: "ai_import_result", jobId, ...data });
+
+  try {
     const endpoint = provider.apiEndpoint;
 
     const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。
@@ -80,6 +150,10 @@ export async function analyzeTextForImportAction(
 - content 可以是字符串或对象
 - 只输出相关的内容，不要编造`;
 
+    // Abort on either user cancellation or a 60s timeout — keeps a hung provider
+    // from leaking a request forever (mirrors the timeout in src/app/actions/ai.ts).
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]);
+
     const response = await fetch(`${endpoint}/chat/completions`, {
       method: "POST",
       headers: {
@@ -94,15 +168,17 @@ export async function analyzeTextForImportAction(
         ],
         temperature: 0.3,
       }),
+      signal,
     });
 
     if (!response.ok) {
       const err = await response.text().catch(() => "");
-      return { success: false, error: t("errRequestFailed", { status: response.status, error: err.slice(0, 200) }) };
+      emit({ success: false, error: t("errRequestFailed", { status: response.status, error: err.slice(0, 200) }) });
+      return;
     }
 
     const data = await response.json();
-    
+
     // Record token usage
     const usage = data.usage || {};
     const inputTokens = usage.prompt_tokens || 0;
@@ -123,15 +199,18 @@ export async function analyzeTextForImportAction(
         try {
           items = JSON.parse(match[1]);
         } catch {
-          return { success: false, error: t("errCannotParse") };
+          emit({ success: false, error: t("errCannotParse") });
+          return;
         }
       } else {
-        return { success: false, error: t("errCannotParse") };
+        emit({ success: false, error: t("errCannotParse") });
+        return;
       }
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return { success: false, error: t("errNoContent") };
+      emit({ success: false, error: t("errNoContent") });
+      return;
     }
 
     // Validate and filter
@@ -141,12 +220,20 @@ export async function analyzeTextForImportAction(
     );
 
     if (validItems.length === 0) {
-      return { success: false, error: t("errNoValidItems") };
+      emit({ success: false, error: t("errNoValidItems") });
+      return;
     }
 
-    return { success: true, items: validItems };
+    emit({ success: true, items: validItems });
   } catch (e: any) {
-    return { success: false, error: e.message || t("errRequestFailGeneral") };
+    // Distinguish user cancellation / timeout from genuine failures.
+    if (e?.name === "TimeoutError") {
+      emit({ success: false, error: t("errTimeout") });
+    } else if (e?.name === "AbortError") {
+      emit({ success: false, error: t("errCancelled"), cancelled: true });
+    } else {
+      emit({ success: false, error: e?.message || t("errRequestFailGeneral") });
+    }
   }
 }
 

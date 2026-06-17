@@ -570,6 +570,9 @@
     "errRequestFailGeneral": "Request failed",
     "errImportFailed": "Import failed",
     "errNoQuota": "AI credit quota exhausted. Shared AI provider is unavailable.",
+    "errTimeout": "AI analysis timed out, please retry",
+    "errCancelled": "Analysis cancelled",
+    "btnCancel": "Cancel",
     "providerLabel": "AI Provider"
   },
   "hostCheck": {
