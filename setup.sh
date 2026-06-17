@@ -38,6 +38,31 @@ gen_secret() {
 }
 
 # -----------------------------------------------------------
+# Helper: set or replace a key in .env
+# Handles commented lines (^# KEY=), active lines (^KEY=),
+# and missing lines (appends).
+# -----------------------------------------------------------
+set_env_var() {
+  local key="$1"
+  local value="$2"
+  if grep -q "^# ${key}=" .env 2>/dev/null; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+      sed -i '' "s|^# ${key}=.*|${key}=${value}|" .env
+    else
+      sed -i "s|^# ${key}=.*|${key}=${value}|" .env
+    fi
+  elif grep -q "^${key}=" .env 2>/dev/null; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+      sed -i '' "s|^${key}=.*|${key}=${value}|" .env
+    else
+      sed -i "s|^${key}=.*|${key}=${value}|" .env
+    fi
+  else
+    echo "${key}=${value}" >> .env
+  fi
+}
+
+# -----------------------------------------------------------
 # 1. Check prerequisites
 # -----------------------------------------------------------
 echo "--- Checking environment ---"
@@ -59,15 +84,16 @@ echo "[✓] Node $(node --version)"
 echo ""
 
 # -----------------------------------------------------------
-# 2. Database setup
+# 2. Collect PG_URL (only if DB not already configured)
 # -----------------------------------------------------------
 echo "================================================"
 echo "  Step 1 — Database Configuration"
 echo "================================================"
 echo ""
 
-# Check for existing config
+PG_URL=""
 DB_SKIP=false
+
 if [ -f db.config.json ]; then
   EXISTING_TYPE=$(grep -o '"type": *"[^"]*"' db.config.json 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   echo "[✓] 检测到已有数据库配置 (类型: ${EXISTING_TYPE:-unknown})："
@@ -83,22 +109,23 @@ if [ -f db.config.json ]; then
 fi
 
 if [ "$DB_SKIP" = false ]; then
-echo "--- PostgreSQL Configuration ---"
-echo "Connection string format: postgres://user:password@host:5432/dbname"
-echo ""
-echo "  Tip: Use Docker to run PostgreSQL locally:"
-echo "  docker run -d --name trpg-pg -e POSTGRES_USER=trpg -e POSTGRES_PASSWORD=trpg_dev_pwd -e POSTGRES_DB=simple_trpg_chat -p 5432:5432 postgres:16"
-echo ""
-printf "PostgreSQL connection URL: "
-read -r PG_URL
+  echo "--- PostgreSQL Configuration ---"
+  echo "Connection string format: postgres://user:password@host:5432/dbname"
+  echo ""
+  echo "  Tip: Use Docker to run PostgreSQL locally:"
+  echo "  docker run -d --name trpg-pg -e POSTGRES_USER=trpg -e POSTGRES_PASSWORD=trpg_dev_pwd -e POSTGRES_DB=simple_trpg_chat -p 5432:5432 postgres:16"
+  echo ""
+  printf "PostgreSQL connection URL: "
+  read -r PG_URL
 
-if [ -z "$PG_URL" ]; then
-  echo "[✗] PostgreSQL connection URL is required."
-  exit 1
+  if [ -z "$PG_URL" ]; then
+    echo "[✗] PostgreSQL connection URL is required."
+    exit 1
+  fi
 fi
 
 # -----------------------------------------------------------
-# 3. Generate .env
+# 3. Generate .env  (always runs, DB_SKIP or not)
 # -----------------------------------------------------------
 echo ""
 echo "================================================"
@@ -113,16 +140,12 @@ else
   echo "[✓] .env already exists"
 fi
 
-# --- AUTH_SECRET (always generate) ---
+# --- AUTH_SECRET (always regenerate) ---
 AUTH_SECRET=$(gen_secret)
-if [[ "$(uname)" == "Darwin" ]]; then
-  sed -i '' "s|^AUTH_SECRET=.*|AUTH_SECRET=$AUTH_SECRET|" .env
-else
-  sed -i "s|^AUTH_SECRET=.*|AUTH_SECRET=$AUTH_SECRET|" .env
-fi
+set_env_var "AUTH_SECRET" "$AUTH_SECRET"
 echo "[✓] AUTH_SECRET generated"
 
-# --- AUTH_URL (always set for production compatibility) ---
+# --- AUTH_URL ---
 if ! grep -q "^AUTH_URL=" .env 2>/dev/null; then
   echo "AUTH_URL=${AUTH_URL:-http://localhost:3000}" >> .env
   echo "[✓] AUTH_URL set"
@@ -135,29 +158,15 @@ echo ""
 if ask_yn "Enable AI bot features?" "n"; then
   AI_KEY=$(gen_secret)
   AI_SALT=$(gen_secret)
-  if grep -q "^# AI_ENCRYPTION_KEY=" .env 2>/dev/null; then
-    # Uncomment and set value
-    if [[ "$(uname)" == "Darwin" ]]; then
-      sed -i '' "s|^# AI_ENCRYPTION_KEY=.*|AI_ENCRYPTION_KEY=$AI_KEY|" .env
-      sed -i '' "s|^# AI_ENCRYPTION_SALT=.*|AI_ENCRYPTION_SALT=$AI_SALT|" .env
-    else
-      sed -i "s|^# AI_ENCRYPTION_KEY=.*|AI_ENCRYPTION_KEY=$AI_KEY|" .env
-      sed -i "s|^# AI_ENCRYPTION_SALT=.*|AI_ENCRYPTION_SALT=$AI_SALT|" .env
-    fi
-    echo "[✓] AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT generated"
-  elif ! grep -q "^AI_ENCRYPTION_KEY=" .env 2>/dev/null; then
-    echo "AI_ENCRYPTION_KEY=$AI_KEY" >> .env
-    echo "AI_ENCRYPTION_SALT=$AI_SALT" >> .env
-    echo "[✓] AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT generated"
-  else
-    echo "[✓] AI_ENCRYPTION_KEY already set, keeping existing value"
-  fi
+  set_env_var "AI_ENCRYPTION_KEY" "$AI_KEY"
+  set_env_var "AI_ENCRYPTION_SALT" "$AI_SALT"
+  echo "[✓] AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT generated"
 else
   echo "[✓] AI features disabled — skipping AI encryption keys"
 fi
 
 # -----------------------------------------------------------
-# 4. Install dependencies
+# 4. Install dependencies  (always runs)
 # -----------------------------------------------------------
 echo ""
 echo "================================================"
@@ -167,43 +176,44 @@ echo ""
 pnpm install
 
 # -----------------------------------------------------------
-# 5. Create db.config.json & test connection
+# 5. Test DB connection & push schema (only if not skipping)
 # -----------------------------------------------------------
-echo ""
-echo "================================================"
-echo "  Step 4 — Database Initialization"
-echo "================================================"
-echo ""
+if [ "$DB_SKIP" = false ]; then
+  echo ""
+  echo "================================================"
+  echo "  Step 4 — Database Initialization"
+  echo "================================================"
+  echo ""
 
-echo "Testing PostgreSQL connection..."
-if node -e "
-  async function test() {
-    const postgres = require('postgres');
-    const sql = postgres('$PG_URL', { max: 1, connect_timeout: 10, idle_timeout: 5 });
-    await sql\`SELECT 1\`;
-    await sql.end({ timeout: 3 });
-    console.log('OK');
-  }
-  test().catch(e => { console.error(e.message); process.exit(1); });
-" 2>/dev/null; then
-  echo "[✓] PostgreSQL connection successful"
-  cat > db.config.json << JSONEOF
+  echo "Testing PostgreSQL connection..."
+  if node -e "
+    async function test() {
+      const postgres = require('postgres');
+      const sql = postgres('$PG_URL', { max: 1, connect_timeout: 10, idle_timeout: 5 });
+      await sql\`SELECT 1\`;
+      await sql.end({ timeout: 3 });
+      console.log('OK');
+    }
+    test().catch(e => { console.error(e.message); process.exit(1); });
+  " 2>/dev/null; then
+    echo "[✓] PostgreSQL connection successful"
+    cat > db.config.json << JSONEOF
 {
   "type": "postgresql",
   "url": "$PG_URL"
 }
 JSONEOF
-  echo "[✓] db.config.json created"
-  echo ""
-  echo "Pushing PostgreSQL schema..."
-  DATABASE_URL="$PG_URL" pnpm db:push:pg
-  echo "[✓] PostgreSQL schema pushed"
-  echo ""
-else
-  echo "[✗] PostgreSQL connection failed"
-  exit 1
+    echo "[✓] db.config.json created"
+    echo ""
+    echo "Pushing PostgreSQL schema..."
+    DATABASE_URL="$PG_URL" pnpm db:push:pg
+    echo "[✓] PostgreSQL schema pushed"
+    echo ""
+  else
+    echo "[✗] PostgreSQL connection failed"
+    exit 1
+  fi
 fi
-fi  # End DB_SKIP block
 
 # -----------------------------------------------------------
 # 6. Seed database (optional)
