@@ -151,7 +151,20 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     setModel(bot.config.model || "gpt-4o-mini");
     setActivation(bot.config.activation || "@mention");
     setEnableTools(bot.config.enableTools || ["send_message", "roll_dice"]);
-    if (bot.config.providerId) setProviderId(bot.config.providerId);
+    // Restore the saved provider only if it still exists in the available list.
+    // A stale id (e.g. the shared provider was deleted/recreated by an admin) would
+    // leave the <select> showing the first option while state keeps the dead id —
+    // a Save would then re-persist the broken provider. Fall back to the first
+    // available provider so state matches what the dropdown actually displays.
+    const savedProvider = bot.config.providerId
+      ? providers.find(p => p.id === bot.config.providerId)
+      : undefined;
+    if (savedProvider) {
+      setProviderId(savedProvider.id);
+    } else if (providers.length > 0) {
+      setProviderId(providers[0].id);
+      setModel(providers[0].model || "gpt-4o");
+    }
     setBotColor(bot.avatarColor || getRandomColorForUser(bot.id));
     setShowCreate(false);
     setSelectedPresetId("");
