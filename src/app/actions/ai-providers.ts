@@ -25,56 +25,60 @@ export interface ProviderData {
 // ============================================================
 
 /** Create a new AI provider (host or admin) */
-export async function createProvider(data: ProviderData) {
+export async function createProvider(data: ProviderData): Promise<{ error: string } | { id: number }> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { error: "Not authenticated" };
 
   const userId = parseInt((session.user as any).id);
   const isAdmin = (session.user as any).role === "admin";
 
   if (!data.name?.trim() || !data.apiEndpoint?.trim() || !data.apiKey?.trim()) {
     const t = await getTranslations("adminProviders");
-    throw new Error(t("msgRequireFields"));
+    return { error: t("msgRequireFields") };
   }
 
   const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
-  if (!endpointCheck.valid) throw new Error(endpointCheck.error);
+  if (!endpointCheck.valid) return { error: endpointCheck.error! };
 
-  const [provider] = await db.insert(aiProviders).values({
-    ownerId: userId,
-    name: data.name.trim(),
-    apiEndpoint: data.apiEndpoint.trim(),
-    apiKeyEncrypted: encrypt(data.apiKey.trim()),
-    apiKeyHint: data.apiKey.trim().slice(-4),
-    model: data.model || "gpt-4o",
-    isShared: isAdmin && !!data.isShared,
-    tokenRateInput: Math.max(0, Number(data.tokenRateInput) || 0.0),
-    tokenRateCached: Math.max(0, Number(data.tokenRateCached) || 0.0),
-    tokenRateOutput: Math.max(0, Number(data.tokenRateOutput) || 0.0),
-    updatedAt: sqlNow(),
-  }).returning();
+  try {
+    const [provider] = await db.insert(aiProviders).values({
+      ownerId: userId,
+      name: data.name.trim(),
+      apiEndpoint: data.apiEndpoint.trim(),
+      apiKeyEncrypted: encrypt(data.apiKey.trim()),
+      apiKeyHint: data.apiKey.trim().slice(-4),
+      model: data.model || "gpt-4o",
+      isShared: isAdmin && !!data.isShared,
+      tokenRateInput: Math.max(0, Number(data.tokenRateInput) || 0.0),
+      tokenRateCached: Math.max(0, Number(data.tokenRateCached) || 0.0),
+      tokenRateOutput: Math.max(0, Number(data.tokenRateOutput) || 0.0),
+      updatedAt: sqlNow(),
+    }).returning();
 
-  revalidatePath("/");
-  return provider;
+    revalidatePath("/");
+    return { id: provider.id };
+  } catch (e: any) {
+    return { error: e.message ?? "Failed to save provider" };
+  }
 }
 
 /** Update an existing provider (owner or admin) */
-export async function updateProvider(providerId: number, data: Partial<ProviderData>) {
+export async function updateProvider(providerId: number, data: Partial<ProviderData>): Promise<{ error: string } | undefined> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { error: "Not authenticated" };
 
   const userId = parseInt((session.user as any).id);
   const isAdmin = (session.user as any).role === "admin";
 
   const [existing] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
-  if (!existing) throw new Error("Provider not found");
-  if (existing.ownerId !== userId && !isAdmin) throw new Error("Not authorized");
+  if (!existing) return { error: "Provider not found" };
+  if (existing.ownerId !== userId && !isAdmin) return { error: "Not authorized" };
 
   const values: any = { updatedAt: sqlNow() };
   if (data.name?.trim()) values.name = data.name.trim();
   if (data.apiEndpoint?.trim()) {
     const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
-    if (!endpointCheck.valid) throw new Error(endpointCheck.error);
+    if (!endpointCheck.valid) return { error: endpointCheck.error! };
     values.apiEndpoint = data.apiEndpoint.trim();
   }
   if (data.model?.trim()) values.model = data.model.trim();
@@ -91,8 +95,12 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
     if (data.tokenRateOutput !== undefined) values.tokenRateOutput = Math.max(0, Number(data.tokenRateOutput) || 0.0);
   }
 
-  await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
-  revalidatePath("/");
+  try {
+    await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
+    revalidatePath("/");
+  } catch (e: any) {
+    return { error: e.message ?? "Failed to update provider" };
+  }
 }
 
 /** Delete a provider (owner or admin) */

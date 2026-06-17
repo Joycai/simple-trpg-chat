@@ -75,17 +75,20 @@ export function AdminProviderManager() {
       tokenRateCached: parseFloat(tokenRateCached) || 0,
       tokenRateOutput: parseFloat(tokenRateOutput) || 0,
     };
-    try {
-      if (editId) {
-        await updateProvider(editId, { name, apiEndpoint: endpoint, apiKey: key || undefined, model, isShared, ...rates });
-      } else {
-        await createProvider({ name, apiEndpoint: endpoint, apiKey: key, model, isShared, ...rates });
-      }
-      setMsg(tp("msgSaved")); setShowForm(false); setEditId(null);
-      setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false);
-      setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0");
-      await load();
-    } catch (e: any) { setMsg(e.message || t("saveFailed")); }
+    let result;
+    if (editId) {
+      result = await updateProvider(editId, { name, apiEndpoint: endpoint, apiKey: key || undefined, model, isShared, ...rates });
+    } else {
+      result = await createProvider({ name, apiEndpoint: endpoint, apiKey: key, model, isShared, ...rates });
+    }
+    if (result && "error" in result) {
+      setMsg(result.error);
+      return;
+    }
+    setMsg(tp("msgSaved")); setShowForm(false); setEditId(null);
+    setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false);
+    setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0");
+    await load();
   };
 
   return (
