@@ -130,26 +130,30 @@ else
   echo "[✓] AUTH_URL already set"
 fi
 
-# --- AI_ENCRYPTION_KEY (optional) ---
+# --- AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT (optional) ---
 echo ""
 if ask_yn "Enable AI bot features?" "n"; then
   AI_KEY=$(gen_secret)
+  AI_SALT=$(gen_secret)
   if grep -q "^# AI_ENCRYPTION_KEY=" .env 2>/dev/null; then
     # Uncomment and set value
     if [[ "$(uname)" == "Darwin" ]]; then
       sed -i '' "s|^# AI_ENCRYPTION_KEY=.*|AI_ENCRYPTION_KEY=$AI_KEY|" .env
+      sed -i '' "s|^# AI_ENCRYPTION_SALT=.*|AI_ENCRYPTION_SALT=$AI_SALT|" .env
     else
       sed -i "s|^# AI_ENCRYPTION_KEY=.*|AI_ENCRYPTION_KEY=$AI_KEY|" .env
+      sed -i "s|^# AI_ENCRYPTION_SALT=.*|AI_ENCRYPTION_SALT=$AI_SALT|" .env
     fi
-    echo "[✓] AI_ENCRYPTION_KEY generated"
+    echo "[✓] AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT generated"
   elif ! grep -q "^AI_ENCRYPTION_KEY=" .env 2>/dev/null; then
     echo "AI_ENCRYPTION_KEY=$AI_KEY" >> .env
-    echo "[✓] AI_ENCRYPTION_KEY generated"
+    echo "AI_ENCRYPTION_SALT=$AI_SALT" >> .env
+    echo "[✓] AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT generated"
   else
     echo "[✓] AI_ENCRYPTION_KEY already set, keeping existing value"
   fi
 else
-  echo "[✓] AI features disabled — skipping AI_ENCRYPTION_KEY"
+  echo "[✓] AI features disabled — skipping AI encryption keys"
 fi
 
 # -----------------------------------------------------------

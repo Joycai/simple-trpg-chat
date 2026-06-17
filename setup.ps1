@@ -167,14 +167,16 @@ if (-not $dbSkip) {
         Write-Host "[✓] AUTH_URL already set"
     }
     
-    # AI_ENCRYPTION_KEY (optional)
+    # AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT (optional)
     Write-Host ""
     if (Ask-Yn "Enable AI bot features?" "n") {
         $aiKey = Gen-Secret
+        $aiSalt = Gen-Secret
         Set-EnvVariable "AI_ENCRYPTION_KEY" $aiKey
-        Write-Host "[✓] AI_ENCRYPTION_KEY generated"
+        Set-EnvVariable "AI_ENCRYPTION_SALT" $aiSalt
+        Write-Host "[✓] AI_ENCRYPTION_KEY & AI_ENCRYPTION_SALT generated"
     } else {
-        Write-Host "[✓] AI features disabled — skipping AI_ENCRYPTION_KEY"
+        Write-Host "[✓] AI features disabled — skipping AI encryption keys"
     }
     
     # 4. Install dependencies
