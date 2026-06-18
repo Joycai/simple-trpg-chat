@@ -159,7 +159,20 @@
     "btnPrivateTooltip": "Toggle Private Chat",
     "whisperingPlaceholder": "Whispering...",
     "resourceUnavailable": "Resources not configured",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "btnImageTooltip": "Send image",
+    "imageInvalidType": "Please select an image file",
+    "imageTooLarge": "Image must be at most 1MB",
+    "imageUploadFailed": "Image upload failed",
+    "imageUnavailable": "Image unavailable",
+    "imageAlt": "Chat image",
+    "closePreview": "Close preview",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetZoom": "Reset zoom",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "download": "Download"
   },
   "dice": {
     "title": "Dice",

@@ -192,7 +192,7 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
 export async function sendMessageAction(
   roomId: number,
   content: string,
-  type: "text" | "dice" | "system" = "text",
+  type: "text" | "dice" | "system" | "image" = "text",
   diceDetail?: string,
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
@@ -202,6 +202,16 @@ export async function sendMessageAction(
   const trimmedContent = content.trim();
   if (type === "text" && (!trimmedContent || trimmedContent.length > 10000)) {
     throw new Error("Message content must be between 1 and 10000 characters");
+  }
+
+  // Image messages carry a server-relative image path in `content`. Reject
+  // anything that isn't one of our own cached-image URLs (defends against
+  // arbitrary/remote URLs being injected as image messages).
+  if (type === "image") {
+    if (!/^\/api\/rooms\/\d+\/images\/[A-Za-z0-9._-]+$/.test(trimmedContent)) {
+      throw new Error("Invalid image reference");
+    }
+    content = trimmedContent; // store the normalized path
   }
 
   const t = await getTranslations("roomActions");

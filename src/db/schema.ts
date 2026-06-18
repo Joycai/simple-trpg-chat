@@ -28,7 +28,7 @@ export type DiceRules = (typeof DICE_RULES)[number];
 export const RULE_TEMPLATES = ['basic', 'coc7th'] as const;
 export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
 
-export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request'] as const;
+export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request', 'image'] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 export const INVENTORY_ITEM_TYPES = ['clue', 'info', 'character', 'item'] as const;

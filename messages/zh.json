@@ -159,7 +159,20 @@
     "btnPrivateTooltip": "开启私聊模式",
     "whisperingPlaceholder": "正在进行悄悄话...",
     "resourceUnavailable": "未设置资源状态",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "btnImageTooltip": "发送图片",
+    "imageInvalidType": "请选择图片文件",
+    "imageTooLarge": "图片不能超过 1MB",
+    "imageUploadFailed": "图片上传失败",
+    "imageUnavailable": "图片已失效",
+    "imageAlt": "聊天图片",
+    "closePreview": "关闭预览",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "resetZoom": "重置缩放",
+    "fullscreen": "全屏",
+    "exitFullscreen": "退出全屏",
+    "download": "下载"
   },
   "dice": {
     "title": "骰点",

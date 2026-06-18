@@ -54,6 +54,8 @@ export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?:
       lines.push(`[${time}] ${t("cluePrefix", { name })}`);
     } else if (item.type === "check_request") {
       lines.push(`[${time}] 🎯 **${name}**：${item.content || ""}`);
+    } else if (item.type === "image") {
+      lines.push(`[${time}] 🖼️ **${name}**：![image](${item.content || ""})`);
     } else {
       lines.push(`[${time}] 👤 **${name}**：${item.content || ""}`);
     }
@@ -72,7 +74,11 @@ export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?:
       for (const item of msgs) {
         const time = item.time.slice(11, 19);
         const name = item.nickname || `#${item.userId}`;
-        lines.push(`[${time}] 👤 **${name}**：${item.content || ""}`);
+        if (item.type === "image") {
+          lines.push(`[${time}] 🖼️ **${name}**：![image](${item.content || ""})`);
+        } else {
+          lines.push(`[${time}] 👤 **${name}**：${item.content || ""}`);
+        }
       }
       lines.push("");
     }

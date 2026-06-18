@@ -29,6 +29,9 @@ sqlite.db*
 .DS_Store
 *.pem
 
+# chat image cache (uploaded images live on disk, not in git)
+/cache
+
 # debug
 npm-debug.log*
 yarn-debug.log*

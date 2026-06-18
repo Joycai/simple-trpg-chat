@@ -246,6 +246,21 @@ export async function runAgent(
     {
       type: "function",
       function: {
+        name: "send_image",
+        description: "Show an image in the chat. Provide an image URL — either an internal room image path (e.g. /api/rooms/123/images/...) or a public https:// image URL. Use this to illustrate a scene, handout, or object.",
+        parameters: {
+          type: "object",
+          properties: {
+            imageUrl: { type: "string", description: "Internal room image path or a public http(s) image URL" },
+            isPrivate: { type: "boolean" }
+          },
+          required: ["imageUrl"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
         name: "inspect_item",
         description: "Read details of an item in inventory",
         parameters: {
@@ -588,6 +603,25 @@ export async function runAgent(
             }).returning();
             broadcastToRoom(roomId, newMessage);
             result = { success: true };
+          } else if (functionName === "send_image") {
+            const imageUrl = String(args.imageUrl || "").trim();
+            const isInternal = /^\/api\/rooms\/\d+\/images\/[A-Za-z0-9._-]+$/.test(imageUrl);
+            const isHttp = /^https?:\/\/\S+$/i.test(imageUrl) && imageUrl.length <= 2048;
+            if (!isInternal && !isHttp) {
+              result = { success: false, error: "Invalid image URL. Use an internal room image path or a public http(s) URL." };
+            } else {
+              const [newMessage] = await db.insert(messages).values({
+                roomId,
+                userId: botUserId,
+                targetUserId: args.isPrivate ? targetUserId : null,
+                nickname: botNickname,
+                content: imageUrl,
+                type: "image",
+                isPrivate: !!args.isPrivate
+              }).returning();
+              broadcastToRoom(roomId, newMessage);
+              result = { success: true };
+            }
           } else if (functionName === "inspect_item") {
             // Validate that the item belongs to this room
             const [item] = await db.select().from(inventoryItems).where(
