@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { updateRoomNameAction, regenerateRoomPasswordAction } from "@/app/actions/room";
+import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction } from "@/app/actions/room";
 
 interface RoomInfoPanelProps {
   room: {
@@ -15,6 +15,7 @@ interface RoomInfoPanelProps {
     diceRules: string;
     ruleTemplate: string;
     status: string;
+    frozen?: boolean;
     createdAt: string;
   };
   isHost: boolean;
@@ -33,6 +34,7 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
   const [savingName, setSavingName] = useState(false);
   const [regeneratingPassword, setRegeneratingPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [togglingFreeze, setTogglingFreeze] = useState(false);
   const [error, setError] = useState("");
 
   const getRuleTemplateLabel = (val: string) => {
@@ -58,6 +60,19 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
       setError(err.message || t("saveFailed"));
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleToggleFreeze = async () => {
+    setTogglingFreeze(true);
+    setError("");
+    try {
+      await setRoomFrozenAction(room.id, !room.frozen);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || t("saveFailed"));
+    } finally {
+      setTogglingFreeze(false);
     }
   };
 
@@ -211,14 +226,31 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
             </div>
           )}
 
+          {/* Freeze — Host only */}
+          {isHost && (
+            <div className={`rounded-theme p-4 border ${room.frozen ? "bg-accent/5 border-accent/20" : "bg-surface-alt border-border"}`}>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] text-text-dim uppercase tracking-wider font-medium block">{t("freezeLabel")}</label>
+                <button
+                  onClick={handleToggleFreeze}
+                  disabled={togglingFreeze}
+                  className={`text-xs font-medium transition disabled:opacity-50 ${room.frozen ? "text-success hover:text-success/80" : "text-accent hover:text-accent/80"}`}
+                >
+                  {togglingFreeze ? t("saving") : room.frozen ? t("unfreeze") : t("freeze")}
+                </button>
+              </div>
+              <p className="text-[10px] text-text-dim mt-1">{t("freezeDesc")}</p>
+            </div>
+          )}
+
           {/* Status & Created */}
           <div className="border-t border-border pt-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs text-text-muted">{t("status")}</span>
               <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                room.status === "active" ? "bg-success/10 text-success" : "bg-text-dim/10 text-text-dim"
+                room.frozen ? "bg-accent/10 text-accent" : room.status === "active" ? "bg-success/10 text-success" : "bg-text-dim/10 text-text-dim"
               }`}>
-                {room.status === "active" ? t("statusActive") : t("statusClosed")}
+                {room.frozen ? t("statusFrozen") : room.status === "active" ? t("statusActive") : t("statusClosed")}
               </span>
             </div>
             <div className="flex justify-between items-center">

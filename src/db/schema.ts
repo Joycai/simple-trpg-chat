@@ -69,6 +69,7 @@ export const rooms = pgTable('rooms', {
   diceRules: text('dice_rules').notNull().default('basic'),
   ruleTemplate: text('rule_template').notNull().default('basic'),
   status: text('status').notNull().default('active'),
+  frozen: boolean('frozen').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });

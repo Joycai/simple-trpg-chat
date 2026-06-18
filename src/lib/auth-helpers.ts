@@ -19,7 +19,8 @@ export interface UserAccess {
  */
 export async function checkRoomAccess(
   roomId: number,
-  requireHost = false
+  requireHost = false,
+  opts?: { requireWritable?: boolean }
 ): Promise<UserAccess> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
@@ -40,6 +41,11 @@ export async function checkRoomAccess(
   if (!room) throw new Error("Room not found");
 
   const isHost = room.hostId === userId;
+
+  // Frozen rooms are read-only for everyone except the host (and admins, who returned above)
+  if (opts?.requireWritable && room.frozen && !isHost) {
+    throw new Error("Room is frozen (read-only)");
+  }
 
   if (requireHost) {
     if (!isHost) {

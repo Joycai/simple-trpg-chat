@@ -32,9 +32,10 @@ interface InventoryPanelProps {
   isHost: boolean;
   players: { id: number; username: string; nickname: string }[];
   onClose: () => void;
+  readOnly?: boolean;
 }
 
-export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
+export function InventoryPanel({ roomId, userId, isHost, players, onClose, readOnly = false }: InventoryPanelProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const locale = useLocale();
@@ -641,7 +642,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                 )}
 
                 {/* Share section */}
-                {detailDist && (
+                {detailDist && !readOnly && (
                   <div className="mt-4 pt-4 border-t border-border">
                     <h4 className="text-sm font-bold text-text mb-2">{t("shareToOthers")}</h4>
                     {!shareTarget ? (
