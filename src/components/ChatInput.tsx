@@ -17,9 +17,10 @@ interface ChatInputProps {
   isHost: boolean;
   mentions?: MentionTarget[];
   isPrivateLocked?: boolean;
+  readOnly?: boolean;
 }
 
-export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocked = false }: ChatInputProps) {
+export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
@@ -136,6 +137,15 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
     setShowDice(false);
     inputRef.current?.focus();
   };
+
+  if (readOnly) {
+    return (
+      <div className="flex items-center justify-center gap-2 bg-input-bg border border-input-border rounded-theme p-3 text-text-muted text-sm select-none">
+        <span>🔒</span>
+        <span>{tRoom("frozenNotice")}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">

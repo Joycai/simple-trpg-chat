@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutDashboard, Users, Settings, LogOut, BarChart3, Cpu, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, BarChart3, Cpu, Menu, X, Home } from "lucide-react";
 import type { ReactNode } from "react";
 
 interface AdminSidebarProps {
@@ -89,6 +89,13 @@ export function AdminSidebar({ onLogout, siteName }: AdminSidebarProps) {
             icon={<Users className="w-4 h-4" />}
             label={t("userManagement")}
             active={pathname === "/admin/users"}
+            onClick={closeSidebar}
+          />
+          <SidebarLink
+            href="/admin/rooms"
+            icon={<Home className="w-4 h-4" />}
+            label={t("roomManagement")}
+            active={pathname === "/admin/rooms"}
             onClick={closeSidebar}
           />
           <SidebarLink

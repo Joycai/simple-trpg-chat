@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { users, aiPointLogs } from "@/db/schema";
+import { users, aiPointLogs, rooms } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { invalidateSessionCache } from "@/auth.config";
@@ -43,6 +43,15 @@ export async function deleteUser(id: number) {
 
   await db.delete(users).where(eq(users.id, id));
   revalidatePath("/admin");
+}
+
+export async function deleteRoom(id: number) {
+  await requireAdmin();
+
+  // All room-scoped tables cascade on rooms.id delete (members, messages,
+  // skills, dm reads, inventory items/distributions, clue cards).
+  await db.delete(rooms).where(eq(rooms.id, id));
+  revalidatePath("/admin/rooms");
 }
 
 export async function resetPassword(id: number, newPassword: string) {

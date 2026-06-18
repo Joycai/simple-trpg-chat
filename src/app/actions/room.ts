@@ -108,9 +108,7 @@ export async function joinRoomAction(formData: FormData) {
 // --- Nickname & Character Actions ---
 
 export async function updateCharacterDataAction(roomId: number, characterData: any) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const userId = parseInt((session.user as any).id);
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const [member] = await db
     .select()
@@ -128,15 +126,12 @@ export async function updateCharacterDataAction(roomId: number, characterData: a
 }
 
 export async function updateNicknameAction(roomId: number, nickname: string) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const trimmed = nickname.trim();
   if (!trimmed || trimmed.length > 50) {
     throw new Error("Invalid nickname (must be between 1 and 50 characters)");
   }
-
-  const userId = parseInt((session.user as any).id);
 
   await db.update(roomMembers)
     .set({ nickname: trimmed })
@@ -159,6 +154,9 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) throw new Error("Room not found");
   const isHost = room.hostId === userId;
+
+  // Frozen rooms are read-only for non-hosts
+  if (room.frozen && !isHost) throw new Error("Room is frozen (read-only)");
 
   // 2. Determine if allowed
   let allowed = false;
@@ -199,7 +197,7 @@ export async function sendMessageAction(
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
 ) {
-  const { userId, isHost } = await checkRoomAccess(roomId, false);
+  const { userId, isHost } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const trimmedContent = content.trim();
   if (type === "text" && (!trimmedContent || trimmedContent.length > 10000)) {
@@ -401,6 +399,19 @@ export async function updateRoomNameAction(roomId: number, newName: string) {
   revalidatePath(`/rooms/${roomId}`);
 }
 
+/** Host-only: toggle a room between active and frozen (read-only for players). */
+export async function setRoomFrozenAction(roomId: number, frozen: boolean) {
+  await checkRoomAccess(roomId, true);
+
+  await db.update(rooms).set({ frozen }).where(eq(rooms.id, roomId));
+
+  broadcastToRoom(roomId, {
+    type: "room_settings_updated",
+  });
+
+  revalidatePath(`/rooms/${roomId}`);
+}
+
 export async function regenerateRoomPasswordAction(roomId: number) {
   await checkRoomAccess(roomId, true);
 
@@ -475,7 +486,7 @@ export async function executeCommandAction(roomId: number, userId: number, conte
   }
 
   // Ensure they are a member of the room
-  await checkRoomAccess(roomId, false);
+  await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const { executeCommand } = await import("@/lib/commands");
   return await executeCommand(roomId, userId, content);
@@ -491,7 +502,7 @@ export async function deleteSkillAction(roomId: number, userId: number, skillNam
     await checkRoomAccess(roomId, true);
   } else {
     // Must be a member of the room
-    await checkRoomAccess(roomId, false);
+    await checkRoomAccess(roomId, false, { requireWritable: true });
   }
 
   await db.delete(roomSkills).where(
@@ -514,7 +525,7 @@ export async function upsertSkillAction(roomId: number, userId: number, skillNam
     await checkRoomAccess(roomId, true);
   } else {
     // Must be a member of the room
-    await checkRoomAccess(roomId, false);
+    await checkRoomAccess(roomId, false, { requireWritable: true });
   }
 
   await db.insert(roomSkills).values({
@@ -639,18 +650,8 @@ export async function uploadAvatarAction(
   roomId: number,
   imageData: string
 ) {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt((session.user as any).id);
-
-  // Validate room membership
-  const [member] = await db
-    .select()
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-
-  if (!member) throw new Error("You are not a member of this room");
+  // Validate membership + reject when the room is frozen (read-only for non-hosts)
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   // Validate the image data
   if (!imageData.startsWith("data:image/")) {

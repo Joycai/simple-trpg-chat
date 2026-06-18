@@ -17,9 +17,10 @@ interface SkillPanelProps {
   roomId: number;
   userId: number;
   onClose: () => void;
+  readOnly?: boolean;
 }
 
-export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
+export function SkillPanel({ roomId, userId, onClose, readOnly = false }: SkillPanelProps) {
   const t = useTranslations("skills");
   const tCommon = useTranslations("common");
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -92,6 +93,7 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
           </div>
 
           {/* Add form */}
+          {!readOnly && (
           <div className="bg-surface-alt rounded-theme p-4 border border-border">
             <h4 className="text-sm font-bold text-text mb-3">{t("addOrOverwrite")}</h4>
             <div className="flex gap-2 mb-2">
@@ -119,6 +121,7 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
               {t("btnAdd")}
             </button>
           </div>
+          )}
 
           {/* Skills list */}
           {loading ? (
@@ -138,13 +141,15 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
                 >
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-bold text-text">{skill.skillName}</span>
-                    <button
-                      onClick={() => handleDelete(skill.skillName)}
-                      className="text-[10px] text-danger/50 hover:text-danger transition opacity-0 group-hover:opacity-100"
-                      title={t("deleteTooltip")}
-                    >
-                      🗑
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => handleDelete(skill.skillName)}
+                        className="text-[10px] text-danger/50 hover:text-danger transition opacity-0 group-hover:opacity-100"
+                        title={t("deleteTooltip")}
+                      >
+                        🗑
+                      </button>
+                    )}
                   </div>
 
                   {/* Value bar */}
@@ -189,12 +194,12 @@ export function SkillPanel({ roomId, userId, onClose }: SkillPanelProps) {
                         />
                       </div>
                       <span
-                        className="text-sm font-mono font-bold text-text cursor-pointer hover:text-primary transition"
-                        onClick={() => {
+                        className={`text-sm font-mono font-bold text-text transition ${readOnly ? "" : "cursor-pointer hover:text-primary"}`}
+                        onClick={readOnly ? undefined : () => {
                           setEditing(skill.id);
                           setEditValue(skill.skillValue);
                         }}
-                        title={t("editTooltip")}
+                        title={readOnly ? undefined : t("editTooltip")}
                       >
                         {skill.skillValue}
                       </span>

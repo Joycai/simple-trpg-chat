@@ -17,7 +17,7 @@ export async function getMySkillsAction(roomId: number) {
 }
 
 export async function upsertSkillAction(roomId: number, skillName: string, skillValue: number) {
-  const { userId } = await checkRoomAccess(roomId, false);
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   let normalizedSkillName = skillName.trim();
   if (normalizedSkillName.toLowerCase() === "san" || normalizedSkillName === "san值") {
@@ -42,7 +42,7 @@ export async function upsertSkillAction(roomId: number, skillName: string, skill
 }
 
 export async function deleteSkillAction(roomId: number, skillId: number) {
-  const { userId } = await checkRoomAccess(roomId, false);
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   await db.delete(roomSkills).where(
     and(eq(roomSkills.id, skillId), eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId))

@@ -14,7 +14,8 @@ import {
   computeCocDerived,
 } from "@/lib/character-types";
 
-/** Verify that a user is a member of a room. Returns userId on success. */
+/** Verify that a user is a member of a room. Returns userId on success.
+ *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
 async function requireMembership(roomId: number): Promise<number> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
@@ -28,6 +29,14 @@ async function requireMembership(roomId: number): Promise<number> {
     ));
 
   if (!member) throw new Error("Not a member of this room");
+
+  const [room] = await db.select({ frozen: rooms.frozen, hostId: rooms.hostId })
+    .from(rooms)
+    .where(eq(rooms.id, roomId));
+  if (room?.frozen && room.hostId !== userId) {
+    throw new Error("Room is frozen (read-only)");
+  }
+
   return userId;
 }
 
@@ -270,7 +279,7 @@ export async function updateResourcesAction(
   if (!caller) throw new Error("Not a member of this room");
 
   // Check authorization: must be owner, room host, or admin
-  const [room] = await db.select({ hostId: rooms.hostId })
+  const [room] = await db.select({ hostId: rooms.hostId, frozen: rooms.frozen })
     .from(rooms)
     .where(eq(rooms.id, roomId));
   if (!room) throw new Error("Room not found");
@@ -281,6 +290,11 @@ export async function updateResourcesAction(
 
   if (!isOwner && !isHost && !isAdmin) {
     throw new Error("Unauthorized to update this character's resources");
+  }
+
+  // Frozen rooms are read-only for non-hosts
+  if (room.frozen && !isHost && !isAdmin) {
+    throw new Error("Room is frozen (read-only)");
   }
 
   // Verify target user is a member

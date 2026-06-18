@@ -156,7 +156,7 @@ export async function shareItemAction(
   toUserId: number
 ) {
   const t = await getTranslations("inventoryActions");
-  const { userId: fromUserId } = await checkRoomAccess(roomId, false);
+  const { userId: fromUserId } = await checkRoomAccess(roomId, false, { requireWritable: true });
   const session = await auth();
   const senderName = session?.user?.name || t("defaultPlayer");
 

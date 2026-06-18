@@ -20,7 +20,7 @@ import { HostCheckDialog } from "./HostCheckDialog";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
 import { AvatarCropper } from "./AvatarCropper";
-import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction } from "@/app/actions/room";
+import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { getCharacterDataAction } from "@/app/actions/character";
@@ -36,6 +36,7 @@ interface Room {
   hostId: number;
   secretKey: string;
   status: string;
+  frozen?: boolean;
   theme: string;
 }
 
@@ -110,6 +111,10 @@ export function RoomClient({
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showAvatarCropper, setShowAvatarCropper] = useState(false);
+  // Inline room-name editing (host only, top bar)
+  const [editingRoomName, setEditingRoomName] = useState(false);
+  const [roomNameDraft, setRoomNameDraft] = useState(room.name);
+  const [savingRoomName, setSavingRoomName] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
@@ -121,6 +126,28 @@ export function RoomClient({
   const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
   const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
   const [typingBots, setTypingBots] = useState<Record<number, { nickname: string; typing: boolean; isPrivate?: boolean; targetUserId?: number }>>({});
+
+  // Frozen rooms are read-only for players; the host can still operate.
+  const readOnly = !!room.frozen && !isHost;
+
+  const handleSaveRoomName = async () => {
+    const trimmed = roomNameDraft.trim();
+    if (!trimmed || trimmed === room.name) {
+      setEditingRoomName(false);
+      return;
+    }
+    setSavingRoomName(true);
+    try {
+      await updateRoomNameAction(room.id, trimmed);
+      setEditingRoomName(false);
+      router.refresh();
+    } catch {
+      // Revert draft on failure; keep editor open so the host can retry
+      setRoomNameDraft(room.name);
+    } finally {
+      setSavingRoomName(false);
+    }
+  };
 
   const activeTabRef = useRef(activeTab);
   useEffect(() => {
@@ -612,8 +639,36 @@ export function RoomClient({
               )}
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="font-bold text-text leading-none">{room.name}</h2>
+                  {isHost && editingRoomName ? (
+                    <input
+                      value={roomNameDraft}
+                      onChange={(e) => setRoomNameDraft(e.target.value)}
+                      onBlur={handleSaveRoomName}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); handleSaveRoomName(); }
+                        else if (e.key === "Escape") { setRoomNameDraft(room.name); setEditingRoomName(false); }
+                      }}
+                      maxLength={100}
+                      autoFocus
+                      disabled={savingRoomName}
+                      className="font-bold text-text leading-none bg-input-bg border border-input-border rounded px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-primary/50 max-w-[12rem] disabled:opacity-60"
+                    />
+                  ) : (
+                    <h2
+                      className={`font-bold text-text leading-none ${isHost ? "cursor-pointer hover:text-primary transition inline-flex items-center gap-1 group" : ""}`}
+                      onClick={isHost ? () => { setRoomNameDraft(room.name); setEditingRoomName(true); } : undefined}
+                      title={isHost ? t("editNameTooltip") : undefined}
+                    >
+                      {room.name}
+                      {isHost && <Icons.Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition" />}
+                    </h2>
+                  )}
                   <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
+                  {room.frozen && (
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-text-dim/15 text-text-dim px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none">
+                      <Icons.Lock className="w-3 h-3" />{isHost ? t("frozenBadgeHost") : t("frozenBadge")}
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
               </div>
@@ -639,14 +694,16 @@ export function RoomClient({
                 <Icons.User className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">{nickname}</span>
               </button>
-              <button
-                onClick={() => setShowAvatarCropper(true)}
-                className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-text-muted hover:text-text hover:bg-surface/30"
-                title={tAvatar("btnAvatar")}
-              >
-                <Icons.Image className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">{tAvatar("btnAvatar")}</span>
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => setShowAvatarCropper(true)}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-text-muted hover:text-text hover:bg-surface/30"
+                  title={tAvatar("btnAvatar")}
+                >
+                  <Icons.Image className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{tAvatar("btnAvatar")}</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowSkills(!showSkills)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
@@ -927,7 +984,7 @@ export function RoomClient({
                     <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
                   </div>
                 )}
-              <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} />
+              <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} readOnly={readOnly} />
             </div>
           </div>
         </div>
@@ -942,6 +999,7 @@ export function RoomClient({
           roomRuleTemplate={(room as any).ruleTemplate || "basic"}
           onClose={() => setShowCharacter(false)}
           onNicknameChange={(newNick) => setNickname(newNick)}
+          readOnly={readOnly}
           avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
         />
       )}
@@ -1052,7 +1110,7 @@ export function RoomClient({
         </div>
       )}
       {showInventory && (
-        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} />
+        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
       )}
       {showSettings && (
         <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
@@ -1068,7 +1126,7 @@ export function RoomClient({
         </div>
       )}
       {showSkills && (
-        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} />
+        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} readOnly={readOnly} />
       )}
       {showUserSettings && (
         <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />
