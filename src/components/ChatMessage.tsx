@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, memo } from "react";
 import { formatTime, formatDiceResult } from "@/lib/utils";
+import { ImagePreview } from "./ImagePreview";
 import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ResourceStatusTooltip } from "./ResourceStatusTooltip";
@@ -31,7 +32,7 @@ function setCacheEntry(key: string, value: { data: CharacterData | null; promise
 interface ChatMessageProps {
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system" | "check_request";
+  type: "text" | "dice" | "system" | "check_request" | "image";
   diceDetail?: string | null;
   isPrivate: boolean;
   createdAt: string;
@@ -77,6 +78,8 @@ export const ChatMessage = memo(function ChatMessage({
   const [charData, setCharData] = useState<CharacterData | null>(null);
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -202,6 +205,7 @@ export const ChatMessage = memo(function ChatMessage({
   }
 
   const isDice = type === "dice";
+  const isImage = type === "image";
 
   return (
     <div className={`flex gap-3 py-1.5 group animate-in fade-in slide-in-from-bottom-1 ${isOwn ? "flex-row-reverse" : ""}`}>
@@ -308,11 +312,13 @@ export const ChatMessage = memo(function ChatMessage({
         </div>
 
         <div
-          className={`chat-bubble ${isOwn ? "chat-bubble-own" : "chat-bubble-other"} rounded-theme px-3 py-2 shadow-sm break-words transition-colors ${
+          className={`chat-bubble ${isOwn ? "chat-bubble-own" : "chat-bubble-other"} rounded-theme shadow-sm break-words transition-colors ${isImage ? "p-1" : "px-3 py-2"} ${
             isDice
               ? "bg-dice-card-bg border border-dice-card-border text-text"
               : isPrivate
               ? "bg-private-bg border border-private-border text-text"
+              : isImage
+              ? "bg-surface border border-border text-text"
               : isOwn
               ? "bg-primary text-primary-foreground"
               : "bg-surface border border-border text-text"
@@ -329,6 +335,27 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               </div>
             </div>
+          ) : isImage ? (
+            imgError ? (
+              <div className="flex items-center gap-2 px-3 py-4 text-xs text-text-dim italic">
+                <span className="text-lg not-italic">🖼️</span>
+                <span>{t("imageUnavailable")}</span>
+              </div>
+            ) : (
+              <>
+                <img
+                  src={content}
+                  alt={t("imageAlt")}
+                  loading="lazy"
+                  onError={() => setImgError(true)}
+                  onClick={() => setPreviewOpen(true)}
+                  className="max-h-64 max-w-full w-auto rounded-theme object-contain cursor-zoom-in"
+                />
+                {previewOpen && (
+                  <ImagePreview src={content} alt={t("imageAlt")} onClose={() => setPreviewOpen(false)} />
+                )}
+              </>
+            )
           ) : (
             <MarkdownRenderer content={content} />
           )}

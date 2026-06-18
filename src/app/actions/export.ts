@@ -9,7 +9,7 @@ import { getTranslations } from "next-intl/server";
 
 interface ExportTimelineItem {
   time: string;
-  type: "message" | "dice" | "check_request" | "system" | "clue" | "status";
+  type: "message" | "dice" | "check_request" | "system" | "clue" | "status" | "image";
   nickname?: string;
   userId?: number;
   content?: string;

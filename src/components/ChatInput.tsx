@@ -13,26 +13,35 @@ interface MentionTarget {
 }
 
 interface ChatInputProps {
-  onSendMessage: (content: string, type: "text" | "dice", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
+  onSendMessage: (content: string, type: "text" | "dice" | "image", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
   isHost: boolean;
+  roomId: number;
   mentions?: MentionTarget[];
   isPrivateLocked?: boolean;
   readOnly?: boolean;
 }
 
-export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
+// Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
+const IMAGE_MAX_BYTES = 1024 * 1024;
+
+export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
-  
+
   // Private chat states
   const [isPrivate, setIsPrivate] = useState(isPrivateLocked);
   const [privateTargetId, setPrivateTargetId] = useState<number | null>(null);
-  
+
+  // Image upload states
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Sync isPrivate with isPrivateLocked prop
   useEffect(() => {
@@ -138,6 +147,60 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
     inputRef.current?.focus();
   };
 
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input so selecting the same file again re-triggers onChange.
+    e.target.value = "";
+    if (!file) return;
+
+    setUploadError(null);
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError(t("imageInvalidType"));
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setUploadError(t("imageTooLarge"));
+      return;
+    }
+
+    // Resolve private target the same way handleSend does.
+    let finalTargetId = privateTargetId;
+    if (!isPrivateLocked && isPrivate && !finalTargetId && mentions.length > 0) {
+      finalTargetId = mentions[0].id;
+    }
+    if (!isPrivateLocked && isPrivate && !finalTargetId) {
+      setUploadError(t("selectMember"));
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/rooms/${roomId}/images`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || t("imageUploadFailed"));
+      }
+      const { url } = await res.json();
+      onSendMessage(url, "image", undefined, isPrivate, finalTargetId || undefined);
+
+      if (!isPrivateLocked) {
+        setIsPrivate(false);
+        setPrivateTargetId(null);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : t("imageUploadFailed"));
+    } finally {
+      setUploading(false);
+      inputRef.current?.focus();
+    }
+  };
+
   if (readOnly) {
     return (
       <div className="flex items-center justify-center gap-2 bg-input-bg border border-input-border rounded-theme p-3 text-text-muted text-sm select-none">
@@ -221,6 +284,14 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
         </div>
       )}
 
+      {/* Image upload error */}
+      {uploadError && (
+        <div className="absolute bottom-full left-0 mb-1 z-20 bg-surface border border-danger/40 rounded-theme shadow-lg px-3 py-2 text-xs text-danger flex items-center gap-2">
+          <span>⚠️ {uploadError}</span>
+          <button onClick={() => setUploadError(null)} className="text-text-muted hover:text-text">×</button>
+        </div>
+      )}
+
       {/* Input row */}
       <div className={`flex items-end gap-2 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
         isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
@@ -234,6 +305,22 @@ export function ChatInput({ onSendMessage, isHost, mentions = [], isPrivateLocke
         >
           🎲
         </button>
+
+        <button
+          onClick={() => imageInputRef.current?.click()}
+          disabled={uploading}
+          className="px-3 py-2 rounded-theme text-sm transition bg-surface-alt text-text-muted hover:bg-border disabled:opacity-50"
+          title={t("btnImageTooltip")}
+        >
+          {uploading ? "⏳" : "🖼️"}
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          className="hidden"
+        />
 
         {!isPrivateLocked && (
           <button

@@ -47,7 +47,7 @@ interface Message {
   targetUserId?: number | null;
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system" | "clue" | "check_request";
+  type: "text" | "dice" | "system" | "clue" | "check_request" | "image";
   diceDetail: string | null;
   isPrivate: boolean;
   createdAt: string;
@@ -523,9 +523,9 @@ export function RoomClient({
   }, [room.id, userId, isHost]);
 
   const handleSendMessage = useCallback(async (
-    content: string, 
-    type: "text" | "dice", 
-    diceDetail?: string, 
+    content: string,
+    type: "text" | "dice" | "image",
+    diceDetail?: string,
     isPrivate?: boolean,
     targetUserId?: number
   ) => {
@@ -984,7 +984,7 @@ export function RoomClient({
                     <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
                   </div>
                 )}
-              <ChatInput onSendMessage={handleSendMessage} isHost={isHost} mentions={mentionTargets} readOnly={readOnly} />
+              <ChatInput onSendMessage={handleSendMessage} isHost={isHost} roomId={room.id} mentions={mentionTargets} readOnly={readOnly} />
             </div>
           </div>
         </div>
