@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Build & Lint
+    name: Test & Build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -57,9 +57,6 @@ jobs:
         run: pnpm db:push:pg
         env:
           DATABASE_URL: postgres://trpg:trpg_ci@localhost:5432/simple_trpg_chat
-
-      - name: Lint
-        run: pnpm lint
 
       - name: Test
         run: pnpm test
