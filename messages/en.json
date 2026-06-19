@@ -683,8 +683,9 @@
     "separator": ", "
   },
   "commands": {
-    "helpText": "📖 **Command Help**\n.st [SkillName] [Value] — Set skill (Supports batch: .st Spot50 Listen60)\n.rc [SkillName] — Skill Check (d100 vs set value)\n.ra [SkillName] [Value] — Check (with value, also sets the skill, e.g. .ra Spot 60; without value, same as .rc)\n.rd<N> — Roll dice (e.g. .rd100, .rd20, .rd10)\n.sc [SuccessDeduct]/[FailureDeduct] — Sanity Check\n.help — Show this help",
+    "helpText": "📖 **Command Help**\n.st [Name] [Value] — Set skill/attribute/resource (batch: .st Spot50 Listen60; in COC rooms, STR, Sanity, etc. are written to the character sheet)\n.rc [SkillName] [Value] — Skill Check (d100 vs set value; with a value, a one-off check at that value, not persisted)\n.ra — Same as .rc\n.rdN / .r expr — Roll dice (e.g. .rd100, .r2d100k1+1d6)\n.rh expr — Hidden roll (only you can see it)\n.sc [SuccessDeduct]/[FailureDeduct] — Sanity Check (COC 7th rooms only)\n.help — Show this help",
     "unknownCommand": "Unknown command. Type .help for available commands.",
+    "unknownCommandGuess": "Unknown command. Did you mean {guess}? Type .help for available commands.",
     "stUsageError": "Format error. Correct usage: .st Spot 50",
     "stSuccess": "📋 Skills updated: {summary}",
     "rcUsageError": "Usage: .rc Spot",

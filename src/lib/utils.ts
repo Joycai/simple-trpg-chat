@@ -98,6 +98,11 @@ export function formatDiceResult(diceDetail: string | null, t?: any): string {
   try {
     const detail = JSON.parse(diceDetail);
 
+    // Echo the original command so observers see what was rolled (spec: 反馈含原始指令).
+    const echo = typeof detail.command === "string" && detail.command.trim()
+      ? `「${detail.command.trim()}」 `
+      : "";
+
     // Sanity check (.sc) result
     if (detail.sanityCheck) {
       const { oldSanity, newSanity, deductExpression, deduction, isSuccess } = detail.sanityCheck;
@@ -117,7 +122,7 @@ export function formatDiceResult(diceDetail: string | null, t?: any): string {
         `| ${deductLabel}: ${deductExpression} = ${deduction}`,
         `| ${sanityLabel}: ${oldSanity} → ${newSanity}${warningLabel}`
       ];
-      return scParts.join(" ");
+      return echo + scParts.join(" ");
     }
 
     const parts = [`${detail.notation || detail.dice || ""}`];
@@ -142,7 +147,7 @@ export function formatDiceResult(diceDetail: string | null, t?: any): string {
       parts.push(`← ${skillName}(${target}) ${label}`);
     }
 
-    return parts.join(" ");
+    return echo + parts.join(" ");
   } catch {
     return diceDetail;
   }

@@ -237,7 +237,7 @@ export async function sendMessageAction(
 
   // 1. Intercept for Bot Commands if it's a plain text message starting with '.' or '。'
   if (type === "text" && (content.startsWith(".") || content.startsWith("。"))) {
-    const result = await executeCommand(roomId, userId, content);
+    const result = await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
     if (result.isCommand) {
       if (!result.success) {
         return await db.insert(messages).values({
@@ -486,7 +486,13 @@ export async function getRoomSkills(roomId: number, userId: number) {
 
 // --- Command Engine ---
 
-export async function executeCommandAction(roomId: number, userId: number, content: string) {
+export async function executeCommandAction(
+  roomId: number,
+  userId: number,
+  content: string,
+  isPrivate?: boolean,
+  targetUserId?: number
+) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
   const callerId = parseInt((session.user as any).id);
@@ -499,7 +505,7 @@ export async function executeCommandAction(roomId: number, userId: number, conte
   await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const { executeCommand } = await import("@/lib/commands");
-  return await executeCommand(roomId, userId, content);
+  return await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
 }
 
 export async function deleteSkillAction(roomId: number, userId: number, skillName: string) {

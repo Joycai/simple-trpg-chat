@@ -1,9 +1,15 @@
 import { db, sqlNow } from "@/db";
 import { roomSkills, rooms, roomMembers } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { sendMessageAction } from "@/app/actions/room";
 import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
+import {
+  resolveCocStat,
+  type CocAttributeKey,
+  type CocResourceKey,
+} from "@/lib/coc-stats";
+import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -11,6 +17,17 @@ export interface CommandResult {
   message?: any;
   error?: string;
   isCommand: boolean;
+}
+
+/**
+ * Channel context in which a command was issued.
+ * Used to keep command feedback inside the channel it came from:
+ * - public channel → results broadcast to everyone
+ * - private channel (isPrivate + targetUserId) → results only the DM pair sees
+ */
+export interface CommandContext {
+  isPrivate?: boolean;
+  targetUserId?: number;
 }
 
 export interface TermResult {
@@ -25,14 +42,76 @@ export interface TermResult {
   display: string;
 }
 
+/** Known commands, used for "did you mean …?" suggestions on typos. */
+const KNOWN_COMMANDS = ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"];
+
+/** True when the room runs the COC 7th rule template (either column may carry it). */
+function isCoc7th(room: { diceRules: string | null; ruleTemplate: string | null }): boolean {
+  return room.ruleTemplate === "coc7th" || room.diceRules === "coc7th";
+}
+
+/**
+ * Resolve the visibility of a command's feedback message.
+ * - "self": only the issuing user sees it, regardless of channel (.help, .st, .rh).
+ * - "channel": follows where the command was issued — public stays public, a DM
+ *   keeps the result between the two participants.
+ */
+function visibilityFor(
+  ctx: CommandContext | undefined,
+  userId: number,
+  mode: "self" | "channel"
+): { isPrivate: boolean; targetUserId: number | undefined } {
+  if (mode === "self") {
+    return { isPrivate: true, targetUserId: userId };
+  }
+  if (ctx?.isPrivate && ctx.targetUserId) {
+    return { isPrivate: true, targetUserId: ctx.targetUserId };
+  }
+  return { isPrivate: false, targetUserId: undefined };
+}
+
+/** Minimal edit distance for typo suggestions. */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/** Build the "unknown command" error, appending a guess when the typo is close. */
+function unknownCommandError(rawInput: string, t: any): string {
+  const token = (rawInput.match(/^[a-zA-Z]+/)?.[0] || "").toLowerCase();
+  if (token) {
+    let best = "";
+    let bestDist = Infinity;
+    for (const cmd of KNOWN_COMMANDS) {
+      const d = levenshtein(token, cmd);
+      if (d < bestDist) { bestDist = d; best = cmd; }
+    }
+    if (best && bestDist > 0 && bestDist <= 2) {
+      return t("unknownCommandGuess", { guess: `.${best}` });
+    }
+  }
+  return t("unknownCommand");
+}
+
 /**
  * Command Engine
- * Handles .st, .rc, .rd, .r, .sc, .help
+ * Handles .st, .rc, .ra, .rd, .r, .rh, .sc, .help
  */
 export async function executeCommand(
   roomId: number,
   userId: number,
-  content: string
+  content: string,
+  ctx?: CommandContext
 ): Promise<CommandResult> {
   const trimmed = content.trim();
   if (!trimmed.startsWith(".") && !trimmed.startsWith("。")) {
@@ -41,191 +120,335 @@ export async function executeCommand(
 
   const t = await getTranslations("commands");
 
-  // Regex matches: command prefix + optional spaces + arguments
-  // NOTE: `ra` must precede `r` in the alternation — alternation is left-to-right,
-  // so listing `r` first would make `.ra侦查` match the `.r` dice command with args `a侦查`.
-  const match = trimmed.slice(1).match(/^(help|st|rc|sc|rd|ra|r)\s*(.*)$/i);
+  const body = trimmed.slice(1);
+  // Regex matches: command prefix + optional spaces + arguments.
+  // NOTE: order matters — alternation is left-to-right. Multi-letter variants
+  // (`ra`, `rh`, `rd`) must precede the bare `r` so `.ra侦查` / `.rh100` aren't
+  // swallowed by the `.r` dice command.
+  const match = body.match(/^(help|st|rc|sc|rd|ra|rh|r)\s*(.*)$/i);
   if (!match) {
-    return { success: false, isCommand: true, error: t("unknownCommand") };
+    return { success: false, isCommand: true, error: unknownCommandError(body, t) };
   }
 
   const cmd = match[1].toLowerCase();
-  let args = match[2] || "";
+  const args = match[2] || "";
 
-  // --- .rd / .r (Dice roll expressions) ---
-  if (cmd === "rd" || cmd === "r") {
-    if (!args.trim()) {
-      args = "1d100";
-    } else if (/^\d+(?![dD])/.test(args.trim())) {
-      args = "1d" + args.trim();
-    }
-
-    const rollResult = parseAndRollExpression(args, t);
-    if (!rollResult.success) {
-      return { success: false, isCommand: true, error: rollResult.error };
-    }
-
-    const { content: rollMsgContent, diceDetail } = formatDiceRollMessage(
-      rollResult.notation,
-      rollResult.terms,
-      rollResult.totalSum,
-      t
-    );
-
-    const msg = await sendMessageAction(roomId, rollMsgContent, "dice", diceDetail);
-    return { success: true, isCommand: true, message: msg };
+  // --- .rd / .r / .rh (Dice roll expressions) ---
+  if (cmd === "rd" || cmd === "r" || cmd === "rh") {
+    return await handleDiceRoll(roomId, userId, args, t, ctx, cmd === "rh", trimmed);
   }
 
-  // --- .st (Set Skill) ---
+  // --- .st (Set Skill / Attribute / Resource) ---
   if (cmd === "st") {
-    return await handleSetSkill(roomId, userId, args, t);
+    return await handleSetSkill(roomId, userId, args, t, ctx);
   }
 
-  // --- .rc (Roll Check) ---
-  if (cmd === "rc") {
-    return await handleRollCheck(roomId, userId, args, t);
-  }
-
-  // --- .ra (Roll Ability: check, optionally setting the skill first) ---
-  if (cmd === "ra") {
-    return await handleRollAbility(roomId, userId, args, t);
+  // --- .rc / .ra (Roll Check — identical variants per spec) ---
+  if (cmd === "rc" || cmd === "ra") {
+    return await handleRollCheck(roomId, userId, args, t, ctx, trimmed);
   }
 
   // --- .sc (Sanity Check) ---
   if (cmd === "sc") {
-    return await handleSanityCheck(roomId, userId, args, t);
+    return await handleSanityCheck(roomId, userId, args, t, ctx, trimmed);
   }
 
   // --- .help ---
   if (cmd === "help") {
     const helpText = t("helpText");
-    const msg = await sendMessageAction(roomId, helpText, "system", undefined, true);
+    const vis = visibilityFor(ctx, userId, "self");
+    const msg = await sendMessageAction(roomId, helpText, "system", undefined, vis.isPrivate, vis.targetUserId);
     return { success: true, isCommand: true, message: msg };
   }
 
   return { success: false, isCommand: true, error: t("unknownCommand") };
 }
 
-/** Sync sanity value to room_members.character_data under coc7th rules */
-export async function syncCharacterSanity(roomId: number, userId: number, newSan: number): Promise<number> {
+/** .rd / .r / .rh — roll a dice expression. `.rh` is hidden (only the roller sees it). */
+async function handleDiceRoll(
+  roomId: number,
+  userId: number,
+  rawArgs: string,
+  t: any,
+  ctx: CommandContext | undefined,
+  hidden: boolean,
+  rawCommand: string
+): Promise<CommandResult> {
+  let args = rawArgs;
+  if (!args.trim()) {
+    args = "1d100";
+  } else if (/^\d+(?![dD])/.test(args.trim())) {
+    args = "1d" + args.trim();
+  }
+
+  const rollResult = parseAndRollExpression(args, t);
+  if (!rollResult.success) {
+    return { success: false, isCommand: true, error: rollResult.error };
+  }
+
+  const { content: rollMsgContent, diceDetail } = formatDiceRollMessage(
+    rollResult.notation,
+    rollResult.terms,
+    rollResult.totalSum,
+    t,
+    rawCommand
+  );
+
+  const vis = hidden
+    ? visibilityFor(ctx, userId, "self")
+    : visibilityFor(ctx, userId, "channel");
+
+  const msg = await sendMessageAction(roomId, rollMsgContent, "dice", diceDetail, vis.isPrivate, vis.targetUserId);
+  return { success: true, isCommand: true, message: msg };
+}
+
+/**
+ * Sync a COC 7th attribute or resource into room_members.character_data.
+ * - attribute: set cocAttributes[key] and recompute derived (preserving current
+ *   resource adjustments, re-clamped to new maxes).
+ * - resource: set the *current* value (both the base field read by exports and the
+ *   `${key}_current` field read by the character panel), capped at its max.
+ * Returns the value actually stored (resources are clamped). No-op (returns the
+ * input) when the member has no coc7th character sheet.
+ */
+export async function syncCharacterStat(
+  roomId: number,
+  userId: number,
+  resolution: { kind: "attribute"; key: CocAttributeKey } | { kind: "resource"; key: CocResourceKey },
+  value: number
+): Promise<number> {
   const [member] = await db
     .select({ characterData: roomMembers.characterData })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  let finalSan = newSan;
+  if (!member?.characterData) return value;
 
-  if (member?.characterData) {
-    try {
-      const data = JSON.parse(member.characterData);
-      if (data && data.ruleTemplate === "coc7th") {
-        if (!data.cocDerived) {
-          data.cocDerived = {};
-        }
-        
-        // Cap sanity with maximum sanity if set, default to 99
-        let sanMax = 99;
-        if (typeof data.cocDerived.sanMax === "number") {
-          sanMax = data.cocDerived.sanMax;
-        } else if (typeof data.cocAttributes?.pow === "number") {
-          sanMax = data.cocAttributes.pow;
-          data.cocDerived.sanMax = sanMax;
-        } else {
-          data.cocDerived.sanMax = sanMax;
-        }
-
-        finalSan = Math.min(Math.max(0, newSan), sanMax);
-        data.cocDerived.san = finalSan;
-
-        await db.update(roomMembers)
-          .set({ characterData: JSON.stringify(data) })
-          .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-      }
-    } catch (e) {
-      console.error("Failed to sync character sanity", e);
-    }
+  let data: any;
+  try {
+    data = JSON.parse(member.characterData);
+  } catch (e) {
+    console.error("Failed to parse character data", e);
+    return value;
   }
-  return finalSan;
+  if (!data || data.ruleTemplate !== "coc7th") return value;
+
+  let finalValue = value;
+
+  if (resolution.kind === "attribute") {
+    if (!data.cocAttributes) data.cocAttributes = { ...COC_DEFAULT_ATTRIBUTES };
+    data.cocAttributes[resolution.key] = value;
+
+    const prev = data.cocDerived || {};
+    const recomputed: any = computeCocDerived(data.cocAttributes);
+    // Preserve player-set current values across a single-attribute change.
+    const clampOpt = (v: any, max: number) =>
+      typeof v === "number" ? Math.min(Math.max(0, v), max) : undefined;
+    const hpCur = clampOpt(prev.hp_current, recomputed.hpMax);
+    const sanCur = clampOpt(prev.san_current ?? prev.san, recomputed.sanMax);
+    const mpCur = clampOpt(prev.mp_current, recomputed.mpMax);
+    if (hpCur !== undefined) recomputed.hp_current = hpCur;
+    if (sanCur !== undefined) { recomputed.san_current = sanCur; recomputed.san = sanCur; }
+    if (mpCur !== undefined) recomputed.mp_current = mpCur;
+    data.cocDerived = recomputed;
+  } else {
+    if (!data.cocDerived) {
+      data.cocDerived = computeCocDerived(data.cocAttributes || COC_DEFAULT_ATTRIBUTES);
+    }
+    const d = data.cocDerived;
+    const maxKey = `${resolution.key}Max`;
+    let max: number;
+    if (typeof d[maxKey] === "number") {
+      max = d[maxKey];
+    } else if (resolution.key === "san") {
+      max = typeof data.cocAttributes?.pow === "number" ? data.cocAttributes.pow : 99;
+      d[maxKey] = max;
+    } else {
+      max = value; // no cap info available — accept as-is
+      d[maxKey] = max;
+    }
+    finalValue = Math.min(Math.max(0, value), max);
+    d[resolution.key] = finalValue;            // base field (read by export.ts)
+    d[`${resolution.key}_current`] = finalValue; // current field (read by CharacterPanel)
+  }
+
+  await db
+    .update(roomMembers)
+    .set({ characterData: JSON.stringify(data) })
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  return finalValue;
 }
 
-/** .st: Set/Update Skills */
+/**
+ * Backward-compatible wrapper kept for skills.ts (manual skill form).
+ * Syncs the sanity resource and returns the capped value.
+ */
+export async function syncCharacterSanity(roomId: number, userId: number, newSan: number): Promise<number> {
+  return syncCharacterStat(roomId, userId, { kind: "resource", key: "san" }, newSan);
+}
+
+/** Read a member's parsed character_data (or null). */
+async function getCharacterData(roomId: number, userId: number): Promise<any | null> {
+  const [member] = await db
+    .select({ characterData: roomMembers.characterData })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+  if (!member?.characterData) return null;
+  try {
+    return JSON.parse(member.characterData);
+  } catch {
+    return null;
+  }
+}
+
+/** .st: Set/Update Skills, Attributes, and Resources */
 async function handleSetSkill(
   roomId: number,
   userId: number,
   args: string,
-  t: any
+  t: any,
+  ctx?: CommandContext
 ): Promise<CommandResult> {
   // Regex to match "SkillName Value" or "SkillNameValue" (compact)
   const regex = /([^0-9\s\.]+)\s*([0-9]+)/g;
-  const updates: { name: string; value: number }[] = [];
+  const parsed: { name: string; value: number }[] = [];
   let match;
 
   while ((match = regex.exec(args)) !== null) {
     let name = match[1].trim();
     const value = parseInt(match[2]);
 
-    // Limit skill name length to prevent DB overflow / UI issues
-    if (name.length > 50) {
-      name = name.slice(0, 50);
-    }
+    if (name.length > 50) name = name.slice(0, 50);
+    if (value < 0 || value > 999) continue;
 
-    // Skill value check (usually between 0 and 999)
-    if (value < 0 || value > 999) {
-      continue;
-    }
-
-    const lowerName = name.toLowerCase();
-    if (lowerName === "san" || lowerName === "san值") {
-      name = "理智值";
-    }
-    updates.push({ name, value });
+    parsed.push({ name, value });
   }
 
-  if (updates.length === 0) {
+  if (parsed.length === 0) {
     return { success: false, isCommand: true, error: t("stUsageError") };
   }
 
-  // UPSERT skills
-  for (const item of updates) {
-    let skillVal = item.value;
-    if (item.name === "理智值") {
-      // syncCharacterSanity returns the capped sanity value
-      skillVal = await syncCharacterSanity(roomId, userId, item.value);
-      item.value = skillVal;
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
+  const coc7th = isCoc7th(room);
+
+  const summaryParts: string[] = [];
+
+  for (const item of parsed) {
+    const resolved = resolveCocStat(item.name);
+
+    if (coc7th && resolved.kind === "attribute") {
+      // Spec: COC attributes are set on the character sheet, not as skills.
+      await syncCharacterStat(roomId, userId, { kind: "attribute", key: resolved.key }, item.value);
+      await cleanupSkillRows(roomId, userId, item.name, resolved.canonical);
+      summaryParts.push(`${resolved.canonical} ${item.value}`);
+      continue;
     }
 
+    if (coc7th && resolved.kind === "resource") {
+      // Spec: resources set the current value only (max is unaffected).
+      const stored = await syncCharacterStat(roomId, userId, { kind: "resource", key: resolved.key }, item.value);
+      await cleanupSkillRows(roomId, userId, item.name, resolved.canonical);
+      summaryParts.push(`${resolved.canonical} ${stored}`);
+      continue;
+    }
+
+    // Plain skill (or non-COC room). Normalize known stat aliases to a canonical
+    // display name (e.g. san → 理智值) so the skill list stays tidy.
+    const name = resolved.kind === "skill" ? item.name : resolved.canonical;
     await db.insert(roomSkills).values({
       roomId,
       userId,
-      skillName: item.name,
-      skillValue: skillVal,
+      skillName: name,
+      skillValue: item.value,
     }).onConflictDoUpdate({
       target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-      set: { skillValue: skillVal, updatedAt: sqlNow() },
+      set: { skillValue: item.value, updatedAt: sqlNow() },
     });
+    summaryParts.push(`${name} ${item.value}`);
   }
 
-  const summary = updates.map(u => `${u.name} ${u.value}`).join(", ");
-  const msg = await sendMessageAction(roomId, t("stSuccess", { summary }), "system", undefined, true);
+  const summary = summaryParts.join(", ");
+  const vis = visibilityFor(ctx, userId, "self");
+  const msg = await sendMessageAction(roomId, t("stSuccess", { summary }), "system", undefined, vis.isPrivate, vis.targetUserId);
 
   return { success: true, isCommand: true, message: msg };
 }
 
-/** .rc: Roll Check (d100 vs Skill) */
+/** Remove any legacy room_skills rows for a name now routed to an attribute/resource. */
+async function cleanupSkillRows(roomId: number, userId: number, rawName: string, canonical: string) {
+  const names = Array.from(new Set([rawName, canonical]));
+  await db.delete(roomSkills).where(
+    and(
+      eq(roomSkills.roomId, roomId),
+      eq(roomSkills.userId, userId),
+      inArray(roomSkills.skillName, names)
+    )
+  );
+}
+
+/**
+ * .rc / .ra: Roll Check (d100 vs target). Identical variants per spec.
+ * - `.rc 侦查90` → one-off check against 90, ignoring stored values (not persisted).
+ * - `.rc 侦查`  → check against the stored skill; falls back to a COC attribute/resource.
+ */
 async function handleRollCheck(
   roomId: number,
   userId: number,
   args: string,
-  t: any
+  t: any,
+  ctx: CommandContext | undefined,
+  rawCommand: string
 ): Promise<CommandResult> {
-  const skillName = args.trim();
-  if (!skillName) return { success: false, isCommand: true, error: t("rcUsageError") };
+  const trimmedArgs = args.trim();
+  if (!trimmedArgs) return { success: false, isCommand: true, error: t("rcUsageError") };
 
-  // 1. Get room rules
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
+  const coc7th = isCoc7th(room);
 
-  // 2. Get user skill value
+  // Optional trailing value: "侦查90" / "侦查 90" → name="侦查", value=90
+  const m = trimmedArgs.match(/^(.+?)\s*([0-9]+)$/);
+
+  if (m) {
+    let skillName = m[1].trim();
+    const value = parseInt(m[2], 10);
+    if (skillName.length > 50) skillName = skillName.slice(0, 50);
+    if (value < 0 || value > 999) {
+      return { success: false, isCommand: true, error: t("rcUsageError") };
+    }
+    // One-off check at the supplied value (spec: ignore stored values, do not persist).
+    const displayName = displayStatName(skillName);
+    return await performSkillCheck(roomId, userId, displayName, value, coc7th, t, ctx, rawCommand);
+  }
+
+  // No value → look up the stored target.
+  const skillName = trimmedArgs;
+  const target = await lookupCheckTarget(roomId, userId, skillName, coc7th);
+  if (target === null) {
+    return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }) };
+  }
+
+  return await performSkillCheck(roomId, userId, target.name, target.value, coc7th, t, ctx, rawCommand);
+}
+
+/** Canonicalize a stat name for display (san → 理智值, str → 力量, …). */
+function displayStatName(name: string): string {
+  const resolved = resolveCocStat(name);
+  return resolved.kind === "skill" ? name : resolved.canonical;
+}
+
+/**
+ * Resolve a check target by name, honoring "skill takes priority over attribute".
+ * Order: room_skills (exact name) → COC attribute → COC resource (current value).
+ */
+async function lookupCheckTarget(
+  roomId: number,
+  userId: number,
+  skillName: string,
+  coc7th: boolean
+): Promise<{ name: string; value: number } | null> {
   const [skill] = await db.select().from(roomSkills).where(
     and(
       eq(roomSkills.roomId, roomId),
@@ -233,20 +456,39 @@ async function handleRollCheck(
       eq(roomSkills.skillName, skillName)
     )
   );
+  if (skill) return { name: skillName, value: skill.skillValue };
 
-  if (!skill) return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }) };
+  if (!coc7th) return null;
 
-  // 3. Roll the check against the stored skill value
-  return await performSkillCheck(roomId, skillName, skill.skillValue, room.diceRules, t);
+  const resolved = resolveCocStat(skillName);
+  if (resolved.kind === "skill") return null;
+
+  const data = await getCharacterData(roomId, userId);
+  if (!data) return null;
+
+  if (resolved.kind === "attribute") {
+    const v = data.cocAttributes?.[resolved.key];
+    if (typeof v === "number") return { name: resolved.canonical, value: v };
+    return null;
+  }
+
+  // resource → current value
+  const d = data.cocDerived;
+  const cur = d?.[`${resolved.key}_current`] ?? d?.[resolved.key];
+  if (typeof cur === "number") return { name: resolved.canonical, value: cur };
+  return null;
 }
 
 /** Roll a d100 skill check against a target value, format the result, and broadcast it. */
 async function performSkillCheck(
   roomId: number,
+  userId: number,
   skillName: string,
   target: number,
-  diceRules: string | null,
-  t: any
+  coc7th: boolean,
+  t: any,
+  ctx: CommandContext | undefined,
+  rawCommand: string
 ): Promise<CommandResult> {
   const roll = rollDie(100);
 
@@ -254,8 +496,8 @@ async function performSkillCheck(
   let icon = roll <= target ? "✅" : "❌";
   let grade: "success" | "failure" | "critical" | "fumble" = roll <= target ? "success" : "failure";
 
-  // Apply COC 7th rules if enabled
-  if (diceRules === 'coc7th') {
+  // Apply COC 7th crit/fumble rules if enabled
+  if (coc7th) {
     if (roll <= 5) { successLevel = t("critical"); icon = "🟢"; grade = "critical"; }
     else if (roll >= 96) { successLevel = t("fumble"); icon = "🔴"; grade = "fumble"; }
   }
@@ -266,88 +508,33 @@ async function performSkillCheck(
     results: [roll],
     sum: roll,
     notation: "1d100",
+    command: rawCommand,
     check: { skillName, target, roll, success: roll <= target, grade }
   });
 
   const content = t("checkMessage", { skillName, roll, target, successLevel, icon });
-  const msg = await sendMessageAction(roomId, content, "dice", detail);
-
+  const vis = visibilityFor(ctx, userId, "channel");
+  const msg = await sendMessageAction(roomId, content, "dice", detail, vis.isPrivate, vis.targetUserId);
   return { success: true, isCommand: true, message: msg };
-}
-
-/**
- * .ra: Roll Ability check.
- * - `.ra侦查60` sets 侦查=60 (persisted to roomSkills) and rolls a check against 60.
- * - `.ra侦查` (no value) behaves exactly like `.rc侦查`.
- */
-async function handleRollAbility(
-  roomId: number,
-  userId: number,
-  args: string,
-  t: any
-): Promise<CommandResult> {
-  const trimmedArgs = args.trim();
-  if (!trimmedArgs) return { success: false, isCommand: true, error: t("raUsageError") };
-
-  // Split an optional trailing value: "侦查60" / "侦查 60" → name="侦查", value=60
-  const m = trimmedArgs.match(/^(.+?)\s*([0-9]+)$/);
-
-  // No value provided → identical to .rc (check against the stored value)
-  if (!m) return await handleRollCheck(roomId, userId, trimmedArgs, t);
-
-  let skillName = m[1].trim();
-  const value = parseInt(m[2], 10);
-
-  // Mirror handleSetSkill validation: length cap, value range, sanity normalization
-  if (skillName.length > 50) skillName = skillName.slice(0, 50);
-  if (value < 0 || value > 999) {
-    return { success: false, isCommand: true, error: t("raUsageError") };
-  }
-  const lowerName = skillName.toLowerCase();
-  if (lowerName === "san" || lowerName === "san值") {
-    skillName = "理智值";
-  }
-
-  // Persist the skill (and sync sanity into characterData when applicable)
-  let finalValue = value;
-  if (skillName === "理智值") {
-    finalValue = await syncCharacterSanity(roomId, userId, value);
-  }
-
-  await db.insert(roomSkills).values({
-    roomId,
-    userId,
-    skillName,
-    skillValue: finalValue,
-  }).onConflictDoUpdate({
-    target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-    set: { skillValue: finalValue, updatedAt: sqlNow() },
-  });
-
-  // Fetch room for dice rules, then roll the check against the just-set value
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
-
-  return await performSkillCheck(roomId, skillName, finalValue, room.diceRules, t);
 }
 
 /** .sc: Sanity Check */
 async function handleSanityCheck(
   roomId: number,
-  userId: number,
+  userIdArg: number,
   args: string,
-  t: any
+  t: any,
+  ctx: CommandContext | undefined,
+  rawCommand: string
 ): Promise<CommandResult> {
-  // 1. Get room rules and verify it's coc7th
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
-  if (room.ruleTemplate !== "coc7th") {
+  if (!isCoc7th(room)) {
     return { success: false, isCommand: true, error: t("scNotCoc7th") };
   }
 
-  // 2. Parse arguments: success_deduction/failure_deduction
-  // Fixed Regex: Added '-' to allow negative adjustments or subtraction in expressions
-  const scMatch = args.trim().match(/^([0-9a-zA-Z+-d\s]+)\s*\/\s*([0-9a-zA-Z+-d\s]+)$/i);
+  // Parse arguments: success_deduction/failure_deduction
+  const scMatch = args.trim().match(/^([0-9a-zA-Z+\-d\s]+)\s*\/\s*([0-9a-zA-Z+\-d\s]+)$/i);
   if (!scMatch) {
     return { success: false, isCommand: true, error: t("scUsageError") };
   }
@@ -355,27 +542,16 @@ async function handleSanityCheck(
   const successExpr = scMatch[1].trim();
   const failureExpr = scMatch[2].trim();
 
-  // 3. Get user's current 理智值
-  const [sanSkill] = await db.select().from(roomSkills).where(
-    and(
-      eq(roomSkills.roomId, roomId),
-      eq(roomSkills.userId, userId),
-      eq(roomSkills.skillName, "理智值")
-    )
-  );
-
-  if (!sanSkill) {
+  // Current sanity: character sheet (current) → legacy room_skills(理智值).
+  const currentSan = await readCurrentSanity(roomId, userIdArg);
+  if (currentSan === null) {
     return { success: false, isCommand: true, error: t("scNoSanity") };
   }
 
-  const currentSan = sanSkill.skillValue;
-
-  // 4. Roll d100 sanity check
   const roll = rollDie(100);
   const isSuccess = roll <= currentSan;
   const resultLabel = isSuccess ? t("success") : t("failure");
 
-  // 5. Roll deduction
   const deductExpr = isSuccess ? successExpr : failureExpr;
   const rollResult = parseAndRollExpression(deductExpr, t);
   if (!rollResult.success) {
@@ -384,22 +560,12 @@ async function handleSanityCheck(
 
   const deductVal = rollResult.totalSum;
   const clampedDeduct = Math.max(0, deductVal);
-  
-  // Update character sheet sanity and retrieve the actual capped new sanity value
-  const finalNewSan = await syncCharacterSanity(roomId, userId, currentSan - clampedDeduct);
 
-  // 6. Update database
-  await db.insert(roomSkills).values({
-    roomId,
-    userId,
-    skillName: "理智值",
-    skillValue: finalNewSan,
-  }).onConflictDoUpdate({
-    target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-    set: { skillValue: finalNewSan, updatedAt: sqlNow() },
-  });
+  // Write the new sanity to the character sheet (current value) and keep any
+  // legacy room_skills(理智值) row in sync for backward compatibility.
+  const finalNewSan = await syncCharacterStat(roomId, userIdArg, { kind: "resource", key: "san" }, currentSan - clampedDeduct);
+  await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
 
-  // 7. Format messages and warnings
   let warning = "";
   if (deductVal >= 5) {
     warning = t("scWarningInsanity");
@@ -415,13 +581,13 @@ async function handleSanityCheck(
     newSan: finalNewSan,
   }) + warning;
 
-  // Compile detailed information for UI
   const detail = JSON.stringify({
     dice: "d100",
     count: 1,
     results: [roll],
     sum: roll,
     notation: "1d100",
+    command: rawCommand,
     check: {
       skillName: "理智值",
       target: currentSan,
@@ -432,7 +598,7 @@ async function handleSanityCheck(
     sanityCheck: {
       successExpression: successExpr,
       failureExpression: failureExpr,
-      deductExpression: rollResult.display, // Fixed: Storing display representation (e.g. 1d6([4])) instead of raw notation
+      deductExpression: rollResult.display,
       deduction: deductVal,
       oldSanity: currentSan,
       newSanity: finalNewSan,
@@ -440,8 +606,42 @@ async function handleSanityCheck(
     }
   });
 
-  const msg = await sendMessageAction(roomId, content, "dice", detail);
+  const vis = visibilityFor(ctx, userIdArg, "channel");
+  const msg = await sendMessageAction(roomId, content, "dice", detail, vis.isPrivate, vis.targetUserId);
   return { success: true, isCommand: true, message: msg };
+}
+
+/** Read the current sanity value: character sheet current → base → legacy room_skills. */
+async function readCurrentSanity(roomId: number, userId: number): Promise<number | null> {
+  const data = await getCharacterData(roomId, userId);
+  if (data?.ruleTemplate === "coc7th") {
+    const d = data.cocDerived;
+    const cur = d?.san_current ?? d?.san;
+    if (typeof cur === "number") return cur;
+  }
+  const [sanSkill] = await db.select().from(roomSkills).where(
+    and(
+      eq(roomSkills.roomId, roomId),
+      eq(roomSkills.userId, userId),
+      eq(roomSkills.skillName, "理智值")
+    )
+  );
+  return sanSkill ? sanSkill.skillValue : null;
+}
+
+/** Keep a legacy room_skills(理智值) row in sync, only if one already exists. */
+async function syncLegacySanitySkill(roomId: number, userId: number, value: number) {
+  const [existing] = await db.select({ id: roomSkills.id }).from(roomSkills).where(
+    and(
+      eq(roomSkills.roomId, roomId),
+      eq(roomSkills.userId, userId),
+      eq(roomSkills.skillName, "理智值")
+    )
+  );
+  if (!existing) return;
+  await db.update(roomSkills)
+    .set({ skillValue: value, updatedAt: sqlNow() })
+    .where(eq(roomSkills.id, existing.id));
 }
 
 /** Parse and roll complex dice expressions (e.g. 3d100k2 + 2d20 - 1d6 + 5) */
@@ -631,7 +831,8 @@ function formatDiceRollMessage(
   notation: string,
   terms: TermResult[],
   totalSum: number,
-  t: any
+  t: any,
+  rawCommand?: string
 ): { content: string; diceDetail: string } {
   // If there's only one term and it's a dice term
   if (terms.length === 1 && terms[0].type === "dice") {
@@ -649,6 +850,7 @@ function formatDiceRollMessage(
       sum: totalSum,
       results: term.rolls,
       keptRolls: term.keptRolls,
+      command: rawCommand,
     });
 
     return { content, diceDetail: detail };
@@ -698,6 +900,7 @@ function formatDiceRollMessage(
     notation: displayStr,
     sum: totalSum,
     results: [],
+    command: rawCommand,
   });
 
   return { content, diceDetail: detail };

@@ -683,8 +683,9 @@
     "separator": "、"
   },
   "commands": {
-    "helpText": "📖 **指令帮助**\n.st 技能名 数值 — 设置技能（支持批量：.st 侦查50聆听60）\n.rc 技能名 — 技能检定（d100 vs 设定值）\n.ra 技能名 [数值] — 检定（带数值时同时设置技能，如 .ra侦查60；不带数值等同 .rc）\n.rd<N> — 投骰（如 .rd100 .rd20 .rd10）\n.sc [成功扣除]/[失败扣除] — 理智检定\n.help — 显示此帮助",
+    "helpText": "📖 **指令帮助**\n.st 名称 数值 — 设置技能/属性/资源（支持批量：.st 侦查50聆听60；COC 房间中 力量、理智值 等会写入角色卡）\n.rc 技能名 [数值] — 技能检定（d100 vs 设定值；带数值则按该值临时检定，不写入）\n.ra — 等同 .rc\n.rdN / .r 表达式 — 投骰（如 .rd100、.r2d100k1+1d6）\n.rh 表达式 — 隐蔽投骰（仅自己可见）\n.sc [成功扣除]/[失败扣除] — 理智检定（仅 COC 7th 房间）\n.help — 显示此帮助",
     "unknownCommand": "未知指令。输入 .help 查看可用指令。",
+    "unknownCommandGuess": "未知指令。你是否想输入 {guess}？输入 .help 查看可用指令。",
     "stUsageError": "格式错误。正确用法：.st 侦查 50",
     "stSuccess": "📋 技能已更新：{summary}",
     "rcUsageError": "用法：.rc 侦查",
