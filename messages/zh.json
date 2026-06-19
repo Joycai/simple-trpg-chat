@@ -154,6 +154,8 @@
     "hoursAgo": "{count}小时前",
     "localeCode": "zh-CN",
     "clickCheck": "点击检定",
+    "checkProgress": "✅ {done}/{total}",
+    "checkDone": "已完成检定",
     "mentionTip": "↑↓ 选择 · Tab/Enter 确认 · Esc 取消",
     "privateChatTarget": "私聊对象:",
     "selectMember": "选择成员...",
@@ -617,6 +619,8 @@
     "selectPlayers": "选择目标玩家",
     "selectAll": "全选",
     "deselectAll": "取消全选",
+    "requireAllNoBot": "要求全员（不含 bot）",
+    "botBadge": "BOT",
     "btnNext": "下一步：选择技能",
     "btnBack": "← 返回选人",
     "skillName": "技能名称",
@@ -685,6 +689,9 @@
     "sensitiveWordsIntercepted": "⚠️ 发送失败：您的消息中包含敏感词汇，已被系统拦截。",
     "commandError": "⚠️ 指令错误: {error}",
     "checkRequestContent": "🎯 {hostNick} 要求 {targetNicks} 进行【{skillName}】检定",
+    "checkRequestNotFound": "检定请求不存在或已失效",
+    "checkNotTarget": "你不是本次检定的目标",
+    "checkAlreadyDone": "你已经完成了本次检定",
     "separator": "、"
   },
   "commands": {

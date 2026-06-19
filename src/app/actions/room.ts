@@ -330,37 +330,116 @@ export async function requestSkillCheckAction(
   roomId: number,
   targetUserIds: number[],
   skillName: string,
-  diceType: string = "d100"
+  diceType: string = "d100",
+  isPrivate: boolean = false,
+  channelTargetUserId?: number
 ) {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
+
+  const cleanSkill = skillName.trim().slice(0, 50);
+  if (!cleanSkill || targetUserIds.length === 0) {
+    return { success: false, error: "Invalid check request" };
+  }
 
   const [hostMember] = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
 
   const hostNick = hostMember?.nickname || "Host";
 
-  // Get target nicknames
+  // Restrict targets to actual room members (and, in a DM channel, to the partner only).
   const targetMembers = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
-  const targetNicks = targetMembers.map((m: { nickname: string }) => m.nickname);
+  let validTargetIds = targetMembers.map((m: { userId: number }) => m.userId);
+  if (isPrivate && channelTargetUserId) {
+    validTargetIds = validTargetIds.filter((id) => id === channelTargetUserId);
+  }
+  if (validTargetIds.length === 0) {
+    return { success: false, error: "No valid targets" };
+  }
+
+  const targetNicks = targetMembers
+    .filter((m: { userId: number }) => validTargetIds.includes(m.userId))
+    .map((m: { nickname: string }) => m.nickname);
   const t = await getTranslations("roomActions");
   const targetNicksStr = targetNicks.join(t("separator"));
-  const content = t("checkRequestContent", { hostNick, targetNicks: targetNicksStr, skillName });
+  const content = t("checkRequestContent", { hostNick, targetNicks: targetNicksStr, skillName: cleanSkill });
   const detail = JSON.stringify({
-    checkRequest: { skillName, diceType, targetUserIds, hostNick }
+    checkRequest: { skillName: cleanSkill, diceType, targetUserIds: validTargetIds, hostNick, respondedUserIds: [] }
   });
 
   const [msg] = await db.insert(messages).values({
     roomId,
     userId: hostId,
+    targetUserId: isPrivate ? channelTargetUserId : null,
     nickname: hostNick,
     type: "check_request",
     content,
     diceDetail: detail,
+    isPrivate,
   }).returning();
 
   broadcastToRoom(roomId, msg);
+
+  // Trigger any bot targets so they can respond (if their roll_dice tool is enabled).
+  const botTargets = await db.select({ id: users.id }).from(users)
+    .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
+  for (const bot of botTargets) {
+    import("@/lib/ai_agent")
+      .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate }))
+      .catch((err) => console.error("[requestSkillCheckAction] Failed to trigger bot:", err));
+  }
+
   return msg;
+}
+
+/**
+ * A designated target responds to a host check request: rolls the check in the same
+ * channel, records the response on the check_request message, and broadcasts a
+ * `check_update` so all clients update the x/y count and disable the roller's dice icon.
+ */
+export async function respondToCheckRequestAction(roomId: number, checkRequestId: number) {
+  const session = await auth();
+  if (!session) throw new Error("Not authenticated");
+  const userId = parseInt(session.user.id);
+  await checkRoomAccess(roomId, false, { requireWritable: true });
+
+  const t = await getTranslations("roomActions");
+
+  const [msg] = await db.select().from(messages)
+    .where(and(eq(messages.id, checkRequestId), eq(messages.roomId, roomId)));
+  if (!msg || msg.type !== "check_request" || !msg.diceDetail) {
+    return { success: false, error: t("checkRequestNotFound") };
+  }
+
+  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[] } };
+  try { detail = JSON.parse(msg.diceDetail); } catch { return { success: false, error: t("checkRequestNotFound") }; }
+  const cr = detail.checkRequest;
+  if (!cr || !cr.skillName) return { success: false, error: t("checkRequestNotFound") };
+
+  const targetUserIds = cr.targetUserIds || [];
+  const responded = cr.respondedUserIds || [];
+  if (!targetUserIds.includes(userId)) return { success: false, error: t("checkNotTarget") };
+  if (responded.includes(userId)) return { success: false, error: t("checkAlreadyDone") };
+
+  // Roll in the same channel as the request (public, or the DM with the host).
+  const ctxIsPrivate = msg.isPrivate;
+  const ctxTargetId = msg.isPrivate ? msg.userId : undefined;
+  const diceType = cr.diceType || "d100";
+  if (diceType === "d100") {
+    const result = await executeCommand(roomId, userId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
+    if (!result.success) return { success: false, error: result.error };
+  } else {
+    const faces = parseInt(diceType.replace("d", ""));
+    await rollDiceAction(roomId, faces, 1, ctxIsPrivate, ctxTargetId);
+  }
+
+  // Record the response and broadcast the updated completion state.
+  const newResponded = [...responded, userId];
+  cr.respondedUserIds = newResponded;
+  await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, checkRequestId));
+  broadcastToRoom(roomId, { type: "check_update", id: checkRequestId, respondedUserIds: newResponded });
+
+  return { success: true };
 }
 
 // --- Room Settings ---

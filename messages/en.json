@@ -154,6 +154,8 @@
     "hoursAgo": "{count}h ago",
     "localeCode": "en-US",
     "clickCheck": "Click to roll check",
+    "checkProgress": "✅ {done}/{total}",
+    "checkDone": "Check completed",
     "mentionTip": "↑↓ Select · Tab/Enter Confirm · Esc Cancel",
     "privateChatTarget": "Private Chat:",
     "selectMember": "Select member...",
@@ -617,6 +619,8 @@
     "selectPlayers": "Select target players",
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
+    "requireAllNoBot": "Require everyone (no bots)",
+    "botBadge": "BOT",
     "btnNext": "Next: Choose Skill",
     "btnBack": "← Back to select players",
     "skillName": "Skill Name",
@@ -685,6 +689,9 @@
     "sensitiveWordsIntercepted": "⚠️ Send failed: Your message contains sensitive words and has been intercepted by the system.",
     "commandError": "⚠️ Command error: {error}",
     "checkRequestContent": "🎯 {hostNick} requested {targetNicks} to perform a 【{skillName}】 check",
+    "checkRequestNotFound": "Check request not found or expired",
+    "checkNotTarget": "You are not a target of this check",
+    "checkAlreadyDone": "You have already completed this check",
     "separator": ", "
   },
   "commands": {
