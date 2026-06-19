@@ -34,9 +34,10 @@ interface InventoryPanelProps {
   onClose: () => void;
   /** Bumped via SSE when an item is edited, so the panel reloads the synced content. */
   refreshKey?: number;
+  readOnly?: boolean;
 }
 
-export function InventoryPanel({ roomId, userId, isHost, players, onClose, refreshKey = 0 }: InventoryPanelProps) {
+export function InventoryPanel({ roomId, userId, isHost, players, onClose, refreshKey = 0, readOnly = false }: InventoryPanelProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const locale = useLocale();
@@ -708,7 +709,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                 )}
 
                 {/* Share section */}
-                {detailDist && (
+                {detailDist && !readOnly && (
                   <div className="mt-4 pt-4 border-t border-border">
                     <h4 className="text-sm font-bold text-text mb-2">{t("shareToOthers")}</h4>
                     {!shareTarget ? (
