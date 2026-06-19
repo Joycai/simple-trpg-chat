@@ -40,8 +40,12 @@ vi.mock("@/lib/events", () => {
       listeners[roomId] = listeners[roomId].filter((l) => l !== listener);
     };
   });
+  const subscribeToUser = vi.fn((_roomId: number, _userId: number, _listener: (data: unknown) => void) => {
+    return () => {};
+  });
   return {
     subscribeToRoom,
+    subscribeToUser,
     _listeners: listeners,
   };
 });
