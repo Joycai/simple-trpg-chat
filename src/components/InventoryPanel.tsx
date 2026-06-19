@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
+import { createInventoryItemAction, updateInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -32,9 +32,11 @@ interface InventoryPanelProps {
   isHost: boolean;
   players: { id: number; username: string; nickname: string }[];
   onClose: () => void;
+  /** Bumped via SSE when an item is edited, so the panel reloads the synced content. */
+  refreshKey?: number;
 }
 
-export function InventoryPanel({ roomId, userId, isHost, players, onClose }: InventoryPanelProps) {
+export function InventoryPanel({ roomId, userId, isHost, players, onClose, refreshKey = 0 }: InventoryPanelProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const locale = useLocale();
@@ -54,8 +56,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
     markInventoryViewedAction(roomId);
   }, [roomId]);
 
-  // Create form state
+  // Create / edit form state (shared form; editingItemId !== null means edit mode)
   const [showCreate, setShowCreate] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [itemType, setItemType] = useState<"clue" | "info" | "character" | "item">("info");
   const [title, setTitle] = useState("");
   const [contentFields, setContentFields] = useState({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
@@ -93,17 +96,69 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
 
   useEffect(() => { loadData(); }, []);
 
-  const handleCreate = async () => {
+  // Live-sync: reload when the host edits an item (refreshKey bumped via SSE in RoomClient).
+  useEffect(() => {
+    if (refreshKey > 0) loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  // Keep an open detail modal in sync after a live reload. The contentJson guard
+  // prevents redundant state updates / render loops.
+  useEffect(() => {
+    if (!detailItem) return;
+    const pool: any[] = isHost ? roomItems : myItems.map((d: any) => d.item).filter(Boolean);
+    const fresh = pool.find((it: any) => it && it.id === detailItem.id);
+    if (fresh && (fresh.contentJson !== detailItem.contentJson || fresh.title !== detailItem.title || fresh.type !== detailItem.type)) {
+      setDetailItem(fresh);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomItems, myItems]);
+
+  const resetForm = () => {
+    setShowCreate(false);
+    setEditingItemId(null);
+    setItemType("info");
+    setTitle("");
+    setContentFields({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
+  };
+
+  // Prefill the shared form from an existing item and switch it into edit mode.
+  const startEdit = (item: InventoryItem) => {
+    let c: Record<string, string> = {};
+    try { c = JSON.parse(item.contentJson) || {}; } catch { /* */ }
+    setEditingItemId(item.id);
+    setItemType(item.type);
+    setTitle(item.title);
+    setContentFields({
+      text: c.text || "",
+      basicInfo: c.basicInfo || "",
+      detail: c.detail || "",
+      appearance: c.appearance || "",
+      extra: c.extra || "",
+    });
+    setShowCreate(true);
+    setDetailItem(null);
+  };
+
+  const handleSubmit = async () => {
     let contentJson: Record<string, string> = {};
     if (itemType === "clue") contentJson = { text: contentFields.text };
     else if (itemType === "info") contentJson = { text: contentFields.text };
     else if (itemType === "character") contentJson = { basicInfo: contentFields.basicInfo, detail: contentFields.detail };
     else contentJson = { appearance: contentFields.appearance, extra: contentFields.extra };
 
-    await createInventoryItemAction(roomId, { type: itemType, title, content: JSON.parse(JSON.stringify(contentJson)) });
-    setShowCreate(false);
-    setTitle("");
-    setContentFields({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
+    const content = JSON.parse(JSON.stringify(contentJson));
+    try {
+      if (editingItemId !== null) {
+        await updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content });
+      } else {
+        await createInventoryItemAction(roomId, { type: itemType, title, content });
+      }
+    } catch (err: any) {
+      alert(err.message || tCommon("error"));
+      return;
+    }
+    resetForm();
     router.refresh();
     loadData();
   };
@@ -204,13 +259,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
             <div className="flex flex-col gap-5">
               {/* Create button */}
               {!showCreate ? (
-                <button onClick={() => setShowCreate(true)}
+                <button onClick={() => { resetForm(); setShowCreate(true); }}
                   className="w-full bg-success hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
                   ＋ {t("createItem")}
                 </button>
               ) : (
                 <div className="bg-surface-alt rounded-theme theme-border p-4 border border-border flex flex-col gap-3">
-                  <h4 className="font-bold text-text text-sm">{t("createItem")}</h4>
+                  <h4 className="font-bold text-text text-sm">{editingItemId !== null ? t("editItem") : t("createItem")}</h4>
                   <select value={itemType} onChange={e => setItemType(e.target.value as any)}
                     className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
                     <option value="clue">{t("typeClue")}</option>
@@ -237,8 +292,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                       placeholder={t("extraPlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
                   </>)}
                   <div className="flex gap-2">
-                    <button onClick={() => setShowCreate(false)} className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">{tCommon("cancel")}</button>
-                    <button onClick={handleCreate} disabled={!title}
+                    <button onClick={resetForm} className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">{tCommon("cancel")}</button>
+                    <button onClick={handleSubmit} disabled={!title}
                       className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">{t("confirm")}</button>
                   </div>
                 </div>
@@ -373,6 +428,10 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                               <button onClick={() => { setDistributeItemId(item.id); setDistributeTargets([]); }}
                                 className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
                                 {t("distribute")}
+                              </button>
+                              <button onClick={() => startEdit(item)}
+                                className="bg-surface hover:bg-surface-alt text-text border border-border px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                                {t("edit")}
                               </button>
                               <button onClick={() => handleDeleteItem(item.id, item.title)}
                                 className="bg-danger hover:opacity-90 text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
@@ -578,7 +637,15 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose }: Inv
                     <span className="text-xs text-text-muted">{typeLabel(detailItem.type)}</span>
                     <h3 className="font-bold text-lg text-text">{detailItem.title}</h3>
                   </div>
-                  <button onClick={() => { setDetailItem(null); setShareTarget(null); }} className="text-text-muted hover:text-text cursor-pointer">×</button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isHost && !detailDist && (
+                      <button onClick={() => startEdit(detailItem)}
+                        className="bg-surface-alt hover:bg-surface text-text border border-border px-2.5 py-1 rounded text-xs font-bold cursor-pointer">
+                        {t("edit")}
+                      </button>
+                    )}
+                    <button onClick={() => { setDetailItem(null); setShareTarget(null); }} className="text-text-muted hover:text-text cursor-pointer text-lg leading-none">×</button>
+                  </div>
                 </div>
 
                 <div className="bg-surface-alt rounded-theme p-4 text-sm text-text whitespace-pre-wrap border border-border item-detail-panel">

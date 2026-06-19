@@ -435,6 +435,8 @@
     "tabChar": "Character",
     "tabItem": "Item",
     "createItem": "Create New Item",
+    "editItem": "Edit Item",
+    "edit": "Edit",
     "typeClue": "🃏 Clue",
     "typeInfo": "📄 Info",
     "typeChar": "👤 Character Info",
@@ -651,11 +653,12 @@
     "separator": ", "
   },
   "commands": {
-    "helpText": "📖 **Command Help**\n.st [SkillName] [Value] — Set skill (Supports batch: .st Spot50 Listen60)\n.rc [SkillName] — Skill Check (d100 vs set value)\n.rd<N> — Roll dice (e.g. .rd100, .rd20, .rd10)\n.sc [SuccessDeduct]/[FailureDeduct] — Sanity Check\n.help — Show this help",
+    "helpText": "📖 **Command Help**\n.st [SkillName] [Value] — Set skill (Supports batch: .st Spot50 Listen60)\n.rc [SkillName] — Skill Check (d100 vs set value)\n.ra [SkillName] [Value] — Check (with value, also sets the skill, e.g. .ra Spot 60; without value, same as .rc)\n.rd<N> — Roll dice (e.g. .rd100, .rd20, .rd10)\n.sc [SuccessDeduct]/[FailureDeduct] — Sanity Check\n.help — Show this help",
     "unknownCommand": "Unknown command. Type .help for available commands.",
     "stUsageError": "Format error. Correct usage: .st Spot 50",
     "stSuccess": "📋 Skills updated: {summary}",
     "rcUsageError": "Usage: .rc Spot",
+    "raUsageError": "Usage: .ra Spot  or  .ra Spot 60",
     "roomNotFound": "Room not found",
     "rcSkillNotSet": "Skill '{skillName}' not set. Please use .st first.",
     "success": "Success",

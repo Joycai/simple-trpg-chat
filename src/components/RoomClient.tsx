@@ -100,6 +100,7 @@ export function RoomClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -399,6 +400,12 @@ export function RoomClient({
             // Forward async AI-import results to the AiImportPanel via a window event,
             // so we reuse this single SSE connection instead of opening a second one.
             window.dispatchEvent(new CustomEvent("ai-import-result", { detail: data }));
+            return;
+          }
+          if (data.type === "inventory_updated") {
+            // Host edited an item — bump the key so any open InventoryPanel reloads
+            // the edited content (distributed copies sync via the item relation).
+            setInventoryRefreshKey((k) => k + 1);
             return;
           }
           if (data.type === "typing") {
@@ -1052,7 +1059,7 @@ export function RoomClient({
         </div>
       )}
       {showInventory && (
-        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} />
+        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} />
       )}
       {showSettings && (
         <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
