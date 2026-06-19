@@ -347,7 +347,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                     <button onClick={() => setManageFilterDist("distributed")}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all duration-200 cursor-pointer ${
                         manageFilterDist === "distributed" 
-                          ? "bg-accent text-white shadow-sm" 
+                          ? "bg-accent text-accent-foreground shadow-sm" 
                           : "bg-surface text-text-muted hover:text-text border border-border/50"
                       }`}>
                       {t("filterSent")}
@@ -427,11 +427,11 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                             </div>
                             <div className="flex gap-2 shrink-0">
                               <button onClick={() => { setDistributeItemId(item.id); setDistributeTargets([]); }}
-                                className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                                className="bg-primary hover:bg-primary-hover text-primary-foreground px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
                                 {t("distribute")}
                               </button>
                               <button onClick={() => startEdit(item)}
-                                className="bg-surface hover:bg-surface-alt text-text border border-border px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
+                                className="bg-accent hover:bg-accent-hover text-accent-foreground px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
                                 {t("edit")}
                               </button>
                               <button onClick={() => handleDeleteItem(item.id, item.title)}
@@ -454,7 +454,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                   
                   {/* Pinned "Distribute to All" */}
                   <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute("all"); }}
-                    className="w-full bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
+                    className="w-full bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
                     {t("distributeAll")}
                   </button>
 
@@ -725,7 +725,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                       <div className="flex gap-2 items-center">
                         <span className="text-sm text-text">{t("shareConfirmHint", { name: players.find(p => p.id === shareTarget)?.nickname || "" })}</span>
                         <button onClick={() => handleShare(detailDist.itemId)}
-                          className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">{t("confirm")}</button>
+                          className="bg-accent hover:bg-accent-hover text-accent-foreground px-3 py-1.5 rounded text-xs font-bold cursor-pointer">{t("confirm")}</button>
                         <button onClick={() => setShareTarget(null)} className="text-xs text-text-muted cursor-pointer">{t("cancel")}</button>
                       </div>
                     )}

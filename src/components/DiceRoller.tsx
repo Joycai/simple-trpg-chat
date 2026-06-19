@@ -75,7 +75,7 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
             onClick={() => setSelectedDie(die.faces)}
             className={`px-3 py-2 rounded-lg text-sm font-bold transition ${
               selectedDie === die.faces
-                ? "bg-accent text-white shadow-md scale-105"
+                ? "bg-accent text-accent-foreground shadow-md scale-105"
                 : "bg-surface-alt text-text hover:bg-border"
             }`}
           >
@@ -105,7 +105,7 @@ export function DiceRoller({ onRoll, isHost, onClose }: DiceRollerProps) {
 
         <button
           onClick={handleRoll}
-          className="flex-1 bg-accent hover:bg-accent-hover text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
+          className="flex-1 bg-accent hover:bg-accent-hover text-accent-foreground font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2 shadow-lg"
         >
           <span>🎲</span>
           <span>

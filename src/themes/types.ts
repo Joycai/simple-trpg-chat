@@ -29,19 +29,19 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
     id: "parchment",
     name: "古旧羊皮卷",
     nameEn: "Aged Parchment",
-    description: "复古泛黄，墨迹质感，适合传统西幻跑团",
+    description: "古旧牛皮纸与铁胆墨水，封蜡印记、泥金花饰与铜绿地图墨，西方奇幻手稿质感",
   },
   cthulhu: {
     id: "cthulhu",
     name: "克苏鲁的呼唤",
     nameEn: "Call of Cthulhu",
-    description: "深海绿与诡异紫，不可名状的恐怖氛围",
+    description: "深渊墨绿为底，幽灵紫与深渊青荧光双色，长辈印、注视之眼与不可名状的恐惧",
   },
   shrine: {
     id: "shrine",
     name: "远古神社",
     nameEn: "Ancient Shrine",
-    description: "沉静深棕古木，朱红鸟居点缀，和纸质感的空灵和风氛围",
+    description: "巫女红白配色，朱漆鸟居与注連縄御币，明朝体落于和纸之上的素净神社气息",
   },
 } as const;
 

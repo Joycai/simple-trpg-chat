@@ -197,7 +197,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
                 <div className="flex gap-2">
                   <button
                     disabled
-                    className="flex-1 bg-accent/70 text-white py-3 rounded-theme font-bold flex items-center justify-center gap-2 cursor-default">
+                    className="flex-1 bg-accent/70 text-accent-foreground py-3 rounded-theme font-bold flex items-center justify-center gap-2 cursor-default">
                     <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
                     {t("btnAnalyzing")}
                   </button>
@@ -211,7 +211,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
                 <button
                   onClick={handleAnalyze}
                   disabled={!rawText.trim()}
-                  className="w-full bg-accent hover:bg-accent-hover disabled:opacity-40 text-white py-3 rounded-theme font-bold transition cursor-pointer">
+                  className="w-full bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground py-3 rounded-theme font-bold transition cursor-pointer">
                   {t("btnAnalyze")}
                 </button>
               )}
@@ -306,7 +306,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
               </p>
               <div className="flex gap-3">
                 <button onClick={() => { setStep("input"); setRawText(""); setItems([]); }}
-                  className="bg-accent hover:bg-accent-hover text-white px-6 py-2 rounded-theme font-bold text-sm cursor-pointer">
+                  className="bg-accent hover:bg-accent-hover text-accent-foreground px-6 py-2 rounded-theme font-bold text-sm cursor-pointer">
                   {t("btnContinue")}
                 </button>
                 <button onClick={onClose}

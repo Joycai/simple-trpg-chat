@@ -28,6 +28,7 @@
   --color-primary-foreground: rgb(var(--theme-primary-foreground));
   --color-accent: rgb(var(--theme-accent));
   --color-accent-hover: rgb(var(--theme-accent-hover));
+  --color-accent-foreground: rgb(var(--theme-accent-foreground));
   --color-danger: rgb(var(--theme-danger));
   --color-success: rgb(var(--theme-success));
   --color-header-bg: rgb(var(--theme-header-bg));
@@ -41,6 +42,7 @@
   --color-scroll-btn: rgb(var(--theme-scroll-btn));
   --radius-theme: var(--theme-radius);
   --font-theme: var(--theme-font);
+  --font-theme-display: var(--theme-font-display);
   --font-theme-mono: var(--theme-font-mono);
 }
 
@@ -48,6 +50,18 @@ body {
   background: rgb(var(--theme-bg));
   color: rgb(var(--theme-text));
   font-family: var(--theme-font);
+}
+
+/* ============================================================
+   Typographic hierarchy — per-theme display font for headings.
+   Falls back to the body font when a theme defines no display face.
+   Opt out on any element with the `.no-display-font` class.
+   ============================================================ */
+h1:not(.no-display-font),
+h2:not(.no-display-font),
+h3:not(.no-display-font),
+.font-display {
+  font-family: var(--theme-font-display, var(--theme-font));
 }
 
 
@@ -136,22 +150,21 @@ body {
   --theme-radius-tr: 0;
   --theme-radius-br: 0;
   --theme-radius-bl: 0;
-  box-shadow: 0 0 12px rgba(180, 130, 255, 0.35),
-              0 0 30px rgba(180, 130, 255, 0.15),
-              0 0 60px rgba(180, 130, 255, 0.06);
+  box-shadow: 0 0 12px rgba(168, 122, 246, 0.35),
+              0 0 30px rgba(168, 122, 246, 0.15),
+              0 0 60px rgba(168, 122, 246, 0.06);
 }
 
-/* Shrine: bold vermillion seal bottom border + hover stamp */
+/* Shrine: bold vermillion torii-beam bottom border + hover stamp (light washi) */
 [data-theme="shrine"] .theme-border {
   --theme-radius-tl: 2px;
   --theme-radius-tr: 4px;
   --theme-radius-br: 2px;
   --theme-radius-bl: 4px;
   border-bottom: 4px solid rgb(var(--theme-primary));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 14px rgba(80, 50, 25, 0.12);
 }
 [data-theme="shrine"] .theme-border:hover {
-  box-shadow: 0 0 12px rgba(200, 55, 35, 0.4),
-              0 4px 16px rgba(0, 0, 0, 0.2);
-
+  box-shadow: 0 0 12px rgba(200, 55, 35, 0.3),
+              0 4px 14px rgba(80, 50, 25, 0.12);
 }

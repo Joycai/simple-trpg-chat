@@ -12,6 +12,7 @@
   --theme-primary-hover: 29 78 216;
   --theme-accent: 245 158 11;
   --theme-accent-hover: 217 119 6;
+  --theme-accent-foreground: 66 36 2;
   --theme-danger: 239 68 68;
   --theme-success: 34 197 94;
   --theme-header-bg: 255 255 255;
@@ -24,9 +25,17 @@
   --theme-private-bg: 245 243 255;
   --theme-scroll-btn: 37 99 235;
   --theme-radius: 0.75rem;
-  --theme-font: 'Inter', 'Geist', sans-serif;
-  --theme-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* === Typography (modern web) === */
+  --theme-font: var(--font-inter), 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', system-ui, sans-serif;
+  --theme-font-display: var(--font-space-grotesk), var(--font-inter), 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --theme-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
   --theme-primary-foreground: 255 255 255;
+
+  /* === Skeuomorphic: soft modern elevation + focus ring glow === */
+  --theme-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
+                       0 4px 14px rgba(15, 23, 42, 0.07);
+  --theme-glow: 0 0 0 3px rgba(37, 99, 235, 0.18);
 }
 
 [data-theme="default"] .conv-sidebar {

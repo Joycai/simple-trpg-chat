@@ -103,7 +103,7 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
               <h4 className="font-bold text-text text-sm mb-3">{t("pushTitle")}</h4>
               <div className="flex flex-col gap-2 mb-3">
                 <button onClick={() => handlePush(pushClueId, "all")}
-                  className="bg-accent hover:bg-accent-hover text-white py-2 rounded font-bold text-sm cursor-pointer">{t("pushAll")}</button>
+                  className="bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded font-bold text-sm cursor-pointer">{t("pushAll")}</button>
                 {players.map(p => (
                   <button key={p.id} onClick={() => handlePush(pushClueId, p.id)}
                     className="bg-surface hover:bg-surface-alt text-text py-2 px-3 rounded text-sm text-left transition cursor-pointer">
@@ -137,7 +137,7 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
                       </div>
                       {isHost && (
                         <button onClick={() => setPushClueId(clue.id)}
-                          className="ml-2 bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-xs font-bold shrink-0 cursor-pointer">
+                          className="ml-2 bg-accent hover:bg-accent-hover text-accent-foreground px-3 py-1.5 rounded text-xs font-bold shrink-0 cursor-pointer">
                           {t("push")}
                         </button>
                       )}

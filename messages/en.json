@@ -69,7 +69,7 @@
     "tip": "💡 Click 'Enter Room' on the room card to start",
     "done": "Got it, go to Lobby",
     "errorKeyRequired": "Room key is required",
-    "themeShrine": "⛩️ Ancient Shrine (Wa-fu)",
+    "themeShrine": "⛩️ Ancient Shrine (Miko)",
     "ruleTemplate": "Rule Template",
     "ruleTemplateCoc7th": "🐙 COC 7th",
     "ruleTemplateBasic": "🎲 Generic d100",
@@ -361,11 +361,11 @@
   "theme": {
     "default": "Default",
     "parchment": "Aged Parchment",
-    "parchmentDesc": "Retro yellowed paper with ink texture",
+    "parchmentDesc": "Aged vellum and iron-gall ink, wax seals, illuminated fleurons and verdigris map accents — a Western-fantasy manuscript",
     "cthulhu": "Call of Cthulhu",
-    "cthulhuDesc": "Deep sea green and eerie purple",
+    "cthulhuDesc": "Abyssal black-green with ghost-violet and teal glow, Elder Signs and a watching eye — unnameable dread",
     "shrine": "Ancient Shrine",
-    "shrineDesc": "Aged dark wood, vermilion accents, and a serene Japanese atmosphere.",
+    "shrineDesc": "Miko red-and-white palette, vermilion torii with shimenawa & shide, mincho type on bright washi paper.",
     "switch": "Switch Theme"
   },
   "common": {
@@ -741,15 +741,15 @@
     },
     "parchment": {
       "name": "Aged Parchment",
-      "desc": "Vintage yellowing, ink texture, suitable for traditional Western fantasy games"
+      "desc": "Aged vellum and iron-gall ink, wax seals, illuminated fleurons and verdigris map accents — a Western-fantasy manuscript"
     },
     "cthulhu": {
       "name": "Call of Cthulhu",
-      "desc": "Deep sea green and eerie purple, an indescribable horror atmosphere"
+      "desc": "Abyssal black-green with ghost-violet and teal glow, Elder Signs and a watching eye — unnameable dread"
     },
     "shrine": {
       "name": "Ancient Shrine",
-      "desc": "Quiet deep brown ancient wood, vermilion torii gate accents, empty Japanese paper aesthetic"
+      "desc": "Miko red-and-white palette, vermilion torii with shimenawa & shide, mincho type on bright washi paper"
     }
   },
   "roomSettings": {

@@ -98,11 +98,11 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
                     }`}
                     style={
                       theme.id === "parchment"
-                        ? { backgroundColor: "#fdf6e3", borderColor: "#c4a484" }
+                        ? { backgroundColor: "#f4ebd6", borderColor: "#82401e", borderWidth: "3px" }
                         : theme.id === "cthulhu"
-                        ? { backgroundColor: "#0f172a", borderColor: "#5eead4" }
+                        ? { backgroundColor: "#060e10", borderColor: "#4ed6c4", borderWidth: "3px" }
                         : theme.id === "shrine"
-                        ? { backgroundColor: "#2d1f14", borderColor: "#c44040" }
+                        ? { backgroundColor: "#fffcf6", borderColor: "#c63026", borderWidth: "3px" }
                         : undefined
                     }
                   />
