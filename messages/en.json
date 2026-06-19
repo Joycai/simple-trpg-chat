@@ -189,8 +189,11 @@
       "d10": "d10",
       "d12": "d12",
       "d20": "d20",
-      "d100": "d100"
-    }
+      "d100": "d100",
+      "d2": "d2",
+      "d3": "d3"
+    },
+    "privateHint": "Only you and the host can see this"
   },
   "nickname": {
     "edit": "Edit Nickname",

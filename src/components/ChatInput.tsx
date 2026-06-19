@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { DiceRoller } from "./DiceRoller";
+import { Icons } from "./icons";
 import { useTranslations } from "next-intl";
 
 interface MentionTarget {
@@ -14,7 +15,6 @@ interface MentionTarget {
 
 interface ChatInputProps {
   onSendMessage: (content: string, type: "text" | "dice" | "image", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
-  isHost: boolean;
   roomId: number;
   mentions?: MentionTarget[];
   isPrivateLocked?: boolean;
@@ -24,7 +24,7 @@ interface ChatInputProps {
 // Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
 const IMAGE_MAX_BYTES = 1024 * 1024;
 
-export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
+export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
@@ -207,7 +207,7 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
   if (readOnly) {
     return (
       <div className="flex items-center justify-center gap-2 bg-input-bg border border-input-border rounded-theme p-3 text-text-muted text-sm select-none">
-        <span>🔒</span>
+        <Icons.Lock className="w-4 h-4" />
         <span>{tRoom("frozenNotice")}</span>
       </div>
     );
@@ -220,7 +220,6 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
         <div className="absolute bottom-full left-0 right-0 mb-2 z-10">
           <DiceRoller
             onRoll={handleDiceRoll}
-            isHost={isHost}
             onClose={() => setShowDice(false)}
           />
         </div>
@@ -277,11 +276,12 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
                 </option>
               ))}
             </select>
-            <button 
+            <button
               onClick={() => { setIsPrivate(false); setPrivateTargetId(null); }}
               className="text-text-muted hover:text-danger p-1 transition"
+              aria-label="×"
             >
-              ×
+              <Icons.X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -290,8 +290,11 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
       {/* Image upload error */}
       {uploadError && (
         <div className="absolute bottom-full left-0 mb-1 z-20 bg-surface border border-danger/40 rounded-theme shadow-lg px-3 py-2 text-xs text-danger flex items-center gap-2">
-          <span>⚠️ {uploadError}</span>
-          <button onClick={() => setUploadError(null)} className="text-text-muted hover:text-text">×</button>
+          <Icons.Info className="w-3.5 h-3.5 shrink-0" />
+          <span>{uploadError}</span>
+          <button onClick={() => setUploadError(null)} className="text-text-muted hover:text-text" aria-label="×">
+            <Icons.X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -301,21 +304,25 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
       }`}>
         <button
           onClick={() => setShowDice(!showDice)}
-          className={`px-3 py-2 rounded-theme text-sm font-bold transition ${
-            showDice ? "bg-accent text-accent-foreground" : "bg-surface-alt text-text-muted hover:bg-border"
+          className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+            showDice ? "bg-accent text-accent-foreground" : "bg-surface-alt text-text-muted hover:bg-border hover:text-text"
           }`}
           title={t("btnRollTooltip")}
+          aria-label={t("btnRollTooltip")}
         >
-          🎲
+          <Icons.Dices className="w-[18px] h-[18px]" />
         </button>
 
         <button
           onClick={() => imageInputRef.current?.click()}
           disabled={uploading}
-          className="px-3 py-2 rounded-theme text-sm transition bg-surface-alt text-text-muted hover:bg-border disabled:opacity-50"
+          className="flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 bg-surface-alt text-text-muted hover:bg-border hover:text-text disabled:opacity-50"
           title={t("btnImageTooltip")}
+          aria-label={t("btnImageTooltip")}
         >
-          {uploading ? "⏳" : "🖼️"}
+          {uploading
+            ? <Icons.Loader2 className="w-[18px] h-[18px] animate-spin" />
+            : <Icons.ImagePlus className="w-[18px] h-[18px]" />}
         </button>
         <input
           ref={imageInputRef}
@@ -328,12 +335,14 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
         {!isPrivateLocked && (
           <button
             onClick={() => setIsPrivate(!isPrivate)}
-            className={`px-3 py-2 rounded-theme text-sm transition ${
-              isPrivate ? "bg-private-bg text-accent border border-private-border animate-pulse" : "bg-surface-alt text-text-muted hover:bg-border"
+            className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+              isPrivate ? "bg-private-bg text-accent border border-private-border" : "bg-surface-alt text-text-muted hover:bg-border hover:text-text"
             }`}
             title={t("btnPrivateTooltip")}
+            aria-label={t("btnPrivateTooltip")}
+            aria-pressed={isPrivate}
           >
-            🔒
+            <Icons.MessageSquareLock className="w-[18px] h-[18px]" />
           </button>
         )}
 

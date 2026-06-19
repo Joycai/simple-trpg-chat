@@ -998,7 +998,7 @@ export function RoomClient({
                     <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
                   </div>
                 )}
-              <ChatInput onSendMessage={handleSendMessage} isHost={isHost} roomId={room.id} mentions={mentionTargets} readOnly={readOnly} />
+              <ChatInput onSendMessage={handleSendMessage} roomId={room.id} mentions={mentionTargets} readOnly={readOnly} />
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import {
   Users, Info, Lock, Download, Dices, ClipboardList, Key,
   Trash2, Pencil, X, Menu, ArrowLeft, LogOut, FileText,
   Heart, Clover, Ruler, Home, Wand, Search, Plus, Zap, Skull, Image,
+  ImagePlus, MessageSquareLock, EyeOff, Loader2, Send, Minus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,4 +51,10 @@ export const Icons = {
   Zap: wrap(Zap),
   Skull: wrap(Skull),
   Image: wrap(Image),
+  ImagePlus: wrap(ImagePlus),
+  MessageSquareLock: wrap(MessageSquareLock),
+  EyeOff: wrap(EyeOff),
+  Loader2: wrap(Loader2),
+  Send: wrap(Send),
+  Minus: wrap(Minus),
 };
