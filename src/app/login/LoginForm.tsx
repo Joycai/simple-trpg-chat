@@ -7,13 +7,15 @@ import { useTranslations } from "next-intl";
 
 interface LoginFormProps {
   siteTitle: string;
+  /** App version, from package.json. */
+  version: string;
   /** Why the user landed on /login, e.g. "elsewhere" when kicked by a newer login. */
   noticeReason?: string;
   /** IP of the login that kicked this session (single-session notice). */
   noticeIp?: string;
 }
 
-export function LoginForm({ siteTitle, noticeReason, noticeIp }: LoginFormProps) {
+export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginFormProps) {
   const t = useTranslations("login");
   const [error, setError] = useState("");
   const notice =
@@ -255,6 +257,7 @@ export function LoginForm({ siteTitle, noticeReason, noticeIp }: LoginFormProps)
             </a>
           </p>
         )}
+        <p className="text-[10px] text-text-dim/60">v{version}</p>
       </footer>
     </div>
   );

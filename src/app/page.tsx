@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { getCachedSiteTitle } from "@/lib/config";
+import { APP_VERSION } from "@/lib/version";
 import { LobbyClient } from "@/components/LobbyClient";
 import { Dices } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -75,6 +76,20 @@ export default async function HomePage() {
           />
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="py-3 px-4 text-center text-[11px] text-text-dim border-t border-border">
+        <a
+          href="https://github.com/Joycai/simple-trpg-chat"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {siteTitle}
+        </a>
+        <span className="mx-1.5 text-text-dim/50">·</span>
+        <span>v{APP_VERSION}</span>
+      </footer>
     </div>
   );
 }
