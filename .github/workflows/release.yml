@@ -9,7 +9,7 @@ permissions:
 jobs:
   build-and-release:
     name: Build standalone & create release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     services:
@@ -28,6 +28,13 @@ jobs:
           --health-retries 5
 
     steps:
+      - name: Ensure release is from main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Releases must be triggered from main (got $GITHUB_REF)"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -43,6 +50,9 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
 
       - name: Configure DB
         run: |
@@ -63,16 +73,22 @@ jobs:
           cp -r public .next/standalone/public
           tar -czf simple-trpg-chat.tar.gz -C .next/standalone .
 
+      - name: Checksum
+        run: sha256sum simple-trpg-chat.tar.gz > simple-trpg-chat.tar.gz.sha256
+
       - name: Get timestamp
         id: ts
         run: echo "ts=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           name: Release ${{ steps.ts.outputs.ts }}
-          files: simple-trpg-chat.tar.gz
+          files: |
+            simple-trpg-chat.tar.gz
+            simple-trpg-chat.tar.gz.sha256
           tag_name: release-${{ steps.ts.outputs.ts }}
+          generate_release_notes: true
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
