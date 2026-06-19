@@ -5,6 +5,7 @@ import type { ThemeId } from "@/themes/types";
 import { AdminThemeSetter } from "@/components/AdminThemeSetter";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { getCachedSiteTitle } from "@/lib/config";
+import { APP_VERSION } from "@/lib/version";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -28,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AdminThemeSetter theme={siteTheme as ThemeId} />
       <div className="flex flex-col md:flex-row h-screen bg-bg overflow-hidden">
         {/* Responsive Sidebar */}
-        <AdminSidebar onLogout={handleLogout} siteName={siteName} />
+        <AdminSidebar onLogout={handleLogout} siteName={siteName} version={APP_VERSION} />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-surface-alt">

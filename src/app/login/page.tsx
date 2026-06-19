@@ -1,4 +1,5 @@
 import { getCachedSiteTitle } from "@/lib/config";
+import { APP_VERSION } from "@/lib/version";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage({
@@ -9,5 +10,12 @@ export default async function LoginPage({
   const siteTitle = await getCachedSiteTitle();
   const { reason, ip } = await searchParams;
 
-  return <LoginForm siteTitle={siteTitle} noticeReason={reason} noticeIp={ip} />;
+  return (
+    <LoginForm
+      siteTitle={siteTitle}
+      version={APP_VERSION}
+      noticeReason={reason}
+      noticeIp={ip}
+    />
+  );
 }

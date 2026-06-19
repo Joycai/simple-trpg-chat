@@ -10,9 +10,10 @@ import type { ReactNode } from "react";
 interface AdminSidebarProps {
   onLogout: () => Promise<void>;
   siteName: string;
+  version: string;
 }
 
-export function AdminSidebar({ onLogout, siteName }: AdminSidebarProps) {
+export function AdminSidebar({ onLogout, siteName, version }: AdminSidebarProps) {
   const t = useTranslations("admin");
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -135,11 +136,12 @@ export function AdminSidebar({ onLogout, siteName }: AdminSidebarProps) {
         </nav>
 
         {/* Footer info inside Sidebar */}
-        <div className="px-4 py-3 border-t border-border">
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-text-dim">
             <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
             {t("systemRunning")}
           </div>
+          <span className="text-[10px] text-text-dim/70">v{version}</span>
         </div>
       </aside>
     </>
