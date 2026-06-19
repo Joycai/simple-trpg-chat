@@ -10,7 +10,7 @@ import { auth } from "@/auth";
 export async function getBotPresetsAction() {
   const session = await auth();
   if (!session) return [];
-  const role = (session.user as any).role;
+  const role = session.user.role;
   if (role !== "host" && role !== "admin") return [];
   return await db.select().from(botPresets).orderBy(botPresets.name);
 }

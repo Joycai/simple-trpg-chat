@@ -169,8 +169,8 @@ export function AvatarCropper({ roomId, onClose, onSuccess }: AvatarCropperProps
       await uploadAvatarAction(roomId, croppedImage);
       onSuccess?.();
       onClose();
-    } catch (err: any) {
-      setError(err.message || t("errorUploadFailed"));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("errorUploadFailed"));
     } finally {
       setIsSubmitting(false);
     }

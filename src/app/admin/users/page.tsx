@@ -25,7 +25,7 @@ export default async function AdminUsersPage() {
           <p className="text-sm text-text-muted mt-1">{t("userManagementDesc")}</p>
         </div>
       </div>
-      <AdminUserManager users={allUsers as any[]} />
+      <AdminUserManager users={allUsers} />
     </div>
   );
 }

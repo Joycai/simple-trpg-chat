@@ -170,8 +170,8 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Check request rendering
   if (type === "check_request") {
-    let checkInfo: any = null;
-    try { checkInfo = diceDetail ? JSON.parse(diceDetail) : null; } catch {}
+    let checkInfo: { checkRequest?: { targetUserIds?: number[] } } | null = null;
+    try { checkInfo = diceDetail ? JSON.parse(diceDetail) as { checkRequest?: { targetUserIds?: number[] } } : null; } catch {}
     const isTarget = checkInfo?.checkRequest?.targetUserIds?.includes(userId);
 
     return (

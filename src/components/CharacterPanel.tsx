@@ -69,6 +69,9 @@ export function CharacterPanel({
   const ruleTemplate = charData.ruleTemplate || roomRuleTemplate || "basic";
   const [initDone, setInitDone] = useState(hasExistingData);
 
+  const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
+  const derived = computeCocDerived(cocAttrs);
+
   // Auto-init COC 7th character on first open
   useEffect(() => {
     if (readOnly) return;
@@ -80,12 +83,10 @@ export function CharacterPanel({
         router.refresh();
       }).catch(() => {});
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitDone(true);
     }
   }, [roomRuleTemplate, roomId, initDone, readOnly]);
-  
-  const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
-  const derived = computeCocDerived(cocAttrs);
   const [bio, setBio] = useState(charData.bio || "");
 
   // Custom attributes
@@ -684,6 +685,6 @@ export function CharacterPanel({
   );
 }
 
-function parseCharData(json?: string | null): Record<string, any> {
+function parseCharData(json?: string | null): Record<string, unknown> {
   try { return json ? JSON.parse(json) : {}; } catch { return {}; }
 }

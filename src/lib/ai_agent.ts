@@ -61,11 +61,11 @@ async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 
  * Constructs the LLM context for a specific Bot.
  */
 export async function buildAgentContext(
-  botUser: any,
-  room: any,
+  botUser: { botConfigJson?: string | null },
+  room: { diceRules?: string | null },
   roomId: number,
   botUserId: number,
-  preParsedConfig?: any
+  preParsedConfig?: BotConfig
 ) {
   const config = preParsedConfig || parseBotConfig(botUser.botConfigJson);
   const sysPrompt = config.systemPrompt;
@@ -106,7 +106,7 @@ export async function buildAgentContext(
     ? "Room Dice Rules: COC 7th edition (d100 rolls: 1-5 is Critical Success (大成功), 96-100 is Fumble/Critical Failure (大失败). Lower results are better in skill checks)."
     : "Room Dice Rules: Basic (No special success/failure grading for raw dice rolls). Note that in CoC/TRPG culture, rolling 100 on d100 is culturally considered a Fumble (大失败), and 1 is a Critical Success (大成功). Please react appropriately to dice roll results.";
 
-  const context: { role: string; name?: string; content: string; tool_calls?: any; tool_call_id?: string }[] = [
+  const context: { role: string; name?: string; content: string; tool_calls?: unknown; tool_call_id?: string }[] = [
     {
       role: "system",
       content: `${sysPrompt}\n\n[Room Rules]:\n- Dice Rules: ${diceRules}\n- Rule Note: ${rulesExplanation}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
@@ -376,7 +376,7 @@ export async function runAgent(
   // Filter to only enabled tools for this bot, temporarily disabling "send_message" tool
   const tools = allTools.filter(t => enabledTools.includes(t.function.name) && t.function.name !== "send_message");
 
-  const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: any; tool_call_id?: string; function_call?: any }[] = [...context];
+  const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [...context];
   let iterations = 0;
 
   const botNickname = member?.nickname || botUser?.displayName || "AI";
@@ -494,9 +494,9 @@ export async function runAgent(
         accumulatedOutputTokens += usage.completion_tokens || 0;
 
         assistantMessage = data.choices[0].message;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(`[runAgent] completion error:`, err);
-        const content = `🤖 (${botNickname}) encountered an error connecting to AI: ${err.message || String(err)}`;
+        const content = `🤖 (${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
         const [newMessage] = await db.insert(messages).values({
           roomId,
           userId: botUserId,
@@ -538,7 +538,7 @@ export async function runAgent(
         break;
       }
 
-      const toolCallResults: any[] = [];
+      const toolCallResults: unknown[] = [];
       for (const toolCall of assistantMessage.tool_calls) {
         // Execute tool calls sequentially to avoid DB race conditions on concurrent writes
         const functionName = toolCall.function.name;

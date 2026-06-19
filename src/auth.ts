@@ -94,9 +94,9 @@ const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
   ],
 });
 
-export const auth = async (...args: any[]) => {
-  const session = await (nextAuthAuth as any)(...args);
-  if (session && (session as any).invalidated) {
+export const auth = async (...args: Parameters<typeof nextAuthAuth>) => {
+  const session = await nextAuthAuth(...args);
+  if (session && (session as { invalidated?: boolean }).invalidated) {
     return null;
   }
   return session;

@@ -1,5 +1,5 @@
 /** Format a timestamp string for display */
-export function formatTime(createdAt: string | Date, t?: any): string {
+export function formatTime(createdAt: string | Date, t?: (key: string, opts?: Record<string, unknown>) => string): string {
   if (createdAt instanceof Date) {
     return formatWithDate(createdAt, t);
   }
@@ -56,7 +56,7 @@ export function formatTime(createdAt: string | Date, t?: any): string {
   return formatWithDate(date, t);
 }
 
-function formatWithDate(date: Date, t?: any): string {
+function formatWithDate(date: Date, t?: (key: string, opts?: Record<string, unknown>) => string): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
@@ -93,7 +93,7 @@ export function rollDice(faces: number, count: number): {
 }
 
 /** Format dice roll for display */
-export function formatDiceResult(diceDetail: string | null, t?: any): string {
+export function formatDiceResult(diceDetail: string | null, t?: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!diceDetail) return "";
   try {
     const detail = JSON.parse(diceDetail);

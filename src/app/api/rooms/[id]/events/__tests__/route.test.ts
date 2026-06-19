@@ -4,7 +4,7 @@ import * as eventsModule from "@/lib/events";
 
 const { subscribeToRoom } = eventsModule;
 
-let mockSession: any = {
+let mockSession: { user: { id: string; name: string; role: string } } | null = {
   user: {
     id: "1",
     name: "Test User",
@@ -32,8 +32,8 @@ vi.mock("@/lib/auth-helpers", () => {
 });
 
 vi.mock("@/lib/events", () => {
-  const listeners: Record<number, Array<(data: any) => void>> = {};
-  const subscribeToRoom = vi.fn((roomId: number, listener: (data: any) => void) => {
+  const listeners: Record<number, Array<(data: unknown) => void>> = {};
+  const subscribeToRoom = vi.fn((roomId: number, listener: (data: unknown) => void) => {
     if (!listeners[roomId]) listeners[roomId] = [];
     listeners[roomId].push(listener);
     return () => {
@@ -48,11 +48,11 @@ vi.mock("@/lib/events", () => {
 
 describe("SSE API Endpoint", () => {
   beforeEach(() => {
-    const listeners = (eventsModule as any)._listeners;
+    const listeners = (eventsModule as { _listeners: Record<number, unknown[]> })._listeners;
     for (const key in listeners) {
       delete listeners[key];
     }
-    (subscribeToRoom as any).mockClear();
+    (subscribeToRoom as ReturnType<typeof vi.fn>).mockClear();
 
     mockSession = {
       user: {
@@ -70,19 +70,19 @@ describe("SSE API Endpoint", () => {
   it("should return 401 if unauthorized", async () => {
     mockSession = null;
     const req = new Request("http://localhost/api/rooms/1/events");
-    const response = await GET(req as any, { params: Promise.resolve({ id: "1" }) });
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params: Promise.resolve({ id: "1" }) });
     expect(response.status).toBe(401);
   });
 
   it("should return 400 for invalid room ID", async () => {
     const req = new Request("http://localhost/api/rooms/invalid/events");
-    const response = await GET(req as any, { params: Promise.resolve({ id: "invalid" }) });
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params: Promise.resolve({ id: "invalid" }) });
     expect(response.status).toBe(400);
   });
 
   it("should return 200 with event-stream headers on success", async () => {
     const req = new Request("http://localhost/api/rooms/1/events");
-    const response = await GET(req as any, { params: Promise.resolve({ id: "1" }) });
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params: Promise.resolve({ id: "1" }) });
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("text/event-stream");
     expect(response.headers.get("Cache-Control")).toBe("no-cache");
@@ -92,16 +92,16 @@ describe("SSE API Endpoint", () => {
     const params = Promise.resolve({ id: "1" });
 
     // Connection 1, 2, 3 should succeed
-    const res1 = await GET(new Request("http://localhost") as any, { params });
-    const res2 = await GET(new Request("http://localhost") as any, { params });
-    const res3 = await GET(new Request("http://localhost") as any, { params });
+    const res1 = await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
+    const res2 = await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
+    const res3 = await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
 
     expect(res1.status).toBe(200);
     expect(res2.status).toBe(200);
     expect(res3.status).toBe(200);
 
     // Connection 4 should fail with 429
-    const res4 = await GET(new Request("http://localhost") as any, { params });
+    const res4 = await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
     expect(res4.status).toBe(429);
   });
 
@@ -111,31 +111,31 @@ describe("SSE API Endpoint", () => {
     const req = new Request("http://localhost", { signal: abortController.signal });
 
     // Establish connection 1, 2, 3 (with 3rd abortable)
-    await GET(new Request("http://localhost") as any, { params });
-    await GET(new Request("http://localhost") as any, { params });
-    await GET(req as any, { params });
+    await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
+    await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
+    await GET(req as unknown as import("next/server").NextRequest, { params });
 
     // Connection 4 fails
-    const res4 = await GET(new Request("http://localhost") as any, { params });
+    const res4 = await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
     expect(res4.status).toBe(429);
 
     // Abort connection 3
     abortController.abort();
 
     // Connection 4 should now succeed
-    const res5 = await GET(new Request("http://localhost") as any, { params });
+    const res5 = await GET(new Request("http://localhost") as unknown as import("next/server").NextRequest, { params });
     expect(res5.status).toBe(200);
   });
 
   it("should correctly stream and filter events based on privacy", async () => {
     const params = Promise.resolve({ id: "1" });
     const req = new Request("http://localhost");
-    const response = await GET(req as any, { params });
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params });
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
 
     expect(subscribeToRoom).toHaveBeenCalledWith(1, expect.any(Function));
-    const listener = (subscribeToRoom as any).mock.calls[0][1];
+    const listener = (subscribeToRoom as ReturnType<typeof vi.fn>).mock.calls[0][1] as (data: unknown) => void;
 
     // Read the first chunk (heartbeat)
     const firstChunk = await reader.read();

@@ -19,7 +19,7 @@ import {
 async function requireMembership(roomId: number): Promise<number> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
 
   const [member] = await db.select({ id: roomMembers.id })
     .from(roomMembers)
@@ -266,8 +266,8 @@ export async function updateResourcesAction(
 ) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const callerId = parseInt((session.user as any).id);
-  const callerRole = (session.user as any).role;
+  const callerId = parseInt(session.user.id);
+  const callerRole = session.user.role;
 
   // Check membership
   const [caller] = await db.select({ id: roomMembers.id })

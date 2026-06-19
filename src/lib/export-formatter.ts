@@ -29,7 +29,7 @@ interface ExportRoomData {
   characterSnapshots: ExportCharacterSnapshot[];
 }
 
-export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?: any) => string): string {
+export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?: Record<string, unknown>) => string): string {
   const lines: string[] = [];
 
   lines.push(`# ${t("title", { roomName: data.roomName })}`);

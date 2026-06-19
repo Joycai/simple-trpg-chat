@@ -61,8 +61,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       setSystemPrompt("");
       setAllowEditPrompt(true);
       router.refresh();
-    } catch (err: any) {
-      setCreateError(err.message || "Failed to create preset");
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create preset");
     }
   };
 
@@ -85,8 +85,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       });
       setEditingId(null);
       router.refresh();
-    } catch (err: any) {
-      setEditError(err.message || "Failed to update preset");
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : "Failed to update preset");
     }
   };
 
@@ -96,8 +96,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
         await deleteBotPresetAction(id);
         if (editingId === id) setEditingId(null);
         router.refresh();
-      } catch (err: any) {
-        alert(err.message || "Failed to delete preset");
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : "Failed to delete preset");
       }
     }
   };

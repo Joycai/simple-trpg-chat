@@ -18,7 +18,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const session = await auth();
   if (!session) redirect("/login");
 
-  const user = session.user as any;
+  const user = session.user;
   const userId = parseInt(user.id);
 
   // Get room
@@ -167,15 +167,15 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     <>
       <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} />
       <RoomClient
-        room={room as any}
-        players={members as any[]}
-        messages={visibleMessages as any[]}
+        room={room as Parameters<typeof RoomClient>[0]["room"]}
+        players={members}
+        messages={visibleMessages as Parameters<typeof RoomClient>[0]["messages"]}
         userId={userId}
         isHost={isHost}
         currentNickname={currentNickname}
         characterData={currentMember?.characterData || null}
         roomTheme={(room.theme as ThemeId) || "default"}
-        roomDiceRules={(room as any).diceRules || "basic"}
+        roomDiceRules={(room as { diceRules?: string }).diceRules || "basic"}
         aiEnabled={aiEnabled}
         validProviderIds={validProviderIds}
         userName={user.name || user.username}

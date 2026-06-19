@@ -30,7 +30,7 @@ export async function getMyAiPointsInfo(): Promise<AiPointsInfo> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
 
   // 1. Fetch current balance
   const [user] = await db

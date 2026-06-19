@@ -35,7 +35,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export const db = pgDrizzle(client, { schema: pgSchema });
-export const currentDialect: 'postgresql' = 'postgresql';
+export const currentDialect = 'postgresql' as const;
 
 console.log('[DB] Initialized PostgreSQL');
 

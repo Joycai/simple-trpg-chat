@@ -32,12 +32,12 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [newPwd, setNewPwd] = useState("");
   const [pwdMsg, setPwdMsg] = useState("");
   const [pwdOk, setPwdOk] = useState(false);
-  const [records, setRecords] = useState<any[]>([]);
+  const [records, setRecords] = useState<{ id: number; ip: string | null; userAgent: string | null; createdAt: string | Date }[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
-  
+
   // AI providers
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<{ id: number; name: string; endpoint: string; model: string; isShared: boolean; isEnabled: boolean }[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [providersError, setProvidersError] = useState("");
   const [showAddProvider, setShowAddProvider] = useState(false);
@@ -71,10 +71,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       setProvModel("");
     }
   };
-  const [usageRecords, setUsageRecords] = useState<any[]>([]);
+  const [usageRecords, setUsageRecords] = useState<{ id: number; model: string; inputTokens: number; outputTokens: number; createdAt: string | Date }[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
   const [usageError, setUsageError] = useState("");
-  const [pointsInfo, setPointsInfo] = useState<any>(null);
+  const [pointsInfo, setPointsInfo] = useState<{ points: number; lastUpdated?: string; dailyUsage: { day: string; points: number }[]; logs: { id: number; amount: number; createdAt: string; reason?: string | null }[] } | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
   const [pointsError, setPointsError] = useState("");
 
@@ -94,8 +94,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
         setProvMsg(`❌ ${result.error}`);
         setProvSuccess(false);
       }
-    } catch (e: any) {
-      setProvMsg(`❌ ${e.message}`);
+    } catch (e: unknown) {
+      setProvMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);
       setProvSuccess(false);
     }
     setTesting(false);
@@ -109,35 +109,63 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
   useEffect(() => {
     if (tab === "history") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingHistory(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHistoryError("");
       getMyLoginHistory()
-        .then(setRecords)
-        .catch((e: any) => setHistoryError(e.message || "Failed to load login history"))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        .then(data => setRecords(data as typeof records))
+        .catch((e: unknown) => {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setHistoryError(e instanceof Error ? e.message : "Failed to load login history");
+        })
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingHistory(false));
     }
     if (tab === "ai") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingProviders(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProvidersError("");
       getMyProviders()
-        .then(setProviders)
-        .catch((e: any) => setProvidersError(e.message || "Failed to load AI providers"))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        .then(data => setProviders(data as typeof providers))
+        .catch((e: unknown) => {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setProvidersError(e instanceof Error ? e.message : "Failed to load AI providers");
+        })
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingProviders(false));
     }
     if (tab === "ai-usage") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingUsage(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsageError("");
       getMyPrivateTokenUsages()
-        .then(setUsageRecords)
-        .catch((e: any) => setUsageError(e.message || "Failed to load usage statistics"))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        .then(data => setUsageRecords(data as typeof usageRecords))
+        .catch((e: unknown) => {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setUsageError(e instanceof Error ? e.message : "Failed to load usage statistics");
+        })
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingUsage(false));
     }
     if (tab === "ai-points") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingPoints(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPointsError("");
       getMyAiPointsInfo()
-        .then(setPointsInfo)
-        .catch((e: any) => setPointsError(e.message || "Failed to load AI points info"))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        .then(data => setPointsInfo(data as typeof pointsInfo))
+        .catch((e: unknown) => {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setPointsError(e instanceof Error ? e.message : "Failed to load AI points info");
+        })
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingPoints(false));
     }
   }, [tab]);
@@ -160,8 +188,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o");
       const list = await getMyProviders();
       setProviders(list);
-    } catch (e: any) {
-      setProvMsg(e.message || t("saveFailed"));
+    } catch (e: unknown) {
+      setProvMsg(e instanceof Error ? e.message : t("saveFailed"));
       setProvSuccess(false);
     }
   };
@@ -170,8 +198,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
     try {
       await deleteProvider(id);
       setProviders(providers.filter(p => p.id !== id));
-    } catch (e: any) {
-      setProvMsg(e.message || t("saveFailed"));
+    } catch (e: unknown) {
+      setProvMsg(e instanceof Error ? e.message : t("saveFailed"));
       setProvSuccess(false);
     }
   };
@@ -184,8 +212,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       setPwdOk(true);
       setPwdMsg(t("passwordResetOk"));
       setOldPwd(""); setNewPwd("");
-    } catch (e: any) {
-      setPwdMsg(e.message || t("passwordResetFail"));
+    } catch (e: unknown) {
+      setPwdMsg(e instanceof Error ? e.message : t("passwordResetFail"));
       setPwdOk(false);
     }
   };
@@ -344,7 +372,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                   ) : providersError ? (
                     <div className="text-center text-danger py-8 text-sm">{providersError}</div>
                   ) : (
-                    providers.filter((p: any) => p.isOwner).map((p) => (
+                    providers.filter((p) => (p as { isOwner?: boolean }).isOwner).map((p) => (
                       <div key={p.id} className="flex items-center justify-between p-3.5 bg-surface-alt rounded-theme border border-border hover:border-primary/40 transition">
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-text">{p.name}</div>
@@ -585,7 +613,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                         setPointsError("");
                         getMyAiPointsInfo()
                           .then(setPointsInfo)
-                          .catch((e: any) => setPointsError(e.message || "Failed to load"))
+                          .catch((e: unknown) => setPointsError(e instanceof Error ? e.message : "Failed to load"))
                           .finally(() => setLoadingPoints(false));
                       }}
                       className="text-xs text-primary hover:underline cursor-pointer"
@@ -615,7 +643,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                         </h5>
                         {pointsInfo.dailyUsage.length > 0 ? (
                           <div className="space-y-1.5 max-h-[30vh] overflow-y-auto pr-1">
-                            {pointsInfo.dailyUsage.map((u: any) => (
+                            {pointsInfo.dailyUsage.map((u) => (
                               <div key={u.day} className="flex justify-between items-center bg-surface-alt/30 p-2 rounded-theme border border-border text-xs font-theme-mono">
                                 <span className="font-mono text-text-muted">{u.day}</span>
                                 <span className="font-bold text-text">{u.points.toFixed(4)}</span>
@@ -634,7 +662,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                         </h5>
                         {pointsInfo.logs.length > 0 ? (
                           <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
-                            {pointsInfo.logs.map((log: any) => {
+                            {pointsInfo.logs.map((log) => {
                               const isNegative = log.amount < 0;
                               const amountStr = isNegative ? `${log.amount.toFixed(4)}` : `+${log.amount.toFixed(4)}`;
                               const amountColor = isNegative ? "text-danger" : "text-success";

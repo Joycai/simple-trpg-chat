@@ -11,7 +11,7 @@ import { getTranslations } from "next-intl/server";
 
 export async function requireAdmin() {
   const session = await auth();
-  if (!session || (session.user as any).role !== "admin") {
+  if (!session || session.user.role !== "admin") {
     throw new Error("Unauthorized: Admin access required");
   }
 }
@@ -21,7 +21,7 @@ export async function createUser(formData: FormData) {
 
   const username = formData.get("username") as string;
   const password = formData.get("password") as string;
-  const role = formData.get("role") as any;
+  const role = formData.get("role") as string;
   const displayName = formData.get("displayName") as string;
 
   if (!username || !password || !role || !displayName) throw new Error("Missing fields");
@@ -66,7 +66,7 @@ export async function changeOwnPassword(oldPassword: string, newPassword: string
   "use server";
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new Error("User not found");

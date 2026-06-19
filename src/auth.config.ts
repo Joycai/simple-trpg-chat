@@ -37,13 +37,13 @@ export const authConfig = {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
-      if (auth && (auth as any).invalidated) return false;
+      if (auth && (auth as { invalidated?: boolean } | null)?.invalidated) return false;
 
       const isLoggedIn = !!auth?.user;
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
 
-      const isAdmin = (auth?.user as any)?.role === "admin";
+      const isAdmin = auth?.user?.role === "admin";
 
       if (isOnAdmin) {
         if (isLoggedIn && isAdmin) return true;
@@ -66,24 +66,24 @@ export const authConfig = {
     },
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
-        token.username = (user as any).username;
-        token.sessionToken = (user as any).sessionToken;
+        token.role = user.role;
+        token.username = user.username;
+        token.sessionToken = (user as { sessionToken?: string }).sessionToken;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).role = token.role;
-        (session.user as any).username = token.username;
-        (session.user as any).id = token.sub || "";
+        session.user.role = token.role ?? "";
+        session.user.username = token.username ?? "";
+        session.user.id = token.sub ?? "";
         // Validate single-session token against DB (cached)
         if (token.sessionToken && token.sub) {
           try {
             const valid = await isSessionValid(token.sub, token.sessionToken as string);
-            if (!valid) (session as any).invalidated = true;
+            if (!valid) (session as { invalidated?: boolean }).invalidated = true;
           } catch {
-            (session as any).invalidated = true; // validation failure is blocking (fail-closed)
+            (session as { invalidated?: boolean }).invalidated = true; // validation failure is blocking (fail-closed)
           }
         }
       }

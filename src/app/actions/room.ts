@@ -63,8 +63,8 @@ export async function createRoomAction(formData: FormData) {
 
     revalidatePath("/");
     return { success: true, roomId: newRoom.id, secretKey };
-  } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "An error occurred" };
   }
 }
 
@@ -82,7 +82,7 @@ export async function joinRoomAction(formData: FormData) {
     if (!room) return { success: false, error: "Room not found" };
     if (room.secretKey !== key) return { success: false, error: "Invalid key" };
 
-    const userId = parseInt((session.user as any).id);
+    const userId = parseInt(session.user.id);
 
     const [existing] = await db
       .select()
@@ -93,21 +93,21 @@ export async function joinRoomAction(formData: FormData) {
       await db.insert(roomMembers).values({
         roomId,
         userId,
-        nickname: (session.user as any).name || "Player",
+        nickname: session.user.name || "Player",
         avatarColor: getRandomColorForUser(userId),
       });
     }
 
     revalidatePath("/");
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "An error occurred" };
   }
 }
 
 // --- Nickname & Character Actions ---
 
-export async function updateCharacterDataAction(roomId: number, characterData: any) {
+export async function updateCharacterDataAction(roomId: number, characterData: Record<string, unknown>) {
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const [member] = await db
@@ -148,7 +148,7 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
 
   // 1. Get the room to check if the caller is the host
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
@@ -342,7 +342,7 @@ export async function requestSkillCheckAction(
   // Get target nicknames
   const targetMembers = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
-  const targetNicks = targetMembers.map((m: any) => m.nickname);
+  const targetNicks = targetMembers.map((m: { nickname: string }) => m.nickname);
   const t = await getTranslations("roomActions");
   const targetNicksStr = targetNicks.join(t("separator"));
   const content = t("checkRequestContent", { hostNick, targetNicks: targetNicksStr, skillName });
@@ -495,7 +495,7 @@ export async function executeCommandAction(
 ) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const callerId = parseInt((session.user as any).id);
+  const callerId = parseInt(session.user.id);
 
   if (callerId !== userId) {
     throw new Error("Unauthorized: Cannot execute commands as another user");
@@ -511,7 +511,7 @@ export async function executeCommandAction(
 export async function deleteSkillAction(roomId: number, userId: number, skillName: string) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const callerId = parseInt((session.user as any).id);
+  const callerId = parseInt(session.user.id);
 
   if (callerId !== userId) {
     // If not the owner of the skill, must be the room host
@@ -534,7 +534,7 @@ export async function deleteSkillAction(roomId: number, userId: number, skillNam
 export async function upsertSkillAction(roomId: number, userId: number, skillName: string, skillValue: number) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const callerId = parseInt((session.user as any).id);
+  const callerId = parseInt(session.user.id);
 
   if (callerId !== userId) {
     // If not the owner of the skill, must be the room host

@@ -42,8 +42,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
       
       onClose();
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || t("saveFailed"));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }

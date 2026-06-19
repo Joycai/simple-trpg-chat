@@ -39,7 +39,8 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false }: SkillP
     setLoading(false);
   };
 
-  useEffect(() => { loadSkills(); }, [roomId, userId]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadSkills(); }, [roomId, userId]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;

@@ -25,10 +25,10 @@ export async function checkRoomAccess(
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
   if (isNaN(userId)) throw new Error("Invalid user ID in session");
 
-  const userRole = (session.user as any).role;
+  const userRole = session.user.role;
   const isAdmin = userRole === "admin";
 
   // Admins bypass all room membership/host checks

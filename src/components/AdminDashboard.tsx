@@ -23,7 +23,13 @@ export function AdminDashboard({
   botCount, roomCount, aiEnabled,
 }: AdminDashboardProps) {
   const t = useTranslations("admin");
-  const [loadData, setLoadData] = useState<any>(null);
+  const [loadData, setLoadData] = useState<{
+    cpuUsage: number;
+    memory: { used: number; total: number; percentage: number };
+    uptime: { days: number; hours: number; minutes: number };
+    processMemory: number;
+    os: { platform: string; release: string; arch: string };
+  } | null>(null);
   const [statsData, setStatsData] = useState<{
     liveOnlineCount: number;
     today: { visitCount: number; peakOnline: number };
@@ -52,14 +58,16 @@ export function AdminDashboard({
   };
 
   useEffect(() => {
-    fetchLoad();
-    const loadInterval = setInterval(fetchLoad, 10000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchLoad();
+    const loadInterval = setInterval(() => { void fetchLoad(); }, 10000);
     return () => clearInterval(loadInterval);
   }, []);
 
   useEffect(() => {
-    fetchStats(range);
-    const statsInterval = setInterval(() => fetchStats(range), 15000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchStats(range);
+    const statsInterval = setInterval(() => { void fetchStats(range); }, 15000);
     return () => clearInterval(statsInterval);
   }, [range]);
 

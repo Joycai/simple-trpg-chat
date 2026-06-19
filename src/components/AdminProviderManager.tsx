@@ -10,7 +10,7 @@ export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
   const t = useTranslations("admin");
 
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<{ id: number; name: string; endpoint: string; model: string; isShared: boolean; isEnabled: boolean; tokenRateInput?: number; tokenRateCached?: number; tokenRateOutput?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -64,7 +64,8 @@ export function AdminProviderManager() {
     try { setProviders(await getAllProviders()); } catch {}
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void load(); }, []);
 
   const handleSave = async () => {
     if (!name.trim() || !endpoint.trim() || (!editId && !key.trim())) {
@@ -222,7 +223,7 @@ export function AdminProviderManager() {
               try {
                 const r = await testAiConnection(endpoint.trim(), key.trim(), model || "gpt-4o");
                 setMsg(r.success ? tp("msgConnectOk") : `❌ ${r.error}`);
-              } catch (e: any) { setMsg(`❌ ${e.message}`); }
+              } catch (e: unknown) { setMsg(`❌ ${e instanceof Error ? e.message : String(e)}`); }
               setTesting(false);
             }} disabled={testing}
               className="py-1.5 px-3 bg-surface-alt text-text-muted rounded-theme text-sm hover:text-text disabled:opacity-50 font-medium cursor-pointer">

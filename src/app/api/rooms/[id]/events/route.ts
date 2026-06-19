@@ -12,6 +12,15 @@ interface ActiveConnection {
   cleanup: () => void;
 }
 
+interface RoomEvent {
+  id?: string | number;
+  isPrivate?: boolean;
+  targetUserId?: number;
+  userId?: number;
+  type?: string;
+  [key: string]: unknown;
+}
+
 // Next.js HMR workaround: persist userConnections on globalThis during development
 declare global {
   var __userConnections: Map<number, Set<ActiveConnection>> | undefined;
@@ -42,8 +51,8 @@ export async function GET(
     const access = await checkRoomAccess(roomId, false);
     userId = access.userId;
     isHost = access.isHost;
-  } catch (err: any) {
-    return new Response(err.message || "Forbidden", { status: 403 });
+  } catch (err: unknown) {
+    return new Response(err instanceof Error ? err.message : "Forbidden", { status: 403 });
   }
 
   // Get or initialize active connections set for this user
@@ -71,7 +80,7 @@ export async function GET(
   }
 
   const connRecord: ActiveConnection = {
-    controller: null as any,
+    controller: null as unknown as ReadableStreamDefaultController,
     cleanup: () => {}
   };
 
@@ -90,27 +99,28 @@ export async function GET(
       // Per-stream dedup: prevent sending the same message twice (protects against EventEmitter listener accumulation in dev mode)
       const sentIds = new Set<string>();
 
-      const listener = (data: any) => {
+      const listener = (data: unknown) => {
+        const ev = data as RoomEvent;
         // --- Privacy Filter V3.15 (Targeted notification fix) ---
-        if (data.isPrivate) {
-          if (data.targetUserId) {
+        if (ev.isPrivate) {
+          if (ev.targetUserId) {
             // If it's a targeted system message, only the target user can see it
-            if (data.type === "system") {
-              if (userId !== data.targetUserId) return;
+            if (ev.type === "system") {
+              if (userId !== ev.targetUserId) return;
             } else {
               // Whisper/DM: recipient + sender see it
-              if (userId !== data.targetUserId && userId !== data.userId) return;
+              if (userId !== ev.targetUserId && userId !== ev.userId) return;
             }
           } else {
             // Generic private message (no target): sender + host see it
-            const isSender = data.userId === userId;
+            const isSender = ev.userId === userId;
             if (!isSender && !isHost) return;
           }
         }
 
         // Dedup: skip if this message was already sent on this stream
-        if (data.id) {
-          const idStr = String(data.id);
+        if (ev.id) {
+          const idStr = String(ev.id);
           if (sentIds.has(idStr)) return;
           sentIds.add(idStr);
           // Bulk-prune to keep set bounded (drop oldest 50 when over limit)
@@ -131,9 +141,10 @@ export async function GET(
       const unsubscribe = subscribeToRoom(roomId, listener);
 
       // User-targeted events (typing indicators, etc.) — no privacy filter needed
-      const userListener = (data: any) => {
-        if (data.id) {
-          const idStr = String(data.id);
+      const userListener = (data: unknown) => {
+        const ev2 = data as RoomEvent;
+        if (ev2.id) {
+          const idStr = String(ev2.id);
           if (sentIds.has(idStr)) return;
           sentIds.add(idStr);
         }

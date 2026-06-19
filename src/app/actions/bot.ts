@@ -81,7 +81,7 @@ export async function getRoomBotsAction(roomId: number) {
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(and(eq(roomMembers.roomId, roomId), sql`${users.isBot} = ${sqlBool(true)}`));
 
-  return results.map((r: any) => ({
+  return results.map((r: { users: { id: number; displayName: string | null; botConfigJson: string | null }; room_members: { id: number; nickname: string; avatarColor: string | null } }) => ({
     id: r.users.id,
     memberId: r.room_members.id,
     nickname: r.room_members.nickname,

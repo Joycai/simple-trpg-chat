@@ -14,7 +14,7 @@ import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types
 /** Command Execution Result */
 export interface CommandResult {
   success: boolean;
-  message?: any;
+  message?: unknown;
   error?: string;
   isCommand: boolean;
 }
@@ -87,7 +87,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 /** Build the "unknown command" error, appending a guess when the typo is close. */
-function unknownCommandError(rawInput: string, t: any): string {
+function unknownCommandError(rawInput: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const token = (rawInput.match(/^[a-zA-Z]+/)?.[0] || "").toLowerCase();
   if (token) {
     let best = "";
@@ -169,7 +169,7 @@ async function handleDiceRoll(
   roomId: number,
   userId: number,
   rawArgs: string,
-  t: any,
+  t: (key: string, opts?: Record<string, unknown>) => string,
   ctx: CommandContext | undefined,
   hidden: boolean,
   rawCommand: string
@@ -224,9 +224,9 @@ export async function syncCharacterStat(
 
   if (!member?.characterData) return value;
 
-  let data: any;
+  let data: CharacterData;
   try {
-    data = JSON.parse(member.characterData);
+    data = JSON.parse(member.characterData) as CharacterData;
   } catch (e) {
     console.error("Failed to parse character data", e);
     return value;
@@ -240,9 +240,9 @@ export async function syncCharacterStat(
     data.cocAttributes[resolution.key] = value;
 
     const prev = data.cocDerived || {};
-    const recomputed: any = computeCocDerived(data.cocAttributes);
+    const recomputed = computeCocDerived(data.cocAttributes!);
     // Preserve player-set current values across a single-attribute change.
-    const clampOpt = (v: any, max: number) =>
+    const clampOpt = (v: unknown, max: number) =>
       typeof v === "number" ? Math.min(Math.max(0, v), max) : undefined;
     const hpCur = clampOpt(prev.hp_current, recomputed.hpMax);
     const sanCur = clampOpt(prev.san_current ?? prev.san, recomputed.sanMax);
@@ -289,7 +289,7 @@ export async function syncCharacterSanity(roomId: number, userId: number, newSan
 }
 
 /** Read a member's parsed character_data (or null). */
-async function getCharacterData(roomId: number, userId: number): Promise<any | null> {
+async function getCharacterData(roomId: number, userId: number): Promise<CharacterData | null> {
   const [member] = await db
     .select({ characterData: roomMembers.characterData })
     .from(roomMembers)
@@ -307,7 +307,7 @@ async function handleSetSkill(
   roomId: number,
   userId: number,
   args: string,
-  t: any,
+  t: (key: string, opts?: Record<string, unknown>) => string,
   ctx?: CommandContext
 ): Promise<CommandResult> {
   // Regex to match "SkillName Value" or "SkillNameValue" (compact)
@@ -397,7 +397,7 @@ async function handleRollCheck(
   roomId: number,
   userId: number,
   args: string,
-  t: any,
+  t: (key: string, opts?: Record<string, unknown>) => string,
   ctx: CommandContext | undefined,
   rawCommand: string
 ): Promise<CommandResult> {
@@ -486,7 +486,7 @@ async function performSkillCheck(
   skillName: string,
   target: number,
   coc7th: boolean,
-  t: any,
+  t: (key: string, opts?: Record<string, unknown>) => string,
   ctx: CommandContext | undefined,
   rawCommand: string
 ): Promise<CommandResult> {
@@ -523,7 +523,7 @@ async function handleSanityCheck(
   roomId: number,
   userIdArg: number,
   args: string,
-  t: any,
+  t: (key: string, opts?: Record<string, unknown>) => string,
   ctx: CommandContext | undefined,
   rawCommand: string
 ): Promise<CommandResult> {
@@ -645,7 +645,7 @@ async function syncLegacySanitySkill(roomId: number, userId: number, value: numb
 }
 
 /** Parse and roll complex dice expressions (e.g. 3d100k2 + 2d20 - 1d6 + 5) */
-export function parseAndRollExpression(expr: string, t?: any): {
+export function parseAndRollExpression(expr: string, t?: (key: string, opts?: Record<string, unknown>) => string): {
   success: boolean;
   error?: string;
   terms: TermResult[];
@@ -831,7 +831,7 @@ function formatDiceRollMessage(
   notation: string,
   terms: TermResult[],
   totalSum: number,
-  t: any,
+  t: (key: string, opts?: Record<string, unknown>) => string,
   rawCommand?: string
 ): { content: string; diceDetail: string } {
   // If there's only one term and it's a dice term

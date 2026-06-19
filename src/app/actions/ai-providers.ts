@@ -29,8 +29,8 @@ export async function createProvider(data: ProviderData): Promise<{ error: strin
   const session = await auth();
   if (!session) return { error: "Not authenticated" };
 
-  const userId = parseInt((session.user as any).id);
-  const isAdmin = (session.user as any).role === "admin";
+  const userId = parseInt(session.user.id);
+  const isAdmin = session.user.role === "admin";
 
   if (!data.name?.trim() || !data.apiEndpoint?.trim() || !data.apiKey?.trim()) {
     const t = await getTranslations("adminProviders");
@@ -57,8 +57,8 @@ export async function createProvider(data: ProviderData): Promise<{ error: strin
 
     revalidatePath("/");
     return { id: provider.id };
-  } catch (e: any) {
-    return { error: e.message ?? "Failed to save provider" };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : "Failed to save provider" };
   }
 }
 
@@ -67,14 +67,14 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   const session = await auth();
   if (!session) return { error: "Not authenticated" };
 
-  const userId = parseInt((session.user as any).id);
-  const isAdmin = (session.user as any).role === "admin";
+  const userId = parseInt(session.user.id);
+  const isAdmin = session.user.role === "admin";
 
   const [existing] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
   if (!existing) return { error: "Provider not found" };
   if (existing.ownerId !== userId && !isAdmin) return { error: "Not authorized" };
 
-  const values: any = { updatedAt: sqlNow() };
+  const values: Record<string, unknown> = { updatedAt: sqlNow() };
   if (data.name?.trim()) values.name = data.name.trim();
   if (data.apiEndpoint?.trim()) {
     const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
@@ -98,8 +98,8 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   try {
     await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
     revalidatePath("/");
-  } catch (e: any) {
-    return { error: e.message ?? "Failed to update provider" };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : "Failed to update provider" };
   }
 }
 
@@ -108,8 +108,8 @@ export async function deleteProvider(providerId: number) {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
-  const isAdmin = (session.user as any).role === "admin";
+  const userId = parseInt(session.user.id);
+  const isAdmin = session.user.role === "admin";
 
   const [existing] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
   if (!existing) throw new Error("Provider not found");
@@ -128,7 +128,7 @@ export async function getMyProviders() {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
 
   const rows = await db
     .select()
@@ -152,11 +152,11 @@ export async function getMyProviders() {
 /** Get admin's own providers (admin only, for personal management) */
 export async function getAllProviders() {
   const session = await auth();
-  if (!session || (session.user as any).role !== "admin") {
+  if (!session || session.user.role !== "admin") {
     throw new Error("Admin only");
   }
 
-  const userId = parseInt((session.user as any).id) || 0;
+  const userId = parseInt(session.user.id) || 0;
 
   const rows = await db
     .select()
@@ -172,8 +172,8 @@ export async function getProviderKey(providerId: number): Promise<string> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
-  const isAdmin = (session.user as any).role === "admin";
+  const userId = parseInt(session.user.id);
+  const isAdmin = session.user.role === "admin";
 
   const [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
   if (!provider) throw new Error("Provider not found");
@@ -209,7 +209,7 @@ export async function getMyPrivateTokenUsages() {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
 
-  const userId = parseInt((session.user as any).id);
+  const userId = parseInt(session.user.id);
 
   const rows = await db
     .select({

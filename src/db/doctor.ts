@@ -94,8 +94,8 @@ async function diagnose() {
         warn('AI_ENCRYPTION_KEY 未配置（AI 伴跑机器人功能将不可用，但不影响基础功能）。');
       }
 
-    } catch (err: any) {
-      error(`读取 .env 文件失败: ${err.message}`);
+    } catch (err: unknown) {
+      error(`读取 .env 文件失败: ${err instanceof Error ? err.message : String(err)}`);
       overallSuccess = false;
     }
   }
@@ -119,8 +119,8 @@ async function diagnose() {
         error('db.config.json 结构不正确。必须包含 "type": "postgresql" 和 "url" 字段。');
         overallSuccess = false;
       }
-    } catch (err: any) {
-      error(`解析 db.config.json 失败: ${err.message}`);
+    } catch (err: unknown) {
+      error(`解析 db.config.json 失败: ${err instanceof Error ? err.message : String(err)}`);
       overallSuccess = false;
     }
   }
@@ -135,8 +135,8 @@ async function diagnose() {
       await sql`SELECT 1`;
       success('数据库连接测试成功。');
       connectionSuccess = true;
-    } catch (err: any) {
-      error(`数据库连接失败: ${err.message}`);
+    } catch (err: unknown) {
+      error(`数据库连接失败: ${err instanceof Error ? err.message : String(err)}`);
       warn('请检查以下几项：');
       warn('  1. PostgreSQL 服务是否正在运行？');
       warn('  2. 如果使用 Docker 部署，对应的容器是否已启动？(e.g., docker ps)');
