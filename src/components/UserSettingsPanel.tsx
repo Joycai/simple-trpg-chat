@@ -32,12 +32,12 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const [newPwd, setNewPwd] = useState("");
   const [pwdMsg, setPwdMsg] = useState("");
   const [pwdOk, setPwdOk] = useState(false);
-  const [records, setRecords] = useState<{ id: number; ip: string | null; userAgent: string | null; createdAt: string | Date }[]>([]);
+  const [records, setRecords] = useState<Awaited<ReturnType<typeof getMyLoginHistory>>>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
   // AI providers
-  const [providers, setProviders] = useState<{ id: number; name: string; endpoint: string; model: string; isShared: boolean; isEnabled: boolean }[]>([]);
+  const [providers, setProviders] = useState<Awaited<ReturnType<typeof getMyProviders>>>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [providersError, setProvidersError] = useState("");
   const [showAddProvider, setShowAddProvider] = useState(false);
@@ -71,10 +71,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       setProvModel("");
     }
   };
-  const [usageRecords, setUsageRecords] = useState<{ id: number; model: string; inputTokens: number; outputTokens: number; createdAt: string | Date }[]>([]);
+  const [usageRecords, setUsageRecords] = useState<Awaited<ReturnType<typeof getMyPrivateTokenUsages>>>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
   const [usageError, setUsageError] = useState("");
-  const [pointsInfo, setPointsInfo] = useState<{ points: number; lastUpdated?: string; dailyUsage: { day: string; points: number }[]; logs: { id: number; amount: number; createdAt: string; reason?: string | null }[] } | null>(null);
+  const [pointsInfo, setPointsInfo] = useState<Awaited<ReturnType<typeof getMyAiPointsInfo>> | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
   const [pointsError, setPointsError] = useState("");
 
@@ -115,7 +115,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
       setHistoryError("");
       getMyLoginHistory()
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        .then(data => setRecords(data as typeof records))
+        .then(data => setRecords(data))
         .catch((e: unknown) => {
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setHistoryError(e instanceof Error ? e.message : "Failed to load login history");

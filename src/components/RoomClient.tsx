@@ -259,7 +259,7 @@ export function RoomClient({
         const u = p.users || p.user;
         const { isBotDisabled, isProviderError } = getBotStatus(u);
         return {
-          id: u?.id || p.user_id,
+          id: (u?.id || p.user_id) ?? 0,
           nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
           isBot: !!u?.isBot,
           isBotDisabled,
@@ -363,7 +363,7 @@ export function RoomClient({
         setLoadingMore(true);
         const oldestId = messages[0].id;
         try {
-          const older = await loadMoreMessagesAction(room.id, oldestId, 50);
+          const older = await loadMoreMessagesAction(room.id, oldestId, 50) as unknown as Message[];
           if (older.length < 50) {
             setHasMore(false);
           }
@@ -994,7 +994,7 @@ export function RoomClient({
             <div className="max-w-4xl mx-auto">
               {activeTab !== "public" && (
                   <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
-                    <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname })}</span>
+                    <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname ?? "" })}</span>
                     <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
                   </div>
                 )}
@@ -1058,7 +1058,7 @@ export function RoomClient({
               {botCount > 0 && <span className="bg-accent/10 text-accent px-2 py-1 rounded font-medium">{t("labelBots", { count: botCount })}</span>}
             </div>
             <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
-              {(players || []).map((p: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user?: { id?: number }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }, i: number) => {
+              {(players || []).map((p: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }, i: number) => {
                 const u = p.users || p.user || { id: p.user_id, displayName: p.nickname || "Player", isBot: false };
                 const nick = p.room_members?.nickname || u.displayName || u.username || "#" + u.id;
                 const isBot = !!u.isBot;
@@ -1100,7 +1100,7 @@ export function RoomClient({
                     <div className="flex gap-2">
                         {isHost && !isMe && (
                           <button
-                            onClick={() => handleViewPlayerCard(u.id, nick)}
+                            onClick={() => handleViewPlayerCard(u.id ?? 0, nick)}
                             className="bg-primary/10 hover:bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
                           >
                             {t("btnViewCard")}
@@ -1108,7 +1108,7 @@ export function RoomClient({
                         )}
                         {!isMe && (
                           <button 
-                             onClick={() => { handleTabChange(u.id); setShowMembers(false); }}
+                             onClick={() => { handleTabChange(u.id ?? 0); setShowMembers(false); }}
                              className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
                           >
                            🔒 {t("btnDm")}

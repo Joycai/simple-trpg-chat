@@ -538,7 +538,7 @@ export async function runAgent(
         break;
       }
 
-      const toolCallResults: unknown[] = [];
+      const toolCallResults: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [];
       for (const toolCall of assistantMessage.tool_calls) {
         // Execute tool calls sequentially to avoid DB race conditions on concurrent writes
         const functionName = toolCall.function.name;

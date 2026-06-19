@@ -9,7 +9,7 @@ import type { ThemeId } from "@/themes/types";
 
 /** Safe userId extraction — guards against NaN */
 function getUserId(session: { user?: { id?: string } }): number | null {
-  const id = parseInt(session?.user?.id);
+  const id = parseInt(session?.user?.id ?? "");
   return isNaN(id) ? null : id;
 }
 

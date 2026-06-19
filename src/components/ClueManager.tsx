@@ -36,7 +36,7 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
   const loadClues = async () => {
     try {
       const data = await getVisibleCluesAction(roomId);
-      setClues((data as { clue?: ClueItem }[]).map((d) => d.clue || (d as unknown as ClueItem)));
+      setClues((data as unknown as { clue?: ClueItem }[]).map((d) => d.clue || (d as unknown as ClueItem)));
     } catch { /* */ }
     setLoading(false);
   };

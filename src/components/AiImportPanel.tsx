@@ -117,7 +117,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const updateItem = (index: number, field: string, value: unknown) => {
     setItems(prev => {
       const copy = [...prev];
-      (copy[index] as Record<string, unknown>)[field] = value;
+      (copy[index] as unknown as Record<string, unknown>)[field] = value;
       return copy;
     });
   };

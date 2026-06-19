@@ -21,6 +21,7 @@ interface Distribution {
   toUserId: number;
   createdAt: string;
   action: string;
+  viewed?: number | boolean | null;
   item?: InventoryItem;
   toUsername?: string;
   fromUsername?: string;
@@ -222,7 +223,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const typeLabel = (tStr: string) => ({ clue: t("typeClue"), info: t("typeInfo"), character: t("typeChar"), item: t("typeItem") }[tStr] || tStr);
   const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
   const typeEmoji = (tStr: string) => ({ clue: "🃏", info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
-  const isNew = (d: { viewed?: boolean | number }) => d.viewed === false || d.viewed === 0;
+  const isNew = (d: { viewed?: boolean | number | null }) => d.viewed === false || d.viewed === 0;
 
   // Filter backpack dynamically
   const filteredBackpack = myItems.filter(d => {

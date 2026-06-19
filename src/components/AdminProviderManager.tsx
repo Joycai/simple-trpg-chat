@@ -10,7 +10,7 @@ export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
   const t = useTranslations("admin");
 
-  const [providers, setProviders] = useState<{ id: number; name: string; endpoint: string; model: string; isShared: boolean; isEnabled: boolean; tokenRateInput?: number; tokenRateCached?: number; tokenRateOutput?: number }[]>([]);
+  const [providers, setProviders] = useState<Awaited<ReturnType<typeof getAllProviders>>>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);

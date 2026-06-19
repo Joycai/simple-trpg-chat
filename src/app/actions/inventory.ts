@@ -128,7 +128,7 @@ export async function distributeItemAction(
         inArray(inventoryDistributions.toUserId, targetUserIds)
       )
     );
-  const existingUserIds = new Set(existing.map((e: { toUserId: number }) => e.toUserId));
+  const existingUserIds = new Set(existing.map((e) => e.toUserId));
   targetUserIds = targetUserIds.filter((id) => !existingUserIds.has(id));
 
   const t = await getTranslations("inventoryActions");

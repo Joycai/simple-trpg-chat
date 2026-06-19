@@ -64,7 +64,13 @@ export function CharacterPanel({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
 
   // Character data
-  const charData = parseCharData(characterData);
+  const charData = parseCharData(characterData) as {
+    ruleTemplate?: string;
+    cocAttributes?: CocAttributes;
+    bio?: string;
+    customAttributes?: { name: string; value: number; max?: number }[];
+    cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
+  };
   const hasExistingData = !!characterData && !!charData.ruleTemplate;
   const ruleTemplate = charData.ruleTemplate || roomRuleTemplate || "basic";
   const [initDone, setInitDone] = useState(hasExistingData);

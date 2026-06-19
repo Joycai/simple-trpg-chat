@@ -74,9 +74,10 @@ export const authConfig = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.role = token.role ?? "";
-        session.user.username = token.username ?? "";
-        session.user.id = token.sub ?? "";
+        // NextAuth v5 beta callback types don't surface augmented Session fields; cast required
+        (session.user as { role: string; username: string; id: string }).role = (token.role as string) ?? "";
+        (session.user as { role: string; username: string; id: string }).username = (token.username as string) ?? "";
+        (session.user as { role: string; username: string; id: string }).id = token.sub ?? "";
         // Validate single-session token against DB (cached)
         if (token.sessionToken && token.sub) {
           try {

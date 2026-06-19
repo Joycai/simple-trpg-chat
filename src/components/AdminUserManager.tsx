@@ -43,7 +43,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [pwdStatus, setPwdStatus] = useState<"" | "success" | "error">("");
   // Login history
   const [historyUser, setHistoryUser] = useState<{ id: number; username: string } | null>(null);
-  const [historyRecords, setHistoryRecords] = useState<{ id: number; ip: string | null; userAgent: string | null; createdAt: string | Date }[]>([]);
+  const [historyRecords, setHistoryRecords] = useState<Awaited<ReturnType<typeof getUserLoginHistory>>>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const handleUpdateCredits = async () => {

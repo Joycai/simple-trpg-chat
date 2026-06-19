@@ -23,13 +23,7 @@ export function AdminDashboard({
   botCount, roomCount, aiEnabled,
 }: AdminDashboardProps) {
   const t = useTranslations("admin");
-  const [loadData, setLoadData] = useState<{
-    cpuUsage: number;
-    memory: { used: number; total: number; percentage: number };
-    uptime: { days: number; hours: number; minutes: number };
-    processMemory: number;
-    os: { platform: string; release: string; arch: string };
-  } | null>(null);
+  const [loadData, setLoadData] = useState<Awaited<ReturnType<typeof getServerLoadAction>> | null>(null);
   const [statsData, setStatsData] = useState<{
     liveOnlineCount: number;
     today: { visitCount: number; peakOnline: number };
