@@ -20,7 +20,7 @@ import { HostCheckDialog } from "./HostCheckDialog";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
 import { AvatarCropper } from "./AvatarCropper";
-import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction } from "@/app/actions/room";
+import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { getCharacterDataAction } from "@/app/actions/character";
@@ -435,6 +435,23 @@ export function RoomClient({
             window.dispatchEvent(new CustomEvent("ai-import-result", { detail: data }));
             return;
           }
+          if (data.type === "check_update") {
+            // A target responded to a host check request — patch the stored respondedUserIds
+            // so the x/y count updates and the roller's dice icon is disabled.
+            const idStr = String(data.id);
+            setMessages((prev) => prev.map((m) => {
+              if (String(m.id) !== idStr || !m.diceDetail) return m;
+              try {
+                const detail = JSON.parse(m.diceDetail);
+                if (detail?.checkRequest) {
+                  detail.checkRequest.respondedUserIds = data.respondedUserIds;
+                  return { ...m, diceDetail: JSON.stringify(detail) };
+                }
+              } catch { /* */ }
+              return m;
+            }));
+            return;
+          }
           if (data.type === "inventory_updated") {
             // Host edited an item — bump the key so any open InventoryPanel reloads
             // the edited content (distributed copies sync via the item relation).
@@ -600,31 +617,29 @@ export function RoomClient({
     }
   }, [room.id]);
 
-  const handleCheckRequest = useCallback((skillName: string, diceType: string) => {
+  const handleCheckRequest = useCallback((messageId: number, skillName: string, diceType: string) => {
+    // Ensure the skill is set (client-side prompt), then let the server roll the check
+    // and record the response against this check request.
     getMySkillsAction(room.id).then(async (skills) => {
-      const skill = skills.find((s: { skillName: string }) => s.skillName === skillName);
-      if (skill) {
-        if (diceType === "d100") {
-          await executeCommandAction(room.id, userId, `.rc ${skillName}`);
-        } else {
-          const faces = parseInt(diceType.replace("d", ""));
-          await rollDiceAction(room.id, faces, 1);
-        }
-      } else {
+      const hasSkill = skills.some((s: { skillName: string }) => s.skillName === skillName);
+      if (!hasSkill && diceType === "d100") {
         const value = prompt(t("promptNoSkill", { skillName }), "50");
-        if (value && !isNaN(parseInt(value))) {
-          const v = parseInt(value);
-          await upsertSkillAction(room.id, skillName, v);
-          if (diceType === "d100") {
-            await executeCommandAction(room.id, userId, `.rc ${skillName}`);
-          } else {
-            const faces = parseInt(diceType.replace("d", ""));
-            await rollDiceAction(room.id, faces, 1);
-          }
-        }
+        if (!value || isNaN(parseInt(value))) return;
+        await upsertSkillAction(room.id, skillName, parseInt(value));
+      }
+      const result = await respondToCheckRequestAction(room.id, messageId);
+      if (!result.success && result.error) {
+        const errorMsg = {
+          id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
+          content: tra("commandError", { error: result.error }),
+          type: "system" as const, isPrivate: true, diceDetail: null,
+          createdAt: new Date().toISOString(),
+        };
+        seenIdsRef.current.add(String(errorMsg.id));
+        setMessages(prev => [...prev, errorMsg]);
       }
     });
-  }, [room.id, userId, t]);
+  }, [room.id, userId, t, tra]);
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
@@ -953,6 +968,7 @@ export function RoomClient({
                     onViewCharacter={handleViewPlayerCard}
                     onStartDM={handleTabChange}
                     onCheckRequest={handleCheckRequest}
+                    messageId={msg.id}
                     isBot={!!playerData?.users?.isBot}
                     roomId={room.id}
                     hostId={room.hostId}
@@ -1044,7 +1060,13 @@ export function RoomClient({
         <AiImportPanel roomId={room.id} onClose={() => setShowAiImport(false)} />
       )}
       {showCheckDialog && (
-        <HostCheckDialog roomId={room.id} players={mentionTargets} onClose={() => setShowCheckDialog(false)} />
+        <HostCheckDialog
+          roomId={room.id}
+          players={activeTab === "public" ? mentionTargets : mentionTargets.filter(p => p.id === activeTab)}
+          isPrivate={activeTab !== "public"}
+          channelTargetUserId={activeTab !== "public" ? activeTab : undefined}
+          onClose={() => setShowCheckDialog(false)}
+        />
       )}
       {showMembers && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMembers(false)}>

@@ -43,7 +43,8 @@ interface ChatMessageProps {
   isHost?: boolean;
   onViewCharacter?: (userId: number, nickname: string) => void;
   onStartDM?: (userId: number) => void;
-  onCheckRequest?: (skillName: string, diceType: string) => void;
+  onCheckRequest?: (messageId: number, skillName: string, diceType: string) => void;
+  messageId?: number;
   roomId?: number;
   hostId?: number;
   avatarColor?: string | null;
@@ -65,6 +66,7 @@ export const ChatMessage = memo(function ChatMessage({
   onViewCharacter,
   onStartDM,
   onCheckRequest,
+  messageId,
   roomId,
   hostId,
   avatarColor,
@@ -170,25 +172,39 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Check request rendering
   if (type === "check_request") {
-    type CheckInfo = { checkRequest?: { targetUserIds?: number[]; skillName?: string; diceType?: string } };
+    type CheckInfo = { checkRequest?: { targetUserIds?: number[]; skillName?: string; diceType?: string; respondedUserIds?: number[] } };
     let checkInfo: CheckInfo | null = null;
     try { checkInfo = diceDetail ? JSON.parse(diceDetail) as CheckInfo : null; } catch {}
-    const isTarget = userId !== undefined && checkInfo?.checkRequest?.targetUserIds?.includes(userId);
+    const cr = checkInfo?.checkRequest;
+    const targetIds = cr?.targetUserIds ?? [];
+    const respondedIds = cr?.respondedUserIds ?? [];
+    const isTarget = userId !== undefined && targetIds.includes(userId);
+    const alreadyResponded = userId !== undefined && respondedIds.includes(userId);
+    const totalCount = targetIds.length;
+    const doneCount = respondedIds.length;
 
     return (
       <div className="flex justify-center py-2 animate-in fade-in">
         <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-          isTarget ? "bg-accent/10 border border-accent/30" : "bg-surface-alt"
+          isTarget && !alreadyResponded ? "bg-accent/10 border border-accent/30" : "bg-surface-alt"
         }`}>
           <span className="text-sm text-text">{content}</span>
-          {isTarget && onCheckRequest && (
+          {totalCount > 0 && (
+            <span className="text-xs text-text-muted whitespace-nowrap">
+              {t("checkProgress", { done: doneCount, total: totalCount })}
+            </span>
+          )}
+          {isTarget && !alreadyResponded && onCheckRequest && messageId !== undefined && (
             <button
-              onClick={() => onCheckRequest(checkInfo!.checkRequest!.skillName ?? "", checkInfo!.checkRequest!.diceType ?? "")}
+              onClick={() => onCheckRequest(messageId, cr?.skillName ?? "", cr?.diceType ?? "")}
               className="bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
               title={t("clickCheck")}
             >
               🎲
             </button>
+          )}
+          {isTarget && alreadyResponded && (
+            <span className="text-accent text-base" title={t("checkDone")}>✅</span>
           )}
         </div>
       </div>

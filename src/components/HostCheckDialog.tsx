@@ -7,20 +7,26 @@ import { useTranslations } from "next-intl";
 interface Player {
   id: number;
   nickname: string;
+  isBot?: boolean;
 }
 
 interface Props {
   roomId: number;
   players: Player[];
+  isPrivate?: boolean;
+  channelTargetUserId?: number;
   onClose: () => void;
 }
 
-export function HostCheckDialog({ roomId, players, onClose }: Props) {
+export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, onClose }: Props) {
   const t = useTranslations("hostCheck");
   const [step, setStep] = useState<"players" | "skill">("players");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [skillName, setSkillName] = useState("");
   const [diceType, setDiceType] = useState("d100");
+
+  const nonBotIds = players.filter(p => !p.isBot).map(p => p.id);
+  const allNonBotSelected = nonBotIds.length > 0 && nonBotIds.every(id => selectedIds.has(id));
 
   const togglePlayer = (id: number) => {
     const next = new Set(selectedIds);
@@ -28,15 +34,16 @@ export function HostCheckDialog({ roomId, players, onClose }: Props) {
     setSelectedIds(next);
   };
 
-  const selectAll = () => {
-    if (selectedIds.size === players.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(players.map(p => p.id)));
+  // "Require everyone (excluding bots)" — selects all non-bot players, or clears if already all selected.
+  const requireAllNoBot = () => {
+    if (allNonBotSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(nonBotIds));
   };
 
   const handleSubmit = async () => {
-    const targets = selectedIds.size === players.length ? players.map(p => p.id) : [...selectedIds];
+    const targets = [...selectedIds];
     if (targets.length === 0) return;
-    await requestSkillCheckAction(roomId, targets, skillName, diceType);
+    await requestSkillCheckAction(roomId, targets, skillName.trim(), diceType, isPrivate, channelTargetUserId);
     onClose();
   };
 
@@ -54,9 +61,11 @@ export function HostCheckDialog({ roomId, players, onClose }: Props) {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">{t("selectPlayers")}</span>
-              <button onClick={selectAll} className="text-xs text-primary hover:underline cursor-pointer">
-                {selectedIds.size === players.length ? t("deselectAll") : t("selectAll")}
-              </button>
+              {nonBotIds.length > 0 && (
+                <button onClick={requireAllNoBot} className="text-xs text-primary hover:underline cursor-pointer">
+                  {allNonBotSelected ? t("deselectAll") : t("requireAllNoBot")}
+                </button>
+              )}
             </div>
             <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
               {players.map(p => (
@@ -67,6 +76,11 @@ export function HostCheckDialog({ roomId, players, onClose }: Props) {
                   <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => togglePlayer(p.id)}
                     className="accent-primary" />
                   <span className="text-sm text-text">{p.nickname}</span>
+                  {p.isBot && (
+                    <span className="text-[10px] font-bold text-accent border border-accent/40 rounded px-1 py-0.5 leading-none">
+                      {t("botBadge")}
+                    </span>
+                  )}
                 </label>
               ))}
             </div>
