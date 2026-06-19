@@ -8,25 +8,66 @@ export function invalidateSessionCache(userId: string) {
   sessionCache.delete(userId);
 }
 
-export async function isSessionValid(userId: string, tokenSession: string): Promise<boolean> {
-  const cached = sessionCache.get(userId);
-  const now = Date.now();
-  if (cached && cached.expires > now) {
-    return cached.token === tokenSession && !cached.isBanned;
-  }
-  // Cache miss — query DB
+// Why a session is no longer valid:
+//   - "valid"          → token matches, not banned
+//   - "token_mismatch" → another login rotated the token (single-session "顶号")
+//   - "banned"         → account banned by an admin
+//   - "unavailable"    → DB error; fail-closed, treat as invalid without a specific notice
+export type SessionStatus = "valid" | "token_mismatch" | "banned" | "unavailable";
+
+/** Look up the IP of the account's most recent login — shown to the kicked user. */
+async function getLatestLoginIp(userId: string): Promise<string | undefined> {
   try {
     const { db } = await import("./db");
-    const { users } = await import("./db/schema");
-    const { eq } = await import("drizzle-orm");
-    const [user] = await db.select({ sessionToken: users.sessionToken, isBanned: users.isBanned }).from(users).where(eq(users.id, parseInt(userId)));
-    const dbToken = user?.sessionToken || null;
-    const isBanned = !!user?.isBanned;
-    sessionCache.set(userId, { token: dbToken || "", isBanned, expires: now + CACHE_TTL });
-    return dbToken === tokenSession && !isBanned;
+    const { loginHistory } = await import("./db/schema");
+    const { eq, desc } = await import("drizzle-orm");
+    const [row] = await db
+      .select({ ip: loginHistory.ipAddress })
+      .from(loginHistory)
+      .where(eq(loginHistory.userId, parseInt(userId)))
+      .orderBy(desc(loginHistory.loginAt))
+      .limit(1);
+    return row?.ip || undefined;
   } catch {
-    return false; // DB error: block user (fail-closed)
+    return undefined;
   }
+}
+
+/**
+ * Resolve why (if at all) a session is invalid. Token/ban lookup is cached (30s);
+ * the latest-login IP is fetched fresh only on the rare token-mismatch path.
+ */
+export async function getSessionStatus(
+  userId: string,
+  tokenSession: string,
+): Promise<{ status: SessionStatus; kickedFromIp?: string }> {
+  const now = Date.now();
+  let dbToken: string;
+  let isBanned: boolean;
+
+  const cached = sessionCache.get(userId);
+  if (cached && cached.expires > now) {
+    dbToken = cached.token;
+    isBanned = cached.isBanned;
+  } else {
+    try {
+      const { db } = await import("./db");
+      const { users } = await import("./db/schema");
+      const { eq } = await import("drizzle-orm");
+      const [user] = await db.select({ sessionToken: users.sessionToken, isBanned: users.isBanned }).from(users).where(eq(users.id, parseInt(userId)));
+      dbToken = user?.sessionToken || "";
+      isBanned = !!user?.isBanned;
+      sessionCache.set(userId, { token: dbToken, isBanned, expires: now + CACHE_TTL });
+    } catch {
+      return { status: "unavailable" }; // DB error: block user (fail-closed)
+    }
+  }
+
+  if (isBanned) return { status: "banned" };
+  if (dbToken !== tokenSession) {
+    return { status: "token_mismatch", kickedFromIp: await getLatestLoginIp(userId) };
+  }
+  return { status: "valid" };
 }
 
 export const authConfig = {
@@ -37,7 +78,20 @@ export const authConfig = {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
-      if (auth && (auth as { invalidated?: boolean } | null)?.invalidated) return false;
+      const invalid = auth as
+        | { invalidated?: boolean; invalidatedReason?: SessionStatus; invalidatedIp?: string }
+        | null;
+      if (invalid?.invalidated) {
+        // Kicked by a newer login → send back to /login with a "logged in elsewhere" notice.
+        // Other invalid reasons (banned / DB error) fall through to the default login redirect.
+        if (invalid.invalidatedReason === "token_mismatch") {
+          const url = new URL("/login", nextUrl);
+          url.searchParams.set("reason", "elsewhere");
+          if (invalid.invalidatedIp) url.searchParams.set("ip", invalid.invalidatedIp);
+          return Response.redirect(url);
+        }
+        return false;
+      }
 
       const isLoggedIn = !!auth?.user;
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
@@ -78,13 +132,20 @@ export const authConfig = {
         (session.user as { role: string; username: string; id: string }).role = (token.role as string) ?? "";
         (session.user as { role: string; username: string; id: string }).username = (token.username as string) ?? "";
         (session.user as { role: string; username: string; id: string }).id = token.sub ?? "";
-        // Validate single-session token against DB (cached)
+        // Validate single-session token against DB (cached), carrying the reason
+        // so the kicked user can be told they were logged in elsewhere.
         if (token.sessionToken && token.sub) {
+          const inv = session as { invalidated?: boolean; invalidatedReason?: SessionStatus; invalidatedIp?: string };
           try {
-            const valid = await isSessionValid(token.sub, token.sessionToken as string);
-            if (!valid) (session as { invalidated?: boolean }).invalidated = true;
+            const { status, kickedFromIp } = await getSessionStatus(token.sub, token.sessionToken as string);
+            if (status !== "valid") {
+              inv.invalidated = true;
+              inv.invalidatedReason = status;
+              if (kickedFromIp) inv.invalidatedIp = kickedFromIp;
+            }
           } catch {
-            (session as { invalidated?: boolean }).invalidated = true; // validation failure is blocking (fail-closed)
+            inv.invalidated = true; // validation failure is blocking (fail-closed)
+            inv.invalidatedReason = "unavailable";
           }
         }
       }

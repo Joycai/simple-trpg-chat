@@ -7,11 +7,19 @@ import { useTranslations } from "next-intl";
 
 interface LoginFormProps {
   siteTitle: string;
+  /** Why the user landed on /login, e.g. "elsewhere" when kicked by a newer login. */
+  noticeReason?: string;
+  /** IP of the login that kicked this session (single-session notice). */
+  noticeIp?: string;
 }
 
-export function LoginForm({ siteTitle }: LoginFormProps) {
+export function LoginForm({ siteTitle, noticeReason, noticeIp }: LoginFormProps) {
   const t = useTranslations("login");
   const [error, setError] = useState("");
+  const notice =
+    noticeReason === "elsewhere"
+      ? t("noticeLoggedInElsewhere", { ip: noticeIp || t("unknownIp") })
+      : "";
   const [showLicense, setShowLicense] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -70,6 +78,12 @@ export function LoginForm({ siteTitle }: LoginFormProps) {
           <h1 className="text-2xl font-bold text-text">{mainHeaderTitle}</h1>
           <p className="text-sm text-text-muted mt-1">{t("subtitle")}</p>
         </div>
+
+        {notice && !error && (
+          <div className="bg-primary/10 border border-primary/30 text-text px-4 py-2 rounded text-sm text-center">
+            ℹ️ {notice}
+          </div>
+        )}
 
         {error && (
           <div className="bg-danger/10 border border-danger/30 text-danger px-4 py-2 rounded text-sm text-center animate-pulse">

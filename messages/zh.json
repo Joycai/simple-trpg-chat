@@ -24,6 +24,8 @@
     "errorBanned": "您的账号已被管理员封禁，无法登录",
     "errorRateLimit": "登录尝试过于频繁，请 1 分钟后重试。",
     "errorUnknown": "登录失败，请稍后重试",
+    "noticeLoggedInElsewhere": "您的账号已在其他位置登录（IP：{ip}），当前会话已失效，请重新登录。",
+    "unknownIp": "未知",
     "licenseAgreement": "开源许可协议与双重授权说明",
     "licenseAgreementText": "开源协议与用户条款",
     "acceptLicensePrompt": "登录即代表您同意本项目的",
