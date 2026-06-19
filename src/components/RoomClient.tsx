@@ -296,8 +296,10 @@ export function RoomClient({
           return m.userId === userId || m.targetUserId === userId;
         }
         
-        // Show other private messages (like private rolls) in public only if they have no specific target (private to GM)
-        return !m.targetUserId;
+        // Private rolls in the public feed:
+        // - GM-private rolls (no target) are shown to the sender (and host via the SQL filter)
+        // - hidden rolls (.rh — self-targeted) are shown only to the roller
+        return !m.targetUserId || (m.targetUserId === userId && m.userId === userId);
       });
     }
     // Show private messages between current user and active target
@@ -546,9 +548,10 @@ export function RoomClient({
     }
 
     // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
+    // Pass the channel context so command feedback stays inside a DM instead of broadcasting publicly.
     if (content.startsWith(".") && type === "text") {
       try {
-        const result = await executeCommandAction(room.id, userId, content);
+        const result = await executeCommandAction(room.id, userId, content, finalIsPrivate, finalTargetId);
         if (!result.success && result.error) {
           const errorMsg = {
             id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",

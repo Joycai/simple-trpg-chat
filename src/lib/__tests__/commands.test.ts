@@ -17,13 +17,16 @@ vi.mock("@/db", () => ({
       set: vi.fn(() => ({
         where: vi.fn()
       }))
+    })),
+    delete: vi.fn(() => ({
+      where: vi.fn()
     }))
   },
   sqlNow: vi.fn(() => "NOW()")
 }));
 
 vi.mock("@/db/schema", () => ({
-  roomSkills: { roomId: "roomId", userId: "userId", skillName: "skillName" },
+  roomSkills: { id: "id", roomId: "roomId", userId: "userId", skillName: "skillName" },
   rooms: { id: "id" },
   roomMembers: { characterData: "characterData" }
 }));
@@ -41,6 +44,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { parseAndRollExpression, executeCommand } from "../commands";
+import { db } from "@/db";
 import { rooms, roomSkills, roomMembers } from "@/db/schema";
 
 beforeEach(() => {
@@ -132,12 +136,13 @@ describe("Commands - parseAndRollExpression", () => {
   });
 
   it("should validate command prefix matching regex", () => {
-    const regex = /^(help|st|rc|sc|rd|ra|r)\s*(.*)$/i;
+    const regex = /^(help|st|rc|sc|rd|ra|rh|r)\s*(.*)$/i;
 
     const testCases = [
       { input: "st侦查50", cmd: "st", args: "侦查50" },
       { input: "st 侦查50", cmd: "st", args: "侦查50" },
       { input: "rc侦查", cmd: "rc", args: "侦查" },
+      { input: "rc侦查90", cmd: "rc", args: "侦查90" },
       { input: "ra侦查60", cmd: "ra", args: "侦查60" },
       { input: "ra 侦查 60", cmd: "ra", args: "侦查 60" },
       { input: "ra侦查", cmd: "ra", args: "侦查" },
@@ -145,7 +150,10 @@ describe("Commands - parseAndRollExpression", () => {
       { input: "help", cmd: "help", args: "" },
       { input: "rd100", cmd: "rd", args: "100" },
       { input: "rd", cmd: "rd", args: "" },
-      // `ra` must not steal the `.r` dice command
+      // `rh` (hidden roll) must not be stolen by the `.r` dice command
+      { input: "rh100", cmd: "rh", args: "100" },
+      { input: "rh2d100k1", cmd: "rh", args: "2d100k1" },
+      // `ra` / `rh` must not steal the `.r` dice command
       { input: "r2d100", cmd: "r", args: "2d100" },
       { input: "r3d100k2+2d20+1d6", cmd: "r", args: "3d100k2+2d20+1d6" },
     ];
@@ -176,12 +184,12 @@ describe("Commands - parseAndRollExpression", () => {
 });
 
 describe("Commands - executeCommand (.sc)", () => {
-  it("should fail with scNotCoc7th if room.ruleTemplate is not coc7th", async () => {
+  it("should fail with scNotCoc7th when neither rule column is coc7th", async () => {
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "basic", diceRules: "coc7th" }];
+            return [{ id: 1, ruleTemplate: "basic", diceRules: "basic" }];
           }
           return [];
         })
@@ -192,6 +200,26 @@ describe("Commands - executeCommand (.sc)", () => {
     expect(result.success).toBe(false);
     expect(result.isCommand).toBe(true);
     expect(result.error).toBe("scNotCoc7th");
+  });
+
+  it("should treat diceRules=coc7th as a COC room (unified gating)", async () => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "basic", diceRules: "coc7th" }];
+          }
+          if (table === roomMembers) {
+            return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocDerived: { san: 50, sanMax: 99 } }) }];
+          }
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".sc 0/1d6");
+    expect(result.success).toBe(true);
+    expect(result.isCommand).toBe(true);
   });
 
   it("should succeed and roll check if room.ruleTemplate is coc7th", async () => {
@@ -219,15 +247,15 @@ describe("Commands - executeCommand (.sc)", () => {
   });
 });
 
-describe("Commands - executeCommand (.ra)", () => {
-  it("should fail with raUsageError when no skill is given", async () => {
+describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
+  it("should fail with rcUsageError when no skill is given", async () => {
     const result = await executeCommand(1, 1, ".ra");
     expect(result.success).toBe(false);
     expect(result.isCommand).toBe(true);
-    expect(result.error).toBe("raUsageError");
+    expect(result.error).toBe("rcUsageError");
   });
 
-  it("should delegate to .rc (rcSkillNotSet) when no value is given and skill is unset", async () => {
+  it("should report rcSkillNotSet when no value is given and skill/attribute is unset", async () => {
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
         where: vi.fn(() => {
@@ -245,22 +273,153 @@ describe("Commands - executeCommand (.ra)", () => {
     expect(result.error).toBe("rcSkillNotSet");
   });
 
-  it("should set the skill and roll a check when a value is given", async () => {
+  it("should roll a one-off check at the supplied value without persisting", async () => {
+    const { sendMessageAction } = await import("@/app/actions/room");
+    vi.mocked(sendMessageAction).mockClear();
+    const insertSpy = vi.spyOn(db, "insert");
+
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
             return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
           }
-          // upsert is a mocked no-op; performSkillCheck uses the passed value, no read-back
           return [];
         })
       }))
     });
 
-    const result = await executeCommand(1, 1, ".ra侦查60");
+    const result = await executeCommand(1, 1, ".rc侦查60");
     expect(result.success).toBe(true);
-    expect(result.isCommand).toBe(true);
     expect(result.message).toBeDefined();
+    // Spec: an inline value is a one-off check; it must NOT write to room_skills.
+    expect(insertSpy).not.toHaveBeenCalled();
+
+    // The dice detail should carry the target value and original command echo.
+    const detail = JSON.parse(vi.mocked(sendMessageAction).mock.calls[0][3] as string);
+    expect(detail.check.target).toBe(60);
+    expect(detail.command).toBe(".rc侦查60");
+    insertSpy.mockRestore();
+  });
+
+  it("should fall back to a COC attribute when no skill row exists (.rc 体质)", async () => {
+    const { sendMessageAction } = await import("@/app/actions/room");
+    vi.mocked(sendMessageAction).mockClear();
+
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+          }
+          if (table === roomMembers) {
+            return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocAttributes: { con: 70 } }) }];
+          }
+          return []; // no roomSkills row
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".rc 体质");
+    expect(result.success).toBe(true);
+    const detail = JSON.parse(vi.mocked(sendMessageAction).mock.calls[0][3] as string);
+    expect(detail.check.skillName).toBe("体质");
+    expect(detail.check.target).toBe(70);
+  });
+});
+
+describe("Commands - hidden roll (.rh) and channel visibility", () => {
+  it(".rh is visible only to the roller (isPrivate + targetUserId=self)", async () => {
+    const { sendMessageAction } = await import("@/app/actions/room");
+    vi.mocked(sendMessageAction).mockClear();
+
+    const result = await executeCommand(1, 7, ".rh100");
+    expect(result.success).toBe(true);
+    const call = vi.mocked(sendMessageAction).mock.calls[0];
+    expect(call[4]).toBe(true);   // isPrivate
+    expect(call[5]).toBe(7);      // targetUserId === roller
+  });
+
+  it(".rd in a public channel broadcasts to everyone", async () => {
+    const { sendMessageAction } = await import("@/app/actions/room");
+    vi.mocked(sendMessageAction).mockClear();
+
+    await executeCommand(1, 7, ".rd100");
+    const call = vi.mocked(sendMessageAction).mock.calls[0];
+    expect(call[4]).toBe(false);          // not private
+    expect(call[5]).toBeUndefined();      // no target
+  });
+
+  it(".rd issued inside a DM stays between the two participants", async () => {
+    const { sendMessageAction } = await import("@/app/actions/room");
+    vi.mocked(sendMessageAction).mockClear();
+
+    await executeCommand(1, 7, ".rd100", { isPrivate: true, targetUserId: 9 });
+    const call = vi.mocked(sendMessageAction).mock.calls[0];
+    expect(call[4]).toBe(true);   // private
+    expect(call[5]).toBe(9);      // delivered to the DM partner (+ sender via SSE filter)
+  });
+});
+
+describe("Commands - .st COC routing", () => {
+  beforeEach(() => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+          }
+          if (table === roomMembers) {
+            return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocAttributes: { pow: 60 }, cocDerived: { sanMax: 60 } }) }];
+          }
+          return [];
+        })
+      }))
+    });
+  });
+
+  it("routes an attribute to the character sheet, not room_skills", async () => {
+    const insertSpy = vi.spyOn(db, "insert");
+    const updateSpy = vi.spyOn(db, "update");
+    insertSpy.mockClear();
+    updateSpy.mockClear();
+
+    const result = await executeCommand(1, 1, ".st 力量50");
+    expect(result.success).toBe(true);
+    expect(updateSpy).toHaveBeenCalled();   // character_data updated
+    expect(insertSpy).not.toHaveBeenCalled(); // no room_skills row created
+    insertSpy.mockRestore();
+    updateSpy.mockRestore();
+  });
+
+  it("treats 外貌 / 魅力 / app as the same attribute", async () => {
+    const { resolveCocStat } = await import("@/lib/coc-stats");
+    expect(resolveCocStat("外貌").canonical).toBe(resolveCocStat("魅力").canonical);
+    expect(resolveCocStat("app").canonical).toBe(resolveCocStat("外貌").canonical);
+    const r = resolveCocStat("魅力");
+    expect(r.kind === "attribute" && r.key).toBe("app");
+  });
+
+  it("routes a resource (理智值) to the character sheet, not room_skills", async () => {
+    const insertSpy = vi.spyOn(db, "insert");
+    insertSpy.mockClear();
+    const result = await executeCommand(1, 1, ".st 理智值40");
+    expect(result.success).toBe(true);
+    expect(insertSpy).not.toHaveBeenCalled();
+    insertSpy.mockRestore();
+  });
+});
+
+describe("Commands - unknown command suggestions", () => {
+  it("suggests the nearest command for a close typo", async () => {
+    const result = await executeCommand(1, 1, ".halp");
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("unknownCommandGuess");
+  });
+
+  it("falls back to the generic message for a far-off token", async () => {
+    const result = await executeCommand(1, 1, ".zzzzzz");
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("unknownCommand");
   });
 });
