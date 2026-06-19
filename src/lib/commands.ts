@@ -42,7 +42,9 @@ export async function executeCommand(
   const t = await getTranslations("commands");
 
   // Regex matches: command prefix + optional spaces + arguments
-  const match = trimmed.slice(1).match(/^(help|st|rc|sc|rd|r)\s*(.*)$/i);
+  // NOTE: `ra` must precede `r` in the alternation — alternation is left-to-right,
+  // so listing `r` first would make `.ra侦查` match the `.r` dice command with args `a侦查`.
+  const match = trimmed.slice(1).match(/^(help|st|rc|sc|rd|ra|r)\s*(.*)$/i);
   if (!match) {
     return { success: false, isCommand: true, error: t("unknownCommand") };
   }
@@ -82,6 +84,11 @@ export async function executeCommand(
   // --- .rc (Roll Check) ---
   if (cmd === "rc") {
     return await handleRollCheck(roomId, userId, args, t);
+  }
+
+  // --- .ra (Roll Ability: check, optionally setting the skill first) ---
+  if (cmd === "ra") {
+    return await handleRollAbility(roomId, userId, args, t);
   }
 
   // --- .sc (Sanity Check) ---
@@ -229,16 +236,26 @@ async function handleRollCheck(
 
   if (!skill) return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }) };
 
-  // 3. Roll d100
+  // 3. Roll the check against the stored skill value
+  return await performSkillCheck(roomId, skillName, skill.skillValue, room.diceRules, t);
+}
+
+/** Roll a d100 skill check against a target value, format the result, and broadcast it. */
+async function performSkillCheck(
+  roomId: number,
+  skillName: string,
+  target: number,
+  diceRules: string | null,
+  t: any
+): Promise<CommandResult> {
   const roll = rollDie(100);
-  const target = skill.skillValue;
-  
+
   let successLevel = roll <= target ? t("success") : t("failure");
   let icon = roll <= target ? "✅" : "❌";
   let grade: "success" | "failure" | "critical" | "fumble" = roll <= target ? "success" : "failure";
 
-  // 4. Apply COC 7th rules if enabled
-  if (room.diceRules === 'coc7th') {
+  // Apply COC 7th rules if enabled
+  if (diceRules === 'coc7th') {
     if (roll <= 5) { successLevel = t("critical"); icon = "🟢"; grade = "critical"; }
     else if (roll >= 96) { successLevel = t("fumble"); icon = "🔴"; grade = "fumble"; }
   }
@@ -256,6 +273,62 @@ async function handleRollCheck(
   const msg = await sendMessageAction(roomId, content, "dice", detail);
 
   return { success: true, isCommand: true, message: msg };
+}
+
+/**
+ * .ra: Roll Ability check.
+ * - `.ra侦查60` sets 侦查=60 (persisted to roomSkills) and rolls a check against 60.
+ * - `.ra侦查` (no value) behaves exactly like `.rc侦查`.
+ */
+async function handleRollAbility(
+  roomId: number,
+  userId: number,
+  args: string,
+  t: any
+): Promise<CommandResult> {
+  const trimmedArgs = args.trim();
+  if (!trimmedArgs) return { success: false, isCommand: true, error: t("raUsageError") };
+
+  // Split an optional trailing value: "侦查60" / "侦查 60" → name="侦查", value=60
+  const m = trimmedArgs.match(/^(.+?)\s*([0-9]+)$/);
+
+  // No value provided → identical to .rc (check against the stored value)
+  if (!m) return await handleRollCheck(roomId, userId, trimmedArgs, t);
+
+  let skillName = m[1].trim();
+  const value = parseInt(m[2], 10);
+
+  // Mirror handleSetSkill validation: length cap, value range, sanity normalization
+  if (skillName.length > 50) skillName = skillName.slice(0, 50);
+  if (value < 0 || value > 999) {
+    return { success: false, isCommand: true, error: t("raUsageError") };
+  }
+  const lowerName = skillName.toLowerCase();
+  if (lowerName === "san" || lowerName === "san值") {
+    skillName = "理智值";
+  }
+
+  // Persist the skill (and sync sanity into characterData when applicable)
+  let finalValue = value;
+  if (skillName === "理智值") {
+    finalValue = await syncCharacterSanity(roomId, userId, value);
+  }
+
+  await db.insert(roomSkills).values({
+    roomId,
+    userId,
+    skillName,
+    skillValue: finalValue,
+  }).onConflictDoUpdate({
+    target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
+    set: { skillValue: finalValue, updatedAt: sqlNow() },
+  });
+
+  // Fetch room for dice rules, then roll the check against the just-set value
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
+
+  return await performSkillCheck(roomId, skillName, finalValue, room.diceRules, t);
 }
 
 /** .sc: Sanity Check */

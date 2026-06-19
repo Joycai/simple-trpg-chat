@@ -38,6 +38,48 @@ export async function createInventoryItemAction(
 }
 
 /**
+ * updateInventoryItemAction (Host only).
+ * Edits the canonical inventory item. Because backpacks/clues are read through the
+ * inventoryDistributions -> item relation, the edit propagates to every recipient's
+ * already-distributed copy. A real-time event makes open inventory panels reload.
+ */
+export async function updateInventoryItemAction(
+  roomId: number,
+  itemId: number,
+  data: {
+    type?: "clue" | "info" | "character" | "item";
+    title: string;
+    content: any;
+    imageUrl?: string | null;
+  }
+) {
+  await checkRoomAccess(roomId, true);
+
+  // Verify item belongs to room
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
+  if (!item) throw new Error("Item not found");
+  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+
+  const [updated] = await db
+    .update(inventoryItems)
+    .set({
+      ...(data.type ? { type: data.type } : {}),
+      title: data.title,
+      contentJson: JSON.stringify(data.content),
+      // Only overwrite imageUrl when explicitly provided (undefined = leave as-is)
+      ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+    })
+    .where(eq(inventoryItems.id, itemId))
+    .returning();
+
+  // Live-sync: notify all room subscribers so open inventory panels reload the edited item.
+  broadcastToRoom(roomId, { type: "inventory_updated", itemId });
+
+  revalidatePath(`/rooms/${roomId}`);
+  return updated;
+}
+
+/**
  * distributeItemAction
  */
 export async function distributeItemAction(

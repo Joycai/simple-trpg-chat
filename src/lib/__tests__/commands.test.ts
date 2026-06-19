@@ -132,16 +132,20 @@ describe("Commands - parseAndRollExpression", () => {
   });
 
   it("should validate command prefix matching regex", () => {
-    const regex = /^(help|st|rc|sc|rd|r)\s*(.*)$/i;
+    const regex = /^(help|st|rc|sc|rd|ra|r)\s*(.*)$/i;
 
     const testCases = [
       { input: "st侦查50", cmd: "st", args: "侦查50" },
       { input: "st 侦查50", cmd: "st", args: "侦查50" },
       { input: "rc侦查", cmd: "rc", args: "侦查" },
+      { input: "ra侦查60", cmd: "ra", args: "侦查60" },
+      { input: "ra 侦查 60", cmd: "ra", args: "侦查 60" },
+      { input: "ra侦查", cmd: "ra", args: "侦查" },
       { input: "sc0/1", cmd: "sc", args: "0/1" },
       { input: "help", cmd: "help", args: "" },
       { input: "rd100", cmd: "rd", args: "100" },
       { input: "rd", cmd: "rd", args: "" },
+      // `ra` must not steal the `.r` dice command
       { input: "r2d100", cmd: "r", args: "2d100" },
       { input: "r3d100k2+2d20+1d6", cmd: "r", args: "3d100k2+2d20+1d6" },
     ];
@@ -209,6 +213,52 @@ describe("Commands - executeCommand (.sc)", () => {
     });
 
     const result = await executeCommand(1, 1, ".sc 0/1d6");
+    expect(result.success).toBe(true);
+    expect(result.isCommand).toBe(true);
+    expect(result.message).toBeDefined();
+  });
+});
+
+describe("Commands - executeCommand (.ra)", () => {
+  it("should fail with raUsageError when no skill is given", async () => {
+    const result = await executeCommand(1, 1, ".ra");
+    expect(result.success).toBe(false);
+    expect(result.isCommand).toBe(true);
+    expect(result.error).toBe("raUsageError");
+  });
+
+  it("should delegate to .rc (rcSkillNotSet) when no value is given and skill is unset", async () => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+          }
+          return []; // roomSkills empty → skill not set
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".ra侦查");
+    expect(result.success).toBe(false);
+    expect(result.isCommand).toBe(true);
+    expect(result.error).toBe("rcSkillNotSet");
+  });
+
+  it("should set the skill and roll a check when a value is given", async () => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+          }
+          // upsert is a mocked no-op; performSkillCheck uses the passed value, no read-back
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".ra侦查60");
     expect(result.success).toBe(true);
     expect(result.isCommand).toBe(true);
     expect(result.message).toBeDefined();
