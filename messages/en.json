@@ -24,6 +24,8 @@
     "errorBanned": "Your account has been banned by an administrator and cannot log in.",
     "errorRateLimit": "Too many failed login attempts. Please try again in 1 minute.",
     "errorUnknown": "Login failed, please try again",
+    "noticeLoggedInElsewhere": "Your account was logged in from another location (IP: {ip}). This session has ended — please log in again.",
+    "unknownIp": "unknown",
     "licenseAgreement": "Open Source License & Dual Licensing Description",
     "licenseAgreementText": "Open Source License & User Terms",
     "acceptLicensePrompt": "By logging in, you agree to the project's ",

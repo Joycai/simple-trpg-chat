@@ -71,6 +71,10 @@
 ### 3.5 限流封禁（⑤，暂缓）
 现有 `src/lib/rate-limit.ts` 仅用于密码爆破防护（密码错误才计数），与顶号无关，无需改动。「掌握密码即可锁死账号」的自锁风险是暂缓主因，留待后续单独评估。
 
+> **实现状态（已完成）**：§3.2 / §3.3 已实现 —— `getSessionStatus` 区分 `valid`/`token_mismatch`/`banned`/`unavailable`，
+> 顶号时取最近登录 IP；`authorized` 回调将被顶用户重定向至 `/login?reason=elsewhere&ip=...`，登录页展示「已在别处登录」提示。
+> §3.4（Bot/管理员）天然满足，§3.5（限流）按决策未动。测试见 `src/lib/__tests__/banned.test.ts`。
+
 ## 4. 落地建议
 
 单个小 PR 即可，无需拆分、无新增数据列、无新增基础设施：
