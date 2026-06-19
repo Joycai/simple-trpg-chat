@@ -18,7 +18,7 @@ export async function createInventoryItemAction(
   data: {
     type: "clue" | "info" | "character" | "item";
     title: string;
-    content: any;
+    content: unknown;
     imageUrl?: string;
   }
 ) {
@@ -49,7 +49,7 @@ export async function updateInventoryItemAction(
   data: {
     type?: "clue" | "info" | "character" | "item";
     title: string;
-    content: any;
+    content: unknown;
     imageUrl?: string | null;
   }
 ) {
@@ -104,7 +104,7 @@ export async function distributeItemAction(
         eq(roomMembers.roomId, roomId),
         not(eq(roomMembers.userId, fromUserId))
       ));
-    targetUserIds = members.map((m: any) => m.userId);
+    targetUserIds = members.map((m: { userId: number }) => m.userId);
   } else {
     // Verify recipient is a member of the room
     const [recipientMember] = await db.select().from(roomMembers).where(
@@ -128,7 +128,7 @@ export async function distributeItemAction(
         inArray(inventoryDistributions.toUserId, targetUserIds)
       )
     );
-  const existingUserIds = new Set(existing.map((e: any) => e.toUserId));
+  const existingUserIds = new Set(existing.map((e) => e.toUserId));
   targetUserIds = targetUserIds.filter((id) => !existingUserIds.has(id));
 
   const t = await getTranslations("inventoryActions");
@@ -160,7 +160,7 @@ export async function distributeItemAction(
   });
 
   // Prepare notification promises
-  const promises: Promise<any>[] = [];
+  const promises: Promise<unknown>[] = [];
 
   // 1. Send targeted "Receipt" notification to each player (ONLY they see it)
   for (const tid of targetUserIds) {
@@ -285,7 +285,7 @@ export async function getMyInventory(roomId: number) {
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return raw.map((d: any) => ({
+  return raw.map((d) => ({
     ...d,
     fromUsername: d.sender?.displayName || d.sender?.username
   }));
@@ -320,7 +320,7 @@ export async function getDistributionHistory(roomId: number) {
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return raw.map((d: any) => ({
+  return raw.map((d) => ({
     ...d,
     toUsername: d.recipient?.displayName || d.recipient?.username,
     fromUsername: d.sender?.displayName || d.sender?.username
@@ -437,7 +437,7 @@ export async function publishClueAction(
     const existing = await db.select({ toUserId: inventoryDistributions.toUserId }).from(inventoryDistributions).where(
       and(eq(inventoryDistributions.itemId, itemId), inArray(inventoryDistributions.toUserId, targetUserIds))
     );
-    const existingUserIds = new Set(existing.map((e: any) => e.toUserId).filter(Boolean));
+    const existingUserIds = new Set(existing.map((e: { toUserId: number | null }) => e.toUserId).filter(Boolean));
     const newTargetIds = targetUserIds.filter(id => !existingUserIds.has(id));
 
     if (newTargetIds.length > 0) {
@@ -507,7 +507,7 @@ export async function getUnifiedInventoryAction(roomId: number) {
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return distributions.map((d: any) => ({
+  return distributions.map((d) => ({
     id: d.item.id,
     type: d.item.type,
     title: d.item.title,

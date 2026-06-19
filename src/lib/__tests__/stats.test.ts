@@ -42,8 +42,8 @@ describe("Traffic and Online Statistics Helpers", () => {
 
   it("should return correct live online count based on unique active connections", () => {
     globalThis.__userConnections = new Map([
-      [101, new Set([{ controller: {} as any, cleanup: () => {} }])],
-      [102, new Set([{ controller: {} as any, cleanup: () => {} }, { controller: {} as any, cleanup: () => {} }])],
+      [101, new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
+      [102, new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }, { controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
       [103, new Set([])], // empty connections set
     ]);
 

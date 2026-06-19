@@ -36,12 +36,13 @@ export function ClueManager({ roomId, isHost, players, onClose }: ClueManagerPro
   const loadClues = async () => {
     try {
       const data = await getVisibleCluesAction(roomId);
-      setClues((data as any[]).map((d: any) => d.clue || d) as ClueItem[]);
+      setClues((data as unknown as { clue?: ClueItem }[]).map((d) => d.clue || (d as unknown as ClueItem)));
     } catch { /* */ }
     setLoading(false);
   };
 
-  useEffect(() => { loadClues(); }, [roomId]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadClues(); }, [roomId]);
 
   const handleCreate = async () => {
     if (!title.trim()) return;

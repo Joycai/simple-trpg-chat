@@ -8,8 +8,8 @@ import { revalidatePath } from "next/cache";
 import type { ThemeId } from "@/themes/types";
 
 /** Safe userId extraction — guards against NaN */
-function getUserId(session: any): number | null {
-  const id = parseInt(session?.user?.id);
+function getUserId(session: { user?: { id?: string } }): number | null {
+  const id = parseInt(session?.user?.id ?? "");
   return isNaN(id) ? null : id;
 }
 
@@ -36,7 +36,7 @@ export async function getSiteTheme(): Promise<ThemeId> {
  */
 export async function setSiteTheme(theme: ThemeId) {
   const session = await auth();
-  if (!session || (session.user as any).role !== "admin") {
+  if (!session || session.user.role !== "admin") {
     throw new Error("Only admin can set site theme");
   }
 
@@ -76,7 +76,7 @@ export async function getUserThemePreference(): Promise<ThemeId | null> {
  */
 export async function updateSiteFavicon(dataUrl: string): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
-  if (!session || (session.user as any).role !== "admin") {
+  if (!session || session.user.role !== "admin") {
     return { success: false, error: "Unauthorized" };
   }
 

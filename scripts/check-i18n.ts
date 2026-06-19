@@ -1,13 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
 
-function getFlatKeys(obj: any, prefix = ""): string[] {
+function getFlatKeys(obj: Record<string, unknown>, prefix = ""): string[] {
   let keys: string[] = [];
   for (const k in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, k)) {
       const fullKey = prefix ? `${prefix}.${k}` : k;
       if (typeof obj[k] === "object" && obj[k] !== null && !Array.isArray(obj[k])) {
-        keys = keys.concat(getFlatKeys(obj[k], fullKey));
+        keys = keys.concat(getFlatKeys(obj[k] as Record<string, unknown>, fullKey));
       } else {
         keys.push(fullKey);
       }

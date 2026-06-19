@@ -43,7 +43,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
   const [pwdStatus, setPwdStatus] = useState<"" | "success" | "error">("");
   // Login history
   const [historyUser, setHistoryUser] = useState<{ id: number; username: string } | null>(null);
-  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [historyRecords, setHistoryRecords] = useState<Awaited<ReturnType<typeof getUserLoginHistory>>>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const handleUpdateCredits = async () => {
@@ -61,8 +61,8 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
       setCreditTarget(null);
       setCreditAmount("");
       router.refresh();
-    } catch (e: any) {
-      setCreditMsg(e.message || t("pointsUpdateFail"));
+    } catch (e: unknown) {
+      setCreditMsg(e instanceof Error ? e.message : t("pointsUpdateFail"));
       setCreditStatus("error");
     }
   };
@@ -87,8 +87,8 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
       setPwdMsg(t("passwordResetOk"));
       setPwdStatus("success");
       setOldPwd(""); setNewPwd("");
-    } catch (e: any) {
-      setPwdMsg(e.message || t("passwordResetFail"));
+    } catch (e: unknown) {
+      setPwdMsg(e instanceof Error ? e.message : t("passwordResetFail"));
       setPwdStatus("error");
     }
   };
@@ -121,8 +121,8 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
       try {
         await toggleBanUser(userId);
         router.refresh();
-      } catch (e: any) {
-        alert(e.message || t("operationFailed"));
+      } catch (e: unknown) {
+        alert(e instanceof Error ? e.message : t("operationFailed"));
       }
     }
   };
@@ -282,7 +282,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
             {allUsers.length === 0 ? (
               <tr><td colSpan={4} className="py-12 text-center text-text-dim text-sm">{t("noUsers")}</td></tr>
             ) : (
-              allUsers.map((user: any) => (
+              allUsers.map((user) => (
               <tr key={user.id} className="border-b border-border last:border-0 hover:bg-surface-alt transition">
                 <td className="py-3 font-mono text-sm text-text">
                   <span className={user.isBanned ? "text-danger line-through opacity-60" : ""}>

@@ -94,9 +94,11 @@ const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
   ],
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const auth = async (...args: any[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = await (nextAuthAuth as any)(...args);
-  if (session && (session as any).invalidated) {
+  if (session && (session as { invalidated?: boolean }).invalidated) {
     return null;
   }
   return session;

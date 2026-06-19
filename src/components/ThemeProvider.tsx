@@ -49,6 +49,7 @@ export function ThemeProvider({ children, siteTheme, userTheme }: ThemeProviderP
     if (!userTheme) {
       const stored = localStorage.getItem("trpg-theme") as ThemeId | null;
       if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setThemeState(stored);
       }
     } else {

@@ -325,7 +325,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-bold text-text truncate">{room.name}</h3>
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    {(room as any).ruleTemplate === "coc7th" && (
+                    {(room as { ruleTemplate?: string }).ruleTemplate === "coc7th" && (
                       <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-flex items-center gap-0.5"><Icons.Skull className="w-3 h-3" /> COC 7th</span>
                     )}
                     <span className="text-[10px] text-text-muted bg-surface-alt px-2 py-0.5 rounded">

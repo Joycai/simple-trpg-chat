@@ -49,11 +49,11 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const [enableTools, setEnableTools] = useState<string[]>(["send_message", "roll_dice"]);
   const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
   const [botColor, setBotColor] = useState<string>("#f43f5e");
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<{ id: number; name: string; model: string; isShared: boolean }[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);
 
   // Preset State
-  const [presets, setPresets] = useState<any[]>([]);
+  const [presets, setPresets] = useState<{ id: number; name: string; defaultNickname: string; systemPrompt: string; allowEditPrompt: boolean }[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<number | string>("");
   const [allowEditPrompt, setAllowEditPrompt] = useState(true);
 
@@ -81,7 +81,8 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     setLoading(false);
   };
 
-  useEffect(() => { loadBots(); }, [roomId]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadBots(); }, [roomId]);
 
   const handlePresetChange = (presetIdVal: string) => {
     setSelectedPresetId(presetIdVal);
@@ -145,7 +146,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
 
   const startEdit = (bot: BotInfo) => {
     setEditingBot(bot);
-    setBotName((bot as any).name || bot.config.name || "");
+    setBotName(bot.config.name || "");
     setBotNickname(bot.nickname || "");
     setSystemPrompt(bot.config.systemPrompt || "");
     setModel(bot.config.model || "gpt-4o-mini");
@@ -401,7 +402,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                       const p = providers.find(x => x.id === pid);
                       if (p) setModel(p.model || "gpt-4o");
                     }} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
-                      {providers.map((p: any) => (
+                      {providers.map((p) => (
                         <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}</option>
                       ))}
                     </select>

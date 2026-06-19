@@ -16,7 +16,7 @@ export default async function HomePage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const user = session.user as any;
+  const user = session.user;
   const userId = parseInt(user.id) || 0;
   const isHost = user.role === "host";
   const isAdmin = user.role === "admin";
@@ -68,7 +68,7 @@ export default async function HomePage() {
       <main className="flex-1 p-8">
         <div className="max-w-6xl mx-auto">
           <LobbyClient
-            rooms={allRooms as any[]}
+            rooms={allRooms}
             joinedRoomIds={joinedRoomIds}
             isHost={isHost}
             userId={userId}

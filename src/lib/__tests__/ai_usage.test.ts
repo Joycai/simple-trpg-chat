@@ -88,7 +88,7 @@ describe("AI Usage & Billing Deductions", () => {
             limit: vi.fn().mockResolvedValue([mockProvider])
           })
         })
-      } as any;
+      } as unknown as ReturnType<typeof import("@/db").db.select>;
     });
 
     selectMock.mockImplementationOnce(() => {
@@ -104,7 +104,7 @@ describe("AI Usage & Billing Deductions", () => {
             limit: limitFn
           })
         })
-      } as any;
+      } as unknown as ReturnType<typeof import("@/db").db.select>;
     });
 
     // Run token recorder
@@ -143,7 +143,7 @@ describe("AI Usage & Billing Deductions", () => {
             limit: vi.fn().mockResolvedValue([mockProvider])
           })
         })
-      } as any;
+      } as unknown as ReturnType<typeof import("@/db").db.select>;
     });
 
     selectMock.mockImplementationOnce(() => {
@@ -159,7 +159,7 @@ describe("AI Usage & Billing Deductions", () => {
             limit: limitFn
           })
         })
-      } as any;
+      } as unknown as ReturnType<typeof import("@/db").db.select>;
     });
 
     await recordTokenUsage(10, 1, 100, 50, 200);
@@ -186,7 +186,7 @@ describe("AI Usage & Billing Deductions", () => {
             limit: vi.fn().mockResolvedValue([mockProvider])
           })
         })
-      } as any;
+      } as unknown as ReturnType<typeof import("@/db").db.select>;
     });
 
     await recordTokenUsage(10, 1, 100, 50, 200);

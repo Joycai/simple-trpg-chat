@@ -45,7 +45,9 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
 
   // Sync isPrivate with isPrivateLocked prop
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsPrivate(isPrivateLocked);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isPrivateLocked) setPrivateTargetId(null); // When locked to a tab, we don't need the local target selector
   }, [isPrivateLocked]);
 
@@ -79,6 +81,7 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
   }, [mentionMatch, mentions]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMentionIndex(0);
   }, [mentionMatch?.query]);
 

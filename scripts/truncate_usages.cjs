@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const postgres = require('postgres');
 const sql = postgres("postgres://trpg:trpg_dev_pwd@localhost:5432/simple_trpg_chat");
 

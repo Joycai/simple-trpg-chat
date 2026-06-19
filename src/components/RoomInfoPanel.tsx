@@ -56,8 +56,8 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
       await updateRoomNameAction(room.id, newName);
       setEditingName(false);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || t("saveFailed"));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setSavingName(false);
     }
@@ -69,8 +69,8 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
     try {
       await setRoomFrozenAction(room.id, !room.frozen);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || t("saveFailed"));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setTogglingFreeze(false);
     }
@@ -83,8 +83,8 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
       await regenerateRoomPasswordAction(room.id);
       setShowPasswordConfirm(false);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || t("saveFailed"));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setRegeneratingPassword(false);
     }

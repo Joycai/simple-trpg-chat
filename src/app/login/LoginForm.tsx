@@ -207,7 +207,7 @@ export function LoginForm({ siteTitle }: LoginFormProps) {
                   本软件及源代码均“按现状”提供，作者不提供任何形式的担保。作者不对使用者因使用本软件造成的任何直接或间接法律纠纷、数据丢失、经济赔偿承担任何民事或刑事责任。
                 </p>
                 <p className="mt-0.5 opacity-90">
-                  The software is provided "as is", without warranty of any kind. The author assumes no liability for any legal issues or damages arising from the use of this software.
+                  The software is provided &quot;as is&quot;, without warranty of any kind. The author assumes no liability for any legal issues or damages arising from the use of this software.
                 </p>
               </div>
             </div>

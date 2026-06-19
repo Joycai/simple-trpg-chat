@@ -38,7 +38,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [error, setError] = useState("");
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<{ id: number; name: string; model: string; isShared: boolean }[]>([]);
   const [providerId, setProviderId] = useState<number | null>(null);
   const jobIdRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,8 +100,8 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
           finishAnalyzing();
         }
       }, 90000);
-    } catch (e: any) {
-      setError(e.message || tCommon("error"));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : tCommon("error"));
       finishAnalyzing();
     }
   };
@@ -114,10 +114,10 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
     finishAnalyzing();
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
+  const updateItem = (index: number, field: string, value: unknown) => {
     setItems(prev => {
       const copy = [...prev];
-      (copy[index] as any)[field] = value;
+      (copy[index] as unknown as Record<string, unknown>)[field] = value;
       return copy;
     });
   };
@@ -134,8 +134,8 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
       setImportedCount(result.imported);
       setStep("done");
       router.refresh();
-    } catch (e: any) {
-      setError(e.message || tCommon("error"));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : tCommon("error"));
     } finally {
       setImporting(false);
     }
@@ -172,7 +172,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
                     onChange={e => setProviderId(parseInt(e.target.value))}
                     disabled={analyzing}
                     className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none disabled:opacity-50">
-                    {providers.map((p: any) => (
+                    {providers.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}
                       </option>

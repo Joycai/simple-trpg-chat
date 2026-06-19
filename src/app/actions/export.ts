@@ -137,7 +137,7 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
 
   return {
     roomName: room.name,
-    ruleTemplate: (room as any).ruleTemplate || "basic",
+    ruleTemplate: (room as { ruleTemplate?: string }).ruleTemplate || "basic",
     diceRules: room.diceRules || "basic",
     theme: room.theme || "default",
     exportTime: new Date().toISOString(),
@@ -157,7 +157,7 @@ export async function buildExportAction(roomId: number) {
   const { formatAsMarkdown, formatAsJson } = await import("@/lib/export-formatter");
   return {
     roomName: data.roomName,
-    markdown: formatAsMarkdown(data, (key, vals) => t(key as any, vals)),
+    markdown: formatAsMarkdown(data, (key, vals) => t(key as Parameters<typeof t>[0], vals)),
     json: formatAsJson(data),
   };
 }

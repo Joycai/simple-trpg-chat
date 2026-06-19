@@ -88,8 +88,8 @@ export async function startTextImportAnalysisAction(
       .finally(() => importJobs.delete(jobId));
 
     return { success: true, jobId };
-  } catch (e: any) {
-    return { success: false, error: e.message || t("errRequestFailGeneral") };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : t("errRequestFailGeneral") };
   }
 }
 
@@ -128,7 +128,7 @@ async function runAnalysis(
   controller: AbortController,
   t: Translator
 ): Promise<void> {
-  const emit = (data: Record<string, any>) =>
+  const emit = (data: Record<string, unknown>) =>
     emitToUser(roomId, userId, { type: "ai_import_result", jobId, ...data });
 
   try {
@@ -225,14 +225,15 @@ async function runAnalysis(
     }
 
     emit({ success: true, items: validItems });
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Distinguish user cancellation / timeout from genuine failures.
-    if (e?.name === "TimeoutError") {
+    const err = e as { name?: string; message?: string } | null;
+    if (err?.name === "TimeoutError") {
       emit({ success: false, error: t("errTimeout") });
-    } else if (e?.name === "AbortError") {
+    } else if (err?.name === "AbortError") {
       emit({ success: false, error: t("errCancelled"), cancelled: true });
     } else {
-      emit({ success: false, error: e?.message || t("errRequestFailGeneral") });
+      emit({ success: false, error: err?.message || t("errRequestFailGeneral") });
     }
   }
 }
@@ -253,7 +254,7 @@ export async function batchImportItemsAction(
     await db.transaction(async (tx) => {
       for (const item of items) {
         // Insert all items (including clues) into inventoryItems
-        const [newItem] = await (tx.insert as any)(inventoryItems).values({
+        const [newItem] = await tx.insert(inventoryItems).values({
           roomId,
           creatorId: userId,
           type: item.type as "clue" | "info" | "character" | "item",
@@ -280,7 +281,7 @@ export async function batchImportItemsAction(
 
     revalidatePath(`/rooms/${roomId}`);
     return { success: true, imported };
-  } catch (err: any) {
-    return { success: false, imported: 0, error: err.message || t("errImportFailed") };
+  } catch (err: unknown) {
+    return { success: false, imported: 0, error: err instanceof Error ? err.message : t("errImportFailed") };
   }
 }

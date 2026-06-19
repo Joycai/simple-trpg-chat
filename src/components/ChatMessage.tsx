@@ -32,7 +32,7 @@ function setCacheEntry(key: string, value: { data: CharacterData | null; promise
 interface ChatMessageProps {
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system" | "check_request" | "image";
+  type: "text" | "dice" | "system" | "check_request" | "image" | "clue";
   diceDetail?: string | null;
   isPrivate: boolean;
   createdAt: string;
@@ -170,9 +170,10 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Check request rendering
   if (type === "check_request") {
-    let checkInfo: any = null;
-    try { checkInfo = diceDetail ? JSON.parse(diceDetail) : null; } catch {}
-    const isTarget = checkInfo?.checkRequest?.targetUserIds?.includes(userId);
+    type CheckInfo = { checkRequest?: { targetUserIds?: number[]; skillName?: string; diceType?: string } };
+    let checkInfo: CheckInfo | null = null;
+    try { checkInfo = diceDetail ? JSON.parse(diceDetail) as CheckInfo : null; } catch {}
+    const isTarget = userId !== undefined && checkInfo?.checkRequest?.targetUserIds?.includes(userId);
 
     return (
       <div className="flex justify-center py-2 animate-in fade-in">
@@ -182,7 +183,7 @@ export const ChatMessage = memo(function ChatMessage({
           <span className="text-sm text-text">{content}</span>
           {isTarget && onCheckRequest && (
             <button
-              onClick={() => onCheckRequest(checkInfo.checkRequest.skillName, checkInfo.checkRequest.diceType)}
+              onClick={() => onCheckRequest(checkInfo!.checkRequest!.skillName ?? "", checkInfo!.checkRequest!.diceType ?? "")}
               className="bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
               title={t("clickCheck")}
             >

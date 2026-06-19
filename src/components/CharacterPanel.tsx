@@ -64,10 +64,19 @@ export function CharacterPanel({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
 
   // Character data
-  const charData = parseCharData(characterData);
+  const charData = parseCharData(characterData) as {
+    ruleTemplate?: string;
+    cocAttributes?: CocAttributes;
+    bio?: string;
+    customAttributes?: { name: string; value: number; max?: number }[];
+    cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
+  };
   const hasExistingData = !!characterData && !!charData.ruleTemplate;
   const ruleTemplate = charData.ruleTemplate || roomRuleTemplate || "basic";
   const [initDone, setInitDone] = useState(hasExistingData);
+
+  const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
+  const derived = computeCocDerived(cocAttrs);
 
   // Auto-init COC 7th character on first open
   useEffect(() => {
@@ -80,12 +89,10 @@ export function CharacterPanel({
         router.refresh();
       }).catch(() => {});
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitDone(true);
     }
   }, [roomRuleTemplate, roomId, initDone, readOnly]);
-  
-  const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
-  const derived = computeCocDerived(cocAttrs);
   const [bio, setBio] = useState(charData.bio || "");
 
   // Custom attributes
@@ -684,6 +691,6 @@ export function CharacterPanel({
   );
 }
 
-function parseCharData(json?: string | null): Record<string, any> {
+function parseCharData(json?: string | null): Record<string, unknown> {
   try { return json ? JSON.parse(json) : {}; } catch { return {}; }
 }

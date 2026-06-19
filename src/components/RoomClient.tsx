@@ -38,6 +38,9 @@ interface Room {
   status: string;
   frozen?: boolean;
   theme: string;
+  diceRules?: string;
+  ruleTemplate?: string;
+  createdAt?: string;
 }
 
 interface Message {
@@ -61,7 +64,7 @@ interface RoomClientProps {
   currentNickname: string;
   roomTheme?: ThemeId;
   roomDiceRules?: string;
-  players?: any[];
+  players?: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string; botConfigJson?: string | null }; user?: { id?: number; isBot?: boolean }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }[];
   characterData?: string | null;
   aiEnabled?: boolean;
   validProviderIds?: number[];
@@ -164,6 +167,7 @@ export function RoomClient({
       setUnreadCounts(merged);
     }).catch(() => {});
     const savedWidth = localStorage.getItem("trpg-sidebar-width");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (savedWidth) setSidebarWidth(Number(savedWidth));
   }, [room.id]);
 
@@ -230,7 +234,7 @@ export function RoomClient({
   }, [room.id, isMobile]);
 
   // Helper to check bot status
-  const getBotStatus = (usersRecord: any) => {
+  const getBotStatus = (usersRecord: { isBot?: boolean; botConfigJson?: string | null } | null | undefined) => {
     if (!usersRecord?.isBot) return { isBotDisabled: false, isProviderError: false };
     if (!aiEnabled) return { isBotDisabled: true, isProviderError: false };
     
@@ -250,12 +254,12 @@ export function RoomClient({
   // Build mention targets (players + bots, excluding self)
   const mentionTargets = useMemo(() => {
     return (players || [])
-      .filter((p: any) => (p.users?.id || p.user_id) !== userId)
-      .map((p: any) => {
+      .filter((p: { users?: { id?: number }; user_id?: number }) => (p.users?.id || p.user_id) !== userId)
+      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string } }) => {
         const u = p.users || p.user;
         const { isBotDisabled, isProviderError } = getBotStatus(u);
         return {
-          id: u?.id || p.user_id,
+          id: (u?.id || p.user_id) ?? 0,
           nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
           isBot: !!u?.isBot,
           isBotDisabled,
@@ -280,8 +284,8 @@ export function RoomClient({
     return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   }, [unreadCounts]);
 
-  const botCount = (players || []).filter((p: any) => p.users?.isBot).length;
-  const playerCount = (players || []).filter((p: any) => !p.users?.isBot).length;
+  const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
+  const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
 
   // Filter messages by active tab (Task #43)
   const tabMessages = useMemo(() => {
@@ -359,7 +363,7 @@ export function RoomClient({
         setLoadingMore(true);
         const oldestId = messages[0].id;
         try {
-          const older: any[] = await loadMoreMessagesAction(room.id, oldestId, 50);
+          const older = await loadMoreMessagesAction(room.id, oldestId, 50) as unknown as Message[];
           if (older.length < 50) {
             setHasMore(false);
           }
@@ -598,7 +602,7 @@ export function RoomClient({
 
   const handleCheckRequest = useCallback((skillName: string, diceType: string) => {
     getMySkillsAction(room.id).then(async (skills) => {
-      const skill = skills.find((s: any) => s.skillName === skillName);
+      const skill = skills.find((s: { skillName: string }) => s.skillName === skillName);
       if (skill) {
         if (diceType === "d100") {
           await executeCommandAction(room.id, userId, `.rc ${skillName}`);
@@ -932,13 +936,13 @@ export function RoomClient({
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
             <div className="max-w-4xl mx-auto flex flex-col gap-1">
               {tabMessages.map((msg) => {
-                const playerData = players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === msg.userId);
+                const playerData = players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number } }) => (p.users?.id || p.user_id || p.user?.id) === msg.userId);
                 return (
                   <ChatMessage
                     key={msg.id}
                     nickname={msg.nickname}
                     content={msg.content}
-                    type={msg.type as any}
+                    type={msg.type as "text" | "dice" | "system" | "clue" | "image" | "check_request"}
                     diceDetail={msg.diceDetail}
                     isPrivate={msg.isPrivate}
                     createdAt={msg.createdAt}
@@ -990,7 +994,7 @@ export function RoomClient({
             <div className="max-w-4xl mx-auto">
               {activeTab !== "public" && (
                   <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
-                    <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname })}</span>
+                    <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname ?? "" })}</span>
                     <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
                   </div>
                 )}
@@ -1006,11 +1010,11 @@ export function RoomClient({
           userId={userId}
           currentNickname={nickname}
           characterData={characterData}
-          roomRuleTemplate={(room as any).ruleTemplate || "basic"}
+          roomRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"}
           onClose={() => setShowCharacter(false)}
           onNicknameChange={(newNick) => setNickname(newNick)}
           readOnly={readOnly}
-          avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
+          avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
         />
       )}
       {viewingPlayerId !== null && (
@@ -1019,7 +1023,7 @@ export function RoomClient({
           userId={viewingPlayerId}
           currentNickname={viewingPlayerNickname}
           characterData={viewingPlayerCharData}
-          roomRuleTemplate={(room as any).ruleTemplate || "basic"}
+          roomRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"}
           onClose={() => {
             setViewingPlayerId(null);
             setViewingPlayerCharData(null);
@@ -1029,7 +1033,7 @@ export function RoomClient({
           readOnly={true}
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
-          avatarColor={players.find((p: any) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatarColor}
+          avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatarColor}
           isGM={isHost}
         />
       )}
@@ -1054,7 +1058,7 @@ export function RoomClient({
               {botCount > 0 && <span className="bg-accent/10 text-accent px-2 py-1 rounded font-medium">{t("labelBots", { count: botCount })}</span>}
             </div>
             <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
-              {(players || []).map((p: any, i: number) => {
+              {(players || []).map((p: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }, i: number) => {
                 const u = p.users || p.user || { id: p.user_id, displayName: p.nickname || "Player", isBot: false };
                 const nick = p.room_members?.nickname || u.displayName || u.username || "#" + u.id;
                 const isBot = !!u.isBot;
@@ -1096,7 +1100,7 @@ export function RoomClient({
                     <div className="flex gap-2">
                         {isHost && !isMe && (
                           <button
-                            onClick={() => handleViewPlayerCard(u.id, nick)}
+                            onClick={() => handleViewPlayerCard(u.id ?? 0, nick)}
                             className="bg-primary/10 hover:bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
                           >
                             {t("btnViewCard")}
@@ -1104,7 +1108,7 @@ export function RoomClient({
                         )}
                         {!isMe && (
                           <button 
-                             onClick={() => { handleTabChange(u.id); setShowMembers(false); }}
+                             onClick={() => { handleTabChange(u.id ?? 0); setShowMembers(false); }}
                              className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
                           >
                            🔒 {t("btnDm")}
@@ -1120,13 +1124,13 @@ export function RoomClient({
         </div>
       )}
       {showInventory && (
-        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: any) => ({ id: m.users?.id || m.user_id, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
+        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
       )}
       {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as any).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
+        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
       )}
       {showRoomInfo && (
-        <RoomInfoPanel room={room as any} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
+        <RoomInfoPanel room={{ ...room, diceRules: room.diceRules ?? "basic", ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
       )}
       {showExport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowExport(false)}>

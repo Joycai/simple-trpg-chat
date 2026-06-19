@@ -61,7 +61,7 @@ export async function pushClueToChannelAction(
 ) {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
-  let clue: any;
+  let clue: typeof clueCards.$inferSelect;
   if (clueId) {
     const [existingClue] = await db.select().from(clueCards).where(eq(clueCards.id, clueId));
     if (!existingClue) throw new Error("Clue not found");
@@ -111,7 +111,7 @@ export async function pushClueToChannelAction(
           inArray(clueVisibility.userId, targetUserIds)
         )
       );
-    const existingUserIds = new Set(existingVisibility.map((v: any) => v.userId).filter(Boolean));
+    const existingUserIds = new Set(existingVisibility.map((v: { userId: number | null }) => v.userId).filter(Boolean));
     const newTargetUserIds = targetUserIds.filter(uid => !existingUserIds.has(uid));
 
     if (newTargetUserIds.length > 0) {
@@ -126,7 +126,7 @@ export async function pushClueToChannelAction(
   const t = await getTranslations("clueActions");
 
   // Broadcast as clue message
-  let lastMsg: any;
+  let lastMsg: typeof messages.$inferSelect | undefined;
   if (isPublic) {
     const [msg] = await db.insert(messages).values({
       roomId,
@@ -297,7 +297,7 @@ export async function revealClueToPlayersAction(
       )
     );
   
-  const existingUserIds = new Set(existingVisibility.map((v: any) => v.userId).filter(Boolean));
+  const existingUserIds = new Set(existingVisibility.map((v: { userId: number | null }) => v.userId).filter(Boolean));
   const newTargetUserIds = targetUserIds.filter(uid => !existingUserIds.has(uid));
 
   if (newTargetUserIds.length === 0) {

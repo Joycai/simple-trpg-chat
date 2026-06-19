@@ -34,7 +34,7 @@ export default async function AdminAiFeaturesPage() {
       </section>
 
       {/* Bot Presets Management */}
-      <AdminBotPresets presets={presets as any[]} />
+      <AdminBotPresets presets={presets} />
 
       {/* AI Provider Management */}
       <AdminProviderManager />

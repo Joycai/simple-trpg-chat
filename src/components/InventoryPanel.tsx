@@ -21,6 +21,7 @@ interface Distribution {
   toUserId: number;
   createdAt: string;
   action: string;
+  viewed?: number | boolean | null;
   item?: InventoryItem;
   toUsername?: string;
   fromUsername?: string;
@@ -46,9 +47,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const [filterType, setFilterType] = useState<"all" | "clue" | "info" | "character" | "item">("all");
   const [manageFilterType, setManageFilterType] = useState<"all" | "clue" | "info" | "character" | "item">("all");
   const [manageFilterDist, setManageFilterDist] = useState<"all" | "undistributed" | "distributed">("all");
-  const [myItems, setMyItems] = useState<any[]>([]);
-  const [roomItems, setRoomItems] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
+  const [myItems, setMyItems] = useState<Distribution[]>([]);
+  const [roomItems, setRoomItems] = useState<InventoryItem[]>([]);
+  const [history, setHistory] = useState<Distribution[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -84,22 +85,24 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
           getDistributionHistory(roomId),
           getMyInventory(roomId),
         ]);
-        setRoomItems(items as any[]);
-        setHistory(dists as any[]);
-        setMyItems(mine as any[]);
+        setRoomItems(items as InventoryItem[]);
+        setHistory(dists as Distribution[]);
+        setMyItems(mine as Distribution[]);
       } else {
         const mine = await getMyInventory(roomId);
-        setMyItems(mine as any[]);
+        setMyItems(mine as Distribution[]);
       }
     } catch { /* */ }
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadData(); }, []);
 
   // Live-sync: reload when the host edits an item (refreshKey bumped via SSE in RoomClient).
   useEffect(() => {
-    if (refreshKey > 0) loadData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (refreshKey > 0) void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
@@ -107,9 +110,10 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   // prevents redundant state updates / render loops.
   useEffect(() => {
     if (!detailItem) return;
-    const pool: any[] = isHost ? roomItems : myItems.map((d: any) => d.item).filter(Boolean);
-    const fresh = pool.find((it: any) => it && it.id === detailItem.id);
+    const pool: InventoryItem[] = isHost ? roomItems : myItems.map((d) => d.item).filter((x): x is InventoryItem => !!x);
+    const fresh = pool.find((it) => it && it.id === detailItem.id);
     if (fresh && (fresh.contentJson !== detailItem.contentJson || fresh.title !== detailItem.title || fresh.type !== detailItem.type)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetailItem(fresh);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,13 +159,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
       } else {
         await createInventoryItemAction(roomId, { type: itemType, title, content });
       }
-    } catch (err: any) {
-      alert(err.message || tCommon("error"));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : tCommon("error"));
       return;
     }
     resetForm();
     router.refresh();
-    loadData();
+    void loadData();
   };
 
   const handleDistribute = async (targets: number[] | "all") => {
@@ -173,13 +177,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
         if (targets.length === 0) return;
         await Promise.all(targets.map(uid => distributeItemAction(roomId, distributeItemId, uid)));
       }
-    } catch (err: any) {
-      alert(err.message || t("distributeFailed"));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : t("distributeFailed"));
     }
     setDistributeItemId(null);
     setDistributeTargets([]);
     router.refresh();
-    loadData();
+    void loadData();
   };
 
   const handleDeleteItem = async (itemId: number, itemTitle: string) => {
@@ -188,9 +192,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     try {
       await deleteInventoryItemAction(roomId, itemId);
       router.refresh();
-      loadData();
-    } catch (err: any) {
-      alert(err.message || tCommon("error"));
+      void loadData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : tCommon("error"));
     }
   };
 
@@ -198,8 +202,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     if (!shareTarget) return;
     try {
       await shareItemAction(roomId, itemId, shareTarget);
-    } catch (err: any) {
-      alert(err.message || tCommon("error"));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : tCommon("error"));
     }
     setShareTarget(null);
     setDetailItem(null);
@@ -219,11 +223,11 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const typeLabel = (tStr: string) => ({ clue: t("typeClue"), info: t("typeInfo"), character: t("typeChar"), item: t("typeItem") }[tStr] || tStr);
   const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
   const typeEmoji = (tStr: string) => ({ clue: "🃏", info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
-  const isNew = (d: any) => d.viewed === false || d.viewed === 0;
+  const isNew = (d: { viewed?: boolean | number | null }) => d.viewed === false || d.viewed === 0;
 
   // Filter backpack dynamically
   const filteredBackpack = myItems.filter(d => {
-    const item = (d as any).item as InventoryItem | undefined;
+    const item = d.item;
     if (filterType === "all") return true;
     return item?.type === filterType;
   });
@@ -267,7 +271,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
               ) : (
                 <div className="bg-surface-alt rounded-theme theme-border p-4 border border-border flex flex-col gap-3">
                   <h4 className="font-bold text-text text-sm">{editingItemId !== null ? t("editItem") : t("createItem")}</h4>
-                  <select value={itemType} onChange={e => setItemType(e.target.value as any)}
+                  <select value={itemType} onChange={e => setItemType(e.target.value as typeof itemType)}
                     className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
                     <option value="clue">{t("typeClue")}</option>
                     <option value="info">{t("typeInfo")}</option>
@@ -362,7 +366,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                 {(() => {
                   const filteredRoomItems = roomItems.filter(item => {
                     if (manageFilterType !== "all" && item.type !== manageFilterType) return false;
-                    const distCount = history.filter((h: any) => h.itemId === item.id).length;
+                    const distCount = history.filter((h) => h.itemId === item.id).length;
                     if (manageFilterDist === "undistributed" && distCount > 0) return false;
                     if (manageFilterDist === "distributed" && distCount === 0) return false;
                     return true;
@@ -373,8 +377,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                   }
 
                   const sortedRoomItems = [...filteredRoomItems].sort((a, b) => {
-                    const countA = history.filter((h: any) => h.itemId === a.id).length;
-                    const countB = history.filter((h: any) => h.itemId === b.id).length;
+                    const countA = history.filter((h) => h.itemId === a.id).length;
+                    const countB = history.filter((h) => h.itemId === b.id).length;
                     
                     if (countA === 0 && countB > 0) return -1;
                     if (countA > 0 && countB === 0) return 1;
@@ -384,10 +388,10 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                   return (
                     <div className="flex flex-col gap-2">
                       {sortedRoomItems.map(item => {
-                        const itemHistory = history.filter((h: any) => h.itemId === item.id);
+                        const itemHistory = history.filter((h) => h.itemId === item.id);
                         const distCount = itemHistory.length;
                         const hasBeenDistributed = distCount > 0;
-                        const uniqueRecipients = Array.from(new Set(itemHistory.map((h: any) => h.toUsername).filter(Boolean)));
+                        const uniqueRecipients = Array.from(new Set(itemHistory.map((h) => h.toUsername).filter(Boolean)));
 
                         return (
                           <div key={item.id} className={`bg-surface-alt rounded-theme p-3 border flex justify-between items-center inventory-card transition-all duration-200 ${
@@ -596,7 +600,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                           ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
                           : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
                         }
-                        onClick={() => { if (d) { setDetailItem((d as any).item); setDetailDist(d); } }}
+                        onClick={() => { if (d) { setDetailItem(d.item ?? null); setDetailDist(d); } }}
                         title={d ? d.item?.title || "" : ""}
                       >
                         {d && (
@@ -606,7 +610,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                                 NEW
                               </span>
                             )}
-                            <span className="text-2xl mb-1">{typeEmoji((d as any).item?.type || "item")}</span>
+                            <span className="text-2xl mb-1">{typeEmoji(d.item?.type || "item")}</span>
                             <span className="text-[10px] font-bold text-text text-center leading-tight line-clamp-2">
                               {d.item?.title || `#${d.itemId}`}
                             </span>
@@ -662,7 +666,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                 {/* Host view: Distribution History */}
                 {isHost && (
                   (() => {
-                    const itemDists = history.filter((h: any) => h.itemId === detailItem.id);
+                    const itemDists = history.filter((h) => h.itemId === detailItem.id);
                     return (
                       <div className="mt-4 pt-4 border-t border-border">
                         <h4 className="text-xs font-bold text-text-dim uppercase tracking-wider mb-3">{t("historyCount", { count: itemDists.length })}</h4>
@@ -676,7 +680,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                           </div>
                         ) : (
                           <div className="relative border-l border-border pl-4 ml-2 flex flex-col gap-4 max-h-48 overflow-y-auto pr-1 py-1">
-                            {itemDists.map((d: any) => (
+                            {itemDists.map((d) => (
                               <div key={d.id} className="relative text-xs">
                                 {/* Timeline Bullet */}
                                 <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-surface shadow-sm"></span>
