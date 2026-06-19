@@ -183,7 +183,7 @@ export const ChatMessage = memo(function ChatMessage({
           {isTarget && onCheckRequest && (
             <button
               onClick={() => onCheckRequest(checkInfo.checkRequest.skillName, checkInfo.checkRequest.diceType)}
-              className="bg-accent hover:bg-accent-hover text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
+              className="bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
               title={t("clickCheck")}
             >
               🎲

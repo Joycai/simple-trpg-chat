@@ -189,7 +189,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 </code>
                 <button
                   onClick={() => navigator.clipboard.writeText(createdKey)}
-                  className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded font-bold text-sm"
+                  className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded font-bold text-sm"
                   title={tc("copyKey")}
                 >
                   {tc("copyKey")}
@@ -230,42 +230,42 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               color: var(--theme-primary, #22d3ee);
             }
 
-            /* === Shrine: vermillion + gold omamori === */
+            /* === Shrine: vermillion + gold omamori (light washi) === */
             [data-theme="shrine"] .filter-indicator {
-              background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
-              box-shadow: 0 0 6px rgba(220, 38, 38, 0.5), inset 0 1px 0 rgba(255, 215, 0, 0.25);
-              border: 1px solid rgba(185, 28, 28, 0.6);
+              background: linear-gradient(180deg, #c63026 0%, #a5241c 100%);
+              box-shadow: 0 0 6px rgba(198, 48, 38, 0.4), inset 0 1px 0 rgba(184, 142, 56, 0.4);
+              border: 1px solid rgba(165, 36, 28, 0.6);
               border-radius: 3px;
             }
             [data-theme="shrine"] .filter-tab-active {
-              color: #fca5a5;
-              text-shadow: 0 0 6px rgba(220, 38, 38, 0.35);
+              color: #c63026;
+              text-shadow: none;
             }
 
-            /* === Cthulhu: purple glow + fade === */
+            /* === Cthulhu: eldritch violet glow + fade === */
             [data-theme="cthulhu"] .filter-indicator {
-              background: #a78bfa;
-              box-shadow: 0 0 12px rgba(167, 139, 250, 0.55), 0 0 24px rgba(139, 92, 246, 0.25);
+              background: #a87af6;
+              box-shadow: 0 0 12px rgba(168, 122, 246, 0.55), 0 0 24px rgba(120, 90, 235, 0.25);
             }
             [data-theme="cthulhu"] .filter-tab-active {
-              color: #c4b5fd;
-              text-shadow: 0 0 10px rgba(167, 139, 250, 0.45);
+              color: #c4aef9;
+              text-shadow: 0 0 10px rgba(168, 122, 246, 0.45);
             }
 
-            /* === Parchment: retro serif text + static border === */
+            /* === Parchment: inscriptional serif text + static border === */
             [data-theme="parchment"] .filter-indicator {
               display: none;
             }
             [data-theme="parchment"] .filter-tab {
-              font-family: 'Georgia', 'Times New Roman', serif;
+              font-family: var(--theme-font-display);
               border-bottom: 2px solid transparent;
               border-radius: 4px 4px 0 0;
               transition: color 0.2s, border-color 0.2s, background 0.2s;
             }
             [data-theme="parchment"] .filter-tab-active {
-              color: #8b5e3c;
-              border-bottom-color: #8b5e3c;
-              background: rgba(139, 94, 60, 0.1);
+              color: #82401e;
+              border-bottom-color: #82401e;
+              background: rgba(130, 64, 30, 0.1);
               text-shadow: none;
             }
           `}</style>

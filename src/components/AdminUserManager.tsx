@@ -149,7 +149,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                 onKeyDown={e => e.key === "Enter" && handleChangePwd()} />
               <div className="flex gap-2">
                 <button onClick={handleChangePwd}
-                  className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-bold text-sm">
+                  className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded-lg font-bold text-sm">
                   {t("confirm")}
                 </button>
                 <button onClick={() => { setShowChangePwd(false); setOldPwd(""); setNewPwd(""); setPwdMsg(""); }}
@@ -188,7 +188,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
               onKeyDown={e => e.key === "Enter" && handleResetPassword()}
             />
             <button onClick={handleResetPassword}
-              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-bold text-sm">
+              className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded-lg font-bold text-sm">
               {t("confirm")}
             </button>
             <button onClick={() => { setResetTarget(null); setNewPassword(""); setResetMsg(""); }}
@@ -223,7 +223,7 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
               onKeyDown={e => e.key === "Enter" && handleUpdateCredits()}
             />
             <button onClick={handleUpdateCredits}
-              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-bold text-sm">
+              className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded-lg font-bold text-sm">
               {t("confirm")}
             </button>
             <button onClick={() => { setCreditTarget(null); setCreditAmount(""); setCreditMsg(""); }}

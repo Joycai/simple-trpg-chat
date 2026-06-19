@@ -101,7 +101,7 @@ export function HostCheckDialog({ roomId, players, onClose }: Props) {
               </select>
             </div>
             <button onClick={handleSubmit} disabled={!skillName.trim()}
-              className="bg-accent hover:bg-accent-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm mt-2 cursor-pointer">
+              className="bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground py-2 rounded font-bold text-sm mt-2 cursor-pointer">
               {t("btnSubmit")}
             </button>
           </div>

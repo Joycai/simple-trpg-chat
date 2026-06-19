@@ -299,7 +299,7 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
         <button
           onClick={() => setShowDice(!showDice)}
           className={`px-3 py-2 rounded-theme text-sm font-bold transition ${
-            showDice ? "bg-accent text-white" : "bg-surface-alt text-text-muted hover:bg-border"
+            showDice ? "bg-accent text-accent-foreground" : "bg-surface-alt text-text-muted hover:bg-border"
           }`}
           title={t("btnRollTooltip")}
         >
@@ -349,7 +349,7 @@ export function ChatInput({ onSendMessage, isHost, roomId, mentions = [], isPriv
           disabled={!message.trim() || (!isPrivateLocked && isPrivate && !privateTargetId)}
           className={`px-4 py-2 rounded-theme text-sm font-bold transition ${
             isPrivate 
-              ? "bg-accent hover:bg-accent-hover text-white" 
+              ? "bg-accent hover:bg-accent-hover text-accent-foreground" 
               : "bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white"
           }`}
         >

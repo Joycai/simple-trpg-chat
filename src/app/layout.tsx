@@ -5,6 +5,7 @@ import { AppProvider } from "@/components/AppProvider";
 import { getSiteTheme, getUserThemePreference } from "@/app/actions/theme";
 import { recordPageVisit } from "@/lib/stats";
 import { getCachedSiteTitle, getCachedSiteFavicon } from "@/lib/config";
+import { fontVariables } from "./fonts";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -35,7 +36,7 @@ export default async function RootLayout({
   });
 
   return (
-    <html lang={locale} data-theme={userTheme || siteTheme} className="h-full antialiased" suppressHydrationWarning>
+    <html lang={locale} data-theme={userTheme || siteTheme} className={`h-full antialiased ${fontVariables}`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
