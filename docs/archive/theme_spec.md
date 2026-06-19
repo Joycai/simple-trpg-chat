@@ -46,6 +46,46 @@
 
 默认的主题，采用现代web的设计质感。
 
+#### 设计概念
+
+以**现代 web / SaaS 产品**为核心意象：明亮中性的浅色界面，蓝色主色 + 琥珀强调，干净留白、较大圆角（`0.75rem`）与克制的层次。刻意保持**扁平、无材质纹理**，仅以柔和投影与聚焦环表达层级与交互，强调清晰与高可读性。它也是网站默认主题（登陆页、admin、未设置主题的新用户）。
+
+#### 配色（语义 token → RGB / Hex）
+
+| 角色 | 变量 | RGB | Hex | 说明 |
+| ---- | ---- | --- | --- | ---- |
+| 背景 | `--theme-bg` | 248 250 252 | `#F8FAFC` | 冷灰白 |
+| 表面 | `--theme-surface` | 255 255 255 | `#FFFFFF` | 纯白卡面 |
+| 次表面 | `--theme-surface-alt` | 241 245 249 | `#F1F5F9` | 浅灰 |
+| 边框 | `--theme-border` | 226 232 240 | `#E2E8F0` | 淡灰线 |
+| 文字 | `--theme-text` | 15 23 42 | `#0F172A` | 石板近黑 |
+| 主色 | `--theme-primary` | 37 99 235 | `#2563EB` | 蓝 |
+| 强调 | `--theme-accent` | 245 158 11 | `#F59E0B` | 琥珀 |
+| 强调前景 | `--theme-accent-foreground` | 66 36 2 | `#422402` | 琥珀底上的深色文字 |
+| 危险 | `--theme-danger` | 239 68 68 | `#EF4444` | 红 |
+| 成功 | `--theme-success` | 34 197 94 | `#22C55E` | 绿 |
+
+> 蓝 / 琥珀 / 红 三个语义色相天然区分；`accent-foreground` 用深棕保证琥珀底上的文字对比（修复旧版白字对比不足）。
+
+#### 字体
+
+- 正文：`Inter`（现代无衬线）→ CJK 无衬线回退（PingFang / 雅黑 / Noto Sans CJK）
+- 标题：`Space Grotesk`（几何感无衬线，现代质感）
+- 等宽：`JetBrains Mono`
+- 经 `next/font/google` 自托管（Inter 与 JetBrains Mono 预加载）。
+
+#### 拟物与装饰元素
+
+- **较大圆角**：`--theme-radius: 0.75rem`，柔和现代。
+- **扁平无纹理**：不设 `--theme-surface-texture`，背景纯净。
+- **柔和层次**：`--theme-card-shadow` 为双层软投影（`0 1px 2px` + `0 4px 14px`），现代卡片悬浮感。
+- **聚焦环辉光**：`--theme-glow` 为蓝色聚焦环（`0 0 0 3px rgba(37,99,235,0.18)`），用于选中 / 激活态。
+- **侧栏 / 标签**：`.conv-sidebar` 浅灰渐变，`.conv-tab.active` 为蓝色左边框 + 浅蓝渐变底。
+
+#### 实现位置
+
+- `src/themes/default/theme.css`、`src/app/globals.css`（`@theme inline` 令牌映射、`h1–h3` 标题字体规则）、`src/app/fonts.ts`（字体加载）、`src/themes/types.ts`、`messages/{zh,en}.json`（`theme.default.*`）
+
 ### 古旧羊皮卷
 
 概念：来源于DND等西方奇幻背景。采用古旧羊皮卷的质感和配色
