@@ -306,7 +306,7 @@ export const ChatMessage = memo(function ChatMessage({
                   }}
                   className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-surface-alt transition cursor-pointer"
                 >
-                  🎴 {tRoom("btnViewCard")}
+                  {tRoom("btnViewCard")}
                 </button>
               )}
               {onStartDM && (

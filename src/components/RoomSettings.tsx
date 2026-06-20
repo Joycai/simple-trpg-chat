@@ -6,6 +6,7 @@ import { THEME_LIST } from "@/themes/types";
 import type { ThemeId } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface RoomSettingsProps {
   roomId: number;
@@ -26,6 +27,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
   const [selectedDiceRules, setSelectedDiceRules] = useState<string>(currentDiceRules || "basic");
   const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,8 +41,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
       formData.set("ruleTemplate", selectedRuleTemplate);
       
       await updateRoomSettingsAction(roomId, formData);
-      
-      onClose();
+
+      close();
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("saveFailed"));
@@ -50,14 +52,14 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
       <div
-        className="bg-surface border border-border rounded-lg shadow-2xl p-6 w-full max-w-md mx-4"
+        className={`bg-surface border border-border rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-bold text-lg text-text">{t("title")}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl leading-none">
+          <button onClick={close} className="text-text-muted hover:text-text text-xl leading-none">
             ×
           </button>
         </div>
@@ -150,7 +152,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
           <div className="flex gap-3 justify-end pt-2 border-t border-border">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="px-4 py-2 text-sm text-text-muted hover:text-text transition"
             >
               {tCommon("cancel")}

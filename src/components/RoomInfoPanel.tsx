@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction } from "@/app/actions/room";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface RoomInfoPanelProps {
   room: {
@@ -29,6 +30,7 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
   const tt = useTranslations("themes");
   const tCommon = useTranslations("common");
   const router = useRouter();
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(room.name);
   const [savingName, setSavingName] = useState(false);
@@ -91,13 +93,13 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/30" />
-      <div className="relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex" onClick={close}>
+      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+      <div className={`relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">{t("title")}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl">×</button>
+          <button onClick={close} className="text-text-muted hover:text-text text-xl">×</button>
         </div>
 
         <div className="p-5 flex flex-col gap-5">

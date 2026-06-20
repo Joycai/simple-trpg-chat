@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getRoomSkills, upsertSkillAction, deleteSkillAction } from "@/app/actions/room";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface Skill {
   id: number;
@@ -32,6 +33,7 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
   const [editing, setEditing] = useState<number | null>(null);
   const [editValue, setEditValue] = useState(0);
   const router = useRouter();
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
 
   const loadSkills = async () => {
     try {
@@ -67,20 +69,20 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex" onClick={close}>
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30" />
+      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
 
       {/* Sidebar drawer */}
       <div
-        className="relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto"
+        className={`relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">{t("title")}</h3>
           <button
-            onClick={onClose}
+            onClick={close}
             className="text-text-muted hover:text-text text-xl leading-none transition"
             title={tCommon("close")}
           >

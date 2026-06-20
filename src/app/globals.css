@@ -69,6 +69,125 @@ h3:not(.no-display-font),
 
 
 /* ============================================================
+   Overlay / Modal motion — Apple-style non-linear transitions
+   ------------------------------------------------------------
+   Drives the enter/exit of top-bar panels (character sheet,
+   inventory, skills, clue import, settings, dialogs…). Enter
+   animations run from a keyframe on mount; the `--closing`
+   modifiers play the reverse while React keeps the node mounted
+   for one exit cycle (see useOverlayTransition).
+   Durations here must stay in sync with EXIT_DURATION in
+   src/lib/useOverlayTransition.ts.
+   ============================================================ */
+:root {
+  /* Decelerating ease (enter) — the iOS sheet "settle". */
+  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Accelerating ease (exit) — sharp departure. */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* Gentle spring overshoot for centered modals. */
+  --ease-spring: cubic-bezier(0.34, 1.42, 0.64, 1);
+  --overlay-enter-dur: 380ms;
+  --overlay-exit-dur: 260ms;
+}
+
+/* Dimmed backdrop — fades the scrim (and, for centered modals, the
+   whole layer) in and out. */
+@keyframes overlay-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes overlay-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.overlay-backdrop {
+  animation: overlay-backdrop-in var(--overlay-enter-dur) var(--ease-emphasized) both;
+}
+.overlay-backdrop--closing {
+  animation: overlay-backdrop-out var(--overlay-exit-dur) var(--ease-exit) both;
+}
+
+/* Side drawer — slides in from the right edge. */
+@keyframes overlay-drawer-in {
+  from { transform: translateX(100%); opacity: 0.5; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes overlay-drawer-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0.5; }
+}
+.overlay-drawer {
+  animation: overlay-drawer-in var(--overlay-enter-dur) var(--ease-emphasized) both;
+  will-change: transform;
+}
+.overlay-drawer--closing {
+  animation: overlay-drawer-out var(--overlay-exit-dur) var(--ease-exit) both;
+}
+
+/* Centered modal — lifts and scales up with a subtle spring. */
+@keyframes overlay-modal-in {
+  from { transform: scale(0.94) translateY(14px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes overlay-modal-out {
+  from { transform: scale(1) translateY(0); opacity: 1; }
+  to { transform: scale(0.96) translateY(8px); opacity: 0; }
+}
+.overlay-modal {
+  animation: overlay-modal-in var(--overlay-enter-dur) var(--ease-spring) both;
+  will-change: transform, opacity;
+}
+.overlay-modal--closing {
+  animation: overlay-modal-out var(--overlay-exit-dur) var(--ease-exit) both;
+}
+
+/* Conversation sidebar — smooth collapse/expand. Desktop animates width
+   (chat reflows), mobile animates the drawer slide. Suppressed mid-drag via
+   a class toggle so resizing stays instant. */
+.conv-sidebar-anim {
+  transition: width 300ms var(--ease-emphasized),
+              transform 300ms var(--ease-emphasized);
+}
+@media (prefers-reduced-motion: reduce) {
+  .conv-sidebar-anim { transition-duration: 1ms; }
+}
+
+/* Dropdown menus — quick, origin-aware pop. */
+@keyframes overlay-pop-in {
+  from { transform: scale(0.95) translateY(-6px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+.overlay-pop {
+  animation: overlay-pop-in 180ms var(--ease-emphasized) both;
+  transform-origin: var(--overlay-pop-origin, top center);
+}
+
+/* Respect users who prefer reduced motion — collapse to a near-instant
+   cross-fade so nothing flies across the screen. */
+@media (prefers-reduced-motion: reduce) {
+  .overlay-backdrop,
+  .overlay-backdrop--closing,
+  .overlay-drawer,
+  .overlay-drawer--closing,
+  .overlay-modal,
+  .overlay-modal--closing,
+  .overlay-pop {
+    animation-duration: 1ms;
+    animation-timing-function: linear;
+  }
+  .overlay-drawer,
+  .overlay-drawer--closing,
+  .overlay-modal,
+  .overlay-modal--closing {
+    animation-name: overlay-backdrop-in;
+  }
+  .overlay-drawer--closing,
+  .overlay-modal--closing {
+    animation-name: overlay-backdrop-out;
+  }
+}
+
+/* ============================================================
    HP Heartbeat Animation (#52)
    ============================================================ */
 @keyframes heartbeat {

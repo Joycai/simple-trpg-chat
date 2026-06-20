@@ -21,6 +21,8 @@ interface ConversationPanelProps {
   userId: number;
   width: number;
   collapsed: boolean;
+  /** Suppresses the width/transform transition while the user drags the resize handle. */
+  resizing?: boolean;
   onToggleCollapse: () => void;
 }
 
@@ -33,17 +35,28 @@ export function ConversationPanel({
   userId,
   width,
   collapsed,
+  resizing = false,
   onToggleCollapse,
 }: ConversationPanelProps) {
   const t = useTranslations("room");
 
-  if (collapsed) return null;
-
   return (
+    // Outer animation shell — desktop collapses by animating width (chat reflows
+    // smoothly); mobile is an overlay drawer that slides on translateX. The panel
+    // stays mounted in both states so open/close can animate. overflow-hidden clips
+    // the fixed-width inner column as the shell width shrinks to 0.
     <div
       style={{ "--sidebar-width": `${width}px` } as React.CSSProperties}
-      className="flex flex-col bg-surface-alt border-r border-border h-full shrink-0 select-none relative conv-sidebar w-64 lg:w-[var(--sidebar-width)] lg:relative lg:flex absolute inset-y-0 left-0 z-30 shadow-2xl lg:shadow-none"
+      aria-hidden={collapsed}
+      className={`absolute inset-y-0 left-0 lg:relative z-30 h-full shrink-0 overflow-hidden shadow-2xl lg:shadow-none ${
+        resizing ? "" : "conv-sidebar-anim"
+      } ${
+        collapsed
+          ? "w-64 lg:w-0 -translate-x-full lg:translate-x-0 pointer-events-none"
+          : "w-64 lg:w-[var(--sidebar-width)] translate-x-0"
+      }`}
     >
+    <div className="flex flex-col bg-surface-alt border-r border-border h-full select-none conv-sidebar w-64 lg:w-[var(--sidebar-width)]">
       {/* Sidebar Header */}
       <div className="px-3 py-2 flex items-center justify-between border-b border-border bg-surface/50">
         <span className="text-[10px] font-bold text-text-muted tracking-wider uppercase">{t("channels")}</span>
@@ -135,6 +148,7 @@ export function ConversationPanel({
           <span>{t("startDm")}</span>
         </button>
       </div>
+    </div>
     </div>
   );
 }

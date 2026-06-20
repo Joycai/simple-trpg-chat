@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createInventoryItemAction, updateInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface InventoryItem {
   id: number;
@@ -44,6 +45,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const locale = useLocale();
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
 
   // Each entry point (背包 / 道具管理) opens a fixed view; the manage view requires host.
   const tab = view === "manage" && isHost ? "manage" : "backpack";
@@ -236,13 +238,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex font-theme" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/30" />
-      <div className="relative ml-auto w-full sm:w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
+      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+      <div className={`relative ml-auto w-full sm:w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl transition cursor-pointer">×</button>
+          <button onClick={close} className="text-text-muted hover:text-text text-xl transition cursor-pointer">×</button>
         </div>
 
         <div className="p-5">

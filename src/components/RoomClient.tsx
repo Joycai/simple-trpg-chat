@@ -4,7 +4,12 @@
 // Negative IDs guarantee no collision with real DB auto-increment IDs.
 let localEphemeralId = -1;
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
+
+// Run before the browser paints on the client, but fall back to useEffect during
+// SSR so React doesn't warn. Used to settle the sidebar's collapsed state ahead
+// of the first paint so it never flashes open then closes on room entry.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CharacterPanel } from "./CharacterPanel";
@@ -20,7 +25,7 @@ import { HostCheckDialog } from "./HostCheckDialog";
 import { SkillSetPrompt } from "./SkillSetPrompt";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
-import { AvatarCropper } from "./AvatarCropper";
+import { OverlayShell } from "./OverlayShell";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
@@ -91,7 +96,7 @@ export function RoomClient({
   const tn = useTranslations("nav");
   const tra = useTranslations("roomActions");
   const ts = useTranslations("userSettings");
-  const tAvatar = useTranslations("avatar");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -116,9 +121,9 @@ export function RoomClient({
   const [pendingSkillCheck, setPendingSkillCheck] = useState<{ messageId: number; skillName: string } | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
+  const [showAiMenu, setShowAiMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  const [showAvatarCropper, setShowAvatarCropper] = useState(false);
   // Inline room-name editing (host only, top bar)
   const [editingRoomName, setEditingRoomName] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState(room.name);
@@ -128,6 +133,13 @@ export function RoomClient({
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   const [sidebarWidth, setSidebarWidth] = useState<number>(200);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  // True only while actively dragging the resize handle, so the sidebar can
+  // suppress its width transition (instant drag) without losing the smooth
+  // collapse/expand animation.
+  const [sidebarResizing, setSidebarResizing] = useState<boolean>(false);
+  // False until the first viewport check runs; gates the open/close animation
+  // so the initial collapsed state doesn't slide on page load.
+  const [sidebarHydrated, setSidebarHydrated] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
   const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
@@ -175,7 +187,9 @@ export function RoomClient({
     if (savedWidth) setSidebarWidth(Number(savedWidth));
   }, [room.id]);
 
-  useEffect(() => {
+  // Settle the collapsed state before the first paint so entering a room shows
+  // the sidebar already in its correct state — never open-then-close.
+  useIsomorphicLayoutEffect(() => {
     const checkIsMobile = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
@@ -191,6 +205,15 @@ export function RoomClient({
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
 
+  // Enable the open/close transition only on the frame after the initial state
+  // has been applied. Doing it in a later commit (not the same one as the
+  // collapse above) means the on-load state snaps in without animating, while
+  // every subsequent user toggle still animates.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setSidebarHydrated(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   // Incremental pruning: when seenIdsRef exceeds 500, drop the oldest half
   // instead of rebuilding from messages (avoids O(n) rebuild on every batch).
   useEffect(() => {
@@ -204,6 +227,7 @@ export function RoomClient({
     e.preventDefault();
     const startX = e.clientX;
     const startWidth = sidebarWidth;
+    setSidebarResizing(true);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX;
@@ -214,6 +238,7 @@ export function RoomClient({
     };
 
     const handleMouseUp = () => {
+      setSidebarResizing(false);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
@@ -685,26 +710,37 @@ export function RoomClient({
       <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-stretch md:items-center">
           <div className="flex items-center justify-between md:justify-start gap-4">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="text-text-muted hover:text-text transition text-sm font-medium">← {tn("lobby")}</Link>
-              {sidebarCollapsed && (
-                <button
-                  onClick={() => {
-                    setSidebarCollapsed(false);
-                    localStorage.setItem("trpg-sidebar-collapsed", "false");
-                  }}
-                  className="relative p-1.5 rounded-lg bg-surface-alt hover:bg-border text-text-muted hover:text-text transition-all duration-200 border border-transparent hover:border-border shadow-sm flex items-center justify-center gap-1 cursor-pointer"
-                  title={t("tooltipExpandDm")}
-                >
-                  <span className="text-sm">💬</span>
-                  <span className="text-xs font-bold hidden sm:inline">{t("btnDm")}</span>
-                  {totalUnread > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
-                      {totalUnread > 9 ? "9+" : totalUnread}
-                    </span>
-                  )}
-                </button>
-              )}
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <Link
+                href="/"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface text-text-muted border border-border/70 shadow-sm hover:text-primary hover:border-primary/40 transition-all duration-200 text-sm font-medium"
+                title={tn("lobby")}
+              >
+                <Icons.ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">{tn("lobby")}</span>
+              </Link>
+              <button
+                onClick={() => {
+                  const next = !sidebarCollapsed;
+                  setSidebarCollapsed(next);
+                  localStorage.setItem("trpg-sidebar-collapsed", String(next));
+                }}
+                aria-pressed={!sidebarCollapsed}
+                className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-bold shadow-sm border transition-all duration-200 cursor-pointer ${
+                  !sidebarCollapsed
+                    ? "bg-primary/10 text-primary border-primary/40"
+                    : "bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40"
+                }`}
+                title={sidebarCollapsed ? t("tooltipExpandDm") : t("tooltipCollapseSidebar")}
+              >
+                <Icons.MessageSquareLock className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("btnDm")}</span>
+                {totalUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
+                    {totalUnread > 9 ? "9+" : totalUnread}
+                  </span>
+                )}
+              </button>
               <div>
                 <div className="flex items-center gap-2">
                   {isHost && editingRoomName ? (
@@ -762,16 +798,6 @@ export function RoomClient({
                 <Icons.User className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">{nickname}</span>
               </button>
-              {!readOnly && (
-                <button
-                  onClick={() => setShowAvatarCropper(true)}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
-                  title={tAvatar("btnAvatar")}
-                >
-                  <Icons.Image className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{tAvatar("btnAvatar")}</span>
-                </button>
-              )}
               <button
                 onClick={() => setShowSkills(!showSkills)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
@@ -829,7 +855,8 @@ export function RoomClient({
                     {showCheckMenu && (
                       <>
                         <div className="fixed inset-0 z-20" onClick={() => setShowCheckMenu(false)} />
-                        <div className="absolute left-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30"
+                        <div className="absolute left-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30 overlay-pop"
+                          style={{ transformOrigin: "top left" }}
                           onClick={() => setShowCheckMenu(false)}>
                           <button onClick={() => setCheckMode("check")}
                             className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
@@ -877,48 +904,62 @@ export function RoomClient({
               </div>
             )}
 
-            {/* Group 3: AI 功能区 (Clue Import + Bot Manager) — AI-violet coded */}
+            {/* Group 3: AI 功能 (Clue Import + Bot Manager) — collapsed into a dropdown */}
             {isHost && (
-              <div className="hidden lg:flex items-center gap-1 bg-ai/8 p-1 rounded-lg">
+              <div className="relative">
                 <button
-                  onClick={() => setShowAiImport(true)}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer bg-surface text-ai border border-ai/30 shadow-sm hover:bg-ai/15 hover:border-ai/50"
-                  title={t("tooltipImport")}
-                >
-                  <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{t("btnImport")}</span>
-                </button>
-                <button
-                  onClick={() => setShowBotManager(!showBotManager)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    showBotManager
-                      ? "bg-ai/25 text-ai border border-ai/60 shadow-sm"
-                      : "bg-surface text-ai border border-ai/30 shadow-sm hover:bg-ai/15 hover:border-ai/50"
+                  onClick={() => { setShowAiMenu(!showAiMenu); setShowSystemMenu(false); }}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm border ${
+                    showAiMenu
+                      ? "bg-ai/15 text-ai border-ai/50"
+                      : "bg-surface text-ai border-ai/30 hover:bg-ai/15 hover:border-ai/50"
                   }`}
-                  title={t("tooltipBot")}
+                  title={t("tooltipAiMenu")}
                 >
-                  <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{t("btnBot")}</span>
+                  <Icons.Wand className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnAiMenu")}</span>
+                  <Icons.ChevronDown className="w-3 h-3" />
                 </button>
+                {showAiMenu && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setShowAiMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[180px] z-30 overlay-pop"
+                      style={{ transformOrigin: "top right" }}
+                      onClick={() => setShowAiMenu(false)}>
+                      <button onClick={() => setShowAiImport(true)}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
+                        <Icons.Download className="w-4 h-4" /> {t("btnImport")}
+                      </button>
+                      <button onClick={() => setShowBotManager(true)}
+                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
+                        <Icons.Bot className="w-4 h-4" /> {t("btnBot")}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {/* Group 4: 系统菜单 (System Dropdown) */}
             <div className="relative">
               <button
-                onClick={() => setShowSystemMenu(!showSystemMenu)}
+                onClick={() => { setShowSystemMenu(!showSystemMenu); setShowAiMenu(false); }}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm border ${
                   showSystemMenu
-                    ? "bg-surface text-primary border-border"
-                    : "bg-surface-alt text-text-muted hover:text-text hover:bg-border border-transparent hover:border-border"
+                    ? "bg-primary/10 text-primary border-primary/40"
+                    : "bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40"
                 }`}
                 title={t("tooltipSystem")}
               >
                 <Icons.Menu className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">{t("btnSystem")}</span>
+                <Icons.ChevronDown className="w-3 h-3" />
               </button>
               {showSystemMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30"
+                <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowSystemMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30 overlay-pop"
+                  style={{ transformOrigin: "top right" }}
                   onClick={() => setShowSystemMenu(false)}>
                   <button onClick={() => { setShowMembers(true); }}
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
@@ -928,24 +969,6 @@ export function RoomClient({
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                     <Icons.Info className="w-4 h-4" /> {t("menuInfo")}
                   </button>
-
-                  {/* Mobile-only menu items */}
-                  {isMobile && (
-                    <div className="border-t border-border mt-1 pt-1">
-                      {isHost && (
-                        <>
-                          <button onClick={() => { setShowAiImport(true); }}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
-                            <Icons.Download className="w-4 h-4" /> {t("btnImport")}
-                          </button>
-                          <button onClick={() => { setShowBotManager(true); }}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
-                            <Icons.Bot className="w-4 h-4" /> {t("btnBot")}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
 
                   {isHost && (
                     <div className="border-t border-border mt-1 pt-1">
@@ -968,6 +991,7 @@ export function RoomClient({
                     </button>
                   </div>
                 </div>
+                </>
               )}
             </div>
 
@@ -991,6 +1015,7 @@ export function RoomClient({
           userId={userId}
           width={sidebarWidth}
           collapsed={sidebarCollapsed}
+          resizing={sidebarResizing || !sidebarHydrated}
           onToggleCollapse={() => {
             setSidebarCollapsed((prev) => {
               const val = !prev;
@@ -1000,10 +1025,14 @@ export function RoomClient({
           }}
         />
 
-        {/* Backdrop for mobile sidebar */}
-        {!sidebarCollapsed && isMobile && (
+        {/* Backdrop for mobile sidebar — stays mounted so it can fade in/out
+            in step with the drawer slide. */}
+        {isMobile && (
           <div
-            className="fixed inset-0 bg-black/40 z-20 transition-opacity cursor-pointer"
+            aria-hidden={sidebarCollapsed}
+            className={`fixed inset-0 bg-black/40 z-20 transition-opacity duration-300 ${
+              sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 cursor-pointer"
+            }`}
             onClick={() => {
               setSidebarCollapsed(true);
               localStorage.setItem("trpg-sidebar-collapsed", "true");
@@ -1123,6 +1152,7 @@ export function RoomClient({
           readOnly={readOnly}
           refreshKey={skillRefreshKey}
           avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
+          avatar={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatar?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatar}
         />
       )}
       {viewingPlayerId !== null && (
@@ -1142,6 +1172,7 @@ export function RoomClient({
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
           avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatarColor}
+          avatar={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatar?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatar}
           isGM={isHost}
         />
       )}
@@ -1169,35 +1200,52 @@ export function RoomClient({
         />
       )}
       {showMembers && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMembers(false)}>
-          <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="font-bold text-lg text-text">{t("titleMembers")} <span className="text-sm text-text-muted font-normal ml-2">{t("countMembers", { count: playerCount + botCount })}</span></h3>
-              <button onClick={() => setShowMembers(false)} className="text-text-muted hover:text-text text-xl">×</button>
+        <OverlayShell
+          onClose={() => setShowMembers(false)}
+          panelClassName="bg-surface border border-border rounded-theme shadow-2xl p-5 w-full max-w-md mx-4"
+        >
+          {(close) => (
+           <>
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-lg text-text leading-tight">{t("titleMembers")}</h3>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="inline-flex items-center text-[11px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">{t("labelPlayers", { count: playerCount })}</span>
+                  {botCount > 0 && <span className="inline-flex items-center text-[11px] font-medium bg-accent/10 text-accent px-2 py-0.5 rounded-full">{t("labelBots", { count: botCount })}</span>}
+                </div>
+              </div>
+              <button onClick={close} title={tCommon("close")}
+                className="p-1.5 -mr-1.5 -mt-1 rounded-lg text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer shrink-0">
+                <Icons.X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="flex gap-3 mb-4 text-xs">
-              <span className="bg-primary/10 text-primary px-2 py-1 rounded font-medium">{t("labelPlayers", { count: playerCount })}</span>
-              {botCount > 0 && <span className="bg-accent/10 text-accent px-2 py-1 rounded font-medium">{t("labelBots", { count: botCount })}</span>}
-            </div>
-            <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
+
+            {/* Member list */}
+            <div className="flex flex-col gap-0.5 max-h-[55vh] overflow-y-auto -mx-1.5 px-1.5">
               {(players || []).map((p: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }, i: number) => {
                 const u = p.users || p.user || { id: p.user_id, displayName: p.nickname || "Player", isBot: false };
                 const nick = p.room_members?.nickname || u.displayName || u.username || "#" + u.id;
                 const isBot = !!u.isBot;
                 const isMe = u.id === userId;
+                const isHostMember = u.id === room.hostId;
+                const roleLabel = isBot ? t("roleBot") : isHostMember ? t("roleHost") : t("rolePlayer");
+                const badgeColor = p.room_members?.avatarColor || getRandomColorForUser(u.id);
                 const { isBotDisabled, isProviderError } = getBotStatus(u);
                 return (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-surface-alt transition">
+                  <div key={i} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface-alt transition">
+                    {/* Avatar */}
                     <div className="relative shrink-0">
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm font-theme-mono"
-                        style={{
-                          backgroundColor: p.room_members?.avatarColor || getRandomColorForUser(u.id),
-                          color: getContrastColor(p.room_members?.avatarColor || getRandomColorForUser(u.id)),
-                        }}
-                      >
-                        {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
-                      </div>
+                      {p.room_members?.avatar ? (
+                        <img src={p.room_members.avatar} alt={nick} className="w-9 h-9 rounded-full object-cover border border-border shadow-sm" />
+                      ) : (
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shadow-sm font-theme-mono"
+                          style={{ backgroundColor: badgeColor, color: getContrastColor(badgeColor) }}
+                        >
+                          {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       {isBot && isBotDisabled && (
                         <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={t("aiDisabled")}>🚫</div>
                       )}
@@ -1205,45 +1253,52 @@ export function RoomClient({
                         <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none" title={t("providerError")}>⚠️</div>
                       )}
                     </div>
-                    <span className={`text-sm flex-1 ${isMe ? "font-bold text-primary" : "text-text"} flex items-center flex-wrap gap-1`}>
-                      <span>{nick}</span>
-                      {isMe && <span>{t("suffixMe")}</span>}
-                      {isBot && isBotDisabled && (
-                        <span className="text-[10px] font-normal px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
-                          {t("tagDisabled")}
-                        </span>
-                      )}
-                      {isBot && !isBotDisabled && isProviderError && (
-                        <span className="text-[10px] font-normal px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
-                          {t("tagProviderError")}
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex gap-2">
-                        {isHost && !isMe && (
+
+                    {/* Name + role */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`text-sm truncate ${isMe ? "font-bold text-primary" : "font-medium text-text"}`}>{nick}</span>
+                        {isMe && <span className="shrink-0 text-[11px] text-text-muted">{t("suffixMe")}</span>}
+                        {isBot && isBotDisabled && (
+                          <span className="shrink-0 text-[10px] font-medium px-1.5 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
+                            {t("tagDisabled")}
+                          </span>
+                        )}
+                        {isBot && !isBotDisabled && isProviderError && (
+                          <span className="shrink-0 text-[10px] font-medium px-1.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
+                            {t("tagProviderError")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-text-dim truncate mt-0.5">{roleLabel}</div>
+                    </div>
+
+                    {/* Actions */}
+                    {!isMe && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isHost && (
                           <button
                             onClick={() => handleViewPlayerCard(u.id ?? 0, nick)}
-                            className="bg-primary/10 hover:bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
+                            className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition cursor-pointer"
                           >
                             {t("btnViewCard")}
                           </button>
                         )}
-                        {!isMe && (
-                          <button 
-                             onClick={() => { handleTabChange(u.id ?? 0); setShowMembers(false); }}
-                             className="bg-accent/10 hover:bg-accent/20 text-accent text-[10px] px-2 py-0.5 rounded transition cursor-pointer"
-                          >
-                           🔒 {t("btnDm")}
-                         </button>
-                       )}
-                       <span className="text-[10px] text-text-dim font-mono self-center">@{nick}</span>
-                    </div>
+                        <button
+                          onClick={() => { handleTabChange(u.id ?? 0); close(); }}
+                          className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-accent transition cursor-pointer"
+                        >
+                          🔒 {t("btnDm")}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
-        </div>
+           </>
+          )}
+        </OverlayShell>
       )}
       {showInventory && (
         <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
@@ -1258,26 +1313,15 @@ export function RoomClient({
         <RoomInfoPanel room={{ ...room, diceRules: room.diceRules ?? "basic", ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
       )}
       {showExport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowExport(false)}>
-          <div className="max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-            <ExportButton roomId={room.id} roomName={room.name} />
-          </div>
-        </div>
+        <OverlayShell onClose={() => setShowExport(false)} panelClassName="max-w-md w-full mx-4">
+          {() => <ExportButton roomId={room.id} roomName={room.name} />}
+        </OverlayShell>
       )}
       {showSkills && (
         <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} readOnly={readOnly} refreshKey={skillRefreshKey} />
       )}
       {showUserSettings && (
         <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />
-      )}
-      {showAvatarCropper && (
-        <AvatarCropper
-          roomId={room.id}
-          onClose={() => setShowAvatarCropper(false)}
-          onSuccess={() => {
-            router.refresh();
-          }}
-        />
       )}
     </div>
   );
