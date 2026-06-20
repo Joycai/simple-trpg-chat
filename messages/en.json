@@ -209,7 +209,7 @@
       "d2": "d2",
       "d3": "d3"
     },
-    "privateHint": "Only you and the host can see this"
+    "privateHint": "Hidden roll - only you can see this"
   },
   "nickname": {
     "edit": "Edit Nickname",

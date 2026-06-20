@@ -240,6 +240,7 @@ export async function sendMessageAction(
         nickname: "SYSTEM",
         type: "system",
         audience: "self", // only the sender sees the interception warning
+        targetUserId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
         content: t("sensitiveWordsIntercepted"),
       });
     }
@@ -256,6 +257,7 @@ export async function sendMessageAction(
           nickname: "SYSTEM",
           type: "system",
           audience: "self", // command errors are shown only to the issuer
+          targetUserId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
           content: t("commandError", { error: result.error || "" }),
         });
       }
@@ -316,20 +318,42 @@ export async function sendMessageAction(
   return newMessage;
 }
 
-export async function rollDiceAction(roomId: number, faces: number, count: number, isPrivate: boolean = false, targetUserId?: number) {
+/**
+ * UI dice roll.
+ * - `hidden`: a secret roll — visible only to the roller (audience `self`).
+ * - `channelPartnerId`: the DM partner when rolled inside a private channel; this is
+ *   the *channel* the roll belongs to. A hidden roll stays in that channel but only
+ *   the roller sees it; a normal roll in a DM is a `dm` whisper (both participants).
+ */
+export async function rollDiceAction(
+  roomId: number,
+  faces: number,
+  count: number,
+  hidden: boolean = false,
+  channelPartnerId?: number
+) {
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+
   const { results, sum, notation } = rollDice(faces, count);
-
-  const detail = JSON.stringify({
-    dice: `d${faces}`,
-    count,
-    results,
-    sum,
-    notation
-  });
-
+  const detail = JSON.stringify({ dice: `d${faces}`, count, results, sum, notation });
   const content = `🎲 ${notation}: [${results.join(", ")}] = ${sum}`;
 
-  return await sendMessageAction(roomId, isPrivate ? `🔒 ${content}` : content, "dice", detail, isPrivate, targetUserId);
+  const [member] = await db
+    .select({ nickname: roomMembers.nickname })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  const audience: Audience = hidden ? "self" : channelPartnerId ? "dm" : "everyone";
+  return await dispatchMessage({
+    roomId,
+    actorUserId: userId,
+    nickname: member?.nickname || "SYSTEM",
+    type: "dice",
+    audience,
+    targetUserId: channelPartnerId,
+    content: hidden ? `🔒 ${content}` : content,
+    diceDetail: detail,
+  });
 }
 
 // --- Host Skill Check Request ---
@@ -451,7 +475,8 @@ export async function respondToCheckRequestAction(
       }
     } else {
       const faces = parseInt(diceType.replace("d", ""));
-      await rollDiceAction(roomId, faces, 1, ctxIsPrivate, ctxTargetId);
+      // A check response is a normal roll in the request's channel (never hidden).
+      await rollDiceAction(roomId, faces, 1, false, ctxTargetId);
     }
   }
 

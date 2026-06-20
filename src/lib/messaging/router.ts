@@ -30,9 +30,14 @@ export interface DispatchParams {
   diceDetail?: string | null;
 }
 
-/** `targetUserId` is only meaningful for audiences that point at a specific user. */
+/**
+ * `targetUserId` is stored for audiences that reference a specific user:
+ * - dm / directed: the recipient.
+ * - self: the DM partner of the channel it was issued in (so a hidden roll renders
+ *   in that DM for the actor); null/absent for the public channel.
+ */
 function storedTarget(audience: Audience, targetUserId?: number | null): number | null {
-  if (audience === "dm" || audience === "directed") return targetUserId ?? null;
+  if (audience === "dm" || audience === "directed" || audience === "self") return targetUserId ?? null;
   return null;
 }
 

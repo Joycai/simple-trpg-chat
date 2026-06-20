@@ -66,7 +66,16 @@ export function dmPartner(m: AudienceFields, viewerId: number): number | null {
  */
 export function channelOf(m: AudienceFields, viewerId: number): "public" | number {
   const partner = dmPartner(m, viewerId);
-  return partner ?? "public";
+  if (partner !== null) return partner;
+  // A `self` message (hidden roll, .rh / .st / .help feedback) stays in the channel
+  // it was issued in: targetUserId carries the DM partner of that channel (or null
+  // for the public feed). Only the actor ever sees a `self` message, so this is only
+  // ever evaluated from the actor's side. The `!== userId` guard ignores legacy rows
+  // that stored the actor's own id as the target.
+  if (m.audience === "self" && m.targetUserId != null && m.targetUserId !== m.userId) {
+    return m.targetUserId;
+  }
+  return "public";
 }
 
 /**

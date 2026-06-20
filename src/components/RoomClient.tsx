@@ -512,13 +512,17 @@ export function RoomClient({
     isPrivate?: boolean,
     targetUserId?: number
   ) => {
-    // Override isPrivate and targetUserId if we are in a DM tab
+    // The channel we're posting in: public, or a DM with this partner.
+    const channelPartner = activeTab !== "public" ? activeTab : undefined;
+
+    // Text/image inherit the channel's privacy (a DM tab → a `dm` whisper). The
+    // dice panel's 🔒 "secret" toggle is handled separately below (hidden roll),
+    // so it is NOT folded into the channel here.
     let finalIsPrivate = isPrivate;
     let finalTargetId = targetUserId;
-
-    if (activeTab !== "public") {
+    if (channelPartner !== undefined) {
       finalIsPrivate = true;
-      finalTargetId = activeTab;
+      finalTargetId = channelPartner;
     }
 
     // .st / .sc mutate the character sheet — refresh the open panels afterwards (both
@@ -536,7 +540,8 @@ export function RoomClient({
           const errorMsg = {
             id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
             content: tra("commandError", { error: result.error }),
-            type: "system" as const, audience: "self" as const, isPrivate: true, diceDetail: null,
+            type: "system" as const, audience: "self" as const,
+            targetUserId: channelPartner ?? null, isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
           };
           seenIdsRef.current.add(String(errorMsg.id));
@@ -550,7 +555,10 @@ export function RoomClient({
       if (type === "dice" && diceDetail) {
         const detail = JSON.parse(diceDetail);
         const faces = parseInt(detail.dice.replace("d", ""));
-        await rollDiceAction(room.id, faces, detail.count, finalIsPrivate, finalTargetId);
+        // `isPrivate` here is the dice panel's 🔒 secret toggle → a hidden (self-only)
+        // roll. `channelPartner` decides where it lands (current DM, or public).
+        const hidden = !!isPrivate;
+        await rollDiceAction(room.id, faces, detail.count, hidden, channelPartner);
       } else {
         await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }

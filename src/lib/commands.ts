@@ -65,7 +65,9 @@ function visibilityFor(
   mode: "self" | "channel"
 ): { audience: Audience; targetUserId?: number } {
   if (mode === "self") {
-    return { audience: "self", targetUserId: userId };
+    // Self-visible, but stays in the channel it was issued in: carry the DM partner
+    // when in a private channel (so e.g. .rh in a DM renders in that DM, not public).
+    return { audience: "self", targetUserId: ctx?.isPrivate ? ctx.targetUserId : undefined };
   }
   if (ctx?.isPrivate && ctx.targetUserId) {
     return { audience: "dm", targetUserId: ctx.targetUserId };

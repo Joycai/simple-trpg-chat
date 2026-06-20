@@ -42,8 +42,8 @@ describe("audience — canSee", () => {
 });
 
 describe("audience — channelOf / dmPartner", () => {
-  it("non-dm audiences render in the public feed", () => {
-    for (const audience of ["everyone", "self", "directed", "gm"] as const) {
+  it("everyone/directed/gm render in the public feed", () => {
+    for (const audience of ["everyone", "directed", "gm"] as const) {
       const m = { userId: HOST, targetUserId: PLAYER, audience };
       expect(channelOf(m, HOST)).toBe("public");
       expect(channelOf(m, PLAYER)).toBe("public");
@@ -56,6 +56,19 @@ describe("audience — channelOf / dmPartner", () => {
     expect(channelOf(m, HOST)).toBe(PLAYER);
     expect(channelOf(m, PLAYER)).toBe(HOST);
     expect(dmPartner(m, PLAYER)).toBe(HOST);
+  });
+
+  it("self stays in the channel it was issued in (hidden roll)", () => {
+    // Issued in public → public feed.
+    const inPublic = { userId: PLAYER, targetUserId: null, audience: "self" as const };
+    expect(channelOf(inPublic, PLAYER)).toBe("public");
+    // Issued inside a DM with HOST → that DM tab (but only the actor ever sees it).
+    const inDm = { userId: PLAYER, targetUserId: HOST, audience: "self" as const };
+    expect(channelOf(inDm, PLAYER)).toBe(HOST);
+    expect(canSee(inDm, HOST, true)).toBe(false); // the partner still cannot see it
+    // Legacy rows that stored the actor's own id as target stay in public.
+    const legacy = { userId: PLAYER, targetUserId: PLAYER, audience: "self" as const };
+    expect(channelOf(legacy, PLAYER)).toBe("public");
   });
 });
 
