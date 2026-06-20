@@ -77,6 +77,11 @@ interface RoomClientProps {
   userRole: string;
 }
 
+// Thin vertical rule used to separate logical button groups in the top bar.
+function ToolDivider() {
+  return <div className="hidden sm:block w-px h-5 bg-border self-center shrink-0" aria-hidden />;
+}
+
 export function RoomClient({
   room,
   messages: initialMessages,
@@ -705,15 +710,19 @@ export function RoomClient({
     await respondCheck(messageId);
   }, [pendingSkillCheck, room.id, userId, respondCheck]);
 
+  // Uniform sizing for every top-bar control, so heights and edges line up
+  // regardless of group/color. Per-button classes only add the color variant.
+  const toolBtn = "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all duration-200 cursor-pointer";
+
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
       <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-stretch md:items-center">
           <div className="flex items-center justify-between md:justify-start gap-4">
-            <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
               <Link
                 href="/"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface text-text-muted border border-border/70 shadow-sm hover:text-primary hover:border-primary/40 transition-all duration-200 text-sm font-medium"
+                className={`${toolBtn} bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40`}
                 title={tn("lobby")}
               >
                 <Icons.ArrowLeft className="w-4 h-4" />
@@ -726,7 +735,7 @@ export function RoomClient({
                   localStorage.setItem("trpg-sidebar-collapsed", String(next));
                 }}
                 aria-pressed={!sidebarCollapsed}
-                className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-bold shadow-sm border transition-all duration-200 cursor-pointer ${
+                className={`relative ${toolBtn} ${
                   !sidebarCollapsed
                     ? "bg-primary/10 text-primary border-primary/40"
                     : "bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40"
@@ -741,40 +750,52 @@ export function RoomClient({
                   </span>
                 )}
               </button>
-              <div>
-                <div className="flex items-center gap-2">
-                  {isHost && editingRoomName ? (
-                    <input
-                      value={roomNameDraft}
-                      onChange={(e) => setRoomNameDraft(e.target.value)}
-                      onBlur={handleSaveRoomName}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); handleSaveRoomName(); }
-                        else if (e.key === "Escape") { setRoomNameDraft(room.name); setEditingRoomName(false); }
-                      }}
-                      maxLength={100}
-                      autoFocus
-                      disabled={savingRoomName}
-                      className="font-bold text-text leading-none bg-input-bg border border-input-border rounded px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-primary/50 max-w-[12rem] disabled:opacity-60"
-                    />
-                  ) : (
-                    <h2
-                      className={`font-bold text-text leading-none ${isHost ? "cursor-pointer hover:text-primary transition inline-flex items-center gap-1 group" : ""}`}
-                      onClick={isHost ? () => { setRoomNameDraft(room.name); setEditingRoomName(true); } : undefined}
-                      title={isHost ? t("editNameTooltip") : undefined}
-                    >
-                      {room.name}
-                      {isHost && <Icons.Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition" />}
-                    </h2>
-                  )}
-                  <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
-                  {room.frozen && (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-text-dim/15 text-text-dim px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none">
-                      <Icons.Lock className="w-3 h-3" />{isHost ? t("frozenBadgeHost") : t("frozenBadge")}
-                    </span>
-                  )}
+
+              {/* Divider separating nav controls from the room identity */}
+              <div className="w-px h-8 bg-border self-center shrink-0 mx-0.5 sm:mx-1" aria-hidden />
+
+              {/* Room identity — a distinct title block, not another button */}
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="hidden sm:flex w-9 h-9 rounded-lg bg-primary/10 text-primary items-center justify-center shrink-0 shadow-sm">
+                  <Icons.Dices className="w-5 h-5" />
                 </div>
-                <div className="text-[10px] text-text-dim mt-1 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {isHost && editingRoomName ? (
+                      <input
+                        value={roomNameDraft}
+                        onChange={(e) => setRoomNameDraft(e.target.value)}
+                        onBlur={handleSaveRoomName}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); handleSaveRoomName(); }
+                          else if (e.key === "Escape") { setRoomNameDraft(room.name); setEditingRoomName(false); }
+                        }}
+                        maxLength={100}
+                        autoFocus
+                        disabled={savingRoomName}
+                        className="text-base font-bold text-text leading-tight bg-input-bg border border-input-border rounded px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-primary/50 max-w-[12rem] disabled:opacity-60"
+                      />
+                    ) : (
+                      <div
+                        className={`group flex items-center gap-1 min-w-0 ${isHost ? "cursor-pointer" : ""}`}
+                        onClick={isHost ? () => { setRoomNameDraft(room.name); setEditingRoomName(true); } : undefined}
+                        title={isHost ? t("editNameTooltip") : room.name}
+                      >
+                        <h2 className={`text-base font-bold text-text leading-tight truncate max-w-[7.5rem] sm:max-w-[14rem] ${isHost ? "group-hover:text-primary transition" : ""}`}>
+                          {room.name}
+                        </h2>
+                        {isHost && <Icons.Pencil className="w-3 h-3 text-text-muted opacity-0 group-hover:opacity-70 transition shrink-0" />}
+                      </div>
+                    )}
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
+                    {room.frozen && (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-text-dim/15 text-text-dim px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none shrink-0">
+                        <Icons.Lock className="w-3 h-3" />{isHost ? t("frozenBadgeHost") : t("frozenBadge")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-text-dim mt-0.5 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
+                </div>
               </div>
             </div>
             {isHost && (
@@ -783,72 +804,71 @@ export function RoomClient({
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Group 1: 自身能力 (Character / You — player-aligned, neutral raised chips) */}
-            <div className="flex items-center gap-1 bg-surface-alt/60 p-1 rounded-lg">
-              <button
-                onClick={() => setShowCharacter(!showCharacter)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  showCharacter
-                    ? "bg-primary/10 text-primary border border-primary/40 shadow-sm"
-                    : "bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
-                }`}
-                title={t("tooltipCharacter")}
-              >
-                <Icons.User className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">{nickname}</span>
-              </button>
-              <button
-                onClick={() => setShowSkills(!showSkills)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  showSkills
-                    ? "bg-primary/10 text-primary border border-primary/40 shadow-sm"
-                    : "bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
-                }`}
-                title={t("tooltipSkills")}
-              >
-                <Icons.ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">{t("btnSkills")}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowInventory(!showInventory);
-                  markInventoryViewedAction(room.id);
-                  setUnreadItems(0);
-                }}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer relative ${
-                  showInventory
-                    ? "bg-primary/10 text-primary border border-primary/40 shadow-sm"
-                    : "bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
-                }`}
-                title={t("tooltipInventory")}
-              >
-                <Icons.Package className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">{t("btnInventory")}</span>
-                {unreadItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
-                    {unreadItems > 9 ? "9+" : unreadItems}
-                  </span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Group 1: 自身能力 (Character / You) — neutral */}
+            <button
+              onClick={() => setShowCharacter(!showCharacter)}
+              className={`${toolBtn} ${
+                showCharacter
+                  ? "bg-primary/10 text-primary border-primary/40"
+                  : "bg-surface text-text border-border/70 hover:text-primary hover:border-primary/40"
+              }`}
+              title={t("tooltipCharacter")}
+            >
+              <Icons.User className="w-4 h-4" />
+              <span className="hidden sm:inline max-w-[7rem] truncate">{nickname}</span>
+            </button>
+            <button
+              onClick={() => setShowSkills(!showSkills)}
+              className={`${toolBtn} ${
+                showSkills
+                  ? "bg-primary/10 text-primary border-primary/40"
+                  : "bg-surface text-text border-border/70 hover:text-primary hover:border-primary/40"
+              }`}
+              title={t("tooltipSkills")}
+            >
+              <Icons.ClipboardList className="w-4 h-4" />
+              <span className="hidden sm:inline">{t("btnSkills")}</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowInventory(!showInventory);
+                markInventoryViewedAction(room.id);
+                setUnreadItems(0);
+              }}
+              className={`relative ${toolBtn} ${
+                showInventory
+                  ? "bg-primary/10 text-primary border-primary/40"
+                  : "bg-surface text-text border-border/70 hover:text-primary hover:border-primary/40"
+              }`}
+              title={t("tooltipInventory")}
+            >
+              <Icons.Package className="w-4 h-4" />
+              <span className="hidden sm:inline">{t("btnInventory")}</span>
+              {unreadItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+                  {unreadItems > 9 ? "9+" : unreadItems}
+                </span>
                 )}
               </button>
-            </div>
 
-            {/* Group 2: Host 功能区 (检定 + 道具管理) — amber coded */}
+            {/* Group 2: Host 功能区 (检定 + 道具管理) — amber */}
             {isHost && (
-              <div className="flex items-center gap-1 bg-accent/8 p-1 rounded-lg">
+              <>
+                <ToolDivider />
                 {roomIsCoc7th ? (
                   /* COC 7th: a 检定 dropdown holding the three check variants */
                   <div className="relative">
                     <button
                       onClick={() => setShowCheckMenu(!showCheckMenu)}
-                      className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      className={`${toolBtn} ${
                         checkMode || showCheckMenu
-                          ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
-                          : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                          ? "bg-accent/20 text-accent border-accent/60"
+                          : "bg-surface text-accent border-accent/30 hover:bg-accent/15 hover:border-accent/50"
                       }`}
                       title={t("tooltipCheck")}
                     >
-                      <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Icons.Crosshair className="w-4 h-4" />
                       <span className="hidden sm:inline">{t("btnCheck")}</span>
                       <Icons.ChevronDown className="w-3 h-3" />
                     </button>
@@ -878,30 +898,30 @@ export function RoomClient({
                   /* Non-COC: a single direct 发起检定 button */
                   <button
                     onClick={() => setCheckMode(checkMode === "check" ? null : "check")}
-                    className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    className={`${toolBtn} ${
                       checkMode === "check"
-                        ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
-                        : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                        ? "bg-accent/20 text-accent border-accent/60"
+                        : "bg-surface text-accent border-accent/30 hover:bg-accent/15 hover:border-accent/50"
                     }`}
                     title={t("tooltipCheck")}
                   >
-                    <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Icons.Crosshair className="w-4 h-4" />
                     <span className="hidden sm:inline">{t("btnCheck")}</span>
                   </button>
                 )}
                 <button
                   onClick={() => setShowItemManager(!showItemManager)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  className={`${toolBtn} ${
                     showItemManager
-                      ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
-                      : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                      ? "bg-accent/20 text-accent border-accent/60"
+                      : "bg-surface text-accent border-accent/30 hover:bg-accent/15 hover:border-accent/50"
                   }`}
                   title={t("tooltipItemManage")}
                 >
-                  <Icons.Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Icons.Package className="w-4 h-4" />
                   <span className="hidden sm:inline">{t("btnItemManage")}</span>
                 </button>
-              </div>
+              </>
             )}
 
             {/* Group 3: AI 功能 (Clue Import + Bot Manager) — collapsed into a dropdown */}
@@ -909,14 +929,14 @@ export function RoomClient({
               <div className="relative">
                 <button
                   onClick={() => { setShowAiMenu(!showAiMenu); setShowSystemMenu(false); }}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm border ${
+                  className={`${toolBtn} ${
                     showAiMenu
                       ? "bg-ai/15 text-ai border-ai/50"
                       : "bg-surface text-ai border-ai/30 hover:bg-ai/15 hover:border-ai/50"
                   }`}
                   title={t("tooltipAiMenu")}
                 >
-                  <Icons.Wand className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Icons.Wand className="w-4 h-4" />
                   <span className="hidden sm:inline">{t("btnAiMenu")}</span>
                   <Icons.ChevronDown className="w-3 h-3" />
                 </button>
@@ -941,17 +961,18 @@ export function RoomClient({
             )}
 
             {/* Group 4: 系统菜单 (System Dropdown) */}
+            <ToolDivider />
             <div className="relative">
               <button
                 onClick={() => { setShowSystemMenu(!showSystemMenu); setShowAiMenu(false); }}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm border ${
+                className={`${toolBtn} ${
                   showSystemMenu
                     ? "bg-primary/10 text-primary border-primary/40"
                     : "bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40"
                 }`}
                 title={t("tooltipSystem")}
               >
-                <Icons.Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Icons.Menu className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("btnSystem")}</span>
                 <Icons.ChevronDown className="w-3 h-3" />
               </button>

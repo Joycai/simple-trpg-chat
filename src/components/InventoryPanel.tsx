@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { createInventoryItemAction, updateInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { Icons } from "./icons";
 
 interface InventoryItem {
   id: number;
@@ -249,51 +251,15 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
 
         <div className="p-5">
           {loading ? (
-            <div className="text-center text-text-muted py-8">{tCommon("loading")}</div>
+            tab === "manage" && isHost ? <ManageSkeleton /> : <BackpackSkeleton />
           ) : tab === "manage" && isHost ? (
             /* === KP MANAGEMENT VIEW === */
             <div className="flex flex-col gap-5">
-              {/* Create button */}
-              {!showCreate ? (
-                <button onClick={() => { resetForm(); setShowCreate(true); }}
-                  className="w-full bg-success hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
-                  ＋ {t("createItem")}
-                </button>
-              ) : (
-                <div className="bg-surface-alt rounded-theme theme-border p-4 border border-border flex flex-col gap-3">
-                  <h4 className="font-bold text-text text-sm">{editingItemId !== null ? t("editItem") : t("createItem")}</h4>
-                  <select value={itemType} onChange={e => setItemType(e.target.value as typeof itemType)}
-                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
-                    <option value="clue">{t("typeClue")}</option>
-                    <option value="info">{t("typeInfo")}</option>
-                    <option value="character">{t("typeChar")}</option>
-                    <option value="item">{t("typeItem")}</option>
-                  </select>
-                  <input value={title} onChange={e => setTitle(e.target.value)}
-                    placeholder={t("titlePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
-                  {(itemType === "clue" || itemType === "info") && (
-                    <textarea value={contentFields.text} onChange={e => setContentFields({...contentFields, text: e.target.value})}
-                      placeholder={t("contentPlaceholder")} rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
-                  )}
-                  {itemType === "character" && (<>
-                    <textarea value={contentFields.basicInfo} onChange={e => setContentFields({...contentFields, basicInfo: e.target.value})}
-                      placeholder={t("basicInfoPlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
-                    <textarea value={contentFields.detail} onChange={e => setContentFields({...contentFields, detail: e.target.value})}
-                      placeholder={t("detailPlaceholder")} rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
-                  </>)}
-                  {itemType === "item" && (<>
-                    <textarea value={contentFields.appearance} onChange={e => setContentFields({...contentFields, appearance: e.target.value})}
-                      placeholder={t("appearancePlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
-                    <textarea value={contentFields.extra} onChange={e => setContentFields({...contentFields, extra: e.target.value})}
-                      placeholder={t("extraPlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
-                  </>)}
-                  <div className="flex gap-2">
-                    <button onClick={resetForm} className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">{tCommon("cancel")}</button>
-                    <button onClick={handleSubmit} disabled={!title}
-                      className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">{t("confirm")}</button>
-                  </div>
-                </div>
-              )}
+              {/* Create button — opens the create modal */}
+              <button onClick={() => { resetForm(); setShowCreate(true); }}
+                className="w-full flex items-center justify-center gap-1.5 bg-success hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
+                <Icons.Plus className="w-4 h-4" /> {t("createItem")}
+              </button>
 
               {/* Quick Filters */}
               <div className="flex flex-col gap-2.5 bg-surface-alt/50 border border-border/40 rounded-theme p-3 theme-border shadow-sm mb-2">
@@ -385,53 +351,61 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                         const uniqueRecipients = Array.from(new Set(itemHistory.map((h) => h.toUsername).filter(Boolean)));
 
                         return (
-                          <div key={item.id} className={`bg-surface-alt rounded-theme p-3 border flex justify-between items-center inventory-card transition-all duration-200 ${
-                            !hasBeenDistributed 
-                              ? "border-success/40 bg-success/5 shadow-[0_0_8px_rgb(var(--theme-success)/15%)] hover:shadow-[0_0_12px_rgb(var(--theme-success)/25%)]" 
-                              : "border-border hover:border-primary/30"
+                          <div key={item.id} className={`rounded-theme border inventory-card transition-colors duration-200 ${
+                            !hasBeenDistributed
+                              ? "border-success/40 bg-success/5"
+                              : "border-border bg-surface-alt hover:border-primary/30"
                           }`}>
-                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetailItem(item)}>
-                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                                <span className="text-sm font-bold text-text truncate">{typeLabel(item.type)} {item.title}</span>
-                                {!hasBeenDistributed ? (
-                                  <span className="bg-success/15 text-success text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-success/30 select-none animate-pulse">
-                                    {t("statusUnsent")}
-                                  </span>
-                                ) : (
-                                  <span className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-primary/20 select-none">
-                                    {t("statusSentCount", { count: distCount })}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-text-muted truncate mt-0.5">{formatContent(item).slice(0, 60)}</div>
-                              {uniqueRecipients.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1.5 items-center">
-                                  <span className="text-[10px] text-text-dim">{t("holders")}</span>
-                                  {uniqueRecipients.slice(0, 2).map((hName, hIdx) => (
-                                    <span key={hIdx} className="bg-surface/80 text-text-muted text-[9px] px-1.5 py-0.5 rounded border border-border/50 font-medium max-w-[80px] truncate">
-                                      👤 {hName}
-                                    </span>
-                                  ))}
-                                  {uniqueRecipients.length > 2 && (
-                                    <span className="text-[9px] text-text-dim leading-none ml-0.5">
-                                      {t("holdersOthers", { count: uniqueRecipients.length })}
-                                    </span>
+                            {/* Info — click to view full detail */}
+                            <div className="p-3 cursor-pointer" onClick={() => setDetailItem(item)}>
+                              <div className="flex items-start gap-2.5">
+                                <span className="text-lg leading-none mt-0.5 shrink-0">{typeEmoji(item.type)}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <span className="text-sm font-bold text-text truncate">{item.title}</span>
+                                    {!hasBeenDistributed ? (
+                                      <span className="shrink-0 bg-success/15 text-success text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-success/30 select-none">
+                                        {t("statusUnsent")}
+                                      </span>
+                                    ) : (
+                                      <span className="shrink-0 bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-primary/20 select-none">
+                                        {t("statusSentCount", { count: distCount })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-text-dim mt-0.5">{typeLabel(item.type)}</div>
+                                  <div className="text-xs text-text-muted line-clamp-2 mt-1">{formatContent(item).slice(0, 80)}</div>
+                                  {uniqueRecipients.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-2 items-center">
+                                      <span className="text-[10px] text-text-dim">{t("holders")}</span>
+                                      {uniqueRecipients.slice(0, 3).map((hName, hIdx) => (
+                                        <span key={hIdx} className="bg-surface text-text-muted text-[9px] px-1.5 py-0.5 rounded border border-border/50 font-medium max-w-[80px] truncate">
+                                          👤 {hName}
+                                        </span>
+                                      ))}
+                                      {uniqueRecipients.length > 3 && (
+                                        <span className="text-[9px] text-text-dim leading-none ml-0.5">
+                                          {t("holdersOthers", { count: uniqueRecipients.length })}
+                                        </span>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
-                              )}
+                              </div>
                             </div>
-                            <div className="flex gap-2 shrink-0">
+                            {/* Actions — separated from the info above */}
+                            <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border/40">
                               <button onClick={() => { setDistributeItemId(item.id); setDistributeTargets([]); }}
-                                className="bg-primary hover:bg-primary-hover text-primary-foreground px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                                {t("distribute")}
+                                className="flex-1 flex items-center justify-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary py-1.5 rounded-md text-xs font-bold transition cursor-pointer">
+                                <Icons.Send className="w-3.5 h-3.5" /> {t("distribute")}
                               </button>
-                              <button onClick={() => startEdit(item)}
-                                className="bg-accent hover:bg-accent-hover text-accent-foreground px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                                {t("edit")}
+                              <button onClick={() => startEdit(item)} title={t("edit")}
+                                className="flex items-center justify-center px-2.5 py-1.5 rounded-md text-text-muted hover:text-accent hover:bg-accent/10 transition cursor-pointer">
+                                <Icons.Pencil className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={() => handleDeleteItem(item.id, item.title)}
-                                className="bg-danger hover:opacity-90 text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">
-                                {t("delete")}
+                              <button onClick={() => handleDeleteItem(item.id, item.title)} title={t("delete")}
+                                className="flex items-center justify-center px-2.5 py-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition cursor-pointer">
+                                <Icons.Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -441,90 +415,6 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                   );
                 })()}
               </div>
-
-              {/* Distribute dialog */}
-              {distributeItemId !== null && (
-                <div className="bg-surface rounded-theme border border-border theme-border p-4 flex flex-col gap-3 shadow-md">
-                  <h4 className="font-bold text-text text-sm mb-1">{t("selectTarget")}</h4>
-                  
-                  {/* Pinned "Distribute to All" */}
-                  <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute("all"); }}
-                    className="w-full bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
-                    {t("distributeAll")}
-                  </button>
-
-                  <div className="flex items-center gap-2 text-text-dim text-[11px] my-1">
-                    <span className="h-px bg-border flex-1"></span>
-                    <span>{t("selectMultipleHint")}</span>
-                    <span className="h-px bg-border flex-1"></span>
-                  </div>
-
-                  {/* Player List */}
-                  <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
-                    {players.filter(p => p.id !== userId).map(p => {
-                      const isSelected = distributeTargets.includes(p.id);
-                      return (
-                        <div
-                          key={p.id}
-                          role="checkbox"
-                          aria-checked={isSelected}
-                          tabIndex={0}
-                          onClick={() => {
-                            setDistributeTargets(prev =>
-                              prev.includes(p.id)
-                                ? prev.filter(id => id !== p.id)
-                                : [...prev, p.id]
-                            );
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === ' ' || e.key === 'Enter') {
-                              e.preventDefault();
-                              setDistributeTargets(prev =>
-                                prev.includes(p.id)
-                                  ? prev.filter(id => id !== p.id)
-                                  : [...prev, p.id]
-                              );
-                            }
-                          }}
-                          className={`flex justify-between items-center py-2 px-3 rounded text-sm text-left border cursor-pointer select-none ${
-                            isSelected
-                              ? "bg-primary/10 border-primary/40 text-primary font-medium"
-                              : "bg-surface border-border/60 text-text hover:bg-surface-alt"
-                          }`}
-                        >
-                          <span>👤 {p.nickname || p.username}</span>
-                          <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${
-                            isSelected
-                              ? "bg-primary border-primary text-white"
-                              : "border-input-border bg-input-bg"
-                          }`}>
-                            {isSelected && "✓"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-border">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDistributeItemId(null); setDistributeTargets([]); }}
-                      className="flex-1 py-2 text-xs font-bold text-text-muted hover:text-text cursor-pointer text-center"
-                    >
-                      {tCommon("cancel")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDistribute(distributeTargets); }}
-                      disabled={distributeTargets.length === 0}
-                      className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 disabled:hover:bg-success text-white py-2 rounded font-bold text-xs cursor-pointer text-center"
-                    >
-                      {t("distributeConfirm", { count: distributeTargets.length })}
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* History */}
               <div>
@@ -624,10 +514,124 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
             </div>
           )}
 
+          {/* === CREATE / EDIT MODAL === */}
+          {showCreate && (
+            <Portal>
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 overlay-backdrop" onClick={resetForm}>
+              <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg text-text">{editingItemId !== null ? t("editItem") : t("createItem")}</h3>
+                  <button onClick={resetForm} className="text-text-muted hover:text-text text-xl leading-none cursor-pointer">×</button>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <select value={itemType} onChange={e => setItemType(e.target.value as typeof itemType)}
+                    className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary">
+                    <option value="clue">{t("typeClue")}</option>
+                    <option value="info">{t("typeInfo")}</option>
+                    <option value="character">{t("typeChar")}</option>
+                    <option value="item">{t("typeItem")}</option>
+                  </select>
+                  <input value={title} onChange={e => setTitle(e.target.value)}
+                    placeholder={t("titlePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none focus:ring-1 focus:ring-primary" />
+                  {(itemType === "clue" || itemType === "info") && (
+                    <textarea value={contentFields.text} onChange={e => setContentFields({...contentFields, text: e.target.value})}
+                      placeholder={t("contentPlaceholder")} rows={4} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
+                  )}
+                  {itemType === "character" && (<>
+                    <textarea value={contentFields.basicInfo} onChange={e => setContentFields({...contentFields, basicInfo: e.target.value})}
+                      placeholder={t("basicInfoPlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
+                    <textarea value={contentFields.detail} onChange={e => setContentFields({...contentFields, detail: e.target.value})}
+                      placeholder={t("detailPlaceholder")} rows={4} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
+                  </>)}
+                  {itemType === "item" && (<>
+                    <textarea value={contentFields.appearance} onChange={e => setContentFields({...contentFields, appearance: e.target.value})}
+                      placeholder={t("appearancePlaceholder")} rows={2} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
+                    <textarea value={contentFields.extra} onChange={e => setContentFields({...contentFields, extra: e.target.value})}
+                      placeholder={t("extraPlaceholder")} rows={3} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none outline-none focus:ring-1 focus:ring-primary" />
+                  </>)}
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={resetForm} className="flex-1 px-3 py-2 rounded-md text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
+                    <button onClick={handleSubmit} disabled={!title}
+                      className="flex-1 bg-success hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded-md font-bold text-sm cursor-pointer transition">{t("confirm")}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </Portal>
+          )}
+
+          {/* === DISTRIBUTE MODAL === */}
+          {distributeItemId !== null && (() => {
+            const distItem = roomItems.find(it => it.id === distributeItemId);
+            const otherPlayers = players.filter(p => p.id !== userId);
+            return (
+              <Portal>
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 overlay-backdrop"
+                onClick={() => { setDistributeItemId(null); setDistributeTargets([]); }}>
+                <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-start mb-4 gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-lg text-text">{t("selectTarget")}</h3>
+                      {distItem && <p className="text-xs text-text-muted truncate mt-0.5">{typeEmoji(distItem.type)} {distItem.title}</p>}
+                    </div>
+                    <button onClick={() => { setDistributeItemId(null); setDistributeTargets([]); }} className="text-text-muted hover:text-text text-xl leading-none cursor-pointer shrink-0">×</button>
+                  </div>
+
+                  {/* Distribute to all */}
+                  <button type="button" onClick={() => handleDistribute("all")}
+                    className="w-full bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded-md font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
+                    {t("distributeAll")}
+                  </button>
+
+                  <div className="flex items-center gap-2 text-text-dim text-[11px] my-3">
+                    <span className="h-px bg-border flex-1"></span>
+                    <span>{t("selectMultipleHint")}</span>
+                    <span className="h-px bg-border flex-1"></span>
+                  </div>
+
+                  {/* Player list */}
+                  <div className="flex flex-col gap-1.5 max-h-[40vh] overflow-y-auto pr-1">
+                    {otherPlayers.map(p => {
+                      const isSelected = distributeTargets.includes(p.id);
+                      const toggle = () => setDistributeTargets(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]);
+                      return (
+                        <div key={p.id} role="checkbox" aria-checked={isSelected} tabIndex={0}
+                          onClick={toggle}
+                          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } }}
+                          className={`flex justify-between items-center py-2 px-3 rounded-md text-sm text-left border cursor-pointer select-none transition ${
+                            isSelected ? "bg-primary/10 border-primary/40 text-primary font-medium" : "bg-surface border-border/60 text-text hover:bg-surface-alt"
+                          }`}>
+                          <span>👤 {p.nickname || p.username}</span>
+                          <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${isSelected ? "bg-primary border-primary text-white" : "border-input-border bg-input-bg"}`}>
+                            {isSelected && "✓"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 mt-4 pt-3 border-t border-border">
+                    <button type="button" onClick={() => { setDistributeItemId(null); setDistributeTargets([]); }}
+                      className="flex-1 py-2 rounded-md text-xs font-bold text-text-muted hover:text-text hover:bg-surface-alt cursor-pointer transition">
+                      {tCommon("cancel")}
+                    </button>
+                    <button type="button" onClick={() => handleDistribute(distributeTargets)} disabled={distributeTargets.length === 0}
+                      className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 text-white py-2 rounded-md font-bold text-xs cursor-pointer transition">
+                      {t("distributeConfirm", { count: distributeTargets.length })}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              </Portal>
+            );
+          })()}
+
           {/* === ITEM DETAIL MODAL === */}
           {detailItem && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => { setDetailItem(null); setShareTarget(null); }}>
-              <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border" onClick={e => e.stopPropagation()}>
+            <Portal>
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 overlay-backdrop" onClick={() => { setDetailItem(null); setShareTarget(null); }}>
+              <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <span className="text-xs text-text-muted">{typeLabel(detailItem.type)}</span>
@@ -728,8 +732,82 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                 )}
               </div>
             </div>
+            </Portal>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* Renders children at document.body so nested fixed-position modals are sized
+   to the viewport, not the drawer panel. The drawer uses transform/will-change
+   for its slide animation, which would otherwise become the containing block
+   for `position: fixed` and trap the modals inside the sidebar's width. */
+function Portal({ children }: { children: React.ReactNode }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(children, document.body);
+}
+
+/* Loading placeholders — content-shaped grey skeletons shown while the panel
+   fetches data, so opening it never flashes a blank/empty drawer. The shapes
+   mirror the real layouts to avoid a jump when content swaps in. */
+function BackpackSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-hidden>
+      {/* Filter pills */}
+      <div className="flex flex-wrap gap-1.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-7 w-14 rounded-full bg-border/70 animate-pulse" />
+        ))}
+      </div>
+      {/* Item grid */}
+      <div className="grid grid-cols-4 gap-3">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="aspect-square rounded-theme bg-surface-alt border border-border/60 flex flex-col items-center justify-center gap-2 p-2 animate-pulse"
+            style={{ animationDelay: `${(i % 4) * 80}ms` }}>
+            <div className="w-7 h-7 rounded-full bg-border/70" />
+            <div className="h-2 w-9 rounded bg-border/70" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ManageSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-hidden>
+      {/* Create button */}
+      <div className="h-11 w-full rounded-theme bg-border/70 animate-pulse" />
+      {/* Filters card */}
+      <div className="rounded-theme border border-border/40 bg-surface-alt/50 p-3 flex flex-col gap-2.5">
+        {[5, 3].map((count, row) => (
+          <div key={row} className="flex gap-1.5 items-center">
+            <div className="h-3 w-10 rounded bg-border/60 animate-pulse shrink-0" />
+            <div className="flex flex-wrap gap-1">
+              {Array.from({ length: count }).map((_, i) => (
+                <div key={i} className="h-6 w-12 rounded-full bg-border/60 animate-pulse" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* List rows */}
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-surface-alt rounded-theme p-3 border border-border flex justify-between items-center gap-3 animate-pulse"
+            style={{ animationDelay: `${i * 90}ms` }}>
+            <div className="flex-1 min-w-0 flex flex-col gap-2">
+              <div className="h-3.5 w-2/3 rounded bg-border/70" />
+              <div className="h-2.5 w-1/2 rounded bg-border/60" />
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <div className="h-7 w-11 rounded bg-border/70" />
+              <div className="h-7 w-11 rounded bg-border/70" />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
