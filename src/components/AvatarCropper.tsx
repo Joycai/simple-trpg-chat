@@ -3,15 +3,18 @@
 import { useState, useRef, useEffect } from "react";
 import { uploadAvatarAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface AvatarCropperProps {
   roomId: number;
   onClose: () => void;
-  onSuccess?: () => void;
+  /** Receives the freshly cropped base64 JPEG so callers can preview it instantly. */
+  onSuccess?: (croppedImage: string) => void;
 }
 
 export function AvatarCropper({ roomId, onClose, onSuccess }: AvatarCropperProps) {
   const t = useTranslations("avatar");
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
   const [imageData, setImageData] = useState<string | null>(null);
   const [cropX, setCropX] = useState(0);
   const [cropY, setCropY] = useState(0);
@@ -167,8 +170,8 @@ export function AvatarCropper({ roomId, onClose, onSuccess }: AvatarCropperProps
       // Crop the image on client side
       const croppedImage = await cropImageToBase64(imageData, cropX, cropY, cropSize, canvasWidth, canvasHeight);
       await uploadAvatarAction(roomId, croppedImage);
-      onSuccess?.();
-      onClose();
+      onSuccess?.(croppedImage);
+      close();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("errorUploadFailed"));
     } finally {
@@ -232,12 +235,12 @@ export function AvatarCropper({ roomId, onClose, onSuccess }: AvatarCropperProps
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-surface border border-border rounded-theme shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 ${backdropClass}`}>
+      <div className={`bg-surface border border-border rounded-theme shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto ${panelClass}`}>
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">{t("title")}</h3>
           <button
-            onClick={onClose}
+            onClick={close}
             className="text-text-muted hover:text-text text-xl"
           >
             ×

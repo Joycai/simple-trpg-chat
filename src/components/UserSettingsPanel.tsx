@@ -10,6 +10,7 @@ import { testAiConnection } from "@/app/actions/ai";
 import { setUserLocale } from "@/app/actions/locale";
 import { UserLoginHistory } from "@/components/UserLoginHistory";
 import { getMyAiPointsInfo } from "@/app/actions/ai-points";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface UserSettingsPanelProps {
   userName: string;
@@ -25,6 +26,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const tp = useTranslations("adminProviders");
   const ttu = useTranslations("tokenUsage");
   const locale = useLocale();
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
 
 
   const [tab, setTab] = useState<Tab>("security");
@@ -222,12 +224,12 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   const roleColor = userRole === "admin" ? "bg-danger/20 text-danger" : userRole === "host" ? "bg-success/20 text-success" : "bg-primary/20 text-primary";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-4xl mx-4 h-[85vh] md:h-[620px] max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
+      <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-4xl mx-4 h-[85vh] md:h-[620px] max-h-[90vh] overflow-hidden flex flex-col ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <h3 className="font-bold text-text text-lg">{ts("title")}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text p-1 hover:bg-surface-alt rounded transition cursor-pointer">
+          <button onClick={close} className="text-text-muted hover:text-text p-1 hover:bg-surface-alt rounded transition cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>

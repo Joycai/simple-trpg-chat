@@ -7,6 +7,7 @@ import { getBotPresetsAction } from "@/app/actions/bot-presets";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface BotInfo {
   id: number;
@@ -34,6 +35,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const tp = useTranslations("adminProviders");
   const tChar = useTranslations("character");
   const tRoom = useTranslations("room");
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
 
   const [bots, setBots] = useState<BotInfo[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -178,12 +180,12 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
+      <div className={`bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-bold text-lg text-text">{t("title")}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
+          <button onClick={close} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
         {loading ? (

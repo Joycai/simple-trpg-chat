@@ -5,6 +5,7 @@ import { startTextImportAnalysisAction, cancelTextImportAnalysisAction, batchImp
 import { getMyProviders } from "@/app/actions/ai-providers";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface AiImportPanelProps {
   roomId: number;
@@ -31,6 +32,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const tCommon = useTranslations("common");
   const tp = useTranslations("adminProviders");
   const router = useRouter();
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
   const [step, setStep] = useState<Step>("input");
   const [rawText, setRawText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -147,14 +149,14 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/30" />
-      <div className="relative ml-auto w-full sm:w-[420px] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex" onClick={close}>
+      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+      <div className={`relative ml-auto w-full sm:w-[420px] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-lg">{t("title")}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
+          <button onClick={close} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
         <div className="p-5 flex flex-col gap-5">
@@ -309,7 +311,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
                   className="bg-accent hover:bg-accent-hover text-accent-foreground px-6 py-2 rounded-theme font-bold text-sm cursor-pointer">
                   {t("btnContinue")}
                 </button>
-                <button onClick={onClose}
+                <button onClick={close}
                   className="bg-surface-alt hover:bg-border text-text px-6 py-2 rounded-theme font-bold text-sm cursor-pointer">
                   {t("btnDone")}
                 </button>

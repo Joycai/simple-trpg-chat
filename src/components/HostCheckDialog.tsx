@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { requestSkillCheckAction, psychologyHiddenRollAction, requestSanCheckAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface Player {
   id: number;
@@ -23,6 +24,7 @@ interface Props {
 
 export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, mode = "check", onClose }: Props) {
   const t = useTranslations("hostCheck");
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
   const [step, setStep] = useState<"players" | "params">("players");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [skillName, setSkillName] = useState("");
@@ -59,16 +61,16 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
       if (!skillName.trim()) return;
       await requestSkillCheckAction(roomId, targets, skillName.trim(), diceType, isPrivate, channelTargetUserId);
     }
-    onClose();
+    close();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4"
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
+      <div className={`bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4 ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-bold text-lg text-text">{title}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
+          <button onClick={close} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
         {/* Step 1: Select players */}
