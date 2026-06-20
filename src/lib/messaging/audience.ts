@@ -25,8 +25,9 @@ export type Audience = (typeof AUDIENCES)[number];
 /** The minimal message shape the visibility helpers need. */
 export interface AudienceFields {
   userId: number; // the actor (sender)
-  targetUserId?: number | null; // the directed user / DM partner (dm + directed only)
+  targetUserId?: number | null; // WHO: the directed user (dm / directed / recipient)
   audience: Audience;
+  channelUserId?: number | null; // WHERE: null = public feed; else the DM partner (with userId)
 }
 
 export function isAudience(value: unknown): value is Audience {
@@ -66,22 +67,19 @@ export function dmPartner(m: AudienceFields, viewerId: number): number | null {
 }
 
 /**
- * Which channel/tab this message belongs to for `viewerId`:
- *  - "public" : the public feed (everyone/self/recipient/directed/gm render inline here)
- *  - <number> : the userId of the DM partner (dm messages)
+ * Which channel/tab this message belongs to for `viewerId` — driven solely by
+ * `channelUserId` (WHERE), independent of the audience (WHO):
+ *  - "public" : channelUserId is null — renders in the public feed.
+ *  - <number> : the message belongs to the DM between `userId` and `channelUserId`;
+ *               return the other end from the viewer's perspective.
+ *
+ * This keeps an audience-restricted message (a hidden roll = `self`, a psychology
+ * notify = `recipient`) inside the DM it was issued in, while `canSee` still limits
+ * who actually receives it.
  */
 export function channelOf(m: AudienceFields, viewerId: number): "public" | number {
-  const partner = dmPartner(m, viewerId);
-  if (partner !== null) return partner;
-  // A `self` message (hidden roll, .rh / .st / .help feedback) stays in the channel
-  // it was issued in: targetUserId carries the DM partner of that channel (or null
-  // for the public feed). Only the actor ever sees a `self` message, so this is only
-  // ever evaluated from the actor's side. The `!== userId` guard ignores legacy rows
-  // that stored the actor's own id as the target.
-  if (m.audience === "self" && m.targetUserId != null && m.targetUserId !== m.userId) {
-    return m.targetUserId;
-  }
-  return "public";
+  if (m.channelUserId == null) return "public";
+  return viewerId === m.userId ? m.channelUserId : m.userId;
 }
 
 /**

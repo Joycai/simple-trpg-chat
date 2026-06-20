@@ -240,7 +240,7 @@ export async function sendMessageAction(
         nickname: "SYSTEM",
         type: "system",
         audience: "self", // only the sender sees the interception warning
-        targetUserId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
+        channelPartnerId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
         content: t("sensitiveWordsIntercepted"),
       });
     }
@@ -257,7 +257,7 @@ export async function sendMessageAction(
           nickname: "SYSTEM",
           type: "system",
           audience: "self", // command errors are shown only to the issuer
-          targetUserId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
+          channelPartnerId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
           content: t("commandError", { error: result.error || "" }),
         });
       }
@@ -350,7 +350,10 @@ export async function rollDiceAction(
     nickname: member?.nickname || "SYSTEM",
     type: "dice",
     audience,
-    targetUserId: channelPartnerId,
+    // dm targets the partner (WHO); a hidden roll has no audience target. Either way
+    // channelPartnerId places it in the right channel (current DM, or public).
+    targetUserId: audience === "dm" ? channelPartnerId : undefined,
+    channelPartnerId: channelPartnerId ?? undefined,
     content: hidden ? `🔒 ${content}` : content,
     diceDetail: detail,
   });
@@ -511,7 +514,11 @@ function roomIsCoc7th(room: { ruleTemplate: string | null; diceRules: string | n
  * notification that a psychology check was made on them (no result). If a player hasn't
  * set 心理学, a plain d100 is rolled (still labelled as a psychology hidden roll).
  */
-export async function psychologyHiddenRollAction(roomId: number, targetUserIds: number[]) {
+export async function psychologyHiddenRollAction(
+  roomId: number,
+  targetUserIds: number[],
+  channelPartnerId?: number // when initiated inside a DM, keep the result/notify in that DM
+) {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
@@ -555,13 +562,14 @@ export async function psychologyHiddenRollAction(roomId: number, targetUserIds: 
     // KP-only result — only the KP (the actor) sees the roll outcome.
     await dispatchMessage({
       roomId, actorUserId: hostId, nickname: "SYSTEM",
-      type: "system", audience: "self", content: resultContent,
+      type: "system", audience: "self", channelPartnerId,
+      content: resultContent,
     });
 
     // Player notification — the targeted player is told a check happened (no result).
     await dispatchMessage({
       roomId, actorUserId: hostId, nickname: "SYSTEM",
-      type: "system", audience: "recipient", targetUserId: plId,
+      type: "system", audience: "recipient", targetUserId: plId, channelPartnerId,
       content: tRoom("psyNotify", { hostNick }),
     });
   }

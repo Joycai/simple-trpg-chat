@@ -63,11 +63,11 @@ function visibilityFor(
   ctx: CommandContext | undefined,
   userId: number,
   mode: "self" | "channel"
-): { audience: Audience; targetUserId?: number } {
+): { audience: Audience; targetUserId?: number; channelPartnerId?: number } {
   if (mode === "self") {
     // Self-visible, but stays in the channel it was issued in: carry the DM partner
-    // when in a private channel (so e.g. .rh in a DM renders in that DM, not public).
-    return { audience: "self", targetUserId: ctx?.isPrivate ? ctx.targetUserId : undefined };
+    // as the channel (so e.g. .rh in a DM renders in that DM, not the public feed).
+    return { audience: "self", channelPartnerId: ctx?.isPrivate ? ctx.targetUserId : undefined };
   }
   if (ctx?.isPrivate && ctx.targetUserId) {
     return { audience: "dm", targetUserId: ctx.targetUserId };
@@ -84,7 +84,7 @@ async function emitCommandMessage(
   userId: number,
   content: string,
   type: MessageType,
-  vis: { audience: Audience; targetUserId?: number },
+  vis: { audience: Audience; targetUserId?: number; channelPartnerId?: number },
   diceDetail?: string
 ) {
   const [m] = await db
@@ -98,6 +98,7 @@ async function emitCommandMessage(
     type,
     audience: vis.audience,
     targetUserId: vis.targetUserId,
+    channelPartnerId: vis.channelPartnerId,
     content,
     diceDetail,
   });

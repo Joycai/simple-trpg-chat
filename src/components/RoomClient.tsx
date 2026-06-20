@@ -541,7 +541,8 @@ export function RoomClient({
             id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
             content: tra("commandError", { error: result.error }),
             type: "system" as const, audience: "self" as const,
-            targetUserId: channelPartner ?? null, isPrivate: true, diceDetail: null,
+            targetUserId: null, channelUserId: channelPartner ?? null,
+            isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
           };
           seenIdsRef.current.add(String(errorMsg.id));

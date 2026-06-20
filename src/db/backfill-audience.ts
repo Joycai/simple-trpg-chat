@@ -23,14 +23,24 @@ import { db } from "./index";
 
 async function main() {
   const result = await db.execute(sql`
-    UPDATE messages SET audience = CASE
-      WHEN is_private = false                       THEN 'everyone'
-      WHEN target_user_id = user_id                 THEN 'self'
-      WHEN target_user_id IS NULL                   THEN 'gm'
-      WHEN type = 'system'                          THEN 'recipient'
-      WHEN type = 'clue'                            THEN 'directed'
-      ELSE 'dm'
-    END
+    UPDATE messages SET
+      audience = CASE
+        WHEN is_private = false                     THEN 'everyone'
+        WHEN target_user_id = user_id               THEN 'self'
+        WHEN target_user_id IS NULL                 THEN 'gm'
+        WHEN type = 'system'                        THEN 'recipient'
+        WHEN type = 'clue'                          THEN 'directed'
+        ELSE 'dm'
+      END,
+      -- channel (WHERE it renders): historically only dm whispers lived in a DM tab;
+      -- every other private message rendered in the public feed → no channel.
+      channel_user_id = CASE
+        WHEN is_private = false                     THEN NULL
+        WHEN target_user_id IS NULL                 THEN NULL
+        WHEN target_user_id = user_id               THEN NULL
+        WHEN type IN ('system', 'clue')             THEN NULL
+        ELSE target_user_id
+      END
   `);
 
   // postgres-js returns the affected rows; surface a count for visibility.

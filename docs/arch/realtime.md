@@ -26,18 +26,27 @@ if (process.env.NODE_ENV !== "production") {
 }
 ```
 
-## Visibility model — `audience` (central router)
+## Visibility model — `audience` + `channel` (central router)
 
-Every message declares a single **`audience`** describing who may see it. All
-delivery/visibility decisions derive from this one field — there is no scattered
-`isPrivate`/`type` sniffing. The model lives in `src/lib/messaging/`:
+A message has two **orthogonal** dimensions, both owned by `src/lib/messaging/`:
+
+- **`audience`** (WHO may see it) — column `messages.audience`, evaluated by
+  `canSee` / `messageVisibilityWhere`.
+- **`channelUserId`** (WHERE it renders) — column `messages.channel_user_id`:
+  `null` = the public feed; otherwise the DM partner whose tab it belongs to
+  (with `userId`), evaluated by `channelOf`. This lets an audience-restricted
+  message (a `self` hidden roll, a `recipient` psychology notify) stay inside the
+  DM it was issued in without changing who can see it.
+
+There is no scattered `isPrivate`/`type` sniffing. Key pieces:
 
 - **`audience.ts`** — dependency-free predicates shared by server **and** client:
   `canSee(msg, viewer, isHost)`, `channelOf(msg, viewer)`, `countsAsDmUnread(...)`.
 - **`router.ts`** — `dispatchMessage(...)` is the **only** code path that inserts a
-  message: senders pass a semantic `audience`, it derives the stored fields, writes
-  the row, and broadcasts over SSE. `messageVisibilityWhere(roomId, viewer, isHost)`
-  is the single SQL predicate reused by every history query.
+  message: senders pass a semantic `audience` (+ optional `channelPartnerId` when
+  issued inside a DM), it derives the stored fields, writes the row, and broadcasts
+  over SSE. `messageVisibilityWhere(roomId, viewer, isHost)` is the single SQL
+  predicate reused by every history query.
 
 | audience    | Who can see it                        | Examples |
 | ----------- | ------------------------------------- | -------- |
@@ -52,10 +61,11 @@ The SSE route (`route.ts`) calls `canSee` to filter each event; non-message even
 (typing, `room_settings_updated`, …) carry no `audience` and are public by
 construction.
 
-> **Storage note:** `messages.audience` is the source of truth. The legacy
-> `is_private` column is kept only as a derived mirror (`audience !== 'everyone'`)
-> written by the router — no visibility logic reads it. `targetUserId` is stored
-> only for `dm` and `directed`.
+> **Storage note:** `messages.audience` (WHO) + `messages.channel_user_id` (WHERE)
+> are the source of truth. `targetUserId` holds the directed user for
+> `dm` / `directed` / `recipient`. The legacy `is_private` column is kept only as a
+> derived mirror (`audience !== 'everyone'`) written by the router — no visibility
+> logic reads it.
 
 ## Private Messaging (DM)
 

@@ -24,22 +24,33 @@ export interface DispatchParams {
   nickname: string;
   type: MessageType;
   audience: Audience;
-  /** Required for `dm` and `directed`; ignored for other audiences. */
+  /** WHO (visibility): the targeted user — required for `dm`, `directed`, `recipient`. */
   targetUserId?: number | null;
+  /**
+   * WHERE (channel): the DM partner if this message was issued inside a DM, so it
+   * renders in that DM rather than the public feed. Omit for public-feed messages.
+   * For `dm` it defaults to `targetUserId` (the conversation partner).
+   */
+  channelPartnerId?: number | null;
   content: string;
   diceDetail?: string | null;
 }
 
-/**
- * `targetUserId` is stored for audiences that reference a specific user:
- * - dm / directed / recipient: the targeted user.
- * - self: the DM partner of the channel it was issued in (so a hidden roll renders
- *   in that DM for the actor); null/absent for the public channel.
- */
+/** `targetUserId` (WHO) is stored only for audiences that reference a specific user. */
 function storedTarget(audience: Audience, targetUserId?: number | null): number | null {
-  if (audience === "dm" || audience === "directed" || audience === "recipient" || audience === "self") {
+  if (audience === "dm" || audience === "directed" || audience === "recipient") {
     return targetUserId ?? null;
   }
+  return null;
+}
+
+/** `channelUserId` (WHERE): the DM partner this message belongs to, or null = public. */
+function storedChannel(audience: Audience, targetUserId?: number | null, channelPartnerId?: number | null): number | null {
+  // A dm conversation lives in the channel with its partner.
+  if (audience === "dm") return channelPartnerId ?? targetUserId ?? null;
+  // self / recipient may be issued inside a DM (carried explicitly); everyone/gm/
+  // directed always render in the public feed.
+  if (audience === "self" || audience === "recipient") return channelPartnerId ?? null;
   return null;
 }
 
@@ -56,6 +67,7 @@ export async function dispatchMessage(params: DispatchParams) {
       roomId,
       userId: actorUserId,
       targetUserId: storedTarget(audience, params.targetUserId),
+      channelUserId: storedChannel(audience, params.targetUserId, params.channelPartnerId),
       nickname,
       content,
       type,
