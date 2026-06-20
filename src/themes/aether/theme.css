@@ -1,0 +1,191 @@
+/* ---- Azure Aether — 拟物化苍穹幻境（晴空幻想冒险 · JRPG） ----
+   概念：空之轨迹 / 最终幻想式的晴空世界。明亮天蓝配金辉，水晶切面、
+   飞行石高光、金线花纹指令窗、星芒为母题。 */
+[data-theme="aether"] {
+  /* === Core palette: bright azure sky + golden glow === */
+  --theme-bg: 238 246 253;          /* clear morning sky */
+  --theme-surface: 248 251 255;     /* high cloud white */
+  --theme-surface-alt: 227 238 251; /* shaded sky */
+  --theme-border: 185 212 238;      /* hazy horizon line */
+  --theme-text: 26 42 68;           /* deep navy ink */
+  --theme-text-muted: 90 112 143;
+  --theme-text-dim: 147 168 196;
+  --theme-primary: 43 127 212;      /* azure / sky blue */
+  --theme-primary-hover: 31 108 187;
+  --theme-accent: 217 165 40;       /* gilt gold (command-window trim) */
+  --theme-accent-hover: 194 144 26;
+  --theme-accent-foreground: 26 42 68;
+  --theme-danger: 214 69 63;        /* alert crimson */
+  --theme-success: 47 158 99;       /* verdant green */
+  --theme-ai: 17 157 141;           /* orbal teal — AI feature accent */
+  --theme-ai-hover: 13 134 120;
+  --theme-ai-foreground: 255 255 255;
+  --theme-header-bg: 244 249 255;
+  --theme-header-border: 185 212 238;
+  --theme-input-bg: 255 255 255;
+  --theme-input-border: 178 205 233;
+  --theme-dice-card-bg: 240 247 255;
+  --theme-dice-card-border: 185 212 238;
+  --theme-private-border: 217 165 40;  /* a gilt-sealed message */
+  --theme-private-bg: 250 245 228;
+  --theme-scroll-btn: 43 127 212;
+  --theme-primary-foreground: 255 255 255;
+
+  /* === Typography (elegant JRPG-menu serif) === */
+  --theme-radius: 0.6rem;
+  --theme-font: var(--font-crimson), 'Crimson Text', 'Georgia', 'Noto Serif CJK SC', 'Songti SC', serif;
+  --theme-font-display: var(--font-marcellus), var(--font-crimson), 'Noto Serif CJK SC', 'Songti SC', serif;
+  --theme-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
+
+  /* === Skeuomorphic: gold/azure crystal glow === */
+  --theme-glow: 0 0 8px rgba(217, 165, 40, 0.4),
+               0 0 18px rgba(43, 127, 212, 0.18);
+
+  /* === Skeuomorphic: airy elevation + faint gilt rim === */
+  --theme-card-shadow: 0 1px 0 rgba(217, 165, 40, 0.12),
+                       0 6px 16px rgba(43, 90, 150, 0.12),
+                       0 2px 4px rgba(43, 90, 150, 0.08);
+
+  /* === Skeuomorphic: faint cross-hatch like fine map paper === */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 0 L4 4' stroke='%232b7fd4' stroke-opacity='0.025' stroke-width='1'/%3E%3C/svg%3E");
+
+  /* === Signature motif: crystal / floating-stone divider === */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23d9a528' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%232b7fd4' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23d9a528'/%3E%3C/svg%3E");
+
+  /* === Skeuomorphic: gilt command-window edges === */
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='2' y='3' width='196' height='14' rx='2' fill='none' stroke='%23d9a528' stroke-width='1.2'/%3E%3Crect x='5' y='6' width='190' height='8' rx='1' fill='none' stroke='%23d9a528' stroke-width='0.6' stroke-opacity='0.5'/%3E%3C/svg%3E");
+
+  /* === Asymmetric: faceted crystal corners === */
+  --theme-radius-tl: 0.6rem;
+  --theme-radius-tr: 0.3rem;
+  --theme-radius-br: 0.6rem;
+  --theme-radius-bl: 0.3rem;
+}
+
+/* === Bright sky sidebar with a gilt edge === */
+[data-theme="aether"] .conv-sidebar {
+  background: linear-gradient(180deg, #eaf3fd 0%, #d8e8f9 100%);
+  border-right: 2px solid #c2941e;
+}
+
+/* Gilt command-window tabs */
+[data-theme="aether"] .conv-tab {
+  background: linear-gradient(90deg, rgba(234, 243, 253, 0.6) 0%, rgba(216, 232, 249, 0.3) 100%);
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid rgba(185, 212, 238, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: all 0.25s ease-in-out;
+}
+[data-theme="aether"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(208, 226, 248, 0.7) 0%, rgba(196, 218, 244, 0.4) 100%);
+  color: rgb(var(--theme-text)) !important;
+}
+[data-theme="aether"] .conv-tab.active {
+  background: linear-gradient(90deg, rgba(217, 165, 40, 0.14) 0%, rgba(43, 127, 212, 0.06) 100%);
+  border-left-color: rgb(var(--theme-accent));
+  border-bottom-color: rgba(217, 165, 40, 0.35);
+  box-shadow: 0 2px 6px rgba(43, 90, 150, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  color: rgb(var(--theme-primary)) !important;
+}
+
+/* === Signature divider: floating crystal === */
+[data-theme="aether"] .conv-divider {
+  border: 0 !important;
+  height: 16px;
+  margin: 4px 8px;
+  background-image: var(--theme-divider);
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 0 3px rgba(217, 165, 40, 0.4));
+}
+
+/* Aether command-window cards (clues, inventory etc.) */
+[data-theme="aether"] .clue-card,
+[data-theme="aether"] .inventory-card,
+[data-theme="aether"] .item-detail-panel {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.96)), var(--theme-surface-texture) !important;
+  background-size: auto, 4px 4px !important;
+  border: 1px solid #cdb15a !important;
+  box-shadow: inset 0 0 0 1px rgba(217, 165, 40, 0.18),
+              0 4px 10px rgba(43, 90, 150, 0.12) !important;
+  position: relative;
+  overflow: visible;
+  transition: all 0.2s ease;
+
+  /* Deep navy ink for crisp contrast on bright paper */
+  --theme-text: 26 42 68;
+  --theme-text-muted: 80 102 133;
+  --theme-text-dim: 130 152 182;
+  color: rgb(var(--theme-text)) !important;
+}
+
+[data-theme="aether"] .clue-card:hover,
+[data-theme="aether"] .inventory-card:hover {
+  border-color: rgb(var(--theme-accent)) !important;
+  box-shadow: inset 0 0 0 1px rgba(217, 165, 40, 0.35),
+              0 6px 14px rgba(43, 90, 150, 0.18) !important;
+}
+
+/* Gold→azure gilt header line across card top (command-window lintel) */
+[data-theme="aether"] .clue-card::before,
+[data-theme="aether"] .inventory-card::before,
+[data-theme="aether"] .item-detail-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgb(var(--theme-accent)), rgb(var(--theme-primary))) !important;
+  box-shadow: 0 0 6px rgba(217, 165, 40, 0.35);
+}
+
+/* === Crystal / star-shard chat-bubble decoration === */
+[data-theme="aether"] .chat-bubble {
+  position: relative;
+  overflow: visible !important;
+}
+[data-theme="aether"] .chat-bubble-other::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232b7fd4' fill-opacity='0.85' stroke='%23d9a528' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(217, 165, 40, 0.7));
+  z-index: 10;
+}
+[data-theme="aether"] .chat-bubble-own::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d9a528' fill-opacity='0.9' stroke='%232b7fd4' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(43, 127, 212, 0.6));
+  z-index: 10;
+}
+
+/* === Skeuomorphic card edge: gilt-filigree command window === */
+[data-theme="aether"] .theme-border {
+  box-shadow: inset 0 0 0 1px rgba(217, 165, 40, 0.45),
+              inset 0 0 0 3px rgba(255, 255, 255, 0.6),
+              0 6px 16px rgba(43, 90, 150, 0.14);
+}
+
+/* === Lobby filter tabs: golden glow === */
+[data-theme="aether"] .filter-indicator {
+  background: #d9a528;
+  box-shadow: 0 0 10px rgba(217, 165, 40, 0.55), 0 0 20px rgba(43, 127, 212, 0.2);
+}
+[data-theme="aether"] .filter-tab-active {
+  color: #b8860b;
+  text-shadow: 0 0 8px rgba(217, 165, 40, 0.35);
+}

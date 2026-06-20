@@ -767,6 +767,8 @@
   "roomSettings": {
     "title": "⚙️ Room Settings",
     "desc": "{roomName}'s room settings",
+    "tabTheme": "Theme",
+    "tabGeneral": "Room Info",
     "themeLabel": "Room Theme",
     "diceRulesLabel": "Dice Rules",
     "diceRulesBasic": "📊 Basic — Raw d100 rolls",

@@ -13,7 +13,13 @@
  * No application/UI code should branch on a theme id — the UI renders entirely
  * from this registry, and styling lives in the theme's own theme.css.
  */
-export type ThemeId = "default" | "parchment" | "cthulhu" | "shrine";
+export type ThemeId =
+  | "default"
+  | "parchment"
+  | "cthulhu"
+  | "shrine"
+  | "rainglass"
+  | "aether";
 
 /** A small color preview pair for theme pickers (CSS color strings). */
 export interface ThemeSwatch {
@@ -70,6 +76,26 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Miko red-and-white palette, vermilion torii with shimenawa & shide, mincho type on bright washi paper",
     swatch: { bg: "#fffcf6", border: "#c63026" },
     icon: "⛩️",
+  },
+  rainglass: {
+    id: "rainglass",
+    name: "霓虹雨夜",
+    nameEn: "Neon Rainglass",
+    description: "深蓝夜底，雨痕青与霓虹品红倒影，磨砂玻璃面板、雨珠与都市辉光，赛博都市夜雨质感",
+    descriptionEn:
+      "Deep-blue night with rain-cyan and neon-magenta reflections, frosted glass panels, raindrops and city glow — a cyber-city rainy night",
+    swatch: { bg: "#070b14", border: "#38bdf8" },
+    icon: "🌧️",
+  },
+  aether: {
+    id: "aether",
+    name: "苍穹幻境",
+    nameEn: "Azure Aether",
+    description: "明亮天蓝配金辉，水晶切面与飞行石高光、金线花纹指令窗，晴空幻想冒险世界气息",
+    descriptionEn:
+      "Bright azure with golden glow, crystal facets and floating-stone highlights, gilt-filigree command windows — a skybound fantasy-adventure world",
+    swatch: { bg: "#eef6fd", border: "#d9a528" },
+    icon: "🔮",
   },
 } as const;
 

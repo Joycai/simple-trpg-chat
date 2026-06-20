@@ -19,7 +19,7 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const ROOM_STATUS = ['active', 'closed'] as const;
 export type RoomStatus = (typeof ROOM_STATUS)[number];
 
-export const THEMES = ['default', 'parchment', 'cthulhu', 'shrine'] as const;
+export const THEMES = ['default', 'parchment', 'cthulhu', 'shrine', 'rainglass', 'aether'] as const;
 export type Theme = (typeof THEMES)[number];
 
 export const DICE_RULES = ['basic', 'coc7th'] as const;
