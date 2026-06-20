@@ -23,7 +23,6 @@ import { UserSettingsPanel } from "./UserSettingsPanel";
 import { AvatarCropper } from "./AvatarCropper";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
-import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -619,9 +618,11 @@ export function RoomClient({
     }
   }, [room.id]);
 
-  // Roll the check on the server and surface any error inline as a system message.
-  const respondCheck = useCallback(async (messageId: number) => {
+  // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
+  // (so the caller can open the prompt); otherwise surfaces any error inline.
+  const respondCheck = useCallback(async (messageId: number): Promise<{ needsSkill?: boolean }> => {
     const result = await respondToCheckRequestAction(room.id, messageId);
+    if (result.needsSkill) return { needsSkill: true };
     if (!result.success && result.error) {
       const errorMsg = {
         id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
@@ -632,28 +633,28 @@ export function RoomClient({
       seenIdsRef.current.add(String(errorMsg.id));
       setMessages(prev => [...prev, errorMsg]);
     }
+    return {};
   }, [room.id, userId, tra]);
 
-  const handleCheckRequest = useCallback((messageId: number, skillName: string, diceType: string) => {
-    // If the skill is missing, open a themed in-page prompt to set it; otherwise roll now.
-    getMySkillsAction(room.id).then(async (skills) => {
-      const hasSkill = skills.some((s: { skillName: string }) => s.skillName === skillName);
-      if (!hasSkill && diceType === "d100") {
-        setPendingSkillCheck({ messageId, skillName });
-        return;
-      }
-      await respondCheck(messageId);
+  const handleCheckRequest = useCallback((messageId: number, skillName: string) => {
+    // Let the server roll the check. If the stat isn't set, it reports needsSkill and we
+    // open a themed in-page prompt. The server (lookupCheckTarget) is the source of truth,
+    // so COC attributes/resources already on the character sheet won't trigger the prompt.
+    respondCheck(messageId).then(r => {
+      if (r.needsSkill) setPendingSkillCheck({ messageId, skillName });
     });
-  }, [room.id, respondCheck]);
+  }, [respondCheck]);
 
-  // Player confirmed a skill value in the in-page prompt: save it, then roll the check.
+  // Player confirmed a skill value in the prompt: set it via the .st command (which applies
+  // the COC 7th rule adaptation — attributes/resources go to the character sheet, not skills),
+  // then roll the check.
   const handleConfirmSkillSet = useCallback(async (value: number) => {
     if (!pendingSkillCheck) return;
     const { messageId, skillName } = pendingSkillCheck;
     setPendingSkillCheck(null);
-    await upsertSkillAction(room.id, skillName, value);
+    await executeCommandAction(room.id, userId, `.st ${skillName}${value}`);
     await respondCheck(messageId);
-  }, [pendingSkillCheck, room.id, respondCheck]);
+  }, [pendingSkillCheck, room.id, userId, respondCheck]);
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
