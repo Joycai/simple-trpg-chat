@@ -100,6 +100,12 @@ export const COC_DEFAULT_ATTRIBUTES: CocAttributes = {
   app: 50, int: 50, pow: 50, edu: 50, luck: 50,
 };
 
+/**
+ * COC 7th: maximum Sanity is always 99 (reduced only by Cthulhu Mythos, which we don't
+ * track here). POW only sets the *starting* SAN value, never the cap.
+ */
+export const COC_MAX_SANITY = 99;
+
 /** Compute COC 7th derived values from attributes */
 export function computeCocDerived(attrs: CocAttributes): CocDerived {
   const hp = Math.floor((attrs.con + attrs.siz) / 10);
@@ -125,5 +131,5 @@ export function computeCocDerived(attrs: CocAttributes): CocDerived {
   if (attrs.dex < attrs.siz && attrs.str < attrs.siz) mov = 7;
   else if (attrs.dex > attrs.siz && attrs.str > attrs.siz) mov = 9;
 
-  return { hp, hpMax: hp, san, sanMax: san, mp, mpMax: mp, mov, db, build, luck: attrs.luck };
+  return { hp, hpMax: hp, san, sanMax: COC_MAX_SANITY, mp, mpMax: mp, mov, db, build, luck: attrs.luck };
 }

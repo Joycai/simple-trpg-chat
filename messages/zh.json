@@ -106,6 +106,9 @@
     "btnItemManage": "道具管理",
     "tooltipCheck": "发起检定",
     "btnCheck": "发起检定",
+    "btnCheckNormal": "普通检定",
+    "btnPsyCheck": "心理学暗骰",
+    "btnSanCheck": "理智检定",
     "tooltipClues": "线索列表",
     "btnClues": "线索",
     "tooltipImport": "线索导入（AI）",
@@ -633,7 +636,14 @@
     "skillName": "技能名称",
     "skillPlaceholder": "如：侦查、聆听、图书馆...",
     "diceType": "骰子类型",
-    "btnSubmit": "🎯 发起检定"
+    "btnSubmit": "🎯 发起检定",
+    "psyTitle": "🔮 心理学暗骰",
+    "sanTitle": "🩸 理智检定",
+    "psySubmit": "🔮 发起暗骰",
+    "sanSuccessLoss": "成功减损值",
+    "sanFailureLoss": "失败减损值",
+    "sanLossPlaceholder": "如：0 或 1d6",
+    "sanSubmit": "🩸 发起理智检定"
   },
   "tokenUsage": {
     "title": "Token 使用统计",
@@ -699,6 +709,10 @@
     "checkRequestNotFound": "检定请求不存在或已失效",
     "checkNotTarget": "你不是本次检定的目标",
     "checkAlreadyDone": "你已经完成了本次检定",
+    "psyResult": "🔮 心理学暗骰 · {nick}：d100={roll} / 心理学{target} → {level}",
+    "psyResultNoSkill": "🔮 心理学暗骰 · {nick}：d100={roll}（未设定心理学技能）",
+    "psyNotify": "🔮 {hostNick} 为你进行了一次心理学检定",
+    "sanCheckRequestContent": "🩸 {hostNick} 要求 {targetNicks} 进行【理智检定】",
     "separator": "、"
   },
   "commands": {

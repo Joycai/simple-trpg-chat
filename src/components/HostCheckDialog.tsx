@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { requestSkillCheckAction } from "@/app/actions/room";
+import { requestSkillCheckAction, psychologyHiddenRollAction, requestSanCheckAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
 
 interface Player {
@@ -10,23 +10,30 @@ interface Player {
   isBot?: boolean;
 }
 
+type CheckMode = "check" | "psychology" | "sancheck";
+
 interface Props {
   roomId: number;
   players: Player[];
   isPrivate?: boolean;
   channelTargetUserId?: number;
+  mode?: CheckMode;
   onClose: () => void;
 }
 
-export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, onClose }: Props) {
+export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, mode = "check", onClose }: Props) {
   const t = useTranslations("hostCheck");
-  const [step, setStep] = useState<"players" | "skill">("players");
+  const [step, setStep] = useState<"players" | "params">("players");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [skillName, setSkillName] = useState("");
   const [diceType, setDiceType] = useState("d100");
+  const [successExpr, setSuccessExpr] = useState("0");
+  const [failureExpr, setFailureExpr] = useState("1d6");
 
   const nonBotIds = players.filter(p => !p.isBot).map(p => p.id);
   const allNonBotSelected = nonBotIds.length > 0 && nonBotIds.every(id => selectedIds.has(id));
+
+  const title = mode === "psychology" ? t("psyTitle") : mode === "sancheck" ? t("sanTitle") : t("title");
 
   const togglePlayer = (id: number) => {
     const next = new Set(selectedIds);
@@ -43,7 +50,15 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
   const handleSubmit = async () => {
     const targets = [...selectedIds];
     if (targets.length === 0) return;
-    await requestSkillCheckAction(roomId, targets, skillName.trim(), diceType, isPrivate, channelTargetUserId);
+    if (mode === "psychology") {
+      await psychologyHiddenRollAction(roomId, targets);
+    } else if (mode === "sancheck") {
+      if (!successExpr.trim() || !failureExpr.trim()) return;
+      await requestSanCheckAction(roomId, targets, successExpr.trim(), failureExpr.trim(), isPrivate, channelTargetUserId);
+    } else {
+      if (!skillName.trim()) return;
+      await requestSkillCheckAction(roomId, targets, skillName.trim(), diceType, isPrivate, channelTargetUserId);
+    }
     onClose();
   };
 
@@ -52,7 +67,7 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
       <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4"
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
+          <h3 className="font-bold text-lg text-text">{title}</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
         </div>
 
@@ -84,40 +99,73 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
                 </label>
               ))}
             </div>
-            <button onClick={() => setStep("skill")} disabled={selectedIds.size === 0}
-              className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm mt-2 cursor-pointer">
-              {t("btnNext")}
-            </button>
+            {mode === "psychology" ? (
+              <button onClick={handleSubmit} disabled={selectedIds.size === 0}
+                className="bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground py-2 rounded font-bold text-sm mt-2 cursor-pointer">
+                {t("psySubmit")}
+              </button>
+            ) : (
+              <button onClick={() => setStep("params")} disabled={selectedIds.size === 0}
+                className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm mt-2 cursor-pointer">
+                {t("btnNext")}
+              </button>
+            )}
           </div>
         )}
 
-        {/* Step 2: Skill + dice */}
-        {step === "skill" && (
+        {/* Step 2: mode-specific params */}
+        {step === "params" && (
           <div className="flex flex-col gap-3">
             <button onClick={() => setStep("players")} className="text-xs text-text-muted hover:text-text self-start cursor-pointer">
               {t("btnBack")}
             </button>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-text-dim">{t("skillName")}</label>
-              <input value={skillName} onChange={e => setSkillName(e.target.value)}
-                placeholder={t("skillPlaceholder")}
-                className="p-2 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary"
-                autoFocus
-                onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-text-dim">{t("diceType")}</label>
-              <select value={diceType} onChange={e => setDiceType(e.target.value)}
-                className="p-2 border border-input-border bg-input-bg rounded text-sm text-text outline-none">
-                <option value="d100">d100</option>
-                <option value="d20">d20</option>
-                <option value="d10">d10</option>
-              </select>
-            </div>
-            <button onClick={handleSubmit} disabled={!skillName.trim()}
-              className="bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground py-2 rounded font-bold text-sm mt-2 cursor-pointer">
-              {t("btnSubmit")}
-            </button>
+
+            {mode === "sancheck" ? (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim">{t("sanSuccessLoss")}</label>
+                  <input value={successExpr} onChange={e => setSuccessExpr(e.target.value)}
+                    placeholder={t("sanLossPlaceholder")}
+                    className="p-2 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary"
+                    autoFocus />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim">{t("sanFailureLoss")}</label>
+                  <input value={failureExpr} onChange={e => setFailureExpr(e.target.value)}
+                    placeholder={t("sanLossPlaceholder")}
+                    className="p-2 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary"
+                    onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+                </div>
+                <button onClick={handleSubmit} disabled={!successExpr.trim() || !failureExpr.trim()}
+                  className="bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground py-2 rounded font-bold text-sm mt-2 cursor-pointer">
+                  {t("sanSubmit")}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim">{t("skillName")}</label>
+                  <input value={skillName} onChange={e => setSkillName(e.target.value)}
+                    placeholder={t("skillPlaceholder")}
+                    className="p-2 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary"
+                    autoFocus
+                    onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim">{t("diceType")}</label>
+                  <select value={diceType} onChange={e => setDiceType(e.target.value)}
+                    className="p-2 border border-input-border bg-input-bg rounded text-sm text-text outline-none">
+                    <option value="d100">d100</option>
+                    <option value="d20">d20</option>
+                    <option value="d10">d10</option>
+                  </select>
+                </div>
+                <button onClick={handleSubmit} disabled={!skillName.trim()}
+                  className="bg-accent hover:bg-accent-hover disabled:opacity-40 text-accent-foreground py-2 rounded font-bold text-sm mt-2 cursor-pointer">
+                  {t("btnSubmit")}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

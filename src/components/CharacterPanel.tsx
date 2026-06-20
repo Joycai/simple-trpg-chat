@@ -23,6 +23,8 @@ interface CharacterPanelProps {
   loading?: boolean;
   avatarColor?: string | null;
   isGM?: boolean;
+  /** Bumped by the parent after a .st command, so the skills tab reloads. */
+  refreshKey?: number;
 }
 
 interface SkillItem {
@@ -46,6 +48,7 @@ export function CharacterPanel({
   loading = false,
   avatarColor,
   isGM = false,
+  refreshKey = 0,
 }: CharacterPanelProps) {
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
@@ -118,7 +121,32 @@ export function CharacterPanel({
     } else {
       getMySkillsAction(roomId).then(setSkills).catch(() => {});
     }
-  }, [roomId, readOnly, targetUserId]);
+  }, [roomId, readOnly, targetUserId, refreshKey]);
+
+  // Re-sync attributes/resources when the characterData prop changes (e.g. after a
+  // .st / .sc command triggers router.refresh upstream). Keeps an open panel current
+  // without a full reload, and without remounting (so the active tab is preserved).
+  useEffect(() => {
+    if (!characterData) return;
+    const cd = parseCharData(characterData) as {
+      cocAttributes?: CocAttributes;
+      bio?: string;
+      customAttributes?: { name: string; value: number; max?: number }[];
+      cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
+    };
+    if (!cd) return;
+    const attrs = cd.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES };
+    const d = computeCocDerived(attrs);
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setCocAttrs(attrs);
+    setBio(cd.bio || "");
+    setCustomAttrs(cd.customAttributes || []);
+    setCurrentHp(cd.cocDerived?.hp_current ?? d.hp);
+    setCurrentSan(cd.cocDerived?.san_current ?? d.san);
+    setCurrentMp(cd.cocDerived?.mp_current ?? d.mp);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characterData]);
 
   const saveNickname = async () => {
     if (nickname.trim() && nickname !== currentNickname) {

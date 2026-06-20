@@ -18,9 +18,11 @@ interface SkillPanelProps {
   userId: number;
   onClose: () => void;
   readOnly?: boolean;
+  /** Bumped by the parent after a .st command, so the panel reloads its skills. */
+  refreshKey?: number;
 }
 
-export function SkillPanel({ roomId, userId, onClose, readOnly = false }: SkillPanelProps) {
+export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshKey = 0 }: SkillPanelProps) {
   const t = useTranslations("skills");
   const tCommon = useTranslations("common");
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -40,7 +42,7 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false }: SkillP
   };
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadSkills(); }, [roomId, userId]);
+  useEffect(() => { void loadSkills(); }, [roomId, userId, refreshKey]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
