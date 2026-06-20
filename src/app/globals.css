@@ -262,42 +262,20 @@ body {
 }
 
 /* ============================================================
-
-   Per-theme DRAMATIC skeuomorphic effects
+   Lobby filter tabs — theme-AGNOSTIC base.
+   Per-theme overrides (indicator color, active text, fonts) live in
+   each theme's own theme.css alongside the rest of its styling.
    ============================================================ */
-
-/* Parchment: torn paper — extreme asymmetric corners + ink inner shadow */
-[data-theme="parchment"] .theme-border {
-  --theme-radius-tl: 12px;
-  --theme-radius-tr: 4px;
-  --theme-radius-br: 8px;
-  --theme-radius-bl: 3px;
-  box-shadow: inset 0 0 30px rgba(139, 90, 43, 0.12),
-              inset 0 0 8px rgba(139, 90, 43, 0.06),
-              2px 3px 6px rgba(90, 55, 25, 0.15);
+.filter-indicator {
+  background: var(--theme-primary, #22d3ee);
+  box-shadow: 0 0 8px var(--theme-primary, #22d3ee), 0 0 16px rgba(34, 211, 238, 0.3);
+}
+.filter-tab-active {
+  color: var(--theme-primary, #22d3ee);
 }
 
-/* Cthulhu: neon purple glow — max brightness */
-[data-theme="cthulhu"] .theme-border {
-  --theme-radius-tl: 0;
-  --theme-radius-tr: 0;
-  --theme-radius-br: 0;
-  --theme-radius-bl: 0;
-  box-shadow: 0 0 12px rgba(168, 122, 246, 0.35),
-              0 0 30px rgba(168, 122, 246, 0.15),
-              0 0 60px rgba(168, 122, 246, 0.06);
-}
-
-/* Shrine: bold vermillion torii-beam bottom border + hover stamp (light washi) */
-[data-theme="shrine"] .theme-border {
-  --theme-radius-tl: 2px;
-  --theme-radius-tr: 4px;
-  --theme-radius-br: 2px;
-  --theme-radius-bl: 4px;
-  border-bottom: 4px solid rgb(var(--theme-primary));
-  box-shadow: 0 4px 14px rgba(80, 50, 25, 0.12);
-}
-[data-theme="shrine"] .theme-border:hover {
-  box-shadow: 0 0 12px rgba(200, 55, 35, 0.3),
-              0 4px 14px rgba(80, 50, 25, 0.12);
-}
+/* ============================================================
+   Per-theme DRAMATIC skeuomorphic effects now live in their own
+   theme.css files (src/themes/<id>/theme.css) — see .theme-border
+   and .filter-* overrides there. Nothing theme-specific belongs here.
+   ============================================================ */

@@ -1,12 +1,13 @@
 "use client";
 
 import { useTheme } from "./ThemeProvider";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { getThemeName } from "@/themes/types";
 
 export function ThemeSwitcher() {
   const { theme, setTheme, themeList } = useTheme();
   const t = useTranslations("theme");
-  const tThemes = useTranslations("themes");
+  const locale = useLocale();
 
   return (
     <select
@@ -17,7 +18,7 @@ export function ThemeSwitcher() {
     >
       {themeList.map((themeItem) => (
         <option key={themeItem.id} value={themeItem.id}>
-          {tThemes(`${themeItem.id}.name`)}
+          {getThemeName(themeItem.id, locale)}
         </option>
       ))}
     </select>
