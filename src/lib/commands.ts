@@ -17,6 +17,8 @@ export interface CommandResult {
   message?: unknown;
   error?: string;
   isCommand: boolean;
+  /** Machine-readable failure code for callers that branch on the reason (e.g. STAT_NOT_SET). */
+  code?: string;
 }
 
 /**
@@ -427,7 +429,7 @@ async function handleRollCheck(
   const skillName = trimmedArgs;
   const target = await lookupCheckTarget(roomId, userId, skillName, coc7th);
   if (target === null) {
-    return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }) };
+    return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }), code: "STAT_NOT_SET" };
   }
 
   return await performSkillCheck(roomId, userId, target.name, target.value, coc7th, t, ctx, rawCommand);

@@ -17,6 +17,9 @@
   --theme-accent-foreground: 252 246 230;
   --theme-danger: 166 42 38;        /* heraldic red */
   --theme-success: 94 110 52;       /* olive / sage */
+  --theme-ai: 74 86 146;            /* cartographer's indigo ink — AI feature accent */
+  --theme-ai-hover: 58 70 126;
+  --theme-ai-foreground: 252 246 230;
   --theme-header-bg: 236 220 188;
   --theme-header-border: 178 148 108;
   --theme-input-bg: 252 246 230;

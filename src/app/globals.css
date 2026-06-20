@@ -29,6 +29,9 @@
   --color-accent: rgb(var(--theme-accent));
   --color-accent-hover: rgb(var(--theme-accent-hover));
   --color-accent-foreground: rgb(var(--theme-accent-foreground));
+  --color-ai: rgb(var(--theme-ai));
+  --color-ai-hover: rgb(var(--theme-ai-hover));
+  --color-ai-foreground: rgb(var(--theme-ai-foreground));
   --color-danger: rgb(var(--theme-danger));
   --color-success: rgb(var(--theme-success));
   --color-header-bg: rgb(var(--theme-header-bg));

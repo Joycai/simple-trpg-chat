@@ -17,12 +17,12 @@ import { ExportButton } from "./ExportButton";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
+import { SkillSetPrompt } from "./SkillSetPrompt";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
 import { AvatarCropper } from "./AvatarCropper";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
-import { upsertSkillAction, getMySkillsAction } from "@/app/actions/skills";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -104,12 +104,14 @@ export function RoomClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [showItemManager, setShowItemManager] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
+  const [pendingSkillCheck, setPendingSkillCheck] = useState<{ messageId: number; skillName: string } | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
@@ -438,7 +440,7 @@ export function RoomClient({
           if (data.type === "check_update") {
             // A target responded to a host check request — patch the stored respondedUserIds
             // so the x/y count updates and the roller's dice icon is disabled.
-            const idStr = String(data.id);
+            const idStr = String(data.checkRequestId);
             setMessages((prev) => prev.map((m) => {
               if (String(m.id) !== idStr || !m.diceDetail) return m;
               try {
@@ -617,29 +619,43 @@ export function RoomClient({
     }
   }, [room.id]);
 
-  const handleCheckRequest = useCallback((messageId: number, skillName: string, diceType: string) => {
-    // Ensure the skill is set (client-side prompt), then let the server roll the check
-    // and record the response against this check request.
-    getMySkillsAction(room.id).then(async (skills) => {
-      const hasSkill = skills.some((s: { skillName: string }) => s.skillName === skillName);
-      if (!hasSkill && diceType === "d100") {
-        const value = prompt(t("promptNoSkill", { skillName }), "50");
-        if (!value || isNaN(parseInt(value))) return;
-        await upsertSkillAction(room.id, skillName, parseInt(value));
-      }
-      const result = await respondToCheckRequestAction(room.id, messageId);
-      if (!result.success && result.error) {
-        const errorMsg = {
-          id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
-          content: tra("commandError", { error: result.error }),
-          type: "system" as const, isPrivate: true, diceDetail: null,
-          createdAt: new Date().toISOString(),
-        };
-        seenIdsRef.current.add(String(errorMsg.id));
-        setMessages(prev => [...prev, errorMsg]);
-      }
+  // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
+  // (so the caller can open the prompt); otherwise surfaces any error inline.
+  const respondCheck = useCallback(async (messageId: number): Promise<{ needsSkill?: boolean }> => {
+    const result = await respondToCheckRequestAction(room.id, messageId);
+    if (result.needsSkill) return { needsSkill: true };
+    if (!result.success && result.error) {
+      const errorMsg = {
+        id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
+        content: tra("commandError", { error: result.error }),
+        type: "system" as const, isPrivate: true, diceDetail: null,
+        createdAt: new Date().toISOString(),
+      };
+      seenIdsRef.current.add(String(errorMsg.id));
+      setMessages(prev => [...prev, errorMsg]);
+    }
+    return {};
+  }, [room.id, userId, tra]);
+
+  const handleCheckRequest = useCallback((messageId: number, skillName: string) => {
+    // Let the server roll the check. If the stat isn't set, it reports needsSkill and we
+    // open a themed in-page prompt. The server (lookupCheckTarget) is the source of truth,
+    // so COC attributes/resources already on the character sheet won't trigger the prompt.
+    respondCheck(messageId).then(r => {
+      if (r.needsSkill) setPendingSkillCheck({ messageId, skillName });
     });
-  }, [room.id, userId, t, tra]);
+  }, [respondCheck]);
+
+  // Player confirmed a skill value in the prompt: set it via the .st command (which applies
+  // the COC 7th rule adaptation — attributes/resources go to the character sheet, not skills),
+  // then roll the check.
+  const handleConfirmSkillSet = useCallback(async (value: number) => {
+    if (!pendingSkillCheck) return;
+    const { messageId, skillName } = pendingSkillCheck;
+    setPendingSkillCheck(null);
+    await executeCommandAction(room.id, userId, `.st ${skillName}${value}`);
+    await respondCheck(messageId);
+  }, [pendingSkillCheck, room.id, userId, respondCheck]);
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
@@ -709,14 +725,14 @@ export function RoomClient({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Group 1: 角色与能力 (Character Group) */}
-            <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+            {/* Group 1: 自身能力 (Character / You — player-aligned, neutral raised chips) */}
+            <div className="flex items-center gap-1 bg-surface-alt/60 p-1 rounded-lg">
               <button
                 onClick={() => setShowCharacter(!showCharacter)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
                   showCharacter
-                    ? "bg-surface text-primary border border-border/10 shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                    ? "bg-primary/10 text-primary border border-primary/40 shadow-sm"
+                    : "bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
                 }`}
                 title={t("tooltipCharacter")}
               >
@@ -726,7 +742,7 @@ export function RoomClient({
               {!readOnly && (
                 <button
                   onClick={() => setShowAvatarCropper(true)}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-text-muted hover:text-text hover:bg-surface/30"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
                   title={tAvatar("btnAvatar")}
                 >
                   <Icons.Image className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -737,8 +753,8 @@ export function RoomClient({
                 onClick={() => setShowSkills(!showSkills)}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
                   showSkills
-                    ? "bg-surface text-primary border border-border/10 shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                    ? "bg-primary/10 text-primary border border-primary/40 shadow-sm"
+                    : "bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
                 }`}
                 title={t("tooltipSkills")}
               >
@@ -753,8 +769,8 @@ export function RoomClient({
                 }}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer relative ${
                   showInventory
-                    ? "bg-surface text-primary border border-border/10 shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-surface/30"
+                    ? "bg-primary/10 text-primary border border-primary/40 shadow-sm"
+                    : "bg-surface text-text border border-border/70 shadow-sm hover:text-primary hover:border-primary/40"
                 }`}
                 title={t("tooltipInventory")}
               >
@@ -768,51 +784,63 @@ export function RoomClient({
               </button>
             </div>
 
-            {/* Group 2: 跑团工具 (TRPG Tools Group) */}
-            {(!isMobile || isHost) && (
-              <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
-                {isHost && (
-                  <button
-                    onClick={() => setShowCheckDialog(!showCheckDialog)}
-                    className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      showCheckDialog
-                        ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
-                        : "text-accent/90 hover:text-accent hover:bg-accent/10"
-                    }`}
-                    title={t("tooltipCheck")}
-                  >
-                    <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">{t("btnCheck")}</span>
-                  </button>
-                )}
-                {isHost && (
-                  <button
-                    onClick={() => setShowAiImport(true)}
-                    className="hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
-                    title={t("tooltipImport")}
-                  >
-                    <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">{t("btnImport")}</span>
-                  </button>
-                )}
-                {isHost && (
-                  <button
-                    onClick={() => setShowBotManager(!showBotManager)}
-                    className={`hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      showBotManager
-                        ? "bg-surface text-primary border border-border/10 shadow-sm"
-                        : "text-text-muted hover:text-text hover:bg-surface/30"
-                    }`}
-                    title={t("tooltipBot")}
-                  >
-                    <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">Bot</span>
-                  </button>
-                )}
+            {/* Group 2: Host 功能区 (发起检定 + 道具管理) — amber coded */}
+            {isHost && (
+              <div className="flex items-center gap-1 bg-accent/8 p-1 rounded-lg">
+                <button
+                  onClick={() => setShowCheckDialog(!showCheckDialog)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showCheckDialog
+                      ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
+                      : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                  }`}
+                  title={t("tooltipCheck")}
+                >
+                  <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnCheck")}</span>
+                </button>
+                <button
+                  onClick={() => setShowItemManager(!showItemManager)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showItemManager
+                      ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
+                      : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                  }`}
+                  title={t("tooltipItemManage")}
+                >
+                  <Icons.Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnItemManage")}</span>
+                </button>
               </div>
             )}
 
-            {/* Group 3: 系统菜单 (System Dropdown) */}
+            {/* Group 3: AI 功能区 (Clue Import + Bot Manager) — AI-violet coded */}
+            {isHost && (
+              <div className="hidden lg:flex items-center gap-1 bg-ai/8 p-1 rounded-lg">
+                <button
+                  onClick={() => setShowAiImport(true)}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer bg-surface text-ai border border-ai/30 shadow-sm hover:bg-ai/15 hover:border-ai/50"
+                  title={t("tooltipImport")}
+                >
+                  <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnImport")}</span>
+                </button>
+                <button
+                  onClick={() => setShowBotManager(!showBotManager)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showBotManager
+                      ? "bg-ai/25 text-ai border border-ai/60 shadow-sm"
+                      : "bg-surface text-ai border border-ai/30 shadow-sm hover:bg-ai/15 hover:border-ai/50"
+                  }`}
+                  title={t("tooltipBot")}
+                >
+                  <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnBot")}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Group 4: 系统菜单 (System Dropdown) */}
             <div className="relative">
               <button
                 onClick={() => setShowSystemMenu(!showSystemMenu)}
@@ -844,12 +872,12 @@ export function RoomClient({
                       {isHost && (
                         <>
                           <button onClick={() => { setShowAiImport(true); }}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-accent hover:bg-surface-alt transition">
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
                             <Icons.Download className="w-4 h-4" /> {t("btnImport")}
                           </button>
                           <button onClick={() => { setShowBotManager(true); }}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                            <Icons.Bot className="w-4 h-4" /> Bot
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
+                            <Icons.Bot className="w-4 h-4" /> {t("btnBot")}
                           </button>
                         </>
                       )}
@@ -1068,6 +1096,13 @@ export function RoomClient({
           onClose={() => setShowCheckDialog(false)}
         />
       )}
+      {pendingSkillCheck && (
+        <SkillSetPrompt
+          skillName={pendingSkillCheck.skillName}
+          onConfirm={handleConfirmSkillSet}
+          onClose={() => setPendingSkillCheck(null)}
+        />
+      )}
       {showMembers && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMembers(false)}>
           <div className="bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
@@ -1146,7 +1181,10 @@ export function RoomClient({
         </div>
       )}
       {showInventory && (
-        <InventoryPanel roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
+        <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
+      )}
+      {showItemManager && isHost && (
+        <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
       )}
       {showSettings && (
         <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />

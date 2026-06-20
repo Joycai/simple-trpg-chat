@@ -397,7 +397,10 @@ export async function requestSkillCheckAction(
  * channel, records the response on the check_request message, and broadcasts a
  * `check_update` so all clients update the x/y count and disable the roller's dice icon.
  */
-export async function respondToCheckRequestAction(roomId: number, checkRequestId: number) {
+export async function respondToCheckRequestAction(
+  roomId: number,
+  checkRequestId: number
+): Promise<{ success: boolean; error?: string; needsSkill?: boolean }> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
   const userId = parseInt(session.user.id);
@@ -427,7 +430,11 @@ export async function respondToCheckRequestAction(roomId: number, checkRequestId
   const diceType = cr.diceType || "d100";
   if (diceType === "d100") {
     const result = await executeCommand(roomId, userId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
-    if (!result.success) return { success: false, error: result.error };
+    if (!result.success) {
+      // STAT_NOT_SET means the responder hasn't set this skill/attribute/resource yet —
+      // signal the client to open the in-page set-skill prompt rather than surfacing an error.
+      return { success: false, error: result.error, needsSkill: result.code === "STAT_NOT_SET" };
+    }
   } else {
     const faces = parseInt(diceType.replace("d", ""));
     await rollDiceAction(roomId, faces, 1, ctxIsPrivate, ctxTargetId);
@@ -437,7 +444,18 @@ export async function respondToCheckRequestAction(roomId: number, checkRequestId
   const newResponded = [...responded, userId];
   cr.respondedUserIds = newResponded;
   await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, checkRequestId));
-  broadcastToRoom(roomId, { type: "check_update", id: checkRequestId, respondedUserIds: newResponded });
+  // NOTE: do NOT reuse the message id here. The SSE stream dedups by `id`, and the
+  // original check_request message (same id) was already delivered, so an `id`-keyed
+  // event would be dropped server-side. Carry the target id under `checkRequestId`,
+  // and pass the message's privacy fields so DM check_updates reach only the pair.
+  broadcastToRoom(roomId, {
+    type: "check_update",
+    checkRequestId,
+    respondedUserIds: newResponded,
+    isPrivate: msg.isPrivate,
+    userId: msg.userId,
+    targetUserId: msg.targetUserId,
+  });
 
   return { success: true };
 }
