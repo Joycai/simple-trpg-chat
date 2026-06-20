@@ -193,7 +193,6 @@
     "quantity": "Qty",
     "roll": "Roll",
     "private": "Private",
-    "lastResult": "Last Result",
     "faces": {
       "d4": "d4",
       "d6": "d6",
