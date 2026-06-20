@@ -36,14 +36,17 @@ interface InventoryPanelProps {
   /** Bumped via SSE when an item is edited, so the panel reloads the synced content. */
   refreshKey?: number;
   readOnly?: boolean;
+  /** Which view to show. "backpack" = personal items (player-aligned); "manage" = host item management. */
+  view?: "backpack" | "manage";
 }
 
-export function InventoryPanel({ roomId, userId, isHost, players, onClose, refreshKey = 0, readOnly = false }: InventoryPanelProps) {
+export function InventoryPanel({ roomId, userId, isHost, players, onClose, refreshKey = 0, readOnly = false, view = "backpack" }: InventoryPanelProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const locale = useLocale();
 
-  const [tab, setTab] = useState<string>(isHost ? "manage" : "backpack");
+  // Each entry point (背包 / 道具管理) opens a fixed view; the manage view requires host.
+  const tab = view === "manage" && isHost ? "manage" : "backpack";
   const [filterType, setFilterType] = useState<"all" | "clue" | "info" | "character" | "item">("all");
   const [manageFilterType, setManageFilterType] = useState<"all" | "clue" | "info" | "character" | "item">("all");
   const [manageFilterDist, setManageFilterDist] = useState<"all" | "undistributed" | "distributed">("all");
@@ -238,23 +241,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
       <div className="relative ml-auto w-full sm:w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
-          <h3 className="font-bold text-text text-lg">{t("title")}</h3>
+          <h3 className="font-bold text-text text-lg">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text text-xl transition cursor-pointer">×</button>
         </div>
-
-        {/* Tabs (host only) */}
-        {isHost && (
-          <div className="flex border-b border-border">
-            <button onClick={() => setTab("manage")}
-              className={`flex-1 py-3 text-sm font-bold transition cursor-pointer ${tab === "manage" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
-              ⚙️ {t("tabManage")}
-            </button>
-            <button onClick={() => setTab("backpack")}
-              className={`flex-1 py-3 text-sm font-bold transition cursor-pointer ${tab === "backpack" ? "bg-primary/10 text-primary border-b-2 border-primary" : "text-text-muted hover:text-text"}`}>
-              🎒 {t("tabBackpack")}
-            </button>
-          </div>
-        )}
 
         <div className="p-5">
           {loading ? (

@@ -17,6 +17,9 @@
   --theme-accent-foreground: 6 14 16;
   --theme-danger: 230 56 56;       /* blood red */
   --theme-success: 52 200 150;
+  --theme-ai: 213 99 178;          /* fungal orchid — AI feature accent */
+  --theme-ai-hover: 196 84 162;
+  --theme-ai-foreground: 6 14 16;
   --theme-header-bg: 10 20 23;
   --theme-header-border: 38 56 60;
   --theme-input-bg: 16 28 32;

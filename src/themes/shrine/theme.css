@@ -17,6 +17,9 @@
   --theme-accent-foreground: 40 30 8;
   --theme-danger: 150 26 32;        /* 深紅 deep maroon — cooler/darker than vermilion primary */
   --theme-success: 56 124 78;       /* 常磐 evergreen */
+  --theme-ai: 47 82 138;            /* 藍 indigo — AI feature accent */
+  --theme-ai-hover: 36 66 116;
+  --theme-ai-foreground: 255 252 246;
   --theme-header-bg: 243 236 224;   /* cream band */
   --theme-header-border: 210 192 168;
   --theme-input-bg: 255 252 246;
