@@ -146,17 +146,17 @@ describe("SSE API Endpoint", () => {
     expect(decoder.decode(firstChunk.value)).toBe(": heartbeat\n\n");
 
     // 1. Send public message: should be received
-    const publicMsg = { id: 101, isPrivate: false, content: "Hello All" };
+    const publicMsg = { id: 101, audience: "everyone", content: "Hello All" };
     listener(publicMsg);
     const secondChunk = await reader.read();
     expect(decoder.decode(secondChunk.value)).toBe(`data: ${JSON.stringify(publicMsg)}\n\n`);
 
-    // 2. Send private message targeted to another user: should be filtered out/ignored
-    const privateMsgToOther = { id: 102, isPrivate: true, targetUserId: 99, userId: 2, content: "Secret" };
+    // 2. DM between two other users: filtered out (viewer is user 1).
+    const privateMsgToOther = { id: 102, audience: "dm", targetUserId: 99, userId: 2, content: "Secret" };
     listener(privateMsgToOther);
 
-    // 3. Send private message targeted to this user (userId: 1): should be received
-    const privateMsgToMe = { id: 103, isPrivate: true, targetUserId: 1, userId: 2, content: "For your eyes only" };
+    // 3. DM directed to this user (userId 1): should be received.
+    const privateMsgToMe = { id: 103, audience: "dm", targetUserId: 1, userId: 2, content: "For your eyes only" };
     listener(privateMsgToMe);
     const thirdChunk = await reader.read();
     expect(decoder.decode(thirdChunk.value)).toBe(`data: ${JSON.stringify(privateMsgToMe)}\n\n`);

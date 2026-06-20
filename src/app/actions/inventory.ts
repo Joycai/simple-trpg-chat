@@ -1,14 +1,14 @@
 "use server";
 
 import { db, sqlBool } from "@/db";
-import { inventoryItems, inventoryDistributions, roomMembers, users, messages } from "@/db/schema";
+import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
 import { eq, and, not, desc, inArray, count, sql, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { sendMessageAction } from "./room";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/events";
+import { dispatchMessage } from "@/lib/messaging/router";
 
 /**
  * createInventoryItemAction
@@ -138,7 +138,10 @@ export async function distributeItemAction(
     const kpSummary = toUserId === "all"
       ? t("alreadyHadAll", { title: item?.title })
       : t("alreadyHadOne", { title: item?.title });
-    await sendMessageAction(roomId, kpSummary, "system", undefined, true);
+    await dispatchMessage({
+      roomId, actorUserId: fromUserId, nickname: "SYSTEM",
+      type: "system", audience: "gm", content: kpSummary,
+    });
     return;
   }
 
@@ -162,26 +165,36 @@ export async function distributeItemAction(
   // Prepare notification promises
   const promises: Promise<unknown>[] = [];
 
-  // 1. Send targeted "Receipt" notification to each player (ONLY they see it)
+  // 1. Directed receipt to each recipient (host + that player see it).
   for (const tid of targetUserIds) {
     promises.push(
-      sendMessageAction(
+      dispatchMessage({
         roomId,
-        t("receivedNew", { title: item?.title }),
-        "system",
-        undefined,
-        true, // isPrivate
-        tid   // targetUserId (Routes strictly to recipient)
-      )
+        actorUserId: fromUserId,
+        nickname: "SYSTEM",
+        type: "system",
+        audience: "directed",
+        targetUserId: tid,
+        content: t("receivedNew", { title: item?.title }),
+      })
     );
   }
 
-  // 2. Send "Log" notification to KP/Host (ONLY Host/Sender sees it)
-  const kpSummary = toUserId === "all" 
+  // 2. Host-only distribution log.
+  const kpSummary = toUserId === "all"
     ? t("distributedAll", { title: item?.title })
     : t("distributedOne", { recipient: recipients[0]?.name || t("defaultPlayer"), title: item?.title });
-  
-  promises.push(sendMessageAction(roomId, kpSummary, "system", undefined, true)); // No targetUserId -> visible to Sender & Host
+
+  promises.push(
+    dispatchMessage({
+      roomId,
+      actorUserId: fromUserId,
+      nickname: "SYSTEM",
+      type: "system",
+      audience: "gm",
+      content: kpSummary,
+    })
+  );
 
   // Execute notifications in parallel
   await Promise.all(promises);
@@ -245,24 +258,26 @@ export async function shareItemAction(
   const [recipient] = await db.select({ name: users.displayName }).from(users).where(eq(users.id, toUserId));
   const recipientName = recipient?.name || t("defaultTeammate");
 
-  // 1. Notification to recipient (ONLY recipient sees it)
-  await sendMessageAction(
+  // 1. Notify the recipient (directed: the sharer + recipient see it).
+  await dispatchMessage({
     roomId,
-    t("sharedReceived", { sender: senderName, title: item?.title }),
-    "system",
-    undefined,
-    true,
-    toUserId
-  );
+    actorUserId: fromUserId,
+    nickname: "SYSTEM",
+    type: "system",
+    audience: "directed",
+    targetUserId: toUserId,
+    content: t("sharedReceived", { sender: senderName, title: item?.title }),
+  });
 
-  // 2. Notification to sender & Host (GM sees what players share)
-  await sendMessageAction(
+  // 2. Notify the sharer & host (GM sees what players share).
+  await dispatchMessage({
     roomId,
-    t("sharedSent", { title: item?.title, recipient: recipientName }),
-    "system",
-    undefined,
-    true
-  );
+    actorUserId: fromUserId,
+    nickname: "SYSTEM",
+    type: "system",
+    audience: "gm",
+    content: t("sharedSent", { title: item?.title, recipient: recipientName }),
+  });
 
   revalidatePath(`/rooms/${roomId}`);
 }
@@ -420,18 +435,16 @@ export async function publishClueAction(
       });
     }
 
-    // Broadcast as message
-    const [msg] = await db.insert(messages).values({
+    // Broadcast as a public clue message.
+    await dispatchMessage({
       roomId,
-      userId: hostId,
+      actorUserId: hostId,
       nickname: "Host",
-      content: `🃏 **${item.title}**\n\n${JSON.parse(item.contentJson)?.text || item.contentJson}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
       type: "clue",
+      audience: "everyone",
+      content: `🃏 **${item.title}**\n\n${JSON.parse(item.contentJson)?.text || item.contentJson}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
       diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: true }),
-      isPrivate: false,
-    }).returning();
-
-    broadcastToRoom(roomId, msg);
+    });
   } else {
     // Targeted clue - filter out users who already have it
     const existing = await db.select({ toUserId: inventoryDistributions.toUserId }).from(inventoryDistributions).where(
@@ -451,36 +464,33 @@ export async function publishClueAction(
       await db.insert(inventoryDistributions).values(rows);
     }
 
-    // Send targeted messages
+    // Directed clue card to each new recipient (host + that player see it).
     const content = JSON.parse(item.contentJson)?.text || item.contentJson;
     for (const uid of newTargetIds) {
-      const [msg] = await db.insert(messages).values({
+      await dispatchMessage({
         roomId,
-        userId: hostId,
+        actorUserId: hostId,
         nickname: "Host",
-        content: `🃏 **${item.title}**\n\n${content}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
         type: "clue",
-        diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: false, visibleTo: newTargetIds }),
-        isPrivate: true,
+        audience: "directed",
         targetUserId: uid,
-      }).returning();
-
-      broadcastToRoom(roomId, msg);
+        content: `🃏 **${item.title}**\n\n${content}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
+        diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: false, visibleTo: newTargetIds }),
+      });
     }
 
-    // Send host log
+    // Host-only distribution log.
     if (newTargetIds.length > 0) {
       const recipients = await db.select({ name: users.displayName }).from(users).where(inArray(users.id, newTargetIds));
       const recipientNames = recipients.map(r => r.name).join(", ");
-      const [hostMsg] = await db.insert(messages).values({
+      await dispatchMessage({
         roomId,
-        userId: hostId,
+        actorUserId: hostId,
         nickname: "Host",
-        content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: item.title }),
         type: "system",
-        isPrivate: true,
-      }).returning();
-      broadcastToRoom(roomId, hostMsg);
+        audience: "gm",
+        content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: item.title }),
+      });
     }
   }
 

@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { updatePeakOnline } from "@/lib/stats";
+import { canSee, isAudience, type Audience } from "@/lib/messaging/audience";
 
 interface ActiveConnection {
   controller: ReadableStreamDefaultController;
@@ -14,6 +15,7 @@ interface ActiveConnection {
 
 interface RoomEvent {
   id?: string | number;
+  audience?: Audience;
   isPrivate?: boolean;
   targetUserId?: number;
   userId?: number;
@@ -101,20 +103,13 @@ export async function GET(
 
       const listener = (data: unknown) => {
         const ev = data as RoomEvent;
-        // --- Privacy Filter V3.15 (Targeted notification fix) ---
-        if (ev.isPrivate) {
-          if (ev.targetUserId) {
-            // If it's a targeted system message, only the target user can see it
-            if (ev.type === "system") {
-              if (userId !== ev.targetUserId) return;
-            } else {
-              // Whisper/DM: recipient + sender see it
-              if (userId !== ev.targetUserId && userId !== ev.userId) return;
-            }
-          } else {
-            // Generic private message (no target): sender + host see it
-            const isSender = ev.userId === userId;
-            if (!isSender && !isHost) return;
+        // --- Visibility filter: one rule, driven by the message audience ---
+        // Persisted messages (and audience-tagged events like check_update) carry
+        // an `audience`; non-message room events (typing, settings_updated, …) do
+        // not and are public by construction.
+        if (isAudience(ev.audience)) {
+          if (!canSee({ userId: ev.userId ?? -1, targetUserId: ev.targetUserId ?? null, audience: ev.audience }, userId, isHost)) {
+            return;
           }
         }
 

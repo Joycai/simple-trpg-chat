@@ -31,9 +31,10 @@ vi.mock("@/db/schema", () => ({
   roomMembers: { characterData: "characterData" }
 }));
 
-vi.mock("@/app/actions/room", () => ({
-  rollDiceAction: vi.fn(),
-  sendMessageAction: vi.fn(async () => ({ id: 1 }))
+// Command feedback now flows through the central message router.
+vi.mock("@/lib/messaging/router", () => ({
+  dispatchMessage: vi.fn(async () => ({ id: 1 })),
+  messageVisibilityWhere: vi.fn()
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -274,8 +275,8 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
   });
 
   it("should roll a one-off check at the supplied value without persisting", async () => {
-    const { sendMessageAction } = await import("@/app/actions/room");
-    vi.mocked(sendMessageAction).mockClear();
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    vi.mocked(dispatchMessage).mockClear();
     const insertSpy = vi.spyOn(db, "insert");
 
     mockSelect.mockReturnValue({
@@ -296,15 +297,15 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
     expect(insertSpy).not.toHaveBeenCalled();
 
     // The dice detail should carry the target value and original command echo.
-    const detail = JSON.parse(vi.mocked(sendMessageAction).mock.calls[0][3] as string);
+    const detail = JSON.parse(vi.mocked(dispatchMessage).mock.calls[0][0].diceDetail as string);
     expect(detail.check.target).toBe(60);
     expect(detail.command).toBe(".rc侦查60");
     insertSpy.mockRestore();
   });
 
   it("should fall back to a COC attribute when no skill row exists (.rc 体质)", async () => {
-    const { sendMessageAction } = await import("@/app/actions/room");
-    vi.mocked(sendMessageAction).mockClear();
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    vi.mocked(dispatchMessage).mockClear();
 
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
@@ -322,42 +323,41 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
 
     const result = await executeCommand(1, 1, ".rc 体质");
     expect(result.success).toBe(true);
-    const detail = JSON.parse(vi.mocked(sendMessageAction).mock.calls[0][3] as string);
+    const detail = JSON.parse(vi.mocked(dispatchMessage).mock.calls[0][0].diceDetail as string);
     expect(detail.check.skillName).toBe("体质");
     expect(detail.check.target).toBe(70);
   });
 });
 
 describe("Commands - hidden roll (.rh) and channel visibility", () => {
-  it(".rh is visible only to the roller (isPrivate + targetUserId=self)", async () => {
-    const { sendMessageAction } = await import("@/app/actions/room");
-    vi.mocked(sendMessageAction).mockClear();
+  it(".rh is visible only to the roller (audience=self)", async () => {
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    vi.mocked(dispatchMessage).mockClear();
 
     const result = await executeCommand(1, 7, ".rh100");
     expect(result.success).toBe(true);
-    const call = vi.mocked(sendMessageAction).mock.calls[0];
-    expect(call[4]).toBe(true);   // isPrivate
-    expect(call[5]).toBe(7);      // targetUserId === roller
+    const params = vi.mocked(dispatchMessage).mock.calls[0][0];
+    expect(params.audience).toBe("self");
   });
 
   it(".rd in a public channel broadcasts to everyone", async () => {
-    const { sendMessageAction } = await import("@/app/actions/room");
-    vi.mocked(sendMessageAction).mockClear();
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    vi.mocked(dispatchMessage).mockClear();
 
     await executeCommand(1, 7, ".rd100");
-    const call = vi.mocked(sendMessageAction).mock.calls[0];
-    expect(call[4]).toBe(false);          // not private
-    expect(call[5]).toBeUndefined();      // no target
+    const params = vi.mocked(dispatchMessage).mock.calls[0][0];
+    expect(params.audience).toBe("everyone");
+    expect(params.targetUserId).toBeUndefined();
   });
 
   it(".rd issued inside a DM stays between the two participants", async () => {
-    const { sendMessageAction } = await import("@/app/actions/room");
-    vi.mocked(sendMessageAction).mockClear();
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    vi.mocked(dispatchMessage).mockClear();
 
     await executeCommand(1, 7, ".rd100", { isPrivate: true, targetUserId: 9 });
-    const call = vi.mocked(sendMessageAction).mock.calls[0];
-    expect(call[4]).toBe(true);   // private
-    expect(call[5]).toBe(9);      // delivered to the DM partner (+ sender via SSE filter)
+    const params = vi.mocked(dispatchMessage).mock.calls[0][0];
+    expect(params.audience).toBe("dm");
+    expect(params.targetUserId).toBe(9); // the DM partner (sender also sees it via canSee)
   });
 });
 

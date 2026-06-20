@@ -34,6 +34,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps } from "./room/types";
+import { canSee, channelOf, countsAsDmUnread, isAudience } from "@/lib/messaging/audience";
 
 export function RoomClient({
   room,
@@ -255,33 +256,12 @@ export function RoomClient({
   const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
 
-  // Filter messages by active tab (Task #43)
+  // Bucket each visible message into its channel/tab. `messages` already only
+  // contains rows this viewer may see (filtered by the SSE route + initial query),
+  // so we just route by audience: channelOf returns "public" (everyone/self/
+  // directed/gm render inline there) or the DM partner's userId.
   const tabMessages = useMemo(() => {
-    if (activeTab === "public") {
-      // Show public messages and private messages that are system warnings, check-requests,
-      // or belong inline to the public channel (e.g. private GM rolls/system warning messages)
-      return messages.filter(m => {
-        if (!m.isPrivate) return true;
-        
-        // Show private system/check messages only to the sender or target in the public feed
-        if (m.type === "system" || m.type === "check_request") {
-          return m.userId === userId || m.targetUserId === userId;
-        }
-        
-        // Private rolls in the public feed:
-        // - GM-private rolls (no target) are shown to the sender (and host via the SQL filter)
-        // - hidden rolls (.rh — self-targeted) are shown only to the roller
-        return !m.targetUserId || (m.targetUserId === userId && m.userId === userId);
-      });
-    }
-    // Show private messages between current user and active target
-    return messages.filter(m => 
-      m.isPrivate && 
-      (
-        (m.userId === userId && m.targetUserId === activeTab) ||
-        (m.userId === activeTab && m.targetUserId === userId)
-      )
-    );
+    return messages.filter(m => channelOf(m, userId) === activeTab);
   }, [messages, activeTab, userId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -444,24 +424,21 @@ export function RoomClient({
             return;
           }
           if (data.id) {
-            if (data.isPrivate) {
-              const isSender = data.userId === userId;
-              const isTarget = data.targetUserId === userId;
-              if (data.targetUserId) {
-                if (!isSender && !isTarget) return;
+            const view = { userId: data.userId, targetUserId: data.targetUserId ?? null, audience: data.audience };
+            // Defensive: the SSE route already filtered by audience, but re-check
+            // so a mis-targeted row never leaks into this client's state.
+            if (isAudience(data.audience) && !canSee(view, userId, isHost)) return;
+
+            // Bump the DM unread badge only for genuine inbound 1:1 DM turns —
+            // inline notices (self/directed/gm) have their own indicators.
+            if (countsAsDmUnread(view, userId)) {
+              if (activeTabRef.current !== data.userId) {
+                setUnreadCounts((prev) => ({
+                  ...prev,
+                  [data.userId]: (prev[data.userId] || 0) + 1,
+                }));
               } else {
-                if (!isSender && !isHost) return;
-              }
-              // Update unread count if we are the recipient
-              if (isTarget) {
-                if (activeTabRef.current !== data.userId) {
-                  setUnreadCounts((prev) => ({
-                    ...prev,
-                    [data.userId]: (prev[data.userId] || 0) + 1,
-                  }));
-                } else {
-                  markDMReadAction(room.id, data.userId).catch(() => {});
-                }
+                markDMReadAction(room.id, data.userId).catch(() => {});
               }
             }
             // Robust dedup: check seenIdsRef first to prevent duplicates from HMR listener accumulation
@@ -559,7 +536,7 @@ export function RoomClient({
           const errorMsg = {
             id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
             content: tra("commandError", { error: result.error }),
-            type: "system" as const, isPrivate: true, diceDetail: null,
+            type: "system" as const, audience: "self" as const, isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
           };
           seenIdsRef.current.add(String(errorMsg.id));
@@ -610,7 +587,7 @@ export function RoomClient({
       const errorMsg = {
         id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
         content: tra("commandError", { error: result.error }),
-        type: "system" as const, isPrivate: true, diceDetail: null,
+        type: "system" as const, audience: "self" as const, isPrivate: true, diceDetail: null,
         createdAt: new Date().toISOString(),
       };
       seenIdsRef.current.add(String(errorMsg.id));
