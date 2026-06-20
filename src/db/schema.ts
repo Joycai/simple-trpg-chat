@@ -159,6 +159,9 @@ export const inventoryDistributions = pgTable('inventory_distributions', {
   toUserId: integer('to_user_id').references(() => users.id, { onDelete: 'cascade' }),
   action: text('action').notNull().default('created'),
   viewed: boolean('viewed').notNull().default(false),
+  // Set true when the host edits the item after the recipient has already viewed it,
+  // so the backpack can flag the held copy as "updated" (vs a freshly-received "new").
+  updated: boolean('updated').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
   idx_to_user_room: index('idx_dist_to_user_room').on(t.toUserId, t.roomId),

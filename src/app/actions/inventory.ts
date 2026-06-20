@@ -42,6 +42,11 @@ export async function createInventoryItemAction(
  * Edits the canonical inventory item. Because backpacks/clues are read through the
  * inventoryDistributions -> item relation, the edit propagates to every recipient's
  * already-distributed copy. A real-time event makes open inventory panels reload.
+ *
+ * Recipients who had already viewed their copy are re-flagged (`updated = true`,
+ * `viewed = false`) and notified — just like a first-time hand-off — so the change
+ * doesn't slip by silently. Holders who haven't opened the item yet keep their
+ * existing "new" flag (they'll see the edited content on first open anyway).
  */
 export async function updateInventoryItemAction(
   roomId: number,
@@ -53,7 +58,7 @@ export async function updateInventoryItemAction(
     imageUrl?: string | null;
   }
 ) {
-  await checkRoomAccess(roomId, true);
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   // Verify item belongs to room
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
@@ -71,6 +76,59 @@ export async function updateInventoryItemAction(
     })
     .where(eq(inventoryItems.id, itemId))
     .returning();
+
+  // Re-flag already-viewed recipient copies as "updated" (excluding the editing host
+  // and public clue rows). Unviewed copies stay "new" and aren't re-notified.
+  const reflagged = await db
+    .update(inventoryDistributions)
+    .set({ updated: sqlBool(true) as unknown as boolean, viewed: sqlBool(false) as unknown as boolean })
+    .where(
+      and(
+        eq(inventoryDistributions.itemId, itemId),
+        not(eq(inventoryDistributions.toUserId, hostId)),
+        sql`${inventoryDistributions.toUserId} IS NOT NULL`,
+        sql`${inventoryDistributions.viewed} = ${sqlBool(true)}`
+      )
+    )
+    .returning({ toUserId: inventoryDistributions.toUserId });
+
+  const notifyUserIds = reflagged
+    .map((r) => r.toUserId)
+    .filter((id): id is number => id !== null);
+
+  if (notifyUserIds.length > 0) {
+    const t = await getTranslations("inventoryActions");
+    const promises: Promise<unknown>[] = [];
+
+    // Notify each holder that their copy changed (recipient: only that player sees it).
+    for (const tid of notifyUserIds) {
+      promises.push(
+        dispatchMessage({
+          roomId,
+          actorUserId: hostId,
+          nickname: "SYSTEM",
+          type: "system",
+          audience: "recipient",
+          targetUserId: tid,
+          content: t("itemUpdated", { title: updated?.title ?? item.title }),
+        })
+      );
+    }
+
+    // Host-only log so the GM sees who was notified of the edit.
+    promises.push(
+      dispatchMessage({
+        roomId,
+        actorUserId: hostId,
+        nickname: "SYSTEM",
+        type: "system",
+        audience: "gm",
+        content: t("itemUpdatedLog", { title: updated?.title ?? item.title, count: notifyUserIds.length }),
+      })
+    );
+
+    await Promise.all(promises);
+  }
 
   // Live-sync: notify all room subscribers so open inventory panels reload the edited item.
   broadcastToRoom(roomId, { type: "inventory_updated", itemId });
@@ -350,8 +408,10 @@ export async function getDistributionHistory(roomId: number) {
 export async function markInventoryViewedAction(roomId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
 
+  // Opening the panel acknowledges both freshly-received ("new") and edited
+  // ("updated") copies, so clear both flags in one pass.
   await db.update(inventoryDistributions)
-    .set({ viewed: sqlBool(true) as unknown as boolean })
+    .set({ viewed: sqlBool(true) as unknown as boolean, updated: sqlBool(false) as unknown as boolean })
     .where(
       and(
         eq(inventoryDistributions.roomId, roomId),
