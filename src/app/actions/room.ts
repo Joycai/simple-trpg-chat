@@ -8,7 +8,7 @@ import { auth } from "@/auth";
 import crypto from "crypto";
 import { broadcastToRoom } from "@/lib/events";
 import { executeCommand } from "@/lib/commands";
-import { rollDice } from "@/lib/utils";
+import { rollDice, rollDie } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { getTranslations } from "next-intl/server";
@@ -414,7 +414,7 @@ export async function respondToCheckRequestAction(
     return { success: false, error: t("checkRequestNotFound") };
   }
 
-  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[] } };
+  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } } };
   try { detail = JSON.parse(msg.diceDetail); } catch { return { success: false, error: t("checkRequestNotFound") }; }
   const cr = detail.checkRequest;
   if (!cr || !cr.skillName) return { success: false, error: t("checkRequestNotFound") };
@@ -427,17 +427,25 @@ export async function respondToCheckRequestAction(
   // Roll in the same channel as the request (public, or the DM with the host).
   const ctxIsPrivate = msg.isPrivate;
   const ctxTargetId = msg.isPrivate ? msg.userId : undefined;
-  const diceType = cr.diceType || "d100";
-  if (diceType === "d100") {
-    const result = await executeCommand(roomId, userId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
+  if (cr.sanCheck) {
+    // Sanity check: run the .sc logic (uses 理智值 current value + deducts per result).
+    const result = await executeCommand(roomId, userId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
     if (!result.success) {
-      // STAT_NOT_SET means the responder hasn't set this skill/attribute/resource yet —
-      // signal the client to open the in-page set-skill prompt rather than surfacing an error.
       return { success: false, error: result.error, needsSkill: result.code === "STAT_NOT_SET" };
     }
   } else {
-    const faces = parseInt(diceType.replace("d", ""));
-    await rollDiceAction(roomId, faces, 1, ctxIsPrivate, ctxTargetId);
+    const diceType = cr.diceType || "d100";
+    if (diceType === "d100") {
+      const result = await executeCommand(roomId, userId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
+      if (!result.success) {
+        // STAT_NOT_SET means the responder hasn't set this skill/attribute/resource yet —
+        // signal the client to open the in-page set-skill prompt rather than surfacing an error.
+        return { success: false, error: result.error, needsSkill: result.code === "STAT_NOT_SET" };
+      }
+    } else {
+      const faces = parseInt(diceType.replace("d", ""));
+      await rollDiceAction(roomId, faces, 1, ctxIsPrivate, ctxTargetId);
+    }
   }
 
   // Record the response and broadcast the updated completion state.
@@ -458,6 +466,139 @@ export async function respondToCheckRequestAction(
   });
 
   return { success: true };
+}
+
+/** COC 7th rule template active for this room. */
+function roomIsCoc7th(room: { ruleTemplate: string | null; diceRules: string | null }): boolean {
+  return room.ruleTemplate === "coc7th" || room.diceRules === "coc7th";
+}
+
+/**
+ * COC 7th — Psychology hidden roll (心理学暗骰). KP rolls the 心理学 skill secretly for
+ * each selected player; the result is shown ONLY to the KP. Each player just gets a
+ * notification that a psychology check was made on them (no result). If a player hasn't
+ * set 心理学, a plain d100 is rolled (still labelled as a psychology hidden roll).
+ */
+export async function psychologyHiddenRollAction(roomId: number, targetUserIds: number[]) {
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
+
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { success: false, error: "Room not found" };
+  if (!roomIsCoc7th(room)) return { success: false, error: "Not a COC 7th room" };
+
+  const [hostMember] = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
+  const hostNick = hostMember?.nickname || "KP";
+
+  const targetMembers = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
+  if (targetMembers.length === 0) return { success: false, error: "No valid targets" };
+
+  const tCmd = await getTranslations("commands");
+  const tRoom = await getTranslations("roomActions");
+
+  for (const member of targetMembers) {
+    const plId = member.userId;
+    const plNick = member.nickname;
+
+    const [skill] = await db.select().from(roomSkills).where(
+      and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, plId), eq(roomSkills.skillName, "心理学"))
+    );
+    const roll = rollDie(100);
+
+    // Render via the message content (a system message), not the dice formatter — so we
+    // can show the player's name and, when 心理学 isn't set, just the raw d100 (no
+    // bogus target/success). Crit/fumble still surface through {level}.
+    let resultContent: string;
+    if (skill) {
+      const target = skill.skillValue;
+      let level = roll <= target ? tCmd("success") : tCmd("failure");
+      if (roll <= 5) level = tCmd("critical");
+      else if (roll >= 96) level = tCmd("fumble");
+      resultContent = tRoom("psyResult", { nick: plNick, roll, target, level });
+    } else {
+      resultContent = tRoom("psyResultNoSkill", { nick: plNick, roll });
+    }
+
+    // KP-only result (self-targeted private system message — only the KP receives it).
+    const [resMsg] = await db.insert(messages).values({
+      roomId, userId: hostId, targetUserId: hostId, nickname: "SYSTEM",
+      type: "system", content: resultContent, isPrivate: true,
+    }).returning();
+    broadcastToRoom(roomId, resMsg);
+
+    // Player notification (targeted system message — only that player receives it, no result).
+    const [notifyMsg] = await db.insert(messages).values({
+      roomId, userId: hostId, targetUserId: plId, nickname: "SYSTEM",
+      type: "system", content: tRoom("psyNotify", { hostNick }), isPrivate: true,
+    }).returning();
+    broadcastToRoom(roomId, notifyMsg);
+  }
+
+  return { success: true };
+}
+
+/**
+ * COC 7th — Sanity check request (理智检定). Like requestSkillCheckAction, but carries the
+ * success/failure loss expressions; when a target rolls, respondToCheckRequestAction runs
+ * the .sc logic (uses their 理智值 current value and deducts per result).
+ */
+export async function requestSanCheckAction(
+  roomId: number,
+  targetUserIds: number[],
+  successExpr: string,
+  failureExpr: string,
+  isPrivate: boolean = false,
+  channelTargetUserId?: number
+) {
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
+
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { success: false, error: "Room not found" };
+  if (!roomIsCoc7th(room)) return { success: false, error: "Not a COC 7th room" };
+
+  const sExpr = (successExpr || "").trim();
+  const fExpr = (failureExpr || "").trim();
+  const exprOk = (e: string) => e.length > 0 && e.length <= 30 && /^[0-9a-z+\-d\s]+$/i.test(e);
+  if (!exprOk(sExpr) || !exprOk(fExpr) || targetUserIds.length === 0) {
+    return { success: false, error: "Invalid san check" };
+  }
+
+  const [hostMember] = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
+  const hostNick = hostMember?.nickname || "Host";
+
+  const targetMembers = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
+  let validTargetIds = targetMembers.map((m: { userId: number }) => m.userId);
+  if (isPrivate && channelTargetUserId) {
+    validTargetIds = validTargetIds.filter((id) => id === channelTargetUserId);
+  }
+  if (validTargetIds.length === 0) return { success: false, error: "No valid targets" };
+
+  const targetNicks = targetMembers
+    .filter((m: { userId: number }) => validTargetIds.includes(m.userId))
+    .map((m: { nickname: string }) => m.nickname);
+  const t = await getTranslations("roomActions");
+  const targetNicksStr = targetNicks.join(t("separator"));
+  const content = t("sanCheckRequestContent", { hostNick, targetNicks: targetNicksStr });
+  const detail = JSON.stringify({
+    checkRequest: { skillName: "理智值", diceType: "d100", targetUserIds: validTargetIds, hostNick, respondedUserIds: [], sanCheck: { successExpr: sExpr, failureExpr: fExpr } }
+  });
+
+  const [msg] = await db.insert(messages).values({
+    roomId,
+    userId: hostId,
+    targetUserId: isPrivate ? channelTargetUserId : null,
+    nickname: hostNick,
+    type: "check_request",
+    content,
+    diceDetail: detail,
+    isPrivate,
+  }).returning();
+
+  broadcastToRoom(roomId, msg);
+  return msg;
 }
 
 // --- Room Settings ---

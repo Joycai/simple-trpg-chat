@@ -106,11 +106,13 @@ export function RoomClient({
   const [showInventory, setShowInventory] = useState(false);
   const [showItemManager, setShowItemManager] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
+  const [skillRefreshKey, setSkillRefreshKey] = useState(0);
   const [showBotManager, setShowBotManager] = useState(false);
   const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [showCheckDialog, setShowCheckDialog] = useState(false);
+  const [checkMode, setCheckMode] = useState<null | "check" | "psychology" | "sancheck">(null);
+  const [showCheckMenu, setShowCheckMenu] = useState(false);
   const [pendingSkillCheck, setPendingSkillCheck] = useState<{ messageId: number; skillName: string } | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
@@ -285,6 +287,8 @@ export function RoomClient({
   const totalUnread = useMemo(() => {
     return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   }, [unreadCounts]);
+
+  const roomIsCoc7th = room.ruleTemplate === "coc7th" || room.diceRules === "coc7th";
 
   const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
@@ -554,6 +558,14 @@ export function RoomClient({
     };
   }, [room.id, userId, isHost]);
 
+  // Re-fetch the current user's sheet so an open 角色卡 / 技能 panel reflects command-driven
+  // changes (.st / .sc) without a full page reload. router.refresh() updates the
+  // characterData prop (synced into CharacterPanel); the key bump reloads SkillPanel.
+  const refreshSelfSheet = useCallback(() => {
+    router.refresh();
+    setSkillRefreshKey(k => k + 1);
+  }, [router]);
+
   const handleSendMessage = useCallback(async (
     content: string,
     type: "text" | "dice" | "image",
@@ -564,11 +576,15 @@ export function RoomClient({
     // Override isPrivate and targetUserId if we are in a DM tab
     let finalIsPrivate = isPrivate;
     let finalTargetId = targetUserId;
-    
+
     if (activeTab !== "public") {
       finalIsPrivate = true;
       finalTargetId = activeTab;
     }
+
+    // .st / .sc mutate the character sheet — refresh the open panels afterwards (both
+    // command prefixes, and whether intercepted on the client or inside sendMessageAction).
+    const isSheetMutationCmd = type === "text" && /^[.。]\s*(st|sc)\b/i.test(content.trim());
 
     // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
     // Pass the channel context so command feedback stays inside a DM instead of broadcasting publicly.
@@ -586,6 +602,7 @@ export function RoomClient({
           setMessages(prev => [...prev, errorMsg]);
         }
       } catch (e) { console.error(e); }
+      if (isSheetMutationCmd) refreshSelfSheet();
       return;
     }
     try {
@@ -596,8 +613,9 @@ export function RoomClient({
       } else {
         await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
       }
+      if (isSheetMutationCmd) refreshSelfSheet();
     } catch (e) { console.error(e); }
-  }, [room.id, userId, activeTab]);
+  }, [room.id, userId, activeTab, refreshSelfSheet]);
 
   const handleNicknameSave = async (newNickname: string) => {
     await updateNicknameAction(room.id, newNickname);
@@ -633,9 +651,12 @@ export function RoomClient({
       };
       seenIdsRef.current.add(String(errorMsg.id));
       setMessages(prev => [...prev, errorMsg]);
+    } else if (result.success) {
+      // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
+      refreshSelfSheet();
     }
     return {};
-  }, [room.id, userId, tra]);
+  }, [room.id, userId, tra, refreshSelfSheet]);
 
   const handleCheckRequest = useCallback((messageId: number, skillName: string) => {
     // Let the server roll the check. If the stat isn't set, it reports needsSkill and we
@@ -784,21 +805,61 @@ export function RoomClient({
               </button>
             </div>
 
-            {/* Group 2: Host 功能区 (发起检定 + 道具管理) — amber coded */}
+            {/* Group 2: Host 功能区 (检定 + 道具管理) — amber coded */}
             {isHost && (
               <div className="flex items-center gap-1 bg-accent/8 p-1 rounded-lg">
-                <button
-                  onClick={() => setShowCheckDialog(!showCheckDialog)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    showCheckDialog
-                      ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
-                      : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
-                  }`}
-                  title={t("tooltipCheck")}
-                >
-                  <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">{t("btnCheck")}</span>
-                </button>
+                {roomIsCoc7th ? (
+                  /* COC 7th: a 检定 dropdown holding the three check variants */
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowCheckMenu(!showCheckMenu)}
+                      className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                        checkMode || showCheckMenu
+                          ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
+                          : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                      }`}
+                      title={t("tooltipCheck")}
+                    >
+                      <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="hidden sm:inline">{t("btnCheck")}</span>
+                      <Icons.ChevronDown className="w-3 h-3" />
+                    </button>
+                    {showCheckMenu && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setShowCheckMenu(false)} />
+                        <div className="absolute left-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30"
+                          onClick={() => setShowCheckMenu(false)}>
+                          <button onClick={() => setCheckMode("check")}
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                            <Icons.Crosshair className="w-4 h-4 text-accent" /> {t("btnCheckNormal")}
+                          </button>
+                          <button onClick={() => setCheckMode("psychology")}
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                            <Icons.EyeOff className="w-4 h-4 text-accent" /> {t("btnPsyCheck")}
+                          </button>
+                          <button onClick={() => setCheckMode("sancheck")}
+                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                            <Icons.Skull className="w-4 h-4 text-accent" /> {t("btnSanCheck")}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  /* Non-COC: a single direct 发起检定 button */
+                  <button
+                    onClick={() => setCheckMode(checkMode === "check" ? null : "check")}
+                    className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      checkMode === "check"
+                        ? "bg-accent/25 text-accent border border-accent/60 shadow-sm"
+                        : "bg-surface text-accent border border-accent/30 shadow-sm hover:bg-accent/15 hover:border-accent/50"
+                    }`}
+                    title={t("tooltipCheck")}
+                  >
+                    <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">{t("btnCheck")}</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowItemManager(!showItemManager)}
                   className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
@@ -1058,6 +1119,7 @@ export function RoomClient({
           onClose={() => setShowCharacter(false)}
           onNicknameChange={(newNick) => setNickname(newNick)}
           readOnly={readOnly}
+          refreshKey={skillRefreshKey}
           avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
         />
       )}
@@ -1087,13 +1149,14 @@ export function RoomClient({
       {showAiImport && (
         <AiImportPanel roomId={room.id} onClose={() => setShowAiImport(false)} />
       )}
-      {showCheckDialog && (
+      {checkMode && (
         <HostCheckDialog
           roomId={room.id}
+          mode={checkMode}
           players={activeTab === "public" ? mentionTargets : mentionTargets.filter(p => p.id === activeTab)}
           isPrivate={activeTab !== "public"}
           channelTargetUserId={activeTab !== "public" ? activeTab : undefined}
-          onClose={() => setShowCheckDialog(false)}
+          onClose={() => setCheckMode(null)}
         />
       )}
       {pendingSkillCheck && (
@@ -1200,7 +1263,7 @@ export function RoomClient({
         </div>
       )}
       {showSkills && (
-        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} readOnly={readOnly} />
+        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} readOnly={readOnly} refreshKey={skillRefreshKey} />
       )}
       {showUserSettings && (
         <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />

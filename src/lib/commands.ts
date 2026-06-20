@@ -9,7 +9,7 @@ import {
   type CocAttributeKey,
   type CocResourceKey,
 } from "@/lib/coc-stats";
-import { COC_DEFAULT_ATTRIBUTES, computeCocDerived, type CharacterData, type CocDerived } from "@/lib/character-types";
+import { COC_DEFAULT_ATTRIBUTES, COC_MAX_SANITY, computeCocDerived, type CharacterData, type CocDerived } from "@/lib/character-types";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -260,11 +260,13 @@ export async function syncCharacterStat(
     const d = data.cocDerived as CocDerived & Record<string, number | undefined>;
     const maxKey = `${resolution.key}Max`;
     let max: number;
-    if (typeof d[maxKey] === "number") {
-      max = d[maxKey];
-    } else if (resolution.key === "san") {
-      max = typeof data.cocAttributes?.pow === "number" ? data.cocAttributes.pow : 99;
+    if (resolution.key === "san") {
+      // COC 7th: Sanity is always capped at 99, never by POW. Also correct any
+      // stale stored sanMax (older characters had it derived from POW).
+      max = COC_MAX_SANITY;
       d[maxKey] = max;
+    } else if (typeof d[maxKey] === "number") {
+      max = d[maxKey];
     } else {
       max = value; // no cap info available — accept as-is
       d[maxKey] = max;
@@ -547,7 +549,7 @@ async function handleSanityCheck(
   // Current sanity: character sheet (current) → legacy room_skills(理智值).
   const currentSan = await readCurrentSanity(roomId, userIdArg);
   if (currentSan === null) {
-    return { success: false, isCommand: true, error: t("scNoSanity") };
+    return { success: false, isCommand: true, error: t("scNoSanity"), code: "STAT_NOT_SET" };
   }
 
   const roll = rollDie(100);

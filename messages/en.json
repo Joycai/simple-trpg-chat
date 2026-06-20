@@ -106,6 +106,9 @@
     "btnItemManage": "Item Manager",
     "tooltipCheck": "Request Check",
     "btnCheck": "Request Check",
+    "btnCheckNormal": "Normal Check",
+    "btnPsyCheck": "Psychology",
+    "btnSanCheck": "Sanity Check",
     "tooltipClues": "Clues List",
     "btnClues": "Clues",
     "tooltipImport": "Clue Import (AI)",
@@ -633,7 +636,14 @@
     "skillName": "Skill Name",
     "skillPlaceholder": "e.g. Spot, Listen, Library Use...",
     "diceType": "Dice Type",
-    "btnSubmit": "Request Check"
+    "btnSubmit": "Request Check",
+    "psyTitle": "🔮 Psychology Hidden Roll",
+    "sanTitle": "🩸 Sanity Check",
+    "psySubmit": "🔮 Roll Secretly",
+    "sanSuccessLoss": "Loss on success",
+    "sanFailureLoss": "Loss on failure",
+    "sanLossPlaceholder": "e.g. 0 or 1d6",
+    "sanSubmit": "🩸 Request Sanity Check"
   },
   "tokenUsage": {
     "title": "Token Usage Statistics",
@@ -699,6 +709,10 @@
     "checkRequestNotFound": "Check request not found or expired",
     "checkNotTarget": "You are not a target of this check",
     "checkAlreadyDone": "You have already completed this check",
+    "psyResult": "🔮 Psychology (hidden) · {nick}: d100={roll} / Psychology {target} → {level}",
+    "psyResultNoSkill": "🔮 Psychology (hidden) · {nick}: d100={roll} (Psychology skill not set)",
+    "psyNotify": "🔮 {hostNick} made a Psychology check on you",
+    "sanCheckRequestContent": "🩸 {hostNick} requested {targetNicks} to make a Sanity Check",
     "separator": ", "
   },
   "commands": {
