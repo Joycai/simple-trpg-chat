@@ -28,7 +28,7 @@ import { OverlayShell } from "./OverlayShell";
 import { RoomTopBar } from "./room/RoomTopBar";
 import { MembersDialog } from "./room/MembersDialog";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
-import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
+import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -638,7 +638,9 @@ export function RoomClient({
 
   const handleToggleInventory = () => {
     setShowInventory((v) => !v);
-    markInventoryViewedAction(room.id);
+    // Clear only the local unread dot here. The server-side "viewed" flags are
+    // acknowledged by the InventoryPanel *after* it loads, so the new/updated
+    // highlights still render this session instead of being cleared mid-open.
     setUnreadItems(0);
   };
 

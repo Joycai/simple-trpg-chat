@@ -25,6 +25,7 @@ interface Distribution {
   createdAt: string;
   action: string;
   viewed?: number | boolean | null;
+  updated?: number | boolean | null;
   item?: InventoryItem;
   toUsername?: string;
   fromUsername?: string;
@@ -59,11 +60,6 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const [history, setHistory] = useState<Distribution[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  // Mark all as viewed when opening the panel
-  useEffect(() => {
-    markInventoryViewedAction(roomId);
-  }, [roomId]);
 
   // Create / edit form state (shared form; editingItemId !== null means edit mode)
   const [showCreate, setShowCreate] = useState(false);
@@ -103,8 +99,17 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     setLoading(false);
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadData(); }, []);
+  // On open: load the inventory FIRST (so freshly-received "new" and edited
+  // "updated" copies still render their highlight this session), THEN acknowledge
+  // them server-side so the next open is clean. Marking before the read would clear
+  // the flags mid-race and the highlight would never appear.
+  useEffect(() => {
+    void (async () => {
+      await loadData();
+      await markInventoryViewedAction(roomId);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Live-sync: reload when the host edits an item (refreshKey bumped via SSE in RoomClient).
   useEffect(() => {
@@ -230,7 +235,11 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const typeLabel = (tStr: string) => ({ clue: t("typeClue"), info: t("typeInfo"), character: t("typeChar"), item: t("typeItem") }[tStr] || tStr);
   const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
   const typeEmoji = (tStr: string) => ({ clue: "🃏", info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
-  const isNew = (d: { viewed?: boolean | number | null }) => d.viewed === false || d.viewed === 0;
+  // Unread = freshly received OR edited-since-viewed. `updated` distinguishes the two
+  // so the backpack can flag a host edit differently from a brand-new hand-off.
+  const isUnread = (d: { viewed?: boolean | number | null }) => d.viewed === false || d.viewed === 0;
+  const isUpdated = (d: { updated?: boolean | number | null }) => d.updated === true || d.updated === 1;
+  const isNew = (d: { viewed?: boolean | number | null; updated?: boolean | number | null }) => isUnread(d) && !isUpdated(d);
 
   // Filter backpack dynamically
   const filteredBackpack = myItems.filter(d => {
@@ -477,8 +486,12 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                     const d = i < filteredBackpack.length ? filteredBackpack[i] : null;
                     gridItems.push(
                       <div key={d ? d.id : `empty-${i}`}
-                        className={d 
-                          ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${d.viewed === false || d.viewed === 0 ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border"}`
+                        className={d
+                          ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${
+                              isUpdated(d) ? "border-accent/50 bg-accent/5 ring-1 ring-accent/40"
+                              : isUnread(d) ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30"
+                              : "border-border"
+                            }`
                           : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
                         }
                         onClick={() => { if (d) { setDetailItem(d.item ?? null); setDetailDist(d); } }}
@@ -486,11 +499,15 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
                       >
                         {d && (
                           <>
-                            {isNew(d) && (
-                              <span className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
-                                NEW
+                            {isUpdated(d) ? (
+                              <span title={t("badgeUpdatedTitle")} className="absolute -top-1.5 -right-1.5 bg-accent text-accent-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
+                                {t("badgeUpdated")}
                               </span>
-                            )}
+                            ) : isNew(d) ? (
+                              <span title={t("badgeNewTitle")} className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
+                                {t("badgeNew")}
+                              </span>
+                            ) : null}
                             <span className="text-2xl mb-1">{typeEmoji(d.item?.type || "item")}</span>
                             <span className="text-[10px] font-bold text-text text-center leading-tight line-clamp-2">
                               {d.item?.title || `#${d.itemId}`}
