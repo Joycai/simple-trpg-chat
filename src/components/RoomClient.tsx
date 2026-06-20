@@ -783,47 +783,47 @@ export function RoomClient({
               </button>
             </div>
 
-            {/* Group 2: 跑团工具 (TRPG Tools Group) */}
-            {(!isMobile || isHost) && (
+            {/* Group 2: 发起检定 (Check) */}
+            {isHost && (
               <div className="flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
-                {isHost && (
-                  <button
-                    onClick={() => setShowCheckDialog(!showCheckDialog)}
-                    className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      showCheckDialog
-                        ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
-                        : "text-accent/90 hover:text-accent hover:bg-accent/10"
-                    }`}
-                    title={t("tooltipCheck")}
-                  >
-                    <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">{t("btnCheck")}</span>
-                  </button>
-                )}
-                {isHost && (
-                  <button
-                    onClick={() => setShowAiImport(true)}
-                    className="hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
-                    title={t("tooltipImport")}
-                  >
-                    <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">{t("btnImport")}</span>
-                  </button>
-                )}
-                {isHost && (
-                  <button
-                    onClick={() => setShowBotManager(!showBotManager)}
-                    className={`hidden lg:flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      showBotManager
-                        ? "bg-surface text-primary border border-border/10 shadow-sm"
-                        : "text-text-muted hover:text-text hover:bg-surface/30"
-                    }`}
-                    title={t("tooltipBot")}
-                  >
-                    <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">Bot</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowCheckDialog(!showCheckDialog)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showCheckDialog
+                      ? "bg-accent/20 text-accent border border-accent/40 shadow-sm"
+                      : "text-accent/90 hover:text-accent hover:bg-accent/10"
+                  }`}
+                  title={t("tooltipCheck")}
+                >
+                  <Icons.Crosshair className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnCheck")}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Group 3: AI 功能 (Clue Import + Bot Manager) */}
+            {isHost && (
+              <div className="hidden lg:flex items-center bg-surface-alt p-1 rounded-lg border border-border shadow-sm">
+                <button
+                  onClick={() => setShowAiImport(true)}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer text-accent/90 hover:text-accent hover:bg-accent/10"
+                  title={t("tooltipImport")}
+                >
+                  <Icons.Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnImport")}</span>
+                </button>
+                <button
+                  onClick={() => setShowBotManager(!showBotManager)}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-md text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    showBotManager
+                      ? "bg-surface text-primary border border-border/10 shadow-sm"
+                      : "text-text-muted hover:text-text hover:bg-surface/30"
+                  }`}
+                  title={t("tooltipBot")}
+                >
+                  <Icons.Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{t("btnBot")}</span>
+                </button>
               </div>
             )}
 
@@ -864,7 +864,7 @@ export function RoomClient({
                           </button>
                           <button onClick={() => { setShowBotManager(true); }}
                             className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                            <Icons.Bot className="w-4 h-4" /> Bot
+                            <Icons.Bot className="w-4 h-4" /> {t("btnBot")}
                           </button>
                         </>
                       )}
