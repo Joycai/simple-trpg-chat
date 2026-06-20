@@ -17,6 +17,7 @@ import { ExportButton } from "./ExportButton";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
 import { HostCheckDialog } from "./HostCheckDialog";
+import { SkillSetPrompt } from "./SkillSetPrompt";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
 import { AvatarCropper } from "./AvatarCropper";
@@ -110,6 +111,7 @@ export function RoomClient({
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showCheckDialog, setShowCheckDialog] = useState(false);
+  const [pendingSkillCheck, setPendingSkillCheck] = useState<{ messageId: number; skillName: string } | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
@@ -438,7 +440,7 @@ export function RoomClient({
           if (data.type === "check_update") {
             // A target responded to a host check request — patch the stored respondedUserIds
             // so the x/y count updates and the roller's dice icon is disabled.
-            const idStr = String(data.id);
+            const idStr = String(data.checkRequestId);
             setMessages((prev) => prev.map((m) => {
               if (String(m.id) !== idStr || !m.diceDetail) return m;
               try {
@@ -617,29 +619,41 @@ export function RoomClient({
     }
   }, [room.id]);
 
+  // Roll the check on the server and surface any error inline as a system message.
+  const respondCheck = useCallback(async (messageId: number) => {
+    const result = await respondToCheckRequestAction(room.id, messageId);
+    if (!result.success && result.error) {
+      const errorMsg = {
+        id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
+        content: tra("commandError", { error: result.error }),
+        type: "system" as const, isPrivate: true, diceDetail: null,
+        createdAt: new Date().toISOString(),
+      };
+      seenIdsRef.current.add(String(errorMsg.id));
+      setMessages(prev => [...prev, errorMsg]);
+    }
+  }, [room.id, userId, tra]);
+
   const handleCheckRequest = useCallback((messageId: number, skillName: string, diceType: string) => {
-    // Ensure the skill is set (client-side prompt), then let the server roll the check
-    // and record the response against this check request.
+    // If the skill is missing, open a themed in-page prompt to set it; otherwise roll now.
     getMySkillsAction(room.id).then(async (skills) => {
       const hasSkill = skills.some((s: { skillName: string }) => s.skillName === skillName);
       if (!hasSkill && diceType === "d100") {
-        const value = prompt(t("promptNoSkill", { skillName }), "50");
-        if (!value || isNaN(parseInt(value))) return;
-        await upsertSkillAction(room.id, skillName, parseInt(value));
+        setPendingSkillCheck({ messageId, skillName });
+        return;
       }
-      const result = await respondToCheckRequestAction(room.id, messageId);
-      if (!result.success && result.error) {
-        const errorMsg = {
-          id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
-          content: tra("commandError", { error: result.error }),
-          type: "system" as const, isPrivate: true, diceDetail: null,
-          createdAt: new Date().toISOString(),
-        };
-        seenIdsRef.current.add(String(errorMsg.id));
-        setMessages(prev => [...prev, errorMsg]);
-      }
+      await respondCheck(messageId);
     });
-  }, [room.id, userId, t, tra]);
+  }, [room.id, respondCheck]);
+
+  // Player confirmed a skill value in the in-page prompt: save it, then roll the check.
+  const handleConfirmSkillSet = useCallback(async (value: number) => {
+    if (!pendingSkillCheck) return;
+    const { messageId, skillName } = pendingSkillCheck;
+    setPendingSkillCheck(null);
+    await upsertSkillAction(room.id, skillName, value);
+    await respondCheck(messageId);
+  }, [pendingSkillCheck, room.id, respondCheck]);
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
@@ -1066,6 +1080,13 @@ export function RoomClient({
           isPrivate={activeTab !== "public"}
           channelTargetUserId={activeTab !== "public" ? activeTab : undefined}
           onClose={() => setShowCheckDialog(false)}
+        />
+      )}
+      {pendingSkillCheck && (
+        <SkillSetPrompt
+          skillName={pendingSkillCheck.skillName}
+          onConfirm={handleConfirmSkillSet}
+          onClose={() => setPendingSkillCheck(null)}
         />
       )}
       {showMembers && (

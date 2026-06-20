@@ -437,7 +437,18 @@ export async function respondToCheckRequestAction(roomId: number, checkRequestId
   const newResponded = [...responded, userId];
   cr.respondedUserIds = newResponded;
   await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, checkRequestId));
-  broadcastToRoom(roomId, { type: "check_update", id: checkRequestId, respondedUserIds: newResponded });
+  // NOTE: do NOT reuse the message id here. The SSE stream dedups by `id`, and the
+  // original check_request message (same id) was already delivered, so an `id`-keyed
+  // event would be dropped server-side. Carry the target id under `checkRequestId`,
+  // and pass the message's privacy fields so DM check_updates reach only the pair.
+  broadcastToRoom(roomId, {
+    type: "check_update",
+    checkRequestId,
+    respondedUserIds: newResponded,
+    isPrivate: msg.isPrivate,
+    userId: msg.userId,
+    targetUserId: msg.targetUserId,
+  });
 
   return { success: true };
 }
