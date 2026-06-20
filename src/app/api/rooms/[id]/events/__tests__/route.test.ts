@@ -52,7 +52,7 @@ vi.mock("@/lib/events", () => {
 
 describe("SSE API Endpoint", () => {
   beforeEach(() => {
-    const listeners = (eventsModule as { _listeners: Record<number, unknown[]> })._listeners;
+    const listeners = (eventsModule as unknown as { _listeners: Record<number, unknown[]> })._listeners;
     for (const key in listeners) {
       delete listeners[key];
     }

@@ -171,3 +171,24 @@
   filter: drop-shadow(0 0 4px rgba(78, 214, 196, 0.8));
   z-index: 10;
 }
+
+/* === Skeuomorphic card edge: neon purple glow — max brightness === */
+[data-theme="cthulhu"] .theme-border {
+  --theme-radius-tl: 0;
+  --theme-radius-tr: 0;
+  --theme-radius-br: 0;
+  --theme-radius-bl: 0;
+  box-shadow: 0 0 12px rgba(168, 122, 246, 0.35),
+              0 0 30px rgba(168, 122, 246, 0.15),
+              0 0 60px rgba(168, 122, 246, 0.06);
+}
+
+/* === Lobby filter tabs: eldritch violet glow + fade === */
+[data-theme="cthulhu"] .filter-indicator {
+  background: #a87af6;
+  box-shadow: 0 0 12px rgba(168, 122, 246, 0.55), 0 0 24px rgba(120, 90, 235, 0.25);
+}
+[data-theme="cthulhu"] .filter-tab-active {
+  color: #c4aef9;
+  text-shadow: 0 0 10px rgba(168, 122, 246, 0.45);
+}

@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
-import { THEME_LIST } from "@/themes/types";
+import { THEME_LIST, getThemeName, getThemeDesc } from "@/themes/types";
 import type { ThemeId } from "@/themes/types";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface RoomSettingsProps {
@@ -19,7 +19,7 @@ interface RoomSettingsProps {
 
 export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, currentRuleTemplate, onClose }: RoomSettingsProps) {
   const t = useTranslations("roomSettings");
-  const tt = useTranslations("themes");
+  const locale = useLocale();
   const tCommon = useTranslations("common");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -90,23 +90,13 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
                     className="accent-primary"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-text">{tt(`${theme.id}.name`)}</div>
-                    <div className="text-xs text-text-dim mt-0.5">{tt(`${theme.id}.desc`)}</div>
+                    <div className="text-sm font-medium text-text">{getThemeName(theme.id, locale)}</div>
+                    <div className="text-xs text-text-dim mt-0.5">{getThemeDesc(theme.id, locale)}</div>
                   </div>
-                  {/* Theme preview dot */}
+                  {/* Theme preview dot — colors come from the theme registry */}
                   <div
-                    className={`w-6 h-6 rounded-full border-2 shrink-0 ${
-                      theme.id === "default" ? "bg-gray-100 border-gray-300" : ""
-                    }`}
-                    style={
-                      theme.id === "parchment"
-                        ? { backgroundColor: "#f4ebd6", borderColor: "#82401e", borderWidth: "3px" }
-                        : theme.id === "cthulhu"
-                        ? { backgroundColor: "#060e10", borderColor: "#4ed6c4", borderWidth: "3px" }
-                        : theme.id === "shrine"
-                        ? { backgroundColor: "#fffcf6", borderColor: "#c63026", borderWidth: "3px" }
-                        : undefined
-                    }
+                    className="w-6 h-6 rounded-full border-[3px] shrink-0"
+                    style={{ backgroundColor: theme.swatch.bg, borderColor: theme.swatch.border }}
                   />
                 </label>
               ))}

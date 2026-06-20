@@ -61,9 +61,6 @@
     "randomKey": "Generate random key",
     "theme": "Room Theme",
     "themeHint": "Host can set a unique theme for the room",
-    "themeDefault": "Default (Dark Tabletop)",
-    "themeParchment": "🏺 Aged Parchment",
-    "themeCthulhu": "🦑 Call of Cthulhu",
     "submit": "Create",
     "created": "🎉 Room Created!",
     "keyCopied": "Room Key (Share with players):",
@@ -71,7 +68,6 @@
     "tip": "💡 Click 'Enter Room' on the room card to start",
     "done": "Got it, go to Lobby",
     "errorKeyRequired": "Room key is required",
-    "themeShrine": "⛩️ Ancient Shrine (Miko)",
     "ruleTemplate": "Rule Template",
     "ruleTemplateCoc7th": "🐙 COC 7th",
     "ruleTemplateBasic": "🎲 Generic d100",
@@ -380,13 +376,6 @@
     "saving": "Saving..."
   },
   "theme": {
-    "default": "Default",
-    "parchment": "Aged Parchment",
-    "parchmentDesc": "Aged vellum and iron-gall ink, wax seals, illuminated fleurons and verdigris map accents — a Western-fantasy manuscript",
-    "cthulhu": "Call of Cthulhu",
-    "cthulhuDesc": "Abyssal black-green with ghost-violet and teal glow, Elder Signs and a watching eye — unnameable dread",
-    "shrine": "Ancient Shrine",
-    "shrineDesc": "Miko red-and-white palette, vermilion torii with shimenawa & shide, mincho type on bright washi paper.",
     "switch": "Switch Theme"
   },
   "common": {
@@ -774,24 +763,6 @@
     "notFound": "Clue not found",
     "roomMismatch": "Clue room mismatch",
     "mustSpecifyTarget": "Must specify at least one target user"
-  },
-  "themes": {
-    "default": {
-      "name": "Default",
-      "desc": "Dark TRPG desktop style"
-    },
-    "parchment": {
-      "name": "Aged Parchment",
-      "desc": "Aged vellum and iron-gall ink, wax seals, illuminated fleurons and verdigris map accents — a Western-fantasy manuscript"
-    },
-    "cthulhu": {
-      "name": "Call of Cthulhu",
-      "desc": "Abyssal black-green with ghost-violet and teal glow, Elder Signs and a watching eye — unnameable dread"
-    },
-    "shrine": {
-      "name": "Ancient Shrine",
-      "desc": "Miko red-and-white palette, vermilion torii with shimenawa & shide, mincho type on bright washi paper"
-    }
   },
   "roomSettings": {
     "title": "⚙️ Room Settings",

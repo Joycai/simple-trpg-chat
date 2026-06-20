@@ -61,9 +61,6 @@
     "randomKey": "随机生成密钥",
     "theme": "房间主题",
     "themeHint": "主持人可为房间设置独立主题风格",
-    "themeDefault": "默认（深色桌面风）",
-    "themeParchment": "🏺 古旧羊皮卷",
-    "themeCthulhu": "🦑 克苏鲁的呼唤",
     "submit": "创建",
     "created": "🎉 房间已创建！",
     "keyCopied": "房间密钥（请复制发给玩家）：",
@@ -71,7 +68,6 @@
     "tip": "💡 在房间卡片上点击\"进入房间\"开始游戏",
     "done": "知道了，进入大厅",
     "errorKeyRequired": "请设置房间密钥（玩家加入时需要输入）",
-    "themeShrine": "⛩️ 远古神社 (巫女红白)",
     "ruleTemplate": "规则模版",
     "ruleTemplateCoc7th": "🐙 COC 7th",
     "ruleTemplateBasic": "🎲 通用 d100",
@@ -380,13 +376,6 @@
     "saving": "保存中..."
   },
   "theme": {
-    "default": "默认",
-    "parchment": "古旧羊皮卷",
-    "parchmentDesc": "古旧牛皮纸与铁胆墨水，封蜡印记、泥金花饰与铜绿地图墨，西方奇幻手稿质感",
-    "cthulhu": "克苏鲁的呼唤",
-    "cthulhuDesc": "深渊墨绿为底，幽灵紫与深渊青荧光双色，长辈印、注视之眼与不可名状的恐惧",
-    "shrine": "远古神社",
-    "shrineDesc": "巫女红白配色，朱漆鸟居与注連縄御币，明朝体落于和纸之上的素净神社气息",
     "switch": "切换主题"
   },
   "common": {
@@ -774,24 +763,6 @@
     "notFound": "未找到线索",
     "roomMismatch": "线索房间不匹配",
     "mustSpecifyTarget": "必须指定至少一个目标用户"
-  },
-  "themes": {
-    "default": {
-      "name": "默认",
-      "desc": "深色 TRPG 桌面风格"
-    },
-    "parchment": {
-      "name": "古旧羊皮卷",
-      "desc": "古旧牛皮纸与铁胆墨水，封蜡印记、泥金花饰与铜绿地图墨，西方奇幻手稿质感"
-    },
-    "cthulhu": {
-      "name": "克苏鲁的呼唤",
-      "desc": "深渊墨绿为底，幽灵紫与深渊青荧光双色，长辈印、注视之眼与不可名状的恐惧"
-    },
-    "shrine": {
-      "name": "远古神社",
-      "desc": "巫女红白配色，朱漆鸟居与注連縄御币，明朝体落于和纸之上的素净神社气息"
-    }
   },
   "roomSettings": {
     "title": "⚙️ 房间设置",

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction } from "@/app/actions/room";
+import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 interface RoomInfoPanelProps {
@@ -27,7 +28,7 @@ interface RoomInfoPanelProps {
 export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelProps) {
   const t = useTranslations("roomInfo");
   const ts = useTranslations("roomSettings");
-  const tt = useTranslations("themes");
+  const locale = useLocale();
   const tCommon = useTranslations("common");
   const router = useRouter();
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
@@ -172,7 +173,7 @@ export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelPr
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-text-muted">{t("theme")}</span>
-                <span className="text-xs font-bold text-text">{tt(`${room.theme}.name`) || room.theme}</span>
+                <span className="text-xs font-bold text-text">{getThemeName(room.theme as ThemeId, locale)}</span>
               </div>
             </div>
           </div>

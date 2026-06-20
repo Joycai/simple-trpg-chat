@@ -163,3 +163,29 @@
   filter: drop-shadow(0 1px 2px rgba(90, 55, 25, 0.35));
   z-index: 10;
 }
+
+/* === Skeuomorphic card edge: bold vermillion torii-beam bottom border + hover stamp (light washi) === */
+[data-theme="shrine"] .theme-border {
+  --theme-radius-tl: 2px;
+  --theme-radius-tr: 4px;
+  --theme-radius-br: 2px;
+  --theme-radius-bl: 4px;
+  border-bottom: 4px solid rgb(var(--theme-primary));
+  box-shadow: 0 4px 14px rgba(80, 50, 25, 0.12);
+}
+[data-theme="shrine"] .theme-border:hover {
+  box-shadow: 0 0 12px rgba(200, 55, 35, 0.3),
+              0 4px 14px rgba(80, 50, 25, 0.12);
+}
+
+/* === Lobby filter tabs: vermillion + gold omamori (light washi) === */
+[data-theme="shrine"] .filter-indicator {
+  background: linear-gradient(180deg, #c63026 0%, #a5241c 100%);
+  box-shadow: 0 0 6px rgba(198, 48, 38, 0.4), inset 0 1px 0 rgba(184, 142, 56, 0.4);
+  border: 1px solid rgba(165, 36, 28, 0.6);
+  border-radius: 3px;
+}
+[data-theme="shrine"] .filter-tab-active {
+  color: #c63026;
+  text-shadow: none;
+}

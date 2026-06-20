@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setSiteTheme } from "@/app/actions/theme";
-import { THEME_LIST, type ThemeId } from "@/themes/types";
-import { useTranslations } from "next-intl";
+import { THEME_LIST, getThemeName, getThemeDesc, type ThemeId } from "@/themes/types";
+import { useLocale, useTranslations } from "next-intl";
 
 interface SiteThemeSelectorProps {
   currentTheme: ThemeId;
@@ -13,7 +13,7 @@ interface SiteThemeSelectorProps {
 export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
   const router = useRouter();
   const t = useTranslations("admin");
-  const tThemes = useTranslations("themes");
+  const locale = useLocale();
   const [theme, setTheme] = useState<ThemeId>(currentTheme);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -51,7 +51,7 @@ export function SiteThemeSelector({ currentTheme }: SiteThemeSelectorProps) {
         >
           {THEME_LIST.map((tm) => (
             <option key={tm.id} value={tm.id}>
-              {tThemes(`${tm.id}.name`)} — {tThemes(`${tm.id}.desc`)}
+              {getThemeName(tm.id, locale)} — {getThemeDesc(tm.id, locale)}
             </option>
           ))}
         </select>

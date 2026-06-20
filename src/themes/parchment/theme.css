@@ -167,3 +167,31 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
   z-index: 10;
 }
+
+/* === Skeuomorphic card edge: torn paper — extreme asymmetric corners + ink inner shadow === */
+[data-theme="parchment"] .theme-border {
+  --theme-radius-tl: 12px;
+  --theme-radius-tr: 4px;
+  --theme-radius-br: 8px;
+  --theme-radius-bl: 3px;
+  box-shadow: inset 0 0 30px rgba(139, 90, 43, 0.12),
+              inset 0 0 8px rgba(139, 90, 43, 0.06),
+              2px 3px 6px rgba(90, 55, 25, 0.15);
+}
+
+/* === Lobby filter tabs: inscriptional serif text + static underline === */
+[data-theme="parchment"] .filter-indicator {
+  display: none;
+}
+[data-theme="parchment"] .filter-tab {
+  font-family: var(--theme-font-display);
+  border-bottom: 2px solid transparent;
+  border-radius: 4px 4px 0 0;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+[data-theme="parchment"] .filter-tab-active {
+  color: #82401e;
+  border-bottom-color: #82401e;
+  background: rgba(130, 64, 30, 0.1);
+  text-shadow: none;
+}

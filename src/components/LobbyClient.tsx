@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import { createRoomAction, joinRoomAction } from "@/app/actions/room";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { THEME_LIST, getThemeName } from "@/themes/types";
 import { Icons } from "@/components/icons";
 import { OverlayShell } from "@/components/OverlayShell";
 import Link from "next/link";
@@ -26,6 +27,7 @@ interface LobbyClientProps {
 export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClientProps) {
   const t = useTranslations("lobby");
   const tc = useTranslations("createRoom");
+  const locale = useLocale();
   const [showCreate, setShowCreate] = useState(false);
   const [joinRoomId, setJoinRoomId] = useState<number | null>(null);
   const [joinKey, setJoinKey] = useState("");
@@ -173,10 +175,11 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                     defaultValue="default"
                     className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
                   >
-                    <option value="default">{tc("themeDefault")}</option>
-                    <option value="parchment">{tc("themeParchment")}</option>
-                    <option value="cthulhu">{tc("themeCthulhu")}</option>
-                    <option value="shrine">{tc("themeShrine")}</option>
+                    {THEME_LIST.map((tm) => (
+                      <option key={tm.id} value={tm.id}>
+                        {tm.icon ? `${tm.icon} ` : ""}{getThemeName(tm.id, locale)}
+                      </option>
+                    ))}
                   </select>
                   <p className="text-xs text-text-muted">{tc("themeHint")}</p>
                 </div>
@@ -229,59 +232,10 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
         </div>
       )}
 
-      {/* Filter tabs */}
+      {/* Filter tabs — base styling lives in globals.css (.filter-*),
+          per-theme overrides live in each theme's theme.css. */}
       {rooms.length > 0 && (
         <>
-          <style>{`
-            /* === Base indicator: neon cyan (default/tech) === */
-            .filter-indicator {
-              background: var(--theme-primary, #22d3ee);
-              box-shadow: 0 0 8px var(--theme-primary, #22d3ee), 0 0 16px rgba(34, 211, 238, 0.3);
-            }
-            .filter-tab-active {
-              color: var(--theme-primary, #22d3ee);
-            }
-
-            /* === Shrine: vermillion + gold omamori (light washi) === */
-            [data-theme="shrine"] .filter-indicator {
-              background: linear-gradient(180deg, #c63026 0%, #a5241c 100%);
-              box-shadow: 0 0 6px rgba(198, 48, 38, 0.4), inset 0 1px 0 rgba(184, 142, 56, 0.4);
-              border: 1px solid rgba(165, 36, 28, 0.6);
-              border-radius: 3px;
-            }
-            [data-theme="shrine"] .filter-tab-active {
-              color: #c63026;
-              text-shadow: none;
-            }
-
-            /* === Cthulhu: eldritch violet glow + fade === */
-            [data-theme="cthulhu"] .filter-indicator {
-              background: #a87af6;
-              box-shadow: 0 0 12px rgba(168, 122, 246, 0.55), 0 0 24px rgba(120, 90, 235, 0.25);
-            }
-            [data-theme="cthulhu"] .filter-tab-active {
-              color: #c4aef9;
-              text-shadow: 0 0 10px rgba(168, 122, 246, 0.45);
-            }
-
-            /* === Parchment: inscriptional serif text + static border === */
-            [data-theme="parchment"] .filter-indicator {
-              display: none;
-            }
-            [data-theme="parchment"] .filter-tab {
-              font-family: var(--theme-font-display);
-              border-bottom: 2px solid transparent;
-              border-radius: 4px 4px 0 0;
-              transition: color 0.2s, border-color 0.2s, background 0.2s;
-            }
-            [data-theme="parchment"] .filter-tab-active {
-              color: #82401e;
-              border-bottom-color: #82401e;
-              background: rgba(130, 64, 30, 0.1);
-              text-shadow: none;
-            }
-          `}</style>
-
           <div className="filter-tabs-container relative flex border-b border-border">
             {/* Sliding indicator */}
             <div
