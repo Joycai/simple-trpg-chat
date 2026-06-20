@@ -584,7 +584,9 @@ export function RoomClient({
 
     // .st / .sc mutate the character sheet — refresh the open panels afterwards (both
     // command prefixes, and whether intercepted on the client or inside sendMessageAction).
-    const isSheetMutationCmd = type === "text" && /^[.。]\s*(st|sc)\b/i.test(content.trim());
+    // No \b after st/sc: the compact form (.stsan60) has no boundary, and no other
+    // command token starts with "st"/"sc", so a bare prefix match is correct.
+    const isSheetMutationCmd = type === "text" && /^[.。]\s*(st|sc)/i.test(content.trim());
 
     // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
     // Pass the channel context so command feedback stays inside a DM instead of broadcasting publicly.
