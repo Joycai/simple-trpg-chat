@@ -767,6 +767,8 @@
   "roomSettings": {
     "title": "⚙️ 房间设置",
     "desc": "{roomName} 的房间设置",
+    "tabTheme": "主题",
+    "tabGeneral": "房间信息",
     "themeLabel": "房间主题",
     "diceRulesLabel": "投点规则",
     "diceRulesBasic": "📊 Basic — 基础骰点",

@@ -1,0 +1,195 @@
+/* ---- Neon Rainglass — 拟物化霓虹雨夜（赛博都市 · 磨砂玻璃） ----
+   概念：赛博都市的雨夜。深蓝夜底，雨痕青与霓虹品红为双色倒影，
+   磨砂玻璃面板(backdrop-blur)、雨珠、窗上水痕与都市辉光为母题。 */
+[data-theme="rainglass"] {
+  /* === Core palette: deep-blue night + rain cyan / neon magenta === */
+  --theme-bg: 7 11 20;              /* deepest rain-night sky */
+  --theme-surface: 17 26 43;
+  --theme-surface-alt: 12 20 34;
+  --theme-border: 42 58 85;
+  --theme-text: 220 230 245;       /* cool wet light */
+  --theme-text-muted: 141 163 196;
+  --theme-text-dim: 86 104 138;
+  --theme-primary: 56 189 248;     /* rain cyan (neon sign) */
+  --theme-primary-hover: 14 165 233;
+  --theme-accent: 244 114 182;     /* neon magenta (city reflection) */
+  --theme-accent-hover: 236 72 153;
+  --theme-accent-foreground: 6 18 31;
+  --theme-danger: 248 113 113;     /* warning red */
+  --theme-success: 52 211 153;
+  --theme-ai: 167 139 250;         /* violet hologram — AI feature accent */
+  --theme-ai-hover: 139 92 246;
+  --theme-ai-foreground: 6 18 31;
+  --theme-header-bg: 10 16 28;
+  --theme-header-border: 42 58 85;
+  --theme-input-bg: 17 26 43;
+  --theme-input-border: 48 66 94;
+  --theme-dice-card-bg: 17 26 43;
+  --theme-dice-card-border: 42 58 85;
+  --theme-private-border: 56 189 248;
+  --theme-private-bg: 13 24 42;     /* deep glass blue */
+  --theme-scroll-btn: 56 189 248;
+  --theme-primary-foreground: 6 18 31;  /* dark text on bright cyan */
+
+  /* === Typography (clean modern sans) === */
+  --theme-radius: 0.85rem;
+  --theme-font: var(--font-inter), 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  --theme-font-display: var(--font-space-grotesk), var(--font-inter), 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+  --theme-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
+
+  /* === Skeuomorphic: cyan neon glow === */
+  --theme-glow: 0 0 8px rgba(56, 189, 248, 0.45),
+               0 0 22px rgba(56, 189, 248, 0.18);
+
+  /* === Skeuomorphic: soft drop + glass top-edge highlight === */
+  --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                       0 6px 18px rgba(2, 6, 18, 0.5),
+                       0 2px 4px rgba(2, 6, 18, 0.4);
+
+  /* === Skeuomorphic: faint diagonal rain on the glass === */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%23ffffff' stroke-opacity='0.03' stroke-width='1'/%3E%3C/svg%3E");
+
+  /* === Signature motif: falling-rain divider with a droplet === */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg stroke='%2338bdf8' stroke-width='1' stroke-linecap='round' opacity='0.5'%3E%3Cpath d='M18 3 L15 12'/%3E%3Cpath d='M34 4 L31 13'/%3E%3Cpath d='M86 4 L83 13'/%3E%3Cpath d='M102 3 L99 12'/%3E%3C/g%3E%3Cpath d='M60 3 C63 8 65 10 60 13 C55 10 57 8 60 3 Z' fill='none' stroke='%2338bdf8' stroke-width='1.2'/%3E%3C/svg%3E");
+
+  /* === Skeuomorphic: subtle glass-pane edges === */
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='1' y='3' width='198' height='14' rx='4' fill='none' stroke='%2338bdf8' stroke-width='1' stroke-opacity='0.4'/%3E%3C/svg%3E");
+
+  /* === Asymmetric: soft glass corners === */
+  --theme-radius-tl: 0.85rem;
+  --theme-radius-tr: 0.85rem;
+  --theme-radius-br: 0.85rem;
+  --theme-radius-bl: 0.85rem;
+}
+
+/* === Frosted glass sidebar with a wet neon edge === */
+[data-theme="rainglass"] .conv-sidebar {
+  background: linear-gradient(180deg, rgba(13, 22, 40, 0.82) 0%, rgba(8, 14, 26, 0.82) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-right: 1px solid rgba(56, 189, 248, 0.18);
+}
+
+/* Glass console tabs */
+[data-theme="rainglass"] .conv-tab {
+  background: linear-gradient(90deg, rgba(23, 38, 64, 0.4) 0%, rgba(12, 20, 34, 0.2) 100%);
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid rgba(42, 58, 85, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.25s ease-in-out;
+}
+[data-theme="rainglass"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(34, 52, 84, 0.6) 0%, rgba(18, 30, 50, 0.3) 100%);
+  color: rgb(var(--theme-text)) !important;
+}
+[data-theme="rainglass"] .conv-tab.active {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(18, 30, 50, 0.12) 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: rgb(var(--theme-primary)) !important;
+}
+
+/* === Signature divider: falling rain === */
+[data-theme="rainglass"] .conv-divider {
+  border: 0 !important;
+  height: 16px;
+  margin: 4px 8px;
+  background-image: var(--theme-divider);
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.5));
+}
+
+/* Rainglass frosted-glass cards (clues, inventory etc.) */
+[data-theme="rainglass"] .clue-card,
+[data-theme="rainglass"] .inventory-card,
+[data-theme="rainglass"] .item-detail-panel {
+  background-color: rgba(20, 31, 52, 0.55) !important;
+  background-image: linear-gradient(rgba(20, 31, 52, 0.4), rgba(14, 22, 38, 0.55)) !important;
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  border: 1px solid rgba(82, 110, 150, 0.45) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 6px 18px rgba(2, 6, 18, 0.45) !important;
+  position: relative;
+  overflow: visible;
+  transition: all 0.2s ease;
+
+  /* Keep cool light text legible over the frosted pane */
+  --theme-text: 224 234 248;
+  --theme-text-muted: 150 172 204;
+  --theme-text-dim: 100 120 152;
+  color: rgb(var(--theme-text)) !important;
+}
+
+[data-theme="rainglass"] .clue-card:hover,
+[data-theme="rainglass"] .inventory-card:hover {
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+              0 0 16px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* Neon cyan→magenta glow line across card top (a wet city-light reflection) */
+[data-theme="rainglass"] .clue-card::before,
+[data-theme="rainglass"] .inventory-card::before,
+[data-theme="rainglass"] .item-detail-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary)) 25%, rgb(var(--theme-accent)) 75%, transparent) !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+/* === Raindrop chat-bubble decoration === */
+[data-theme="rainglass"] .chat-bubble {
+  position: relative;
+  overflow: visible !important;
+}
+[data-theme="rainglass"] .chat-bubble-other::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: -8px;
+  width: 14px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%2338bdf8' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%2338bdf8' fill-opacity='0.25'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.8));
+  z-index: 10;
+}
+[data-theme="rainglass"] .chat-bubble-own::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  right: -8px;
+  width: 14px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%23f472b6' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%23f472b6' fill-opacity='0.25'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(244, 114, 182, 0.8));
+  z-index: 10;
+}
+
+/* === Skeuomorphic card edge: glass pane with double neon glow === */
+[data-theme="rainglass"] .theme-border {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+              0 0 14px rgba(56, 189, 248, 0.28),
+              0 0 36px rgba(56, 189, 248, 0.12),
+              0 8px 24px rgba(2, 6, 18, 0.45);
+}
+
+/* === Lobby filter tabs: cyan neon glow === */
+[data-theme="rainglass"] .filter-indicator {
+  background: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6), 0 0 24px rgba(14, 165, 233, 0.3);
+}
+[data-theme="rainglass"] .filter-tab-active {
+  color: #7dd3fc;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}

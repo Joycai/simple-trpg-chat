@@ -19,6 +19,7 @@ import {
   Cormorant_Garamond,
   Shippori_Mincho,
   Courier_Prime,
+  Marcellus,
 } from "next/font/google";
 
 // --- Default (modern web) ---
@@ -84,6 +85,15 @@ const shippori = Shippori_Mincho({
   preload: false,
 });
 
+// --- Azure Aether (skybound fantasy — elegant JRPG-menu serif) ---
+const marcellus = Marcellus({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-marcellus",
+  display: "swap",
+  preload: false,
+});
+
 /** Space-separated variable class list to spread onto <html>. */
 export const fontVariables = [
   inter.variable,
@@ -94,4 +104,5 @@ export const fontVariables = [
   courierPrime.variable,
   cormorant.variable,
   shippori.variable,
+  marcellus.variable,
 ].join(" ");
