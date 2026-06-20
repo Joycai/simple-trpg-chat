@@ -39,12 +39,13 @@ delivery/visibility decisions derive from this one field — there is no scatter
   the row, and broadcasts over SSE. `messageVisibilityWhere(roomId, viewer, isHost)`
   is the single SQL predicate reused by every history query.
 
-| audience   | Who can see it                       | Examples |
-| ---------- | ------------------------------------ | -------- |
-| `everyone` | all room members (public feed)       | public chat, open rolls, public checks/clues |
-| `self`     | only the actor                       | `.st` / `.help` / `.rh`, sensitive-word warning, KP psychology **result** |
-| `directed` | actor + one target (inline in public)| psychology **notify**, item/clue receipts & cards |
-| `dm`       | the two DM participants              | 1:1 whispers, dice/checks issued inside a DM |
+| audience    | Who can see it                        | Examples |
+| ----------- | ------------------------------------- | -------- |
+| `everyone`  | all room members (public feed)        | public chat, open rolls, public checks/clues |
+| `self`      | only the actor                        | `.st` / `.help` / `.rh`, sensitive-word warning, KP psychology **result** |
+| `recipient` | only the target — **not** the actor   | psychology **notify**, item/clue "you received…" receipts |
+| `directed`  | actor + one target (inline in public) | a pushed clue **card** (host + recipient both see it) |
+| `dm`        | the two DM participants               | 1:1 whispers, dice/checks issued inside a DM |
 | `gm`       | actor + the room host                | host action logs, GM-private rolls |
 
 The SSE route (`route.ts`) calls `canSee` to filter each event; non-message events
