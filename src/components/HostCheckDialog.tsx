@@ -53,7 +53,7 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
     const targets = [...selectedIds];
     if (targets.length === 0) return;
     if (mode === "psychology") {
-      await psychologyHiddenRollAction(roomId, targets);
+      await psychologyHiddenRollAction(roomId, targets, isPrivate ? channelTargetUserId : undefined);
     } else if (mode === "sancheck") {
       if (!successExpr.trim() || !failureExpr.trim()) return;
       await requestSanCheckAction(roomId, targets, successExpr.trim(), failureExpr.trim(), isPrivate, channelTargetUserId);

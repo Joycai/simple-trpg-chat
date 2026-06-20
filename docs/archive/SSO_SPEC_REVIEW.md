@@ -1,6 +1,6 @@
 # 单会话登录 规格审查
 
-> 审查对象：[`SSO_SPEC.md`](./SSO_SPEC.md)
+> 审查对象：[`SSO_SPEC.md`](../spec/SSO_SPEC.md)
 > 审查分支：`review/sso-spec`
 > 对照实现：`src/auth.ts`、`src/auth.config.ts`、`src/lib/login-history.ts`、`src/lib/rate-limit.ts`、`src/lib/events.ts`
 

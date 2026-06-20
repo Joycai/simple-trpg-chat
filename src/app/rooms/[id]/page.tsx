@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers, messages, users, systemConfig, aiProviders } from "@/db/schema";
-import { eq, and, or, desc, isNull, not } from "drizzle-orm";
+import { eq, or, desc } from "drizzle-orm";
+import { messageVisibilityWhere } from "@/lib/messaging/router";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
 import { RoomThemeSetter } from "@/components/RoomThemeSetter";
@@ -99,33 +100,8 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   const currentNickname = currentMember?.nickname || user.name || user.username || "Player";
 
-  // Get visible messages: SQL-level visibility filter (R8)
-  const visibilityCondition = isHost
-    ? and(
-        eq(messages.roomId, roomId),
-        or(
-          not(eq(messages.isPrivate, true)),
-          and(
-            eq(messages.isPrivate, true),
-            or(
-              isNull(messages.targetUserId),
-              eq(messages.targetUserId, userId),
-              eq(messages.userId, userId)
-            )
-          )
-        )
-      )
-    : and(
-        eq(messages.roomId, roomId),
-        or(
-          eq(messages.isPrivate, false),
-          eq(messages.targetUserId, userId),
-          and(
-            eq(messages.userId, userId),
-            not(eq(messages.type, "system"))
-          )
-        )
-      );
+  // Get visible messages: SQL-level visibility filter (R8) — see messaging/router.
+  const visibilityCondition = messageVisibilityWhere(roomId, userId, isHost);
 
   // 3. Parallelized queries (P9)
   const [roomMessages, [aiConfig], [hostUser], roomProviders] = await Promise.all([

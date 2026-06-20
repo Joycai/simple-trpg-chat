@@ -8,6 +8,7 @@
 
 import { pgTable, text, integer, serial, boolean, timestamp, unique, index, doublePrecision } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import type { Audience } from '@/lib/messaging/audience';
 
 // ============================================================
 // Enums (shared with schema.ts)
@@ -110,11 +111,20 @@ export const messages = pgTable('messages', {
   id: serial('id').primaryKey(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // The directed user / DM partner for visibility (`canSee`): dm, directed, recipient.
   targetUserId: integer('target_user_id'),
   nickname: text('nickname').notNull(),
   content: text('content').notNull(),
   type: text('type').notNull().default('text'),
   diceDetail: text('dice_detail'),
+  // Single source of truth for visibility — see src/lib/messaging/audience.ts.
+  audience: text('audience').$type<Audience>().notNull().default('everyone'),
+  // WHERE the message renders (orthogonal to WHO sees it): null = public feed;
+  // otherwise the DM partner defining the channel (with `userId`). Lets a hidden
+  // roll / psychology notify issued in a DM stay in that DM. See `channelOf`.
+  channelUserId: integer('channel_user_id'),
+  // Legacy mirror of `audience !== 'everyone'`, kept for backward compatibility.
+  // Written by the message router; no visibility logic reads it anymore.
   isPrivate: boolean('is_private').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({

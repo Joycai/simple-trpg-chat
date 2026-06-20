@@ -1,12 +1,14 @@
 "use server";
 
-import { db, sqlNow, sqlBool } from "@/db";
+import { db, sqlNow } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
 import { eq, and, sql, inArray, or, desc, asc, lt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
 import { broadcastToRoom } from "@/lib/events";
+import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
+import type { Audience } from "@/lib/messaging/audience";
 import { executeCommand } from "@/lib/commands";
 import { rollDice, rollDie } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
@@ -189,6 +191,18 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
 
 // --- Message & Dice Actions ---
 
+/**
+ * Map the legacy (isPrivate, targetUserId) params carried by genuine chat
+ * messages (text/dice/image from clients and bots) to a semantic audience:
+ *   public → everyone | DM whisper → dm | GM-private roll (no target) → gm.
+ * Notices (system/clue/check_request) never use this — they pass an explicit
+ * audience to dispatchMessage directly.
+ */
+function chatAudience(isPrivate: boolean, targetUserId?: number | null): Audience {
+  if (!isPrivate) return "everyone";
+  return targetUserId ? "dm" : "gm";
+}
+
 export async function sendMessageAction(
   roomId: number,
   content: string,
@@ -197,7 +211,7 @@ export async function sendMessageAction(
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
 ) {
-  const { userId, isHost } = await checkRoomAccess(roomId, false, { requireWritable: true });
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const trimmedContent = content.trim();
   if (type === "text" && (!trimmedContent || trimmedContent.length > 10000)) {
@@ -220,18 +234,15 @@ export async function sendMessageAction(
   if (type === "text") {
     const matchedWord = await checkSensitiveWords(content);
     if (matchedWord) {
-      const [warningMsg] = await db.insert(messages).values({
+      return await dispatchMessage({
         roomId,
-        userId,
-        targetUserId: userId, // Targeted strictly to the sender
+        actorUserId: userId,
         nickname: "SYSTEM",
-        content: t("sensitiveWordsIntercepted"),
         type: "system",
-        isPrivate: true,
-      }).returning();
-
-      broadcastToRoom(roomId, warningMsg);
-      return warningMsg;
+        audience: "self", // only the sender sees the interception warning
+        channelPartnerId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
+        content: t("sensitiveWordsIntercepted"),
+      });
     }
   }
 
@@ -240,16 +251,17 @@ export async function sendMessageAction(
     const result = await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
     if (result.isCommand) {
       if (!result.success) {
-        return await db.insert(messages).values({
+        return await dispatchMessage({
           roomId,
-          userId,
+          actorUserId: userId,
           nickname: "SYSTEM",
-          content: t("commandError", { error: result.error || "" }),
           type: "system",
-          isPrivate: true,
-        }).returning();
+          audience: "self", // command errors are shown only to the issuer
+          channelPartnerId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
+          content: t("commandError", { error: result.error || "" }),
+        });
       }
-      return result.message; 
+      return result.message;
     }
   }
 
@@ -260,18 +272,16 @@ export async function sendMessageAction(
 
   if (!member) throw new Error("Not a member");
 
-  const [newMessage] = await db.insert(messages).values({
+  const newMessage = await dispatchMessage({
     roomId,
-    userId,
-    targetUserId,
+    actorUserId: userId,
     nickname: member.nickname,
-    content,
     type,
+    audience: chatAudience(isPrivate, targetUserId),
+    targetUserId,
+    content,
     diceDetail: diceDetail || null,
-    isPrivate,
-  }).returning();
-
-  broadcastToRoom(roomId, newMessage);
+  });
 
   // --- AI Bot Activation Check ---
   const [senderUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, userId));
@@ -308,20 +318,45 @@ export async function sendMessageAction(
   return newMessage;
 }
 
-export async function rollDiceAction(roomId: number, faces: number, count: number, isPrivate: boolean = false, targetUserId?: number) {
+/**
+ * UI dice roll.
+ * - `hidden`: a secret roll — visible only to the roller (audience `self`).
+ * - `channelPartnerId`: the DM partner when rolled inside a private channel; this is
+ *   the *channel* the roll belongs to. A hidden roll stays in that channel but only
+ *   the roller sees it; a normal roll in a DM is a `dm` whisper (both participants).
+ */
+export async function rollDiceAction(
+  roomId: number,
+  faces: number,
+  count: number,
+  hidden: boolean = false,
+  channelPartnerId?: number
+) {
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+
   const { results, sum, notation } = rollDice(faces, count);
-
-  const detail = JSON.stringify({
-    dice: `d${faces}`,
-    count,
-    results,
-    sum,
-    notation
-  });
-
+  const detail = JSON.stringify({ dice: `d${faces}`, count, results, sum, notation });
   const content = `🎲 ${notation}: [${results.join(", ")}] = ${sum}`;
 
-  return await sendMessageAction(roomId, isPrivate ? `🔒 ${content}` : content, "dice", detail, isPrivate, targetUserId);
+  const [member] = await db
+    .select({ nickname: roomMembers.nickname })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+
+  const audience: Audience = hidden ? "self" : channelPartnerId ? "dm" : "everyone";
+  return await dispatchMessage({
+    roomId,
+    actorUserId: userId,
+    nickname: member?.nickname || "SYSTEM",
+    type: "dice",
+    audience,
+    // dm targets the partner (WHO); a hidden roll has no audience target. Either way
+    // channelPartnerId places it in the right channel (current DM, or public).
+    targetUserId: audience === "dm" ? channelPartnerId : undefined,
+    channelPartnerId: channelPartnerId ?? undefined,
+    content: hidden ? `🔒 ${content}` : content,
+    diceDetail: detail,
+  });
 }
 
 // --- Host Skill Check Request ---
@@ -367,18 +402,17 @@ export async function requestSkillCheckAction(
     checkRequest: { skillName: cleanSkill, diceType, targetUserIds: validTargetIds, hostNick, respondedUserIds: [] }
   });
 
-  const [msg] = await db.insert(messages).values({
+  const msg = await dispatchMessage({
     roomId,
-    userId: hostId,
-    targetUserId: isPrivate ? channelTargetUserId : null,
+    actorUserId: hostId,
     nickname: hostNick,
     type: "check_request",
+    // A check issued in a DM belongs to that DM; a public check is for everyone.
+    audience: isPrivate ? "dm" : "everyone",
+    targetUserId: isPrivate ? channelTargetUserId : null,
     content,
     diceDetail: detail,
-    isPrivate,
-  }).returning();
-
-  broadcastToRoom(roomId, msg);
+  });
 
   // Trigger any bot targets so they can respond (if their roll_dice tool is enabled).
   const botTargets = await db.select({ id: users.id }).from(users)
@@ -444,7 +478,8 @@ export async function respondToCheckRequestAction(
       }
     } else {
       const faces = parseInt(diceType.replace("d", ""));
-      await rollDiceAction(roomId, faces, 1, ctxIsPrivate, ctxTargetId);
+      // A check response is a normal roll in the request's channel (never hidden).
+      await rollDiceAction(roomId, faces, 1, false, ctxTargetId);
     }
   }
 
@@ -455,12 +490,12 @@ export async function respondToCheckRequestAction(
   // NOTE: do NOT reuse the message id here. The SSE stream dedups by `id`, and the
   // original check_request message (same id) was already delivered, so an `id`-keyed
   // event would be dropped server-side. Carry the target id under `checkRequestId`,
-  // and pass the message's privacy fields so DM check_updates reach only the pair.
+  // and mirror the request's audience so DM check_updates reach only the pair.
   broadcastToRoom(roomId, {
     type: "check_update",
     checkRequestId,
     respondedUserIds: newResponded,
-    isPrivate: msg.isPrivate,
+    audience: msg.audience,
     userId: msg.userId,
     targetUserId: msg.targetUserId,
   });
@@ -479,7 +514,11 @@ function roomIsCoc7th(room: { ruleTemplate: string | null; diceRules: string | n
  * notification that a psychology check was made on them (no result). If a player hasn't
  * set 心理学, a plain d100 is rolled (still labelled as a psychology hidden roll).
  */
-export async function psychologyHiddenRollAction(roomId: number, targetUserIds: number[]) {
+export async function psychologyHiddenRollAction(
+  roomId: number,
+  targetUserIds: number[],
+  channelPartnerId?: number // when initiated inside a DM, keep the result/notify in that DM
+) {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
@@ -520,19 +559,19 @@ export async function psychologyHiddenRollAction(roomId: number, targetUserIds: 
       resultContent = tRoom("psyResultNoSkill", { nick: plNick, roll });
     }
 
-    // KP-only result (self-targeted private system message — only the KP receives it).
-    const [resMsg] = await db.insert(messages).values({
-      roomId, userId: hostId, targetUserId: hostId, nickname: "SYSTEM",
-      type: "system", content: resultContent, isPrivate: true,
-    }).returning();
-    broadcastToRoom(roomId, resMsg);
+    // KP-only result — only the KP (the actor) sees the roll outcome.
+    await dispatchMessage({
+      roomId, actorUserId: hostId, nickname: "SYSTEM",
+      type: "system", audience: "self", channelPartnerId,
+      content: resultContent,
+    });
 
-    // Player notification (targeted system message — only that player receives it, no result).
-    const [notifyMsg] = await db.insert(messages).values({
-      roomId, userId: hostId, targetUserId: plId, nickname: "SYSTEM",
-      type: "system", content: tRoom("psyNotify", { hostNick }), isPrivate: true,
-    }).returning();
-    broadcastToRoom(roomId, notifyMsg);
+    // Player notification — the targeted player is told a check happened (no result).
+    await dispatchMessage({
+      roomId, actorUserId: hostId, nickname: "SYSTEM",
+      type: "system", audience: "recipient", targetUserId: plId, channelPartnerId,
+      content: tRoom("psyNotify", { hostNick }),
+    });
   }
 
   return { success: true };
@@ -586,18 +625,17 @@ export async function requestSanCheckAction(
     checkRequest: { skillName: "理智值", diceType: "d100", targetUserIds: validTargetIds, hostNick, respondedUserIds: [], sanCheck: { successExpr: sExpr, failureExpr: fExpr } }
   });
 
-  const [msg] = await db.insert(messages).values({
+  const msg = await dispatchMessage({
     roomId,
-    userId: hostId,
-    targetUserId: isPrivate ? channelTargetUserId : null,
+    actorUserId: hostId,
     nickname: hostNick,
     type: "check_request",
+    audience: isPrivate ? "dm" : "everyone",
+    targetUserId: isPrivate ? channelTargetUserId : null,
     content,
     diceDetail: detail,
-    isPrivate,
-  }).returning();
+  });
 
-  broadcastToRoom(roomId, msg);
   return msg;
 }
 
@@ -679,37 +717,10 @@ export async function regenerateRoomPasswordAction(roomId: number) {
 export async function getRoomMessages(roomId: number) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
 
-  const visibilityCondition = isHost
-    ? and(
-        eq(messages.roomId, roomId),
-        or(
-          not(eq(messages.isPrivate, true)),
-          and(
-            eq(messages.isPrivate, true),
-            or(
-              isNull(messages.targetUserId),
-              eq(messages.targetUserId, userId),
-              eq(messages.userId, userId)
-            )
-          )
-        )
-      )
-    : and(
-        eq(messages.roomId, roomId),
-        or(
-          eq(messages.isPrivate, false),
-          eq(messages.targetUserId, userId),
-          and(
-            eq(messages.userId, userId),
-            not(eq(messages.type, "system"))
-          )
-        )
-      );
-
   return await db
     .select()
     .from(messages)
-    .where(visibilityCondition)
+    .where(messageVisibilityWhere(roomId, userId, isHost))
     .orderBy(asc(messages.id));
 }
 
@@ -818,8 +829,10 @@ export async function getUnreadDMCountAction(roomId: number) {
     .where(
       and(
         eq(messages.roomId, roomId),
+        // Only genuine 1:1 DM turns count as unread — inline notices (system/clue
+        // directed messages, GM rolls) carry their own indicators, not a DM badge.
+        eq(messages.audience, "dm"),
         eq(messages.targetUserId, userId),
-        sql`${messages.isPrivate} = ${sqlBool(true)}`,
         not(eq(messages.userId, userId)),
         or(
           isNull(roomDmReads.lastReadAt),
@@ -861,37 +874,10 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
 export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
 
-  const visibilityCondition = isHost
-    ? and(
-        eq(messages.roomId, roomId),
-        or(
-          not(eq(messages.isPrivate, true)),
-          and(
-            eq(messages.isPrivate, true),
-            or(
-              isNull(messages.targetUserId),
-              eq(messages.targetUserId, userId),
-              eq(messages.userId, userId)
-            )
-          )
-        )
-      )
-    : and(
-        eq(messages.roomId, roomId),
-        or(
-          eq(messages.isPrivate, false),
-          eq(messages.targetUserId, userId),
-          and(
-            eq(messages.userId, userId),
-            not(eq(messages.type, "system"))
-          )
-        )
-      );
-
   const results = await db
     .select()
     .from(messages)
-    .where(and(visibilityCondition, lt(messages.id, beforeMessageId)))
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, beforeMessageId)))
     .orderBy(desc(messages.id))
     .limit(limit);
 

@@ -1,6 +1,6 @@
 # 代码审阅：hoster 发起检定功能
 
-审阅对象：`docs/archive/require_check_spec.md`
+审阅对象：`docs/spec/require_check_spec.md`
 审阅分支：`review/require-check-spec`（基于 `feat/chat-input-redesign`）
 日期：2026-06-20
 

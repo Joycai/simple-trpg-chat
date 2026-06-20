@@ -1,4 +1,5 @@
 import type { ThemeId } from "@/themes/types";
+import type { Audience } from "@/lib/messaging/audience";
 
 export interface Room {
   id: number;
@@ -22,6 +23,7 @@ export interface Message {
   content: string;
   type: "text" | "dice" | "system" | "clue" | "check_request" | "image";
   diceDetail: string | null;
+  audience: Audience;
   isPrivate: boolean;
   createdAt: string;
 }

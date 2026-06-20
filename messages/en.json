@@ -148,6 +148,10 @@
     "inputPlaceholder": "Type a message...",
     "send": "Send",
     "privateRoll": "Private Roll - GM Only",
+    "visSelf": "Only you",
+    "visDm": "Private",
+    "visDirected": "Shared privately",
+    "visGm": "Host only",
     "privateRollHint": "Host made a private roll",
     "diceNotation": "{count}d{faces}",
     "critical": "Critical Success!",
@@ -205,7 +209,7 @@
       "d2": "d2",
       "d3": "d3"
     },
-    "privateHint": "Only you and the host can see this"
+    "privateHint": "Hidden roll - only you can see this"
   },
   "nickname": {
     "edit": "Edit Nickname",

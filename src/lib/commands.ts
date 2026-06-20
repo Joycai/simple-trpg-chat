@@ -1,7 +1,8 @@
 import { db, sqlNow } from "@/db";
 import { roomSkills, rooms, roomMembers } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { sendMessageAction } from "@/app/actions/room";
+import { dispatchMessage, type MessageType } from "@/lib/messaging/router";
+import type { Audience } from "@/lib/messaging/audience";
 import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import {
@@ -53,23 +54,54 @@ function isCoc7th(room: { diceRules: string | null; ruleTemplate: string | null 
 }
 
 /**
- * Resolve the visibility of a command's feedback message.
+ * Resolve the audience of a command's feedback message.
  * - "self": only the issuing user sees it, regardless of channel (.help, .st, .rh).
- * - "channel": follows where the command was issued — public stays public, a DM
- *   keeps the result between the two participants.
+ * - "channel": follows where the command was issued — public stays public (everyone),
+ *   a DM keeps the result between the two participants (dm).
  */
 function visibilityFor(
   ctx: CommandContext | undefined,
   userId: number,
   mode: "self" | "channel"
-): { isPrivate: boolean; targetUserId: number | undefined } {
+): { audience: Audience; targetUserId?: number; channelPartnerId?: number } {
   if (mode === "self") {
-    return { isPrivate: true, targetUserId: userId };
+    // Self-visible, but stays in the channel it was issued in: carry the DM partner
+    // as the channel (so e.g. .rh in a DM renders in that DM, not the public feed).
+    return { audience: "self", channelPartnerId: ctx?.isPrivate ? ctx.targetUserId : undefined };
   }
   if (ctx?.isPrivate && ctx.targetUserId) {
-    return { isPrivate: true, targetUserId: ctx.targetUserId };
+    return { audience: "dm", targetUserId: ctx.targetUserId };
   }
-  return { isPrivate: false, targetUserId: undefined };
+  return { audience: "everyone" };
+}
+
+/**
+ * Emit a command-feedback message through the central router, carrying the
+ * issuer's nickname (dice/check results read as "<player> 🎲 …").
+ */
+async function emitCommandMessage(
+  roomId: number,
+  userId: number,
+  content: string,
+  type: MessageType,
+  vis: { audience: Audience; targetUserId?: number; channelPartnerId?: number },
+  diceDetail?: string
+) {
+  const [m] = await db
+    .select({ nickname: roomMembers.nickname })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+  return dispatchMessage({
+    roomId,
+    actorUserId: userId,
+    nickname: m?.nickname || "SYSTEM",
+    type,
+    audience: vis.audience,
+    targetUserId: vis.targetUserId,
+    channelPartnerId: vis.channelPartnerId,
+    content,
+    diceDetail,
+  });
 }
 
 /** Minimal edit distance for typo suggestions. */
@@ -159,7 +191,7 @@ export async function executeCommand(
   if (cmd === "help") {
     const helpText = t("helpText");
     const vis = visibilityFor(ctx, userId, "self");
-    const msg = await sendMessageAction(roomId, helpText, "system", undefined, vis.isPrivate, vis.targetUserId);
+    const msg = await emitCommandMessage(roomId, userId, helpText, "system", vis);
     return { success: true, isCommand: true, message: msg };
   }
 
@@ -200,7 +232,7 @@ async function handleDiceRoll(
     ? visibilityFor(ctx, userId, "self")
     : visibilityFor(ctx, userId, "channel");
 
-  const msg = await sendMessageAction(roomId, rollMsgContent, "dice", diceDetail, vis.isPrivate, vis.targetUserId);
+  const msg = await emitCommandMessage(roomId, userId, rollMsgContent, "dice", vis, diceDetail);
   return { success: true, isCommand: true, message: msg };
 }
 
@@ -375,7 +407,7 @@ async function handleSetSkill(
 
   const summary = summaryParts.join(", ");
   const vis = visibilityFor(ctx, userId, "self");
-  const msg = await sendMessageAction(roomId, t("stSuccess", { summary }), "system", undefined, vis.isPrivate, vis.targetUserId);
+  const msg = await emitCommandMessage(roomId, userId, t("stSuccess", { summary }), "system", vis);
 
   return { success: true, isCommand: true, message: msg };
 }
@@ -518,7 +550,7 @@ async function performSkillCheck(
 
   const content = t("checkMessage", { skillName, roll, target, successLevel, icon });
   const vis = visibilityFor(ctx, userId, "channel");
-  const msg = await sendMessageAction(roomId, content, "dice", detail, vis.isPrivate, vis.targetUserId);
+  const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
   return { success: true, isCommand: true, message: msg };
 }
 
@@ -611,7 +643,7 @@ async function handleSanityCheck(
   });
 
   const vis = visibilityFor(ctx, userIdArg, "channel");
-  const msg = await sendMessageAction(roomId, content, "dice", detail, vis.isPrivate, vis.targetUserId);
+  const msg = await emitCommandMessage(roomId, userIdArg, content, "dice", vis, detail);
   return { success: true, isCommand: true, message: msg };
 }
 

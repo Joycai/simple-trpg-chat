@@ -4,6 +4,7 @@ import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProvi
 import { eq, and, asc, desc, gt, sql, or, isNull } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom, emitToUser } from "@/lib/events";
+import { dispatchMessage } from "@/lib/messaging/router";
 import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { z } from "zod";
@@ -497,16 +498,15 @@ export async function runAgent(
       } catch (err: unknown) {
         console.error(`[runAgent] completion error:`, err);
         const content = `🤖 (${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
-        const [newMessage] = await db.insert(messages).values({
+        await dispatchMessage({
           roomId,
-          userId: botUserId,
-          targetUserId: replyIsPrivate ? targetUserId : null,
+          actorUserId: botUserId,
           nickname: botNickname,
-          content: replyIsPrivate ? `🔒 ${content}` : content,
           type: "text",
-          isPrivate: replyIsPrivate
-        }).returning();
-        broadcastToRoom(roomId, newMessage);
+          audience: replyIsPrivate ? "dm" : "everyone",
+          targetUserId: replyIsPrivate ? targetUserId : null,
+          content: replyIsPrivate ? `🔒 ${content}` : content,
+        });
         break;
       }
 
@@ -521,16 +521,15 @@ export async function runAgent(
           console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
           textToSend = "🤖 (Output blocked due to sensitive content filter)";
         }
-        const [newMessage] = await db.insert(messages).values({
+        await dispatchMessage({
           roomId,
-          userId: botUserId,
-          targetUserId: replyIsPrivate ? targetUserId : null,
+          actorUserId: botUserId,
           nickname: botNickname,
-          content: textToSend,
           type: "text",
-          isPrivate: replyIsPrivate
-        }).returning();
-        broadcastToRoom(roomId, newMessage);
+          audience: replyIsPrivate ? "dm" : "everyone",
+          targetUserId: replyIsPrivate ? targetUserId : null,
+          content: textToSend,
+        });
       }
 
       // If no tool calls, we are finished
@@ -552,17 +551,16 @@ export async function runAgent(
             const { results: rollResults, sum } = rollDice(faces, count);
             const detail = JSON.stringify({ dice: `d${faces}`, count, results: rollResults, sum, isBot: true });
             const content = `🤖 (${botNickname}) 🎲 ${count}d${faces}: [${rollResults.join(", ")}] = ${sum}`;
-            const [newMessage] = await db.insert(messages).values({
+            await dispatchMessage({
               roomId,
-              userId: botUserId,
-              targetUserId: args.isPrivate ? targetUserId : null,
+              actorUserId: botUserId,
               nickname: botNickname,
-              content: args.isPrivate ? `🔒 ${content}` : content,
               type: "dice",
+              audience: args.isPrivate ? "dm" : "everyone",
+              targetUserId: args.isPrivate ? targetUserId : null,
+              content: args.isPrivate ? `🔒 ${content}` : content,
               diceDetail: detail,
-              isPrivate: !!args.isPrivate
-            }).returning();
-            broadcastToRoom(roomId, newMessage);
+            });
 
             // Get the room rules (pre-fetched room object)
             const roomDiceRules = room?.diceRules || "basic";
@@ -592,16 +590,15 @@ export async function runAgent(
               ...(evaluation ? { evaluation } : {})
             };
           } else if (functionName === "send_message") {
-            const [newMessage] = await db.insert(messages).values({
+            await dispatchMessage({
               roomId,
-              userId: botUserId,
-              targetUserId: args.isPrivate ? targetUserId : null,
+              actorUserId: botUserId,
               nickname: botNickname,
-              content: args.content,
               type: "text",
-              isPrivate: !!args.isPrivate
-            }).returning();
-            broadcastToRoom(roomId, newMessage);
+              audience: args.isPrivate ? "dm" : "everyone",
+              targetUserId: args.isPrivate ? targetUserId : null,
+              content: args.content,
+            });
             result = { success: true };
           } else if (functionName === "send_image") {
             const imageUrl = String(args.imageUrl || "").trim();
@@ -610,16 +607,15 @@ export async function runAgent(
             if (!isInternal && !isHttp) {
               result = { success: false, error: "Invalid image URL. Use an internal room image path or a public http(s) URL." };
             } else {
-              const [newMessage] = await db.insert(messages).values({
+              await dispatchMessage({
                 roomId,
-                userId: botUserId,
-                targetUserId: args.isPrivate ? targetUserId : null,
+                actorUserId: botUserId,
                 nickname: botNickname,
-                content: imageUrl,
                 type: "image",
-                isPrivate: !!args.isPrivate
-              }).returning();
-              broadcastToRoom(roomId, newMessage);
+                audience: args.isPrivate ? "dm" : "everyone",
+                targetUserId: args.isPrivate ? targetUserId : null,
+                content: imageUrl,
+              });
               result = { success: true };
             }
           } else if (functionName === "inspect_item") {

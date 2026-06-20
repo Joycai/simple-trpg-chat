@@ -11,7 +11,7 @@ ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push change
 | `roomMembers` | id, roomId, userId, nickname, joinedAt, characterData, avatarColor | `characterData` holds full COC character sheet JSON |
 | `roomSkills` | id, roomId, userId, skillName, skillValue | Per-player skills; synced with `characterData` for sanity |
 | `roomDmReads` | id, roomId, userId, partnerUserId, lastReadAt | Tracks last-read per DM pair for unread badges |
-| `messages` | id, roomId, userId, targetUserId, nickname, content, type, diceDetail, isPrivate, createdAt | `isPrivate + targetUserId` = DM |
+| `messages` | id, roomId, userId, targetUserId, nickname, content, type, diceDetail, audience, channelUserId, isPrivate, createdAt | `audience` (WHO: everyone/self/recipient/directed/dm/gm) + `channelUserId` (WHERE: null=public, else DM partner) own visibility — see `docs/arch/realtime.md`. `isPrivate` is a legacy derived mirror |
 | `systemConfig` | key, value, updatedAt | Key-value store: site title, default theme, sensitive words, etc. |
 | `inventoryItems` | id, roomId, creatorId, type (`info`/`character`/`item`), title, contentJson, imageUrl | |
 | `inventoryDistributions` | id, roomId, itemId, fromUserId, toUserId, action, viewed | `viewed` drives unread badge |

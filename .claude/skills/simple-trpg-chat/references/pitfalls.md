@@ -14,9 +14,9 @@ New panels (SkillPanel, ClueManager, ConversationPanel, AiImportPanel) were repe
 Caused by: (a) optimistic update with `Date.now()` temp ID + SSE broadcast with real DB ID, or (b) HMR listener accumulation in dev mode.
 Fix: per-stream `sentIds` Set on server (`route.ts`) + `seenIdsRef` Set on client (`RoomClient.tsx`) for absolute dedup.
 
-### 4. SSE privacy filter V3.15
-Targeted messages (`targetUserId` set) → sender + target only (host NOT auto-included). Generic private messages (`targetUserId` null) → sender + host.
-Common bugs: "KP sees player's 'received item' notification" or "sender can't see own message in DM tab".
+### 4. Message visibility — use the `audience` router, never raw flags
+Visibility is owned by `messages.audience` (`everyone`/`self`/`recipient`/`directed`/`dm`/`gm`) via `src/lib/messaging/`. Always create messages with `dispatchMessage({ audience, … })` and decide visibility with `canSee`/`channelOf`/`countsAsDmUnread`/`messageVisibilityWhere`. **Never** insert into `messages` directly or hand-set `isPrivate`/`targetUserId` — that bypasses the router (the row defaults to `everyone` and leaks). Pick the audience: only-me → `self`; a notice to ONE player the actor must NOT see (e.g. psychology notify, item receipt) → `recipient`; a notice both actor and target see inline (pushed clue card) → `directed`; a real 1:1 whisper → `dm`; host-only log → `gm`.
+Classic bugs this prevents: "KP sees a player's 'received item' notice", "`.st` feedback shows a DM unread badge", "sender can't see their own DM message".
 
 ### 5. EventEmitter must use globalThis unconditionally
 Next.js production runs multiple workers, each with its own module scope. The EventEmitter singleton in `src/lib/events.ts` MUST be persisted to `globalThis` with no `NODE_ENV` condition — otherwise the SSE subscriber and the message publisher hold different instances and all real-time messages are silently dropped.

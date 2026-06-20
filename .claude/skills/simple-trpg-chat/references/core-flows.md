@@ -33,7 +33,7 @@
 1. Host creates item template in Inventory panel → `createInventoryItemAction`
 2. Clicks distribute → selects "all" or specific players
 3. `distributeItemAction`: inserts `inventory_distributions` rows (host excluded from "all")
-4. Private notifications: each target receives "获得了新道具" (targeted, `targetUserId` set). Host sees "已向全体/玩家发放道具" (sender-only).
+4. Notifications via `dispatchMessage`: each target gets "获得了新道具" (`audience: 'directed'` — host + that player, inline in public). Host gets "已向全体/玩家发放道具" (`audience: 'gm'`).
 5. Players see items in RPG grid backpack with unread badge
 
 ## AI Smart Import (#50)

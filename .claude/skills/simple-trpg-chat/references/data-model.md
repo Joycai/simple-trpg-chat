@@ -7,7 +7,7 @@
 | `users` | All accounts + bots | `role`, `is_bot`, `botConfigJson`, `aiPoints`, `isBanned` |
 | `rooms` | Game sessions | `hostId`, `secretKey`, `theme`, `diceRules`, `ruleTemplate` |
 | `room_members` | User-room membership | `nickname`, `characterData` (JSON), `avatarColor` |
-| `messages` | Chat/dice/system messages | `type`, `isPrivate`, `targetUserId`, `diceDetail` (JSON) |
+| `messages` | Chat/dice/system messages | `type`, `audience` (WHO sees) + `channelUserId` (WHERE it renders), `targetUserId`, `diceDetail` (JSON); `isPrivate` is a legacy derived mirror |
 | `room_skills` | Per-user, per-room skills | `skillName`, `skillValue` (UNIQUE constraint) |
 | `room_dm_reads` | DM read timestamps | `userId`, `partnerUserId`, `lastReadAt` |
 | `inventory_items` | Item templates | `type` (info/character/item), `contentJson`, `imageUrl` |

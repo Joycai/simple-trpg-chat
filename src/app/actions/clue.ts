@@ -5,7 +5,7 @@ import { clueCards, clueVisibility, messages, users } from "@/db/schema";
 import { eq, and, or, isNull, inArray } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { broadcastToRoom } from "@/lib/events";
+import { dispatchMessage } from "@/lib/messaging/router";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 
@@ -128,59 +128,52 @@ export async function pushClueToChannelAction(
   // Broadcast as clue message
   let lastMsg: typeof messages.$inferSelect | undefined;
   if (isPublic) {
-    const [msg] = await db.insert(messages).values({
+    lastMsg = await dispatchMessage({
       roomId,
-      userId: hostId,
+      actorUserId: hostId,
       nickname: "Host",
-      content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
       type: "clue",
+      audience: "everyone",
+      content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
       diceDetail: JSON.stringify({
         clueId: clue.id,
         isPublic: true,
         visibleTo: "all",
       }),
-      isPrivate: false,
-    }).returning();
-
-    broadcastToRoom(roomId, msg);
-    lastMsg = msg;
+    });
   } else {
-    // For private clues, insert a targeted private message for each recipient
+    // Each recipient gets a directed clue card (host + that player see it inline).
     for (const uid of targetUserIds!) {
-      const [msg] = await db.insert(messages).values({
+      lastMsg = await dispatchMessage({
         roomId,
-        userId: hostId,
+        actorUserId: hostId,
         nickname: "Host",
-        content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
         type: "clue",
+        audience: "directed",
+        targetUserId: uid,
+        content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
         diceDetail: JSON.stringify({
           clueId: clue.id,
           isPublic: false,
           visibleTo: targetUserIds,
         }),
-        isPrivate: true,
-        targetUserId: uid,
-      }).returning();
-
-      broadcastToRoom(roomId, msg);
-      lastMsg = msg;
+      });
     }
 
-    // Send Host log summary
+    // Send Host log summary (host-only).
     const recipients = await db
       .select({ name: users.displayName })
       .from(users)
       .where(inArray(users.id, targetUserIds!));
     const recipientNames = recipients.map(r => r.name).join(", ");
-    const [hostMsg] = await db.insert(messages).values({
+    await dispatchMessage({
       roomId,
-      userId: hostId,
+      actorUserId: hostId,
       nickname: "Host",
-      content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title }),
       type: "system",
-      isPrivate: true,
-    }).returning();
-    broadcastToRoom(roomId, hostMsg);
+      audience: "gm",
+      content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title }),
+    });
   }
 
   revalidatePath(`/rooms/${roomId}`);
@@ -310,36 +303,33 @@ export async function revealClueToPlayersAction(
   }));
   await db.insert(clueVisibility).values(rows);
 
-  // 3. Send targeted private system message to each player
+  // 3. Notify each newly-targeted player (recipient: only that player, not the host).
   for (const uid of newTargetUserIds) {
-    const [msg] = await db.insert(messages).values({
+    await dispatchMessage({
       roomId: clue.roomId,
-      userId: hostId,
+      actorUserId: hostId,
       nickname: "Host",
-      content: t("clueReceived", { title: clue.title }),
       type: "system",
-      isPrivate: true,
+      audience: "recipient",
       targetUserId: uid,
-    }).returning();
-
-    broadcastToRoom(clue.roomId, msg);
+      content: t("clueReceived", { title: clue.title }),
+    });
   }
 
-  // Send Host log summary
+  // Send Host log summary (host-only).
   const recipients = await db
     .select({ name: users.displayName })
     .from(users)
     .where(inArray(users.id, newTargetUserIds));
   const recipientNames = recipients.map(r => r.name).join(", ");
-  const [hostMsg] = await db.insert(messages).values({
+  await dispatchMessage({
     roomId: clue.roomId,
-    userId: hostId,
+    actorUserId: hostId,
     nickname: "Host",
-    content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: clue.title }),
     type: "system",
-    isPrivate: true,
-  }).returning();
-  broadcastToRoom(clue.roomId, hostMsg);
+    audience: "gm",
+    content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: clue.title }),
+  });
 
   revalidatePath(`/rooms/${clue.roomId}`);
   return { clueId, revealedTo: newTargetUserIds };

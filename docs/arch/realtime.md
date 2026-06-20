@@ -26,19 +26,57 @@ if (process.env.NODE_ENV !== "production") {
 }
 ```
 
-## Privacy Filter V3.15
+## Visibility model — `audience` + `channel` (central router)
 
-The SSE route filters messages before sending to each client:
-- Public messages: broadcast to all room members.
-- Private messages (`isPrivate: true` + `targetUserId`): only delivered to the sender and the target recipient.
-- Bot messages directed at a specific player are similarly filtered.
+A message has two **orthogonal** dimensions, both owned by `src/lib/messaging/`:
+
+- **`audience`** (WHO may see it) — column `messages.audience`, evaluated by
+  `canSee` / `messageVisibilityWhere`.
+- **`channelUserId`** (WHERE it renders) — column `messages.channel_user_id`:
+  `null` = the public feed; otherwise the DM partner whose tab it belongs to
+  (with `userId`), evaluated by `channelOf`. This lets an audience-restricted
+  message (a `self` hidden roll, a `recipient` psychology notify) stay inside the
+  DM it was issued in without changing who can see it.
+
+There is no scattered `isPrivate`/`type` sniffing. Key pieces:
+
+- **`audience.ts`** — dependency-free predicates shared by server **and** client:
+  `canSee(msg, viewer, isHost)`, `channelOf(msg, viewer)`, `countsAsDmUnread(...)`.
+- **`router.ts`** — `dispatchMessage(...)` is the **only** code path that inserts a
+  message: senders pass a semantic `audience` (+ optional `channelPartnerId` when
+  issued inside a DM), it derives the stored fields, writes the row, and broadcasts
+  over SSE. `messageVisibilityWhere(roomId, viewer, isHost)` is the single SQL
+  predicate reused by every history query.
+
+| audience    | Who can see it                        | Examples |
+| ----------- | ------------------------------------- | -------- |
+| `everyone`  | all room members (public feed)        | public chat, open rolls, public checks/clues |
+| `self`      | only the actor                        | `.st` / `.help` / `.rh`, sensitive-word warning, KP psychology **result** |
+| `recipient` | only the target — **not** the actor   | psychology **notify**, item/clue "you received…" receipts |
+| `directed`  | actor + one target (inline in public) | a pushed clue **card** (host + recipient both see it) |
+| `dm`        | the two DM participants               | 1:1 whispers, dice/checks issued inside a DM |
+| `gm`       | actor + the room host                | host action logs, GM-private rolls |
+
+The SSE route (`route.ts`) calls `canSee` to filter each event; non-message events
+(typing, `room_settings_updated`, …) carry no `audience` and are public by
+construction.
+
+> **Storage note:** `messages.audience` (WHO) + `messages.channel_user_id` (WHERE)
+> are the source of truth. `targetUserId` holds the directed user for
+> `dm` / `directed` / `recipient`. The legacy `is_private` column is kept only as a
+> derived mirror (`audience !== 'everyone'`) written by the router — no visibility
+> logic reads it.
 
 ## Private Messaging (DM)
 
-- A DM is any message with `isPrivate: true` and a non-null `targetUserId`.
-- `roomDmReads` table tracks the last-read timestamp per `(roomId, userId, partnerUserId)` pair.
-- `ConversationPanel.tsx` renders public chat + DM tabs with unread indicators derived from `roomDmReads`.
+- A DM is a message with `audience === 'dm'`; `channelOf` routes it to the partner's tab.
+- `roomDmReads` tracks the last-read timestamp per `(roomId, userId, partnerUserId)` pair.
+- DM unread counts (`getUnreadDMCountAction` + the client) use `countsAsDmUnread`, so
+  inline notices (`self`/`directed`/`gm`) never inflate a DM badge.
+- `ConversationPanel.tsx` renders public chat + DM tabs with unread indicators.
 
 ## Message Types
 
-The `messages.type` column distinguishes system events, dice rolls, and chat messages. `diceDetail` carries structured dice result data for roll messages.
+The `messages.type` column (`text` | `dice` | `system` | `clue` | `check_request` |
+`image`) classifies content for **rendering** only — it no longer drives visibility,
+which is owned entirely by `audience`. `diceDetail` carries structured roll/check data.

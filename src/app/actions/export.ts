@@ -80,7 +80,7 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
           nickname: msg.nickname,
           userId: msg.userId,
           content: msg.content,
-          isPrivate: msg.isPrivate,
+          isPrivate: msg.audience !== "everyone",
           targetUserId: msg.targetUserId,
         };
 
@@ -88,7 +88,9 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
           item.diceDetail = msg.diceDetail;
         }
 
-        if (msg.isPrivate && msg.targetUserId) {
+        // Group targeted host↔player content (dm whispers + directed notices) into
+        // the private section; everything else goes on the public timeline.
+        if ((msg.audience === "dm" || msg.audience === "directed") && msg.targetUserId) {
           // Exclude player-to-player whispers — only include host-sent private messages
           if (msg.userId !== hostId) {
             continue;
