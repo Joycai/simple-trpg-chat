@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { recordLogin } from "@/lib/login-history";
-import { authConfig } from "./auth.config";
+import { authConfig, invalidateSessionCache } from "./auth.config";
 import { headers } from "next/headers";
 
 import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
@@ -74,6 +74,10 @@ const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
           await db.update(users)
             .set({ sessionToken, updatedAt: sqlNow() })
             .where(eq(users.id, user.id));
+          // Drop any stale cached token for this user so the freshly issued
+          // session validates immediately, instead of being wrongly kicked as
+          // "logged in elsewhere" until the 30s cache entry expires.
+          invalidateSessionCache(user.id.toString());
         } catch {
           // session_token column doesn't exist yet — non-blocking
           sessionToken = undefined;
