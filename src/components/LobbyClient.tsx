@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { createRoomAction, joinRoomAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/icons";
+import { OverlayShell } from "@/components/OverlayShell";
 import Link from "next/link";
 
 interface Room {
@@ -29,6 +30,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const [joinRoomId, setJoinRoomId] = useState<number | null>(null);
   const [joinKey, setJoinKey] = useState("");
   const [error, setError] = useState("");
+  const [createError, setCreateError] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const keyInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,133 +80,143 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
         )}
       </div>
 
-      {/* Create room dialog */}
-      {showCreate && !createdKey && (
-        <div className="bg-surface p-6 rounded-theme theme-border shadow-lg border border-border">
-          <h3 className="font-bold text-lg mb-4 text-success">{tc("title")}</h3>
-          <form
-            action={async (formData) => {
-              setError("");
-              const result = await createRoomAction(formData);
-              if (result.success && result.secretKey) {
-                setCreatedKey(result.secretKey);
-              } else if (result.error) {
-                setError(result.error);
-              }
-            }}
-            className="flex flex-col gap-4"
-          >
-            <div className="flex flex-col gap-1">
-              <label htmlFor="roomName" className="text-xs text-text-muted font-medium">{tc("name")}</label>
-              <input
-                id="roomName"
-                name="name"
-                placeholder={tc("namePlaceholder")}
-                required
-                className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50"
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="roomKey" className="text-xs text-text-muted font-medium">{tc("key")}</label>
-              <div className="flex gap-2">
-                <input
-                  id="roomKey"
-                  name="key"
-                  type="text"
-                  ref={keyInputRef}
-                  placeholder={tc("keyPlaceholder")}
-                  required
-                  minLength={1}
-                  className="flex-1 p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={generateRandomKey}
-                  className="px-3 py-2 bg-surface-alt hover:bg-surface border border-border rounded text-sm font-mono text-accent transition"
-                  title={tc("randomKey")}
-                >
-                  <Icons.Dices className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-xs text-text-muted">{tc("keyHint")}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="roomTheme" className="text-xs text-text-muted font-medium">{tc("theme")}</label>
-              <select
-                id="roomTheme"
-                name="theme"
-                defaultValue="default"
-                className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
-              >
-                <option value="default">{tc("themeDefault")}</option>
-                <option value="parchment">{tc("themeParchment")}</option>
-                <option value="cthulhu">{tc("themeCthulhu")}</option>
-                <option value="shrine">{tc("themeShrine")}</option>
-              </select>
-              <p className="text-xs text-text-muted">{tc("themeHint")}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
-              <select
-                id="ruleTemplate"
-                name="ruleTemplate"
-                defaultValue="basic"
-                className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
-              >
-                <option value="basic">{tc("ruleTemplateBasic")}</option>
-                <option value="coc7th">{tc("ruleTemplateCoc7th")}</option>
-              </select>
-              <p className="text-xs text-text-muted">{tc("ruleTemplateHint")}</p>
-            </div>
-            <div className="flex gap-2 justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 text-text-muted hover:text-text"
-              >
-                {t("cancel")}
-              </button>
-              <button
-                type="submit"
-                className="bg-success hover:bg-primary-hover text-white px-6 py-2 rounded-theme font-bold"
-              >
-                {tc("submit")}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Show key confirmation after creation */}
-      {createdKey && (
-        <div className="bg-surface-alt border-2 border-border rounded-theme p-6 shadow-lg">
-          <h3 className="font-bold text-lg mb-3 text-accent">{tc("created")}</h3>
-          <div className="bg-surface rounded p-4 border border-border space-y-3">
+      {/* Create room dialog (modal — matches the room's overlay animations) */}
+      {showCreate && (
+        <OverlayShell
+          onClose={() => { setShowCreate(false); setCreatedKey(null); setCreateError(""); }}
+          panelClassName="bg-surface rounded-theme theme-border shadow-2xl border border-border w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto p-6"
+        >
+          {(close) => (createdKey ? (
+            /* Show key confirmation after creation */
             <div>
-              <span className="text-sm text-text-muted">{tc("keyCopied")}</span>
-              <div className="mt-1 flex gap-2">
-                <code className="flex-1 block bg-bg border rounded p-2 font-mono font-bold text-lg text-center tracking-widest select-all">
-                  {createdKey}
-                </code>
-                <button
-                  onClick={() => navigator.clipboard.writeText(createdKey)}
-                  className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded font-bold text-sm"
-                  title={tc("copyKey")}
-                >
-                  {tc("copyKey")}
-                </button>
+              <h3 className="font-bold text-lg mb-3 text-accent">{tc("created")}</h3>
+              <div className="bg-surface-alt rounded p-4 border border-border space-y-3">
+                <div>
+                  <span className="text-sm text-text-muted">{tc("keyCopied")}</span>
+                  <div className="mt-1 flex gap-2">
+                    <code className="flex-1 block bg-bg border rounded p-2 font-mono font-bold text-lg text-center tracking-widest select-all">
+                      {createdKey}
+                    </code>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(createdKey)}
+                      className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded font-bold text-sm"
+                      title={tc("copyKey")}
+                    >
+                      {tc("copyKey")}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-accent">{tc("tip")}</p>
               </div>
+              <button
+                onClick={close}
+                className="mt-3 w-full bg-success hover:bg-primary-hover text-white py-2 rounded-theme font-bold"
+              >
+                {tc("done")}
+              </button>
             </div>
-            <p className="text-sm text-accent">{tc("tip")}</p>
-          </div>
-          <button
-            onClick={() => { setShowCreate(false); setCreatedKey(null); }}
-            className="mt-3 w-full bg-success hover:bg-primary-hover text-white py-2 rounded-theme font-bold"
-          >
-            {tc("done")}
-          </button>
-        </div>
+          ) : (
+            <div>
+              <h3 className="font-bold text-lg mb-4 text-success">{tc("title")}</h3>
+              <form
+                action={async (formData) => {
+                  setCreateError("");
+                  const result = await createRoomAction(formData);
+                  if (result.success && result.secretKey) {
+                    setCreatedKey(result.secretKey);
+                  } else if (result.error) {
+                    setCreateError(result.error);
+                  }
+                }}
+                className="flex flex-col gap-4"
+              >
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="roomName" className="text-xs text-text-muted font-medium">{tc("name")}</label>
+                  <input
+                    id="roomName"
+                    name="name"
+                    placeholder={tc("namePlaceholder")}
+                    required
+                    className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="roomKey" className="text-xs text-text-muted font-medium">{tc("key")}</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="roomKey"
+                      name="key"
+                      type="text"
+                      ref={keyInputRef}
+                      placeholder={tc("keyPlaceholder")}
+                      required
+                      minLength={1}
+                      className="flex-1 p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={generateRandomKey}
+                      className="px-3 py-2 bg-surface-alt hover:bg-surface border border-border rounded text-sm font-mono text-accent transition"
+                      title={tc("randomKey")}
+                    >
+                      <Icons.Dices className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-muted">{tc("keyHint")}</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="roomTheme" className="text-xs text-text-muted font-medium">{tc("theme")}</label>
+                  <select
+                    id="roomTheme"
+                    name="theme"
+                    defaultValue="default"
+                    className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
+                  >
+                    <option value="default">{tc("themeDefault")}</option>
+                    <option value="parchment">{tc("themeParchment")}</option>
+                    <option value="cthulhu">{tc("themeCthulhu")}</option>
+                    <option value="shrine">{tc("themeShrine")}</option>
+                  </select>
+                  <p className="text-xs text-text-muted">{tc("themeHint")}</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
+                  <select
+                    id="ruleTemplate"
+                    name="ruleTemplate"
+                    defaultValue="basic"
+                    className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
+                  >
+                    <option value="basic">{tc("ruleTemplateBasic")}</option>
+                    <option value="coc7th">{tc("ruleTemplateCoc7th")}</option>
+                  </select>
+                  <p className="text-xs text-text-muted">{tc("ruleTemplateHint")}</p>
+                </div>
+                {createError && (
+                  <div className="bg-danger/10 border border-danger/30 text-danger px-3 py-2 rounded text-sm">
+                    {createError}
+                  </div>
+                )}
+                <div className="flex gap-2 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="px-4 py-2 text-text-muted hover:text-text"
+                  >
+                    {t("cancel")}
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-success hover:bg-primary-hover text-white px-6 py-2 rounded-theme font-bold"
+                  >
+                    {tc("submit")}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ))}
+        </OverlayShell>
       )}
 
       {/* Error */}
@@ -301,7 +313,8 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
         </>
       )}
 
-      {/* Room list */}
+      {/* Room list — keyed so it re-animates on each filter-tab switch */}
+      <div key={filter} className="lobby-pane-in">
       {filteredRooms.length === 0 ? (
         <div className="text-center text-text-muted py-16">
           <div className="mb-4 flex justify-center">
@@ -421,6 +434,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

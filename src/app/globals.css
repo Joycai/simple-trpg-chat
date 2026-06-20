@@ -162,6 +162,16 @@ h3:not(.no-display-font),
   transform-origin: var(--overlay-pop-origin, top center);
 }
 
+/* Lobby tab panes — gentle fade-and-rise when switching filter tabs. Applied
+   to a `key`-ed container so it replays on every tab change. */
+@keyframes lobby-pane-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.lobby-pane-in {
+  animation: lobby-pane-in 280ms var(--ease-emphasized) both;
+}
+
 /* Respect users who prefer reduced motion — collapse to a near-instant
    cross-fade so nothing flies across the screen. */
 @media (prefers-reduced-motion: reduce) {
@@ -171,7 +181,8 @@ h3:not(.no-display-font),
   .overlay-drawer--closing,
   .overlay-modal,
   .overlay-modal--closing,
-  .overlay-pop {
+  .overlay-pop,
+  .lobby-pane-in {
     animation-duration: 1ms;
     animation-timing-function: linear;
   }

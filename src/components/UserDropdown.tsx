@@ -62,7 +62,10 @@ export function UserDropdown({ userName, userRole }: UserDropdownProps) {
 
         {/* Dropdown */}
         {open && (
-          <div className="absolute right-0 top-full mt-2 w-56 bg-surface border border-border rounded-theme shadow-lg z-50 overflow-hidden">
+          <div
+            className="overlay-pop absolute right-0 top-full mt-2 w-56 bg-surface border border-border rounded-theme shadow-lg z-50 overflow-hidden"
+            style={{ transformOrigin: "top right" }}
+          >
             {/* Profile info */}
             <div className="px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2">

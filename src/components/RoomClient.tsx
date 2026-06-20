@@ -17,7 +17,6 @@ import { RoomSettings } from "./RoomSettings";
 import { InventoryPanel } from "./InventoryPanel";
 import { BotManager } from "./BotManager";
 import { AiImportPanel } from "./AiImportPanel";
-import { Icons } from "./icons";
 import { ExportButton } from "./ExportButton";
 import { RoomInfoPanel } from "./RoomInfoPanel";
 import { ConversationPanel } from "./ConversationPanel";
@@ -26,61 +25,15 @@ import { SkillSetPrompt } from "./SkillSetPrompt";
 import { SkillPanel } from "./SkillPanel";
 import { UserSettingsPanel } from "./UserSettingsPanel";
 import { OverlayShell } from "./OverlayShell";
+import { RoomTopBar } from "./room/RoomTopBar";
+import { MembersDialog } from "./room/MembersDialog";
 import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction, markInventoryViewedAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import type { ThemeId } from "@/themes/types";
-import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
-import Link from "next/link";
-
-interface Room {
-  id: number;
-  name: string;
-  hostId: number;
-  secretKey: string;
-  status: string;
-  frozen?: boolean;
-  theme: string;
-  diceRules?: string;
-  ruleTemplate?: string;
-  createdAt?: string;
-}
-
-interface Message {
-  id: number;
-  roomId: number;
-  userId: number;
-  targetUserId?: number | null;
-  nickname: string;
-  content: string;
-  type: "text" | "dice" | "system" | "clue" | "check_request" | "image";
-  diceDetail: string | null;
-  isPrivate: boolean;
-  createdAt: string;
-}
-
-interface RoomClientProps {
-  room: Room;
-  messages: Message[];
-  userId: number;
-  isHost: boolean;
-  currentNickname: string;
-  roomTheme?: ThemeId;
-  roomDiceRules?: string;
-  players?: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string; botConfigJson?: string | null }; user?: { id?: number; isBot?: boolean }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }[];
-  characterData?: string | null;
-  aiEnabled?: boolean;
-  validProviderIds?: number[];
-  userName: string;
-  userRole: string;
-}
-
-// Thin vertical rule used to separate logical button groups in the top bar.
-function ToolDivider() {
-  return <div className="hidden sm:block w-px h-5 bg-border self-center shrink-0" aria-hidden />;
-}
+import { getBotStatus } from "@/lib/botStatus";
+import type { Message, RoomClientProps } from "./room/types";
 
 export function RoomClient({
   room,
@@ -98,10 +51,7 @@ export function RoomClient({
   userRole,
 }: RoomClientProps) {
   const t = useTranslations("room");
-  const tn = useTranslations("nav");
   const tra = useTranslations("roomActions");
-  const ts = useTranslations("userSettings");
-  const tCommon = useTranslations("common");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -267,31 +217,13 @@ export function RoomClient({
     }
   }, [room.id, isMobile]);
 
-  // Helper to check bot status
-  const getBotStatus = (usersRecord: { isBot?: boolean; botConfigJson?: string | null } | null | undefined) => {
-    if (!usersRecord?.isBot) return { isBotDisabled: false, isProviderError: false };
-    if (!aiEnabled) return { isBotDisabled: true, isProviderError: false };
-    
-    try {
-      const cfg = JSON.parse(usersRecord.botConfigJson || "{}");
-      const pid = cfg.providerId;
-      if (!pid || !validProviderIds.includes(pid)) {
-        return { isBotDisabled: false, isProviderError: true };
-      }
-    } catch {
-      return { isBotDisabled: false, isProviderError: true };
-    }
-    
-    return { isBotDisabled: false, isProviderError: false };
-  };
-
   // Build mention targets (players + bots, excluding self)
   const mentionTargets = useMemo(() => {
     return (players || [])
       .filter((p: { users?: { id?: number }; user_id?: number }) => (p.users?.id || p.user_id) !== userId)
       .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string } }) => {
         const u = p.users || p.user;
-        const { isBotDisabled, isProviderError } = getBotStatus(u);
+        const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
         return {
           id: (u?.id || p.user_id) ?? 0,
           nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
@@ -710,320 +642,64 @@ export function RoomClient({
     await respondCheck(messageId);
   }, [pendingSkillCheck, room.id, userId, respondCheck]);
 
-  // Uniform sizing for every top-bar control, so heights and edges line up
-  // regardless of group/color. Per-button classes only add the color variant.
-  const toolBtn = "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all duration-200 cursor-pointer";
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("trpg-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
+  const handleToggleInventory = () => {
+    setShowInventory((v) => !v);
+    markInventoryViewedAction(room.id);
+    setUnreadItems(0);
+  };
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
-      <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-stretch md:items-center">
-          <div className="flex items-center justify-between md:justify-start gap-4">
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <Link
-                href="/"
-                className={`${toolBtn} bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40`}
-                title={tn("lobby")}
-              >
-                <Icons.ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">{tn("lobby")}</span>
-              </Link>
-              <button
-                onClick={() => {
-                  const next = !sidebarCollapsed;
-                  setSidebarCollapsed(next);
-                  localStorage.setItem("trpg-sidebar-collapsed", String(next));
-                }}
-                aria-pressed={!sidebarCollapsed}
-                className={`relative ${toolBtn} ${
-                  !sidebarCollapsed
-                    ? "bg-primary/10 text-primary border-primary/40"
-                    : "bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40"
-                }`}
-                title={sidebarCollapsed ? t("tooltipExpandDm") : t("tooltipCollapseSidebar")}
-              >
-                <Icons.MessageSquareLock className="w-4 h-4" />
-                <span className="hidden sm:inline">{t("btnDm")}</span>
-                {totalUnread > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
-                    {totalUnread > 9 ? "9+" : totalUnread}
-                  </span>
-                )}
-              </button>
-
-              {/* Divider separating nav controls from the room identity */}
-              <div className="w-px h-8 bg-border self-center shrink-0 mx-0.5 sm:mx-1" aria-hidden />
-
-              {/* Room identity — a distinct title block, not another button */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="hidden sm:flex w-9 h-9 rounded-lg bg-primary/10 text-primary items-center justify-center shrink-0 shadow-sm">
-                  <Icons.Dices className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {isHost && editingRoomName ? (
-                      <input
-                        value={roomNameDraft}
-                        onChange={(e) => setRoomNameDraft(e.target.value)}
-                        onBlur={handleSaveRoomName}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); handleSaveRoomName(); }
-                          else if (e.key === "Escape") { setRoomNameDraft(room.name); setEditingRoomName(false); }
-                        }}
-                        maxLength={100}
-                        autoFocus
-                        disabled={savingRoomName}
-                        className="text-base font-bold text-text leading-tight bg-input-bg border border-input-border rounded px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-primary/50 max-w-[12rem] disabled:opacity-60"
-                      />
-                    ) : (
-                      <div
-                        className={`group flex items-center gap-1 min-w-0 ${isHost ? "cursor-pointer" : ""}`}
-                        onClick={isHost ? () => { setRoomNameDraft(room.name); setEditingRoomName(true); } : undefined}
-                        title={isHost ? t("editNameTooltip") : room.name}
-                      >
-                        <h2 className={`text-base font-bold text-text leading-tight truncate max-w-[7.5rem] sm:max-w-[14rem] ${isHost ? "group-hover:text-primary transition" : ""}`}>
-                          {room.name}
-                        </h2>
-                        {isHost && <Icons.Pencil className="w-3 h-3 text-text-muted opacity-0 group-hover:opacity-70 transition shrink-0" />}
-                      </div>
-                    )}
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
-                    {room.frozen && (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-text-dim/15 text-text-dim px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none shrink-0">
-                        <Icons.Lock className="w-3 h-3" />{isHost ? t("frozenBadgeHost") : t("frozenBadge")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-text-dim mt-0.5 uppercase tracking-wider font-mono">{tn("roomId", { id: room.id })}</div>
-                </div>
-              </div>
-            </div>
-            {isHost && (
-              <span className="md:hidden text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none self-center">
-                {t("gm")}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            {/* Group 1: 自身能力 (Character / You) — neutral */}
-            <button
-              onClick={() => setShowCharacter(!showCharacter)}
-              className={`${toolBtn} ${
-                showCharacter
-                  ? "bg-primary/10 text-primary border-primary/40"
-                  : "bg-surface text-text border-border/70 hover:text-primary hover:border-primary/40"
-              }`}
-              title={t("tooltipCharacter")}
-            >
-              <Icons.User className="w-4 h-4" />
-              <span className="hidden sm:inline max-w-[7rem] truncate">{nickname}</span>
-            </button>
-            <button
-              onClick={() => setShowSkills(!showSkills)}
-              className={`${toolBtn} ${
-                showSkills
-                  ? "bg-primary/10 text-primary border-primary/40"
-                  : "bg-surface text-text border-border/70 hover:text-primary hover:border-primary/40"
-              }`}
-              title={t("tooltipSkills")}
-            >
-              <Icons.ClipboardList className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("btnSkills")}</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowInventory(!showInventory);
-                markInventoryViewedAction(room.id);
-                setUnreadItems(0);
-              }}
-              className={`relative ${toolBtn} ${
-                showInventory
-                  ? "bg-primary/10 text-primary border-primary/40"
-                  : "bg-surface text-text border-border/70 hover:text-primary hover:border-primary/40"
-              }`}
-              title={t("tooltipInventory")}
-            >
-              <Icons.Package className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("btnInventory")}</span>
-              {unreadItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
-                  {unreadItems > 9 ? "9+" : unreadItems}
-                </span>
-                )}
-              </button>
-
-            {/* Group 2: Host 功能区 (检定 + 道具管理) — amber */}
-            {isHost && (
-              <>
-                <ToolDivider />
-                {roomIsCoc7th ? (
-                  /* COC 7th: a 检定 dropdown holding the three check variants */
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowCheckMenu(!showCheckMenu)}
-                      className={`${toolBtn} ${
-                        checkMode || showCheckMenu
-                          ? "bg-accent/20 text-accent border-accent/60"
-                          : "bg-surface text-accent border-accent/30 hover:bg-accent/15 hover:border-accent/50"
-                      }`}
-                      title={t("tooltipCheck")}
-                    >
-                      <Icons.Crosshair className="w-4 h-4" />
-                      <span className="hidden sm:inline">{t("btnCheck")}</span>
-                      <Icons.ChevronDown className="w-3 h-3" />
-                    </button>
-                    {showCheckMenu && (
-                      <>
-                        <div className="fixed inset-0 z-20" onClick={() => setShowCheckMenu(false)} />
-                        <div className="absolute left-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30 overlay-pop"
-                          style={{ transformOrigin: "top left" }}
-                          onClick={() => setShowCheckMenu(false)}>
-                          <button onClick={() => setCheckMode("check")}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                            <Icons.Crosshair className="w-4 h-4 text-accent" /> {t("btnCheckNormal")}
-                          </button>
-                          <button onClick={() => setCheckMode("psychology")}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                            <Icons.EyeOff className="w-4 h-4 text-accent" /> {t("btnPsyCheck")}
-                          </button>
-                          <button onClick={() => setCheckMode("sancheck")}
-                            className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                            <Icons.Skull className="w-4 h-4 text-accent" /> {t("btnSanCheck")}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  /* Non-COC: a single direct 发起检定 button */
-                  <button
-                    onClick={() => setCheckMode(checkMode === "check" ? null : "check")}
-                    className={`${toolBtn} ${
-                      checkMode === "check"
-                        ? "bg-accent/20 text-accent border-accent/60"
-                        : "bg-surface text-accent border-accent/30 hover:bg-accent/15 hover:border-accent/50"
-                    }`}
-                    title={t("tooltipCheck")}
-                  >
-                    <Icons.Crosshair className="w-4 h-4" />
-                    <span className="hidden sm:inline">{t("btnCheck")}</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowItemManager(!showItemManager)}
-                  className={`${toolBtn} ${
-                    showItemManager
-                      ? "bg-accent/20 text-accent border-accent/60"
-                      : "bg-surface text-accent border-accent/30 hover:bg-accent/15 hover:border-accent/50"
-                  }`}
-                  title={t("tooltipItemManage")}
-                >
-                  <Icons.Package className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t("btnItemManage")}</span>
-                </button>
-              </>
-            )}
-
-            {/* Group 3: AI 功能 (Clue Import + Bot Manager) — collapsed into a dropdown */}
-            {isHost && (
-              <div className="relative">
-                <button
-                  onClick={() => { setShowAiMenu(!showAiMenu); setShowSystemMenu(false); }}
-                  className={`${toolBtn} ${
-                    showAiMenu
-                      ? "bg-ai/15 text-ai border-ai/50"
-                      : "bg-surface text-ai border-ai/30 hover:bg-ai/15 hover:border-ai/50"
-                  }`}
-                  title={t("tooltipAiMenu")}
-                >
-                  <Icons.Wand className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t("btnAiMenu")}</span>
-                  <Icons.ChevronDown className="w-3 h-3" />
-                </button>
-                {showAiMenu && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setShowAiMenu(false)} />
-                    <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[180px] z-30 overlay-pop"
-                      style={{ transformOrigin: "top right" }}
-                      onClick={() => setShowAiMenu(false)}>
-                      <button onClick={() => setShowAiImport(true)}
-                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
-                        <Icons.Download className="w-4 h-4" /> {t("btnImport")}
-                      </button>
-                      <button onClick={() => setShowBotManager(true)}
-                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
-                        <Icons.Bot className="w-4 h-4" /> {t("btnBot")}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Group 4: 系统菜单 (System Dropdown) */}
-            <ToolDivider />
-            <div className="relative">
-              <button
-                onClick={() => { setShowSystemMenu(!showSystemMenu); setShowAiMenu(false); }}
-                className={`${toolBtn} ${
-                  showSystemMenu
-                    ? "bg-primary/10 text-primary border-primary/40"
-                    : "bg-surface text-text-muted border-border/70 hover:text-primary hover:border-primary/40"
-                }`}
-                title={t("tooltipSystem")}
-              >
-                <Icons.Menu className="w-4 h-4" />
-                <span className="hidden sm:inline">{t("btnSystem")}</span>
-                <Icons.ChevronDown className="w-3 h-3" />
-              </button>
-              {showSystemMenu && (
-                <>
-                <div className="fixed inset-0 z-20" onClick={() => setShowSystemMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30 overlay-pop"
-                  style={{ transformOrigin: "top right" }}
-                  onClick={() => setShowSystemMenu(false)}>
-                  <button onClick={() => { setShowMembers(true); }}
-                    className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                    <Icons.Users className="w-4 h-4" /> {t("menuMembers")} <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
-                  </button>
-                  <button onClick={() => { setShowRoomInfo(true); }}
-                    className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                    <Icons.Info className="w-4 h-4" /> {t("menuInfo")}
-                  </button>
-
-                  {isHost && (
-                    <div className="border-t border-border mt-1 pt-1">
-                      <button onClick={() => { setShowExport(true); }}
-                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <Icons.Download className="w-4 h-4" /> {t("menuExport")}
-                      </button>
-                      <button onClick={() => { setShowSettings(true); }}
-                        className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                        <Icons.Settings className="w-4 h-4" /> {t("menuSettings")}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Personal Settings / Dashboard */}
-                  <div className="border-t border-border mt-1 pt-1">
-                    <button onClick={() => { setShowUserSettings(true); }}
-                      className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
-                      <Icons.User className="w-4 h-4" /> {ts("title")}
-                    </button>
-                  </div>
-                </div>
-                </>
-              )}
-            </div>
-
-            {isHost && (
-              <span className="hidden md:inline text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 select-none">
-                {t("gm")}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+      <RoomTopBar
+        room={room}
+        isHost={isHost}
+        nickname={nickname}
+        status={status}
+        roomIsCoc7th={roomIsCoc7th}
+        playerCount={playerCount}
+        botCount={botCount}
+        sidebarCollapsed={sidebarCollapsed}
+        totalUnread={totalUnread}
+        onToggleSidebar={handleToggleSidebar}
+        editingRoomName={editingRoomName}
+        roomNameDraft={roomNameDraft}
+        savingRoomName={savingRoomName}
+        setRoomNameDraft={setRoomNameDraft}
+        setEditingRoomName={setEditingRoomName}
+        onSaveRoomName={handleSaveRoomName}
+        showCharacter={showCharacter}
+        setShowCharacter={setShowCharacter}
+        showSkills={showSkills}
+        setShowSkills={setShowSkills}
+        showInventory={showInventory}
+        unreadItems={unreadItems}
+        onToggleInventory={handleToggleInventory}
+        checkMode={checkMode}
+        setCheckMode={setCheckMode}
+        showCheckMenu={showCheckMenu}
+        setShowCheckMenu={setShowCheckMenu}
+        showItemManager={showItemManager}
+        setShowItemManager={setShowItemManager}
+        showAiMenu={showAiMenu}
+        setShowAiMenu={setShowAiMenu}
+        setShowAiImport={setShowAiImport}
+        setShowBotManager={setShowBotManager}
+        showSystemMenu={showSystemMenu}
+        setShowSystemMenu={setShowSystemMenu}
+        setShowMembers={setShowMembers}
+        setShowRoomInfo={setShowRoomInfo}
+        setShowExport={setShowExport}
+        setShowSettings={setShowSettings}
+        setShowUserSettings={setShowUserSettings}
+      />
 
       <div className="flex-1 flex overflow-hidden relative">
         {/* Left Side: Conversation TAB (Task #43) */}
@@ -1221,105 +897,19 @@ export function RoomClient({
         />
       )}
       {showMembers && (
-        <OverlayShell
+        <MembersDialog
+          players={players}
+          userId={userId}
+          hostId={room.hostId}
+          isHost={isHost}
+          aiEnabled={aiEnabled}
+          validProviderIds={validProviderIds}
+          playerCount={playerCount}
+          botCount={botCount}
+          onViewPlayerCard={handleViewPlayerCard}
+          onStartDM={handleTabChange}
           onClose={() => setShowMembers(false)}
-          panelClassName="bg-surface border border-border rounded-theme shadow-2xl p-5 w-full max-w-md mx-4"
-        >
-          {(close) => (
-           <>
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-lg text-text leading-tight">{t("titleMembers")}</h3>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="inline-flex items-center text-[11px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">{t("labelPlayers", { count: playerCount })}</span>
-                  {botCount > 0 && <span className="inline-flex items-center text-[11px] font-medium bg-accent/10 text-accent px-2 py-0.5 rounded-full">{t("labelBots", { count: botCount })}</span>}
-                </div>
-              </div>
-              <button onClick={close} title={tCommon("close")}
-                className="p-1.5 -mr-1.5 -mt-1 rounded-lg text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer shrink-0">
-                <Icons.X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Member list */}
-            <div className="flex flex-col gap-0.5 max-h-[55vh] overflow-y-auto -mx-1.5 px-1.5">
-              {(players || []).map((p: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }, i: number) => {
-                const u = p.users || p.user || { id: p.user_id, displayName: p.nickname || "Player", isBot: false };
-                const nick = p.room_members?.nickname || u.displayName || u.username || "#" + u.id;
-                const isBot = !!u.isBot;
-                const isMe = u.id === userId;
-                const isHostMember = u.id === room.hostId;
-                const roleLabel = isBot ? t("roleBot") : isHostMember ? t("roleHost") : t("rolePlayer");
-                const badgeColor = p.room_members?.avatarColor || getRandomColorForUser(u.id);
-                const { isBotDisabled, isProviderError } = getBotStatus(u);
-                return (
-                  <div key={i} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface-alt transition">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                      {p.room_members?.avatar ? (
-                        <img src={p.room_members.avatar} alt={nick} className="w-9 h-9 rounded-full object-cover border border-border shadow-sm" />
-                      ) : (
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shadow-sm font-theme-mono"
-                          style={{ backgroundColor: badgeColor, color: getContrastColor(badgeColor) }}
-                        >
-                          {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      {isBot && isBotDisabled && (
-                        <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={t("aiDisabled")}>🚫</div>
-                      )}
-                      {isBot && !isBotDisabled && isProviderError && (
-                        <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none" title={t("providerError")}>⚠️</div>
-                      )}
-                    </div>
-
-                    {/* Name + role */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`text-sm truncate ${isMe ? "font-bold text-primary" : "font-medium text-text"}`}>{nick}</span>
-                        {isMe && <span className="shrink-0 text-[11px] text-text-muted">{t("suffixMe")}</span>}
-                        {isBot && isBotDisabled && (
-                          <span className="shrink-0 text-[10px] font-medium px-1.5 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
-                            {t("tagDisabled")}
-                          </span>
-                        )}
-                        {isBot && !isBotDisabled && isProviderError && (
-                          <span className="shrink-0 text-[10px] font-medium px-1.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
-                            {t("tagProviderError")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-text-dim truncate mt-0.5">{roleLabel}</div>
-                    </div>
-
-                    {/* Actions */}
-                    {!isMe && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isHost && (
-                          <button
-                            onClick={() => handleViewPlayerCard(u.id ?? 0, nick)}
-                            className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition cursor-pointer"
-                          >
-                            {t("btnViewCard")}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { handleTabChange(u.id ?? 0); close(); }}
-                          className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-accent transition cursor-pointer"
-                        >
-                          🔒 {t("btnDm")}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-           </>
-          )}
-        </OverlayShell>
+        />
       )}
       {showInventory && (
         <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
