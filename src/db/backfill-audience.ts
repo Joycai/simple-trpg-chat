@@ -9,8 +9,12 @@
  *   public (not private)            → everyone
  *   self-targeted (target = sender) → self      (.st / .rh / warnings / KP psy result)
  *   private, no target              → gm        (host summaries, GM-private rolls)
- *   system/clue notice w/ target    → directed  (psy notify, item/clue receipts & cards)
+ *   system notice w/ target         → recipient (psy notify, item/clue receipts — target only)
+ *   clue card w/ target             → directed  (pushed clue cards — host + recipient)
  *   otherwise (whisper/check w/ tgt)→ dm
+ *
+ * This mirrors the pre-refactor SSE rule: a targeted `system` message was delivered
+ * to the target ONLY, while a targeted `clue` (or any non-system) reached sender+target.
  *
  * Idempotent: derives only from stable legacy columns, so it is safe to re-run.
  */
@@ -23,7 +27,8 @@ async function main() {
       WHEN is_private = false                       THEN 'everyone'
       WHEN target_user_id = user_id                 THEN 'self'
       WHEN target_user_id IS NULL                   THEN 'gm'
-      WHEN type IN ('system', 'clue')               THEN 'directed'
+      WHEN type = 'system'                          THEN 'recipient'
+      WHEN type = 'clue'                            THEN 'directed'
       ELSE 'dm'
     END
   `);

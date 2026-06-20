@@ -561,7 +561,7 @@ export async function psychologyHiddenRollAction(roomId: number, targetUserIds: 
     // Player notification — the targeted player is told a check happened (no result).
     await dispatchMessage({
       roomId, actorUserId: hostId, nickname: "SYSTEM",
-      type: "system", audience: "directed", targetUserId: plId,
+      type: "system", audience: "recipient", targetUserId: plId,
       content: tRoom("psyNotify", { hostNick }),
     });
   }

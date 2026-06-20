@@ -19,6 +19,14 @@ describe("audience — canSee", () => {
     expect(canSee(m, OTHER, true)).toBe(false); // host does not get to peek
   });
 
+  it("recipient: ONLY the target — not the actor/host who triggered it", () => {
+    // e.g. psychology notify / item receipt: the host (actor) must NOT see it.
+    const m = { userId: HOST, targetUserId: PLAYER, audience: "recipient" as const };
+    expect(canSee(m, PLAYER, false)).toBe(true); // the target
+    expect(canSee(m, HOST, true)).toBe(false); // the actor/host does NOT see it
+    expect(canSee(m, OTHER, true)).toBe(false); // bystander
+  });
+
   it("directed: actor + target only (host gets no override)", () => {
     const m = { userId: HOST, targetUserId: PLAYER, audience: "directed" as const };
     expect(canSee(m, HOST, true)).toBe(true);
@@ -79,8 +87,8 @@ describe("audience — countsAsDmUnread", () => {
     expect(countsAsDmUnread(m, HOST)).toBe(false); // own message
   });
 
-  it("never counts inline notices (self/directed/gm/everyone)", () => {
-    for (const audience of ["everyone", "self", "directed", "gm"] as const) {
+  it("never counts inline notices (self/recipient/directed/gm/everyone)", () => {
+    for (const audience of ["everyone", "self", "recipient", "directed", "gm"] as const) {
       const m = { userId: HOST, targetUserId: PLAYER, audience };
       expect(countsAsDmUnread(m, PLAYER)).toBe(false);
     }

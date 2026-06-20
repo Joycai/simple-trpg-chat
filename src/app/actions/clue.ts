@@ -303,14 +303,14 @@ export async function revealClueToPlayersAction(
   }));
   await db.insert(clueVisibility).values(rows);
 
-  // 3. Notify each newly-targeted player (directed: host + that player).
+  // 3. Notify each newly-targeted player (recipient: only that player, not the host).
   for (const uid of newTargetUserIds) {
     await dispatchMessage({
       roomId: clue.roomId,
       actorUserId: hostId,
       nickname: "Host",
       type: "system",
-      audience: "directed",
+      audience: "recipient",
       targetUserId: uid,
       content: t("clueReceived", { title: clue.title }),
     });

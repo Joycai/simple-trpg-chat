@@ -9,14 +9,16 @@
  * This file is intentionally dependency-free so it can be imported by both the
  * server (Server Actions, SSE route) and the client (RoomClient).
  *
- *  - everyone : public channel — every room member sees it.
- *  - self     : only the actor (e.g. .st / .help / .rh feedback).
- *  - directed : the actor + one targeted user, rendered inline in the public
- *               feed (a NOTICE, not a DM): psychology notify, item/clue receipts.
- *  - dm       : a 1:1 private conversation between the actor and `targetUserId`.
- *  - gm       : the actor + the room host (GM-private rolls, host-only summaries).
+ *  - everyone  : public channel — every room member sees it.
+ *  - self      : only the actor (e.g. .st / .help / .rh feedback).
+ *  - recipient : ONLY the targeted user, NOT the actor — an inline notice meant for
+ *                one person (psychology notify, item/clue "you received…" receipts).
+ *  - directed  : the actor + one targeted user, rendered inline in the public feed
+ *                (host + recipient both see the content, e.g. a pushed clue card).
+ *  - dm        : a 1:1 private conversation between the actor and `targetUserId`.
+ *  - gm        : the actor + the room host (GM-private rolls, host-only summaries).
  */
-export const AUDIENCES = ["everyone", "self", "directed", "dm", "gm"] as const;
+export const AUDIENCES = ["everyone", "self", "recipient", "directed", "dm", "gm"] as const;
 
 export type Audience = (typeof AUDIENCES)[number];
 
@@ -38,6 +40,10 @@ export function canSee(m: AudienceFields, viewerId: number, viewerIsHost: boolea
       return true;
     case "self":
       return viewerId === m.userId;
+    case "recipient":
+      // A notice for the target alone — the actor (e.g. the host who triggered it)
+      // does NOT see it; they get their own result/summary separately.
+      return viewerId === m.targetUserId;
     case "directed":
     case "dm":
       return viewerId === m.userId || viewerId === m.targetUserId;
@@ -61,7 +67,7 @@ export function dmPartner(m: AudienceFields, viewerId: number): number | null {
 
 /**
  * Which channel/tab this message belongs to for `viewerId`:
- *  - "public" : the public feed (everyone/self/directed/gm all render inline here)
+ *  - "public" : the public feed (everyone/self/recipient/directed/gm render inline here)
  *  - <number> : the userId of the DM partner (dm messages)
  */
 export function channelOf(m: AudienceFields, viewerId: number): "public" | number {
@@ -81,7 +87,7 @@ export function channelOf(m: AudienceFields, viewerId: number): "public" | numbe
 /**
  * Whether this message should bump `viewerId`'s unread badge for a DM partner.
  * Only genuine inbound DM turns count — never the viewer's own messages, and
- * never inline notices (directed/self/gm) which have their own indicators.
+ * never inline notices (recipient/directed/self/gm) which have their own indicators.
  */
 export function countsAsDmUnread(m: AudienceFields, viewerId: number): boolean {
   return m.audience === "dm" && m.targetUserId === viewerId && m.userId !== viewerId;

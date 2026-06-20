@@ -165,7 +165,8 @@ export async function distributeItemAction(
   // Prepare notification promises
   const promises: Promise<unknown>[] = [];
 
-  // 1. Directed receipt to each recipient (host + that player see it).
+  // 1. Receipt to each recipient (recipient: only that player sees it, not the host —
+  //    the host gets the distribution log below).
   for (const tid of targetUserIds) {
     promises.push(
       dispatchMessage({
@@ -173,7 +174,7 @@ export async function distributeItemAction(
         actorUserId: fromUserId,
         nickname: "SYSTEM",
         type: "system",
-        audience: "directed",
+        audience: "recipient",
         targetUserId: tid,
         content: t("receivedNew", { title: item?.title }),
       })
@@ -258,13 +259,13 @@ export async function shareItemAction(
   const [recipient] = await db.select({ name: users.displayName }).from(users).where(eq(users.id, toUserId));
   const recipientName = recipient?.name || t("defaultTeammate");
 
-  // 1. Notify the recipient (directed: the sharer + recipient see it).
+  // 1. Notify the recipient only (the sharer initiated it and doesn't need the notice).
   await dispatchMessage({
     roomId,
     actorUserId: fromUserId,
     nickname: "SYSTEM",
     type: "system",
-    audience: "directed",
+    audience: "recipient",
     targetUserId: toUserId,
     content: t("sharedReceived", { sender: senderName, title: item?.title }),
   });
