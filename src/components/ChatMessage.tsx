@@ -9,6 +9,7 @@ import { ResourceStatusTooltip } from "./ResourceStatusTooltip";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+import type { Audience } from "@/lib/messaging/audience";
 
 // LRU-capped cache (max 200 entries) for character resource data, keyed by `${roomId}-${senderId}`
 const CHAR_CACHE_MAX = 200;
@@ -35,6 +36,7 @@ interface ChatMessageProps {
   type: "text" | "dice" | "system" | "check_request" | "image" | "clue";
   diceDetail?: string | null;
   isPrivate: boolean;
+  audience?: Audience;
   createdAt: string;
   isOwn: boolean;
   isBot?: boolean;
@@ -57,6 +59,7 @@ export const ChatMessage = memo(function ChatMessage({
   type,
   diceDetail,
   isPrivate,
+  audience,
   createdAt,
   isOwn,
   isBot = false,
@@ -224,6 +227,16 @@ export const ChatMessage = memo(function ChatMessage({
   const isDice = type === "dice";
   const isImage = type === "image";
 
+  // Visibility badge shown next to the nickname. Driven by the message audience
+  // (not the legacy isPrivate flag) so a DM whisper isn't mislabelled as a GM
+  // hidden roll. `everyone` shows nothing; system/clue notices render elsewhere.
+  const visibilityBadge =
+    audience === "self" ? t("visSelf")
+    : audience === "dm" ? t("visDm")
+    : audience === "directed" ? t("visDirected")
+    : audience === "gm" ? t("visGm")
+    : null;
+
   return (
     <div className={`flex gap-3 py-1.5 group animate-in fade-in slide-in-from-bottom-1 ${isOwn ? "flex-row-reverse" : ""}`}>
       {/* Avatar Wrapper */}
@@ -287,7 +300,7 @@ export const ChatMessage = memo(function ChatMessage({
           >
             {nickname}
             {isBot && " 🤖"}
-            {isPrivate && ` (🔒 ${t("privateRoll")})`}
+            {visibilityBadge && ` (🔒 ${visibilityBadge})`}
           </span>
 
           {showMenu && senderId && (

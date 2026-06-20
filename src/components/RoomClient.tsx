@@ -754,6 +754,7 @@ export function RoomClient({
                     type={msg.type as "text" | "dice" | "system" | "clue" | "image" | "check_request"}
                     diceDetail={msg.diceDetail}
                     isPrivate={msg.isPrivate}
+                    audience={msg.audience}
                     createdAt={msg.createdAt}
                     isOwn={msg.userId === userId}
                     userId={userId}
