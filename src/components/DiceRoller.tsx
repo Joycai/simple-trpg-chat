@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { rollDice } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Icons } from "./icons";
 
@@ -17,27 +16,17 @@ export function DiceRoller({ onRoll, onClose }: DiceRollerProps) {
   const [selectedDie, setSelectedDie] = useState(20);
   const [count, setCount] = useState(1);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [lastResult, setLastResult] = useState<{
-    results: number[];
-    sum: number;
-    notation: string;
-  } | null>(null);
 
   const handleRoll = () => {
-    const result = rollDice(selectedDie, count);
-    setLastResult(result);
-
+    // The roll itself is performed server-side (rollDiceAction) so it is authoritative
+    // and tamper-proof — we only send the dice spec. The 🔒 prefix is the data signal
+    // used to detect secret rolls downstream, so keep it on the content string.
     const detail = JSON.stringify({
       dice: `d${selectedDie}`,
       count,
-      results: result.results,
-      sum: result.sum,
-      notation: result.notation,
     });
 
-    // Content is the display text. The 🔒 prefix is the data signal used to
-    // detect secret rolls downstream — keep it on the content string.
-    let content = `🎲 ${result.notation}: [${result.results.join(", ")}] = ${result.sum}`;
+    let content = `🎲 ${count}d${selectedDie}`;
     if (isPrivate) {
       content = "🔒 " + content;
     }
@@ -124,17 +113,6 @@ export function DiceRoller({ onRoll, onClose }: DiceRollerProps) {
         <span className="font-medium">{t("private")}</span>
         <span className="text-[11px] text-text-dim ml-auto text-right leading-tight">{t("privateHint")}</span>
       </button>
-
-      {/* Last result */}
-      {lastResult && (
-        <div className="bg-dice-card-bg border border-dice-card-border rounded-theme p-3">
-          <div className="text-xs text-text-muted font-medium mb-1">{t("lastResult")}</div>
-          <div className="font-mono font-bold text-text">
-            {lastResult.notation}: [{lastResult.results.join(", ")}] ={" "}
-            <span className="text-xl">{lastResult.sum}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
