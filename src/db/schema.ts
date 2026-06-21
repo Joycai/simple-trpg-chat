@@ -23,6 +23,12 @@ export type RoomStatus = (typeof ROOM_STATUS)[number];
 export const THEMES = ['default', 'parchment', 'cthulhu', 'shrine', 'rainglass', 'aether'] as const;
 export type Theme = (typeof THEMES)[number];
 
+// Color mode (orthogonal to theme). Canonical definition lives in the
+// client-safe theme registry (src/themes/types.ts) so UI components can import
+// it without pulling in db/server code; re-exported here to co-locate with the
+// theme_mode columns and the THEMES/Theme enum used for room validation.
+export { THEME_MODES, type ThemeMode } from '@/themes/types';
+
 export const DICE_RULES = ['basic', 'coc7th'] as const;
 export type DiceRules = (typeof DICE_RULES)[number];
 
@@ -54,6 +60,7 @@ export const users = pgTable('users', {
   isBot: boolean('is_bot').notNull().default(false),
   botConfigJson: text('bot_config_json'),
   themePreference: text('theme_preference'),
+  themeModePreference: text('theme_mode_preference'),
   sessionToken: text('session_token'),
   isBanned: boolean('is_banned').notNull().default(false),
   aiPoints: doublePrecision('ai_points').notNull().default(0.0),
@@ -67,6 +74,7 @@ export const rooms = pgTable('rooms', {
   hostId: integer('host_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   secretKey: text('secret_key').notNull(),
   theme: text('theme').notNull().default('default'),
+  themeMode: text('theme_mode').notNull().default('auto'),
   diceRules: text('dice_rules').notNull().default('basic'),
   ruleTemplate: text('rule_template').notNull().default('basic'),
   status: text('status').notNull().default('active'),
@@ -192,7 +200,7 @@ export const clueVisibility = pgTable('clue_visibility', {
 // Relations
 // ============================================================
 
-export const usersRelations = relations(users, ({ many, one }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   rooms: many(rooms, { relationName: 'hostRooms' }),
   roomMemberships: many(roomMembers),
   messages: many(messages),

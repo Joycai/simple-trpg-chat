@@ -195,3 +195,104 @@
   background: rgba(130, 64, 30, 0.1);
   text-shadow: none;
 }
+
+/* =====================================================================
+   DARK — candle-lit aged dark leather. Brown-black ground, warm
+   parchment-light ink, ember + verdigris accents; wax seal & fleuron
+   turned to brighter ink so the manuscript reads in the dark.
+   ===================================================================== */
+[data-theme="parchment"][data-mode="dark"] {
+  --theme-bg: 28 22 16;             /* dark leather */
+  --theme-surface: 40 32 23;        /* worn vellum in shadow */
+  --theme-surface-alt: 52 42 30;
+  --theme-border: 78 62 44;         /* dim sepia line */
+  --theme-text: 230 214 184;        /* candlelit parchment */
+  --theme-text-muted: 176 154 120;
+  --theme-text-dim: 128 110 84;
+  --theme-primary: 200 128 80;      /* ember-lit burnt sienna */
+  --theme-primary-hover: 216 146 98;
+  --theme-accent: 112 178 158;      /* verdigris, brighter */
+  --theme-accent-hover: 132 196 176;
+  --theme-accent-foreground: 22 30 27;
+  --theme-danger: 224 110 102;      /* heraldic red, lifted */
+  --theme-success: 154 172 104;     /* olive / sage, lifted */
+  --theme-ai: 142 154 214;          /* indigo ink, lifted */
+  --theme-ai-hover: 160 172 226;
+  --theme-ai-foreground: 16 18 30;
+  --theme-header-bg: 34 27 20;
+  --theme-header-border: 78 62 44;
+  --theme-input-bg: 40 32 23;
+  --theme-input-border: 88 70 50;
+  --theme-dice-card-bg: 46 37 27;
+  --theme-dice-card-border: 88 70 50;
+  --theme-private-border: 198 96 84; /* sealing-wax red, lifted */
+  --theme-private-bg: 46 33 27;
+  --theme-scroll-btn: 200 128 80;
+  --theme-primary-foreground: 28 20 12;  /* dark text on ember button */
+
+  --theme-card-shadow: 1px 2px 4px rgba(0, 0, 0, 0.42),
+                       3px 4px 9px rgba(0, 0, 0, 0.3);
+  --theme-glow: 0 0 0 3px rgba(200, 128, 80, 0.25);
+
+  /* No light paper speckle on a dark ground */
+  --theme-surface-texture: none;
+
+  /* Fleuron divider re-inked in warm gold so it shows on dark */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23b8986a' stroke-width='1'%3E%3Cpath d='M10 8 H46'/%3E%3Cpath d='M74 8 H110'/%3E%3C/g%3E%3Cpath d='M60 2 L65 8 L60 14 L55 8 Z' fill='%23b8986a'/%3E%3Ccircle cx='48' cy='8' r='1.4' fill='%23b8986a'/%3E%3Ccircle cx='72' cy='8' r='1.4' fill='%23b8986a'/%3E%3C/svg%3E");
+}
+
+[data-theme="parchment"][data-mode="dark"] .conv-sidebar {
+  background: linear-gradient(180deg, #2a2018 0%, #1c1410 100%);
+  border-right: 2px solid #4a3a2a;
+}
+[data-theme="parchment"][data-mode="dark"] .conv-tab {
+  background: linear-gradient(90deg, rgba(52, 42, 30, 0.5) 0%, rgba(40, 32, 23, 0.3) 100%);
+  border-bottom-color: rgba(78, 62, 44, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+[data-theme="parchment"][data-mode="dark"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(66, 54, 38, 0.6) 0%, rgba(50, 40, 28, 0.35) 100%);
+}
+[data-theme="parchment"][data-mode="dark"] .conv-tab.active {
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.18) 0%, rgb(var(--theme-primary) / 0.05) 100%);
+  border-bottom-color: rgb(var(--theme-primary) / 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="parchment"][data-mode="dark"] .clue-card,
+[data-theme="parchment"][data-mode="dark"] .inventory-card,
+[data-theme="parchment"][data-mode="dark"] .item-detail-panel {
+  background-color: #2a2018 !important;
+  background-image: linear-gradient(rgba(42, 32, 24, 0.96), rgba(42, 32, 24, 0.96)) !important;
+  border: 1px solid #4a3a2a !important;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.4),
+              1px 2px 4px rgba(0, 0, 0, 0.3) !important;
+  /* Light ink for the dark card face */
+  --theme-text: 230 214 184;
+  --theme-text-muted: 176 154 120;
+  --theme-text-dim: 128 110 84;
+}
+[data-theme="parchment"][data-mode="dark"] .clue-card:hover,
+[data-theme="parchment"][data-mode="dark"] .inventory-card:hover {
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.4),
+              0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Wax seal re-melted to a brighter red so it reads on dark leather */
+[data-theme="parchment"][data-mode="dark"] .chat-bubble-other::after,
+[data-theme="parchment"][data-mode="dark"] .chat-bubble-own::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c0524a'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+[data-theme="parchment"][data-mode="dark"] .theme-border {
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35),
+              inset 0 0 8px rgba(0, 0, 0, 0.25),
+              2px 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="parchment"][data-mode="dark"] .filter-tab-active {
+  color: #c88050;
+  border-bottom-color: #c88050;
+  background: rgb(var(--theme-primary) / 0.12);
+}

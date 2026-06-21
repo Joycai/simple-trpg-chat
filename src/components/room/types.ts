@@ -1,4 +1,4 @@
-import type { ThemeId } from "@/themes/types";
+import type { ThemeId, ThemeMode } from "@/themes/types";
 import type { Audience } from "@/lib/messaging/audience";
 
 export interface Room {
@@ -9,6 +9,7 @@ export interface Room {
   status: string;
   frozen?: boolean;
   theme: string;
+  themeMode?: string;
   diceRules?: string;
   ruleTemplate?: string;
   createdAt?: string;
@@ -46,6 +47,7 @@ export interface RoomClientProps {
   isHost: boolean;
   currentNickname: string;
   roomTheme?: ThemeId;
+  roomThemeMode?: ThemeMode;
   roomDiceRules?: string;
   players?: PlayerEntry[];
   characterData?: string | null;

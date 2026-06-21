@@ -6,7 +6,7 @@ import { messageVisibilityWhere } from "@/lib/messaging/router";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/RoomClient";
 import { RoomThemeSetter } from "@/components/RoomThemeSetter";
-import type { ThemeId } from "@/themes/types";
+import type { ThemeId, ThemeMode } from "@/themes/types";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
@@ -141,7 +141,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} />
+      <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} mode={(room.themeMode as ThemeMode) || "auto"} />
       <RoomClient
         room={room as Parameters<typeof RoomClient>[0]["room"]}
         players={members}
@@ -151,6 +151,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         currentNickname={currentNickname}
         characterData={currentMember?.characterData || null}
         roomTheme={(room.theme as ThemeId) || "default"}
+        roomThemeMode={(room.themeMode as ThemeMode) || "auto"}
         roomDiceRules={(room as { diceRules?: string }).diceRules || "basic"}
         aiEnabled={aiEnabled}
         validProviderIds={validProviderIds}

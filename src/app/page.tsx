@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers, systemConfig } from "@/db/schema";
+import { rooms, roomMembers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -10,6 +10,7 @@ import { APP_VERSION } from "@/lib/version";
 import { LobbyClient } from "@/components/LobbyClient";
 import { Dices } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { ThemeModeSwitcher } from "@/components/ThemeModeSwitcher";
 import { UserDropdown } from "@/components/UserDropdown";
 
 export default async function HomePage() {
@@ -58,6 +59,7 @@ export default async function HomePage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeModeSwitcher />
             <ThemeSwitcher />
             <UserDropdown
               userName={user.name || user.username}

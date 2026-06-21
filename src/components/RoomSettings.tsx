@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Palette, SlidersHorizontal, X } from "lucide-react";
+import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, type LucideIcon } from "lucide-react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
-import { THEME_LIST, getThemeName, getThemeDesc } from "@/themes/types";
-import type { ThemeId } from "@/themes/types";
+import { THEME_LIST, THEME_MODES, getThemeName, getThemeDesc } from "@/themes/types";
+import type { ThemeId, ThemeMode } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
+
+const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
 interface RoomSettingsProps {
   roomId: number;
   roomName: string;
   currentTheme: ThemeId;
+  currentThemeMode: ThemeMode;
   currentDiceRules?: string;
   currentRuleTemplate?: string;
   onClose: () => void;
@@ -20,14 +23,16 @@ interface RoomSettingsProps {
 
 type SettingsTab = "theme" | "general";
 
-export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules, currentRuleTemplate, onClose }: RoomSettingsProps) {
+export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode, currentDiceRules, currentRuleTemplate, onClose }: RoomSettingsProps) {
   const t = useTranslations("roomSettings");
+  const tm = useTranslations("themeMode");
   const locale = useLocale();
   const tCommon = useTranslations("common");
   const [tab, setTab] = useState<SettingsTab>("theme");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
+  const [selectedMode, setSelectedMode] = useState<ThemeMode>(currentThemeMode);
   const [selectedDiceRules, setSelectedDiceRules] = useState<string>(currentDiceRules || "basic");
   const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
@@ -41,6 +46,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
     try {
       const formData = new FormData();
       formData.set("theme", selectedTheme);
+      formData.set("themeMode", selectedMode);
       formData.set("diceRules", selectedDiceRules);
       formData.set("ruleTemplate", selectedRuleTemplate);
 
@@ -139,6 +145,35 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentDiceRules,
                         />
                       </label>
                     ))}
+                  </div>
+
+                  {/* Color mode — applies to all participants in this room */}
+                  <div className="mt-1">
+                    <h5 className="text-sm font-semibold text-text mb-1">{t("themeModeLabel")}</h5>
+                    <p className="text-xs text-text-muted mb-2.5">{t("themeModeHint")}</p>
+                    <div role="radiogroup" aria-label={t("themeModeLabel")} className="grid grid-cols-3 gap-2.5">
+                      {THEME_MODES.map((m) => {
+                        const Icon = MODE_ICONS[m];
+                        const active = selectedMode === m;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            onClick={() => setSelectedMode(m)}
+                            className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-theme border transition cursor-pointer ${
+                              active
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-text-muted hover:border-text-muted"
+                            }`}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span className="text-xs font-medium">{tm(m)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
