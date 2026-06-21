@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
+import { ShrineLantern, ShrineTorii } from "@/components/shrine/ShrineLantern";
 
 interface LoginFormProps {
   siteTitle: string;
@@ -71,12 +72,15 @@ export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginF
   const mainHeaderTitle = displayTitle.startsWith("🎲") ? displayTitle : `🎲 ${displayTitle}`;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-surface">
+    <div className="relative overflow-hidden flex flex-col items-center justify-center min-h-screen bg-surface">
+      <ShrineLantern side="left" />
+      <ShrineLantern side="right" />
       <form
         onSubmit={handleSubmit}
-        className="p-8 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
+        className="relative z-[2] p-8 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
       >
         <div className="text-center mb-2">
+          <ShrineTorii />
           <h1 className="text-2xl font-bold text-text">{mainHeaderTitle}</h1>
           <p className="text-sm text-text-muted mt-1">{t("subtitle")}</p>
         </div>
