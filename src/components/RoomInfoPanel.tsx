@@ -25,7 +25,7 @@ interface RoomInfoPanelProps {
   onClose: () => void;
 }
 
-export function RoomInfoPanel({ room, isHost, userId, onClose }: RoomInfoPanelProps) {
+export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const t = useTranslations("roomInfo");
   const ts = useTranslations("roomSettings");
   const locale = useLocale();

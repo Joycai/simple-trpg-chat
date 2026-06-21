@@ -352,6 +352,8 @@
     "saveFailed": "保存失败，请重试",
     "siteTheme": "网站主题",
     "siteThemeDesc": "设置全站默认主题。应用于登录页、Admin 面板和新用户的大厅。",
+    "siteThemeMode": "网站显示模式",
+    "siteThemeModeDesc": "设置全站默认的浅色/深色模式。「自动」跟随访客系统设置。应用于登录页、Admin 面板和新用户。",
     "themeUpdated": "主题已更新",
     "editSiteTitle": "修改网站标题",
     "editSiteTitleDesc": "修改大厅和登录页显示的网站标题。如果不设置，系统将默认显示为 'Simple TRPG Chat'。",
@@ -382,6 +384,13 @@
   "theme": {
     "switch": "切换主题",
     "label": "主题"
+  },
+  "themeMode": {
+    "label": "显示模式",
+    "switch": "切换显示模式",
+    "auto": "自动",
+    "light": "浅色",
+    "dark": "深色"
   },
   "common": {
     "error": "出错了",
@@ -781,6 +790,8 @@
     "tabTheme": "主题",
     "tabGeneral": "房间信息",
     "themeLabel": "房间主题",
+    "themeModeLabel": "显示模式",
+    "themeModeHint": "应用于本房间的所有参与者。「自动」跟随每位参与者的系统设置。",
     "diceRulesLabel": "投点规则",
     "diceRulesBasic": "📊 Basic — 基础骰点",
     "diceRulesCoc7th": "🐙 COC 7th — 大成功/大失败判定",

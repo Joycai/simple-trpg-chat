@@ -21,6 +21,18 @@ export type ThemeId =
   | "rainglass"
   | "aether";
 
+/**
+ * Color mode — orthogonal to theme. Every theme has a light and a dark variant.
+ * 'auto' follows the OS via `prefers-color-scheme` (resolved on the client,
+ * falling back to 'light' when unsupported). Canonical source of truth; the DB
+ * schema re-exports this so server code stays in sync without UI bundling db code.
+ */
+export const THEME_MODES = ["auto", "light", "dark"] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
+
+/** The concrete mode actually applied to `<html data-mode>` (auto already resolved). */
+export type ResolvedMode = "light" | "dark";
+
 /** A small color preview pair for theme pickers (CSS color strings). */
 export interface ThemeSwatch {
   bg: string;
@@ -43,8 +55,9 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
     id: "default",
     name: "默认",
     nameEn: "Default",
-    description: "深色 TRPG 桌面风格",
-    descriptionEn: "Dark TRPG desktop style",
+    description: "现代 web / SaaS 质感，蓝色主色配琥珀强调，干净留白与柔和层次",
+    descriptionEn:
+      "Modern web / SaaS feel — blue primary with amber accent, clean whitespace and soft elevation",
     swatch: { bg: "#f8fafc", border: "#2563eb" },
   },
   parchment: {

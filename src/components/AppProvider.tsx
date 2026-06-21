@@ -1,19 +1,21 @@
 "use client";
 
 import { ThemeProvider } from "./ThemeProvider";
-import type { ThemeId } from "@/themes/types";
+import type { ThemeId, ThemeMode } from "@/themes/types";
 import type { ReactNode } from "react";
 
 interface AppProviderProps {
   children: ReactNode;
   siteTheme?: ThemeId;
   userTheme?: ThemeId | null;
+  siteMode?: ThemeMode;
+  userMode?: ThemeMode | null;
 }
 
 /** Client boundary: wraps ThemeProvider for server-rendered layout */
-export function AppProvider({ children, siteTheme, userTheme }: AppProviderProps) {
+export function AppProvider({ children, siteTheme, userTheme, siteMode, userMode }: AppProviderProps) {
   return (
-    <ThemeProvider siteTheme={siteTheme} userTheme={userTheme}>
+    <ThemeProvider siteTheme={siteTheme} userTheme={userTheme} siteMode={siteMode} userMode={userMode}>
       {children}
     </ThemeProvider>
   );

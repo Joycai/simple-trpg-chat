@@ -1,4 +1,9 @@
-/* ---- Standard (Blue-White Modern) — site-wide base theme ---- */
+/* ---- Standard (Blue-White Modern) — site-wide base theme ----
+   Modern web / SaaS: blue primary, amber accent, clean whitespace, soft
+   elevation. Light is the baseline; dark recolors to slate surfaces with a
+   brighter blue so links/active states stay legible on a dark ground. */
+
+/* ============ LIGHT (baseline) ============ */
 :root,
 [data-theme="default"] {
   --theme-bg: 248 250 252;
@@ -39,18 +44,62 @@
   --theme-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
                        0 4px 14px rgba(15, 23, 42, 0.07);
   --theme-glow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+
+  /* Sidebar gradient (token-driven so one rule serves both modes) */
+  --theme-sidebar-from: #f8fafc;
+  --theme-sidebar-to: #e2e8f0;
+  --theme-sidebar-border: #cbd5e1;
 }
 
+/* ============ DARK ============ */
+[data-theme="default"][data-mode="dark"] {
+  --theme-bg: 15 23 42;            /* slate-900 */
+  --theme-surface: 30 41 59;       /* slate-800 */
+  --theme-surface-alt: 51 65 85;   /* slate-700 */
+  --theme-border: 51 65 85;
+  --theme-text: 226 232 240;       /* slate-200 */
+  --theme-text-muted: 148 163 184;
+  --theme-text-dim: 100 116 139;
+  --theme-primary: 96 165 250;     /* blue-400 — brighter on dark */
+  --theme-primary-hover: 59 130 246;
+  --theme-accent: 251 191 36;      /* amber-400 */
+  --theme-accent-hover: 245 158 11;
+  --theme-accent-foreground: 41 25 0;
+  --theme-danger: 248 113 113;
+  --theme-success: 74 222 128;
+  --theme-ai: 167 139 250;
+  --theme-ai-hover: 139 92 246;
+  --theme-ai-foreground: 23 14 46;
+  --theme-header-bg: 30 41 59;
+  --theme-header-border: 51 65 85;
+  --theme-input-bg: 30 41 59;
+  --theme-input-border: 71 85 105;
+  --theme-dice-card-bg: 30 41 59;
+  --theme-dice-card-border: 59 130 246;
+  --theme-private-border: 167 139 250;
+  --theme-private-bg: 46 41 78;
+  --theme-scroll-btn: 96 165 250;
+  --theme-primary-foreground: 12 18 32;  /* dark text on bright blue button */
+
+  --theme-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
+                       0 4px 14px rgba(0, 0, 0, 0.55);
+  --theme-glow: 0 0 0 3px rgba(96, 165, 250, 0.28);
+
+  --theme-sidebar-from: #1e293b;
+  --theme-sidebar-to: #0f172a;
+  --theme-sidebar-border: #334155;
+}
+
+/* ============ Decorations (token-driven, adapt to both modes) ============ */
 [data-theme="default"] .conv-sidebar {
-  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
-  border-right: 2px solid #cbd5e1;
+  background: linear-gradient(180deg, var(--theme-sidebar-from) 0%, var(--theme-sidebar-to) 100%);
+  border-right: 2px solid var(--theme-sidebar-border);
 }
 [data-theme="default"] .conv-tab {
   border-left: 3px solid transparent;
   transition: border-color 0.3s;
 }
 [data-theme="default"] .conv-tab.active {
-  border-left-color: #3b82f6;
-  background: linear-gradient(90deg, rgba(59,130,246,0.08), transparent);
+  border-left-color: rgb(var(--theme-primary));
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.10), transparent);
 }
-

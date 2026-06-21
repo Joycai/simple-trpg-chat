@@ -38,6 +38,48 @@
 3. admin在admin board设置的主题作为网站的默认主题：登陆页面，admin页面，任何新用户（未设置主题）的默认主题。
 
 
+## 深色 / 浅色模式（Dark / Light Mode）
+
+模式（mode）是与「主题（theme）」**正交**的第二维度：每个主题都同时具备**浅色**与**深色**两套外观。最终样式 = `主题 × 模式`。详见 [深色/浅色规格](theme_dark_light.spec.md)。
+
+### 取值与行为
+
+- `自动`（auto）：跟随用户系统 / 浏览器的 `prefers-color-scheme`；无法识别时回退**浅色**。
+- `浅色`（light）：使用主题的浅色版本。
+- `深色`（dark）：使用主题的深色版本。
+
+### 设置层级与覆盖（与主题一致）
+
+| 层级 | 存储 | 作用范围 |
+| ---- | ---- | ---- |
+| 全站 | `system_config['site_theme_mode']`（默认 `auto`） | 登录页、admin、未设置的新用户 |
+| 用户 | `users.theme_mode_preference`（可空＝继承全站） | 大厅顶栏，覆盖全站 |
+| 房间 | `rooms.theme_mode`（默认 `auto`） | 本房间所有参与者，覆盖用户/全站 |
+
+优先级：`房间 > 用户 > 全站`，解析后再处理 `自动`。房间选 `自动` 即「不强制明暗、让每位参与者跟随各自系统」。
+
+### 实现机制
+
+- `<html>` 同时带 `data-theme="X"` 与 `data-mode="light|dark"`。`data-mode` 始终是**已解析的具体值**——`自动` 由 `src/components/ThemeProvider.tsx` 经 `matchMedia` 解析，并监听系统切换实时更新。
+- 防闪烁：`src/app/layout.tsx` 的 `<head>` 内联脚本在首次绘制前解析 `data-mode`（房间页另读 `sessionStorage['room-mode-<id>']`），SSR 对 `自动` 先渲染浅色再由脚本即时翻转。
+- 原生控件（滚动条/表单）经 `globals.css` 的 `html[data-mode="dark"] { color-scheme: dark }` 适配。
+
+### CSS 约定（每个 `src/themes/<id>/theme.css`）
+
+- **浅色为基线**：`[data-theme="X"] { … }` 定义浅色 token 与装饰；缺省即浅色。
+- **深色为覆盖**：`[data-theme="X"][data-mode="dark"] { … }` 仅覆盖颜色 token 与随模式变化的装饰 var（`--theme-divider` / `--theme-surface-texture` / `--theme-card-shadow` / `--theme-glow` …）；圆角、字体等「主题身份」由基线继承。
+- 装饰尽量走 token（如 `rgb(var(--theme-primary) / 0.1)`、`var(--theme-divider)`）以自动适配两种模式；仅硬编码色值的装饰（侧栏渐变、气泡 SVG、霓虹辉光）补 `[data-mode="dark"]` 覆盖。
+
+### 各主题相反变体方向
+
+- **默认**：深色＝石板深蓝灰面、蓝主色提亮、琥珀强调。
+- **古旧羊皮卷**：深色＝烛光下陈年深皮卷，棕黑底＋暖羊皮文字，封蜡/花饰转亮墨。
+- **远古神社**：深色＝夜祭神社，墨黑和纸＋朱漆鸟居发光＋真鍮金。
+- **苍穹幻境**：深色＝夜空苍穹，深靛蓝天＋金线发光＋水晶高光。
+- **克苏鲁的呼唤**：浅色＝日间档案/田野笔记，苍白档案纸＋墨色正文，紫/青收敛为深墨色强调（保留零圆角）。
+- **霓虹雨夜**：浅色＝阴天日光磨砂玻璃，冷灰玻璃＋青/品红亮底霓虹（保留毛玻璃 blur）。
+
+
 ## 主题列表
 
 目前支持的主题和概念

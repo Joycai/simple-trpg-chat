@@ -1,6 +1,5 @@
 export const loginLimitMap = new Map<string, { count: number; resetTime: number }>();
 
-const WINDOW_MS = 60 * 1000;
 
 // Periodically sweep expired entries to prevent unbounded memory growth
 // Note: this rate limiter is single-process only and not effective in multi-worker deployments

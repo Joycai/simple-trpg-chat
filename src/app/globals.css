@@ -51,6 +51,16 @@
   --font-theme-mono: var(--theme-font-mono);
 }
 
+/* Native UI (scrollbars, form controls, caret) follows the resolved color mode.
+   data-mode is set pre-paint by the inline script in layout.tsx; light is the
+   baseline when the attribute is absent. */
+html {
+  color-scheme: light;
+}
+html[data-mode="dark"] {
+  color-scheme: dark;
+}
+
 body {
   background: rgb(var(--theme-bg));
   color: rgb(var(--theme-text));

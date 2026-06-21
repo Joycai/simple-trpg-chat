@@ -1,7 +1,7 @@
 "use server";
 
 import { db, sqlNow } from "@/db";
-import { rooms, roomMembers, messages, users, roomSkills, type Theme, type DiceRules, type RuleTemplate } from "@/db/schema";
+import { rooms, roomMembers, messages, users, roomSkills, type Theme, type ThemeMode, type DiceRules, type RuleTemplate } from "@/db/schema";
 import { eq, and, sql, inArray, or, desc, asc, lt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
@@ -645,22 +645,26 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   await checkRoomAccess(roomId, true);
 
   const themeRaw = ((formData.get("theme") as string) || "default");
+  const themeModeRaw = ((formData.get("themeMode") as string) || "auto");
   const diceRulesRaw = ((formData.get("diceRules") as string) || "basic");
   const ruleTemplateRaw = ((formData.get("ruleTemplate") as string) || "basic");
 
-  const { THEMES, DICE_RULES, RULE_TEMPLATES } = await import("@/db/schema");
+  const { THEMES, THEME_MODES, DICE_RULES, RULE_TEMPLATES } = await import("@/db/schema");
   if (!THEMES.includes(themeRaw as Theme)) throw new Error("Invalid theme");
+  if (!THEME_MODES.includes(themeModeRaw as ThemeMode)) throw new Error("Invalid themeMode");
   if (!DICE_RULES.includes(diceRulesRaw as DiceRules)) throw new Error("Invalid diceRules");
   if (!RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) throw new Error("Invalid ruleTemplate");
   const theme = themeRaw as Theme;
+  const themeMode = themeModeRaw as ThemeMode;
   const diceRules = diceRulesRaw as DiceRules;
   const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
-  await db.update(rooms).set({ theme, diceRules, ruleTemplate }).where(eq(rooms.id, roomId));
+  await db.update(rooms).set({ theme, themeMode, diceRules, ruleTemplate }).where(eq(rooms.id, roomId));
 
   broadcastToRoom(roomId, {
     type: "room_settings_updated",
     theme,
+    themeMode,
     diceRules,
     ruleTemplate,
   });
@@ -853,7 +857,6 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
   const { roomDmReads } = await import("@/db/schema");
   const { db } = await import("@/db");
-  const { eq, and, sql } = await import("drizzle-orm");
   
   await db
     .insert(roomDmReads)

@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { aiProviders, aiTokenUsages } from "@/db/schema";
-import { eq, and, or, sql, desc } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { validateApiEndpoint } from "@/lib/url-guard";

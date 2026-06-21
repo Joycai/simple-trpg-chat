@@ -352,6 +352,8 @@
     "saveFailed": "Failed to save, please try again",
     "siteTheme": "Site Theme",
     "siteThemeDesc": "Set the default website theme. This applies to the login page, admin panel, and new users' lobby.",
+    "siteThemeMode": "Site Appearance",
+    "siteThemeModeDesc": "Set the default light/dark mode site-wide. \"Auto\" follows each visitor's system setting. Applies to the login page, admin panel, and new users.",
     "themeUpdated": "Theme updated successfully",
     "editSiteTitle": "Modify Website Title",
     "editSiteTitleDesc": "Change the title shown on the login page and lobby header. If left empty, 'Simple TRPG Chat' is shown by default.",
@@ -382,6 +384,13 @@
   "theme": {
     "switch": "Switch Theme",
     "label": "Theme"
+  },
+  "themeMode": {
+    "label": "Appearance",
+    "switch": "Switch appearance",
+    "auto": "Auto",
+    "light": "Light",
+    "dark": "Dark"
   },
   "common": {
     "error": "Error",
@@ -781,6 +790,8 @@
     "tabTheme": "Theme",
     "tabGeneral": "Room Info",
     "themeLabel": "Room Theme",
+    "themeModeLabel": "Appearance",
+    "themeModeHint": "Applies to everyone in this room. \"Auto\" follows each participant's system setting.",
     "diceRulesLabel": "Dice Rules",
     "diceRulesBasic": "📊 Basic — Raw d100 rolls",
     "diceRulesCoc7th": "🐙 COC 7th — Critical/Fumble evaluation",

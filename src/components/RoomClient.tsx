@@ -27,7 +27,7 @@ import { UserSettingsPanel } from "./UserSettingsPanel";
 import { OverlayShell } from "./OverlayShell";
 import { RoomTopBar } from "./room/RoomTopBar";
 import { MembersDialog } from "./room/MembersDialog";
-import { sendMessageAction, updateNicknameAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
+import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
@@ -43,6 +43,7 @@ export function RoomClient({
   isHost,
   currentNickname,
   roomTheme,
+  roomThemeMode,
   roomDiceRules,
   players = [],
   characterData,
@@ -567,11 +568,6 @@ export function RoomClient({
     } catch (e) { console.error(e); }
   }, [room.id, userId, activeTab, refreshSelfSheet]);
 
-  const handleNicknameSave = async (newNickname: string) => {
-    await updateNicknameAction(room.id, newNickname);
-    setNickname(newNickname);
-  };
-
   const handleViewPlayerCard = useCallback(async (targetUserId: number, targetNickname: string) => {
     setShowMembers(false);
     setViewingPlayerId(targetUserId);
@@ -907,7 +903,7 @@ export function RoomClient({
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
       )}
       {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
+        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
       )}
       {showRoomInfo && (
         <RoomInfoPanel room={{ ...room, diceRules: room.diceRules ?? "basic", ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />

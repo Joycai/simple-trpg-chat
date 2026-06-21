@@ -42,7 +42,7 @@ describe("Sensitive Words Filtering", () => {
       const matched = await checkSensitiveWords("这是一个讨论关于六四事件的消息。");
       expect(matched).toBe("六四");
 
-      const matched2 = await checkSensitiveWords("习包子下台");
+      const _matched2 = await checkSensitiveWords("习包子下台");
       // Wait, is "习近平下台" or "习近平" matched?
       // Since DEFAULT_SENSITIVE_WORDS has "习近平", "习近平" will match first.
       const matched3 = await checkSensitiveWords("关于习近平的报道。");

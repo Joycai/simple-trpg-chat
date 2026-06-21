@@ -4,12 +4,13 @@ import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { SiteThemeSelector } from "@/components/SiteThemeSelector";
+import { SiteThemeModeSelector } from "@/components/SiteThemeModeSelector";
 import { AdminSensitiveWords } from "@/components/AdminSensitiveWords";
 import { AdminTitleConfig } from "@/components/AdminTitleConfig";
 import { AdminFaviconConfig } from "@/components/AdminFaviconConfig";
-import { getSiteTheme } from "@/app/actions/theme";
+import { getSiteTheme, getSiteThemeMode } from "@/app/actions/theme";
 import { getCachedSiteTitle } from "@/lib/config";
-import type { ThemeId } from "@/themes/types";
+import type { ThemeId, ThemeMode } from "@/themes/types";
 import { Database, HardDrive } from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,6 +31,7 @@ export default async function AdminConfigPage() {
   const siteFavicon = faviconConfig?.value ?? "";
   const dbType = currentDialect;
   const siteTheme = await getSiteTheme();
+  const siteMode = await getSiteThemeMode();
 
   return (
     <div className="p-4 md:p-6 flex flex-col gap-6 max-w-3xl">
@@ -57,6 +59,8 @@ export default async function AdminConfigPage() {
       <AdminFaviconConfig initialFavicon={siteFavicon} />
 
       <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
+
+      <SiteThemeModeSelector currentMode={siteMode as ThemeMode} />
 
       <AdminSensitiveWords initialWords={sensitiveWords} />
     </div>
