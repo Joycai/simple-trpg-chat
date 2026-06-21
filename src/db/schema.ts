@@ -13,7 +13,7 @@
  * See docs/arch/database.md for column-level reference.
  */
 
-import { pgTable, text, integer, serial, boolean, timestamp, unique, index, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { Audience } from '@/lib/messaging/audience';
 
@@ -70,7 +70,7 @@ export const users = pgTable('users', {
   themeModePreference: text('theme_mode_preference'),
   sessionToken: text('session_token'),
   isBanned: boolean('is_banned').notNull().default(false),
-  aiPoints: doublePrecision('ai_points').notNull().default(0.0),
+  aiPoints: numeric('ai_points', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
@@ -309,9 +309,9 @@ export const aiProviders = pgTable('ai_providers', {
   apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
-  tokenRateInput: doublePrecision('token_rate_input').notNull().default(0.0),
-  tokenRateCached: doublePrecision('token_rate_cached').notNull().default(0.0),
-  tokenRateOutput: doublePrecision('token_rate_output').notNull().default(0.0),
+  tokenRateInput: numeric('token_rate_input', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  tokenRateCached: numeric('token_rate_cached', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  tokenRateOutput: numeric('token_rate_output', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
@@ -371,9 +371,9 @@ export const botPresets = pgTable('bot_presets', {
 export const aiPointLogs = pgTable('ai_point_logs', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  amount: doublePrecision('amount').notNull(),
-  beforePoints: doublePrecision('before_points').notNull(),
-  afterPoints: doublePrecision('after_points').notNull(),
+  amount: numeric('amount', { precision: 20, scale: 10, mode: 'number' }).notNull(),
+  beforePoints: numeric('before_points', { precision: 20, scale: 10, mode: 'number' }).notNull(),
+  afterPoints: numeric('after_points', { precision: 20, scale: 10, mode: 'number' }).notNull(),
   type: text('type').notNull(), // 'usage' | 'admin'
   description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
