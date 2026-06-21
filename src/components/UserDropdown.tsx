@@ -49,15 +49,16 @@ export function UserDropdown({ userName, userRole }: UserDropdownProps) {
         {/* Trigger */}
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors cursor-pointer"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          title={userName}
+          className="flex items-center gap-2 h-9 px-2.5 rounded-theme border border-border bg-surface-alt text-text-muted hover:text-text hover:bg-surface transition-colors cursor-pointer"
         >
-          <span className="flex items-center gap-2">
-            <span className="hidden sm:inline">{userName}</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${roleColor}`}>
-              {roleLabel}
-            </span>
+          <span className={`grid place-items-center w-6 h-6 rounded-full text-[11px] font-bold uppercase border shrink-0 ${roleColor}`}>
+            {userName.charAt(0)}
           </span>
-          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          <span className="hidden sm:inline text-sm max-w-[8rem] truncate text-text">{userName}</span>
+          <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         </button>
 
         {/* Dropdown */}

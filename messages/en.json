@@ -380,7 +380,8 @@
     "saving": "Saving..."
   },
   "theme": {
-    "switch": "Switch Theme"
+    "switch": "Switch Theme",
+    "label": "Theme"
   },
   "common": {
     "error": "Error",

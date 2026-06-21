@@ -43,20 +43,22 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-bg">
       {/* Header */}
-      <header className="bg-header-bg border-b border-header-border p-4 text-text shadow-sm overflow-visible">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold inline-flex items-center gap-1.5"><Dices className="w-5 h-5" /> {siteTitle}</h1>
+      <header className="bg-header-bg border-b border-header-border px-4 py-3 text-text shadow-sm overflow-visible">
+        <div className="max-w-6xl mx-auto flex justify-between items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className="text-xl font-bold inline-flex items-center gap-1.5 min-w-0">
+              <Dices className="w-5 h-5 shrink-0" />
+              <span className="truncate">{siteTitle}</span>
+            </h1>
             {isAdmin && (
-              <Link href="/admin" className="text-xs bg-danger/20 text-danger border border-danger/30 px-2 py-1 rounded hover:bg-danger/30 transition">
+              <Link href="/admin" className="shrink-0 text-xs bg-danger/20 text-danger border border-danger/30 px-2 py-1 rounded hover:bg-danger/30 transition">
                 {t("admin")}
               </Link>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <ThemeSwitcher />
-            <div className="h-4 w-px bg-border mx-2 hidden sm:block" />
             <UserDropdown
               userName={user.name || user.username}
               userRole={user.role}
