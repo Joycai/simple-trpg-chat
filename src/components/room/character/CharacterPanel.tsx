@@ -8,10 +8,15 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CharacterData, CocAttributes } from "@/lib/character-types";
 import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
-import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { AvatarCropper } from "@/components/room/character/AvatarCropper";
+import { CharacterHeader } from "@/components/room/character/CharacterHeader";
+import { AttributesTab } from "@/components/room/character/AttributesTab";
+import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
+import { BackgroundTab } from "@/components/room/character/BackgroundTab";
+import type { SaveStatus } from "@/components/room/character/SaveButton";
 
 interface CharacterPanelProps {
   roomId: number;
@@ -30,12 +35,6 @@ interface CharacterPanelProps {
   isGM?: boolean;
   /** Bumped by the parent after a .st command, so the skills tab reloads. */
   refreshKey?: number;
-}
-
-interface SkillItem {
-  id: number;
-  skillName: string;
-  skillValue: number;
 }
 
 type TabId = "attributes" | "skills" | "background";
@@ -78,7 +77,7 @@ export function CharacterPanel({
   const [nickname, setNickname] = useState(currentNickname);
   const [editingNick, setEditingNick] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   // Character data
   const charData = parseCharData(characterData) as {
@@ -267,19 +266,6 @@ export function CharacterPanel({
     { id: "background", label: t("tabBackground"), Icon: Icons.FileText },
   ];
 
-  // Map keys to the translation keys
-  const cocAttrKeys: { key: keyof CocAttributes; tKey: string }[] = [
-    { key: "str", tKey: "str" },
-    { key: "con", tKey: "con" },
-    { key: "siz", tKey: "siz" },
-    { key: "dex", tKey: "dex" },
-    { key: "app", tKey: "app" },
-    { key: "int", tKey: "int" },
-    { key: "pow", tKey: "pow" },
-    { key: "edu", tKey: "edu" },
-    { key: "luck", tKey: "luckAttr" },
-  ];
-
   if (loading) {
     return (
       <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
@@ -326,96 +312,21 @@ export function CharacterPanel({
       <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-lg mx-4 h-[85vh] md:h-[600px] max-h-[90vh] flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
 
-        {/* Profile header banner */}
-        <div className="relative shrink-0 border-b border-border bg-gradient-to-br from-primary/10 via-surface to-surface-alt px-5 pt-5 pb-4">
-          <button onClick={close} title={tCommon("close")}
-            className="absolute top-3 right-3 p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
-            <Icons.X className="w-5 h-5" />
-          </button>
-
-          <div className="flex items-center gap-4 pr-9">
-            {/* Avatar (photo or colored initial) */}
-            <div className="relative shrink-0">
-              <div className="rounded-full p-[2px] shadow-md transition-colors" style={{ backgroundColor: selectedColor }}>
-                <div
-                  className="w-16 h-16 rounded-full overflow-hidden border-2 border-surface flex items-center justify-center text-2xl font-bold"
-                  style={avatarSrc ? undefined : { backgroundColor: selectedColor, color: getContrastColor(selectedColor) }}
-                >
-                  {avatarSrc
-                    ? <img src={avatarSrc} alt={nickname} className="w-full h-full object-cover" />
-                    : nickname.charAt(0).toUpperCase()}
-                </div>
-              </div>
-              {!readOnly && (
-                <button onClick={() => setShowAvatarCropper(true)} title={t("changeAvatar")}
-                  className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-primary hover:bg-primary-hover text-white border-2 border-surface shadow-md flex items-center justify-center transition cursor-pointer">
-                  <Icons.ImagePlus className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Name + rule badge */}
-            <div className="flex-1 min-w-0">
-              {editingNick ? (
-                <div className="flex gap-2">
-                  <input value={nickname} onChange={e => setNickname(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { setNickname(currentNickname); setEditingNick(false); } }}
-                    className="flex-1 min-w-0 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" autoFocus />
-                  <button onClick={saveNickname} className="text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded font-bold cursor-pointer shrink-0">{tCommon("confirm")}</button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <h3 className="font-bold text-text text-xl leading-tight truncate">{nickname}</h3>
-                  {!readOnly && (
-                    <button onClick={() => setEditingNick(true)} title={t("editName")}
-                      className="shrink-0 text-text-muted hover:text-primary transition cursor-pointer p-0.5">
-                      <Icons.Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-              <div className="mt-1.5">
-                <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/25">
-                  {ruleTemplate === "coc7th" ? t("badgeCoc7th") : t("badgeGeneric")}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Avatar color picker */}
-          {!readOnly && (
-            <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-              <span className="text-[10px] text-text-dim font-bold uppercase tracking-wider shrink-0">{t("avatarColor")}</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {PRESET_AVATAR_COLORS.map(preset => (
-                  <button
-                    key={preset.hex}
-                    onClick={() => handleColorChange(preset.hex)}
-                    className={`w-5 h-5 rounded-full border transition cursor-pointer relative ${
-                      selectedColor.toLowerCase() === preset.hex.toLowerCase()
-                        ? "border-text scale-110 shadow-sm"
-                        : "border-black/5 hover:scale-110"
-                    }`}
-                    style={{ backgroundColor: preset.hex }}
-                    title={preset.name}
-                  >
-                    {selectedColor.toLowerCase() === preset.hex.toLowerCase() && (
-                      <span className="absolute inset-0 flex items-center justify-center text-[9px]" style={{ color: preset.text }}>✓</span>
-                    )}
-                  </button>
-                ))}
-                {/* Custom color */}
-                <input
-                  type="color"
-                  value={selectedColor.startsWith("#") && selectedColor.length === 7 ? selectedColor : "#6366f1"}
-                  onChange={e => handleColorChange(e.target.value)}
-                  title={t("customColor")}
-                  className="w-5 h-5 border border-border p-0 rounded-full cursor-pointer bg-transparent outline-none overflow-hidden ml-0.5"
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        <CharacterHeader
+          nickname={nickname}
+          currentNickname={currentNickname}
+          editingNick={editingNick}
+          onEditingNickChange={setEditingNick}
+          onNicknameChange={setNickname}
+          onSaveNickname={saveNickname}
+          avatarSrc={avatarSrc}
+          selectedColor={selectedColor}
+          readOnly={readOnly}
+          onChangeAvatar={() => setShowAvatarCropper(true)}
+          ruleTemplate={ruleTemplate}
+          onColorChange={handleColorChange}
+          onClose={close}
+        />
 
         {/* Tab Bar */}
         <div className="shrink-0 flex gap-1 px-5 pt-3 border-b border-border bg-surface">
@@ -435,315 +346,56 @@ export function CharacterPanel({
 
         {/* Tab content (scrolls; header stays pinned) */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {activeTab === "attributes" && (
+            <AttributesTab
+              ruleTemplate={ruleTemplate}
+              readOnly={readOnly}
+              canEditResources={canEditResources}
+              isGM={isGM}
+              derived={derived}
+              currentHp={currentHp}
+              onCurrentHpChange={setCurrentHp}
+              currentSan={currentSan}
+              onCurrentSanChange={setCurrentSan}
+              currentMp={currentMp}
+              onCurrentMpChange={setCurrentMp}
+              cocAttrs={cocAttrs}
+              onUpdateAttr={updateAttr}
+              saveStatus={saveStatus}
+              onSaveCharacterData={saveCharacterData}
+              onSaveResources={saveResourceValues}
+              customAttrs={customAttrs}
+              onRemoveCustomAttr={removeCustomAttr}
+              newAttrName={newAttrName}
+              onNewAttrNameChange={setNewAttrName}
+              newAttrValue={newAttrValue}
+              onNewAttrValueChange={setNewAttrValue}
+              onAddCustomAttr={addCustomAttr}
+            />
+          )}
 
-        {/* Tab: Attributes & Resources */}
-        {activeTab === "attributes" && (
-          <div className="flex flex-col gap-4">
-            {/* Resource Bars */}
-            <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">{t("resourceStatus")}</label>
-              <div className="flex flex-col gap-2">
-                {/* HP */}
-                <div>
-                  <div className="flex justify-between text-xs text-text-muted mb-1">
-                    <span>❤️ {t("hp")}</span>
-                    {canEditResources ? (
-                      <div className="flex gap-1 items-center">
-                        <input type="number" min={0} max={derived.hpMax}
-                          value={currentHp} onChange={e => setCurrentHp(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.hpMax)))}
-                          className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                        <span className="font-mono text-[11px] w-8">{currentHp}/{derived.hpMax}</span>
-                      </div>
-                    ) : (
-                      <span className="font-mono">{currentHp}/{derived.hpMax}</span>
-                    )}
-                  </div>
-                  <div className={`h-3 bg-surface-alt rounded-full overflow-hidden border border-border ${derived.hpMax > 0 && currentHp / derived.hpMax <= 0.25 ? "hp-critical" : ""}`}>
-                    <div className={`h-full rounded-full transition-all duration-300 hp-bar-fill ${
-                      derived.hpMax > 0 && currentHp / derived.hpMax > 0.5 ? "bg-success" :
-                      derived.hpMax > 0 && currentHp / derived.hpMax > 0.25 ? "bg-accent" : "bg-danger"
-                    }`} style={{ width: `${derived.hpMax > 0 ? Math.min(100, (currentHp / derived.hpMax) * 100) : 0}%` }} />
-                  </div>
-                </div>
+          {activeTab === "skills" && (
+            <SkillsTab
+              skills={skills}
+              readOnly={readOnly}
+              newSkillName={newSkillName}
+              onNewSkillNameChange={setNewSkillName}
+              newSkillValue={newSkillValue}
+              onNewSkillValueChange={setNewSkillValue}
+              onAddSkill={addSkill}
+              onRemoveSkill={removeSkill}
+            />
+          )}
 
-                {/* COC-only: SAN / MP / LUCK / Attributes / Derived */}
-                {ruleTemplate === "coc7th" && (
-                <div>
-                  {/* SAN */}
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs text-text-muted mb-1">
-                      <span>💜 {t("san")}</span>
-                      {canEditResources ? (
-                        <div className="flex gap-1 items-center">
-                          <input type="number" min={0} max={derived.sanMax}
-                            value={currentSan} onChange={e => setCurrentSan(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.sanMax)))}
-                            className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                          <span className="font-mono text-[11px] w-8">{currentSan}/{derived.sanMax}</span>
-                        </div>
-                      ) : (
-                        <span className="font-mono">{currentSan}/{derived.sanMax}</span>
-                      )}
-                    </div>
-                    <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
-                      <div className="h-full rounded-full transition-all duration-300 bg-purple-500"
-                        style={{ width: `${derived.sanMax > 0 ? Math.min(100, (currentSan / derived.sanMax) * 100) : 0}%` }} />
-                    </div>
-                  </div>
-
-                  {/* MP */}
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs text-text-muted mb-1">
-                      <span>💙 {t("mp")}</span>
-                      {canEditResources ? (
-                        <div className="flex gap-1 items-center">
-                          <input type="number" min={0} max={derived.mpMax}
-                            value={currentMp} onChange={e => setCurrentMp(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.mpMax)))}
-                            className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                          <span className="font-mono text-[11px] w-8">{currentMp}/{derived.mpMax}</span>
-                        </div>
-                      ) : (
-                        <span className="font-mono">{currentMp}/{derived.mpMax}</span>
-                      )}
-                    </div>
-                    <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
-                      <div className="h-full rounded-full transition-all duration-300 bg-blue-500"
-                        style={{ width: `${derived.mpMax > 0 ? Math.min(100, (currentMp / derived.mpMax) * 100) : 0}%` }} />
-                    </div>
-                  </div>
-
-                  {/* LUCK */}
-                  <div className="flex justify-between text-xs text-text-muted">
-                    <span>🍀 {t("luck")}</span>
-                    <span className="font-mono">{derived.luck}</span>
-                  </div>
-                </div>
-                )}
-              </div>
-            </div>
-
-            {/* COC Attributes */}
-            {ruleTemplate === "coc7th" && (
-            <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">{t("baseAttributes")}</label>
-              <div className="grid grid-cols-2 gap-2">
-                {cocAttrKeys.map(({ key, tKey }) => (
-                  <div key={key} className="flex items-center gap-2 bg-surface-alt rounded p-2">
-                    <label className="text-xs text-text-muted w-16 shrink-0">{t(tKey).split(" ")[0]}</label>
-                    <input type="number" min={0} max={99}
-                      value={cocAttrs[key]} onChange={e => updateAttr(key, parseInt(e.target.value) || 0)}
-                      disabled={readOnly}
-                      className="w-14 p-1 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary disabled:opacity-85 disabled:cursor-default" />
-                    <span className="text-[10px] text-text-dim w-8 text-right">{Math.floor((cocAttrs[key] - 50) / 5)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            )}
-
-            {/* Derived */}
-            {ruleTemplate === "coc7th" && (
-            <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">{t("derivedAttributes")}</label>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="bg-surface-alt rounded p-2 text-center">
-                  <span className="text-text-muted">MOV</span>
-                  <div className="font-bold text-text font-mono">{derived.mov}</div>
-                </div>
-                <div className="bg-surface-alt rounded p-2 text-center">
-                  <span className="text-text-muted">DB</span>
-                  <div className="font-bold text-text font-mono">{derived.db}</div>
-                </div>
-                <div className="bg-surface-alt rounded p-2 text-center">
-                  <span className="text-text-muted">{t("build")}</span>
-                  <div className="font-bold text-text font-mono">{derived.build}</div>
-                </div>
-              </div>
-            </div>
-            )}
-
-            {ruleTemplate !== "coc7th" && (
-              <p className="text-xs text-text-dim text-center py-2">
-                {t("generalD100Hint")}
-              </p>
-            )}
-
-            {!readOnly && (
-              <div className="flex gap-2">
-                <button onClick={saveCharacterData}
-                  disabled={saveStatus === "saving"}
-                  className={`flex-1 text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
-                    saveStatus === "success" ? "bg-success" :
-                    saveStatus === "error" ? "bg-danger" :
-                    "bg-primary hover:bg-primary-hover"
-                  }`}>
-                  {saveStatus === "saving" ? (
-                    <>
-                      <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
-                      {t("saving") || "保存中..."}
-                    </>
-                  ) : saveStatus === "success" ? (
-                    <>✓ {t("saveSuccess") || "保存成功"}</>
-                  ) : saveStatus === "error" ? (
-                    <>× {t("saveFailed") || "保存失败"}</>
-                  ) : (
-                    t("saveAttributes")
-                  )}
-                </button>
-                {ruleTemplate === "coc7th" && (
-                  <button onClick={saveResourceValues}
-                    disabled={saveStatus === "saving"}
-                    className={`flex-1 text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
-                      saveStatus === "success" ? "bg-success" :
-                      saveStatus === "error" ? "bg-danger" :
-                      "bg-primary hover:bg-primary-hover"
-                    }`}>
-                    {saveStatus === "saving" ? (
-                      <>
-                        <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
-                        {t("saving") || "保存中..."}
-                      </>
-                    ) : saveStatus === "success" ? (
-                      <>✓ {t("saveSuccess") || "保存成功"}</>
-                    ) : saveStatus === "error" ? (
-                      <>× {t("saveFailed") || "保存失败"}</>
-                    ) : (
-                      t("saveResources") || "保存资源"
-                    )}
-                  </button>
-                )}
-              </div>
-            )}
-            {canEditResources && readOnly && isGM && ruleTemplate === "coc7th" && (
-              <button onClick={saveResourceValues}
-                disabled={saveStatus === "saving"}
-                className={`w-full text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
-                  saveStatus === "success" ? "bg-success" :
-                  saveStatus === "error" ? "bg-danger" :
-                  "bg-primary hover:bg-primary-hover"
-                }`}>
-                {saveStatus === "saving" ? (
-                  <>
-                    <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
-                    {t("saving") || "保存中..."}
-                  </>
-                ) : saveStatus === "success" ? (
-                  <>✓ {t("saveSuccess") || "保存成功"}</>
-                ) : saveStatus === "error" ? (
-                  <>× {t("saveFailed") || "保存失败"}</>
-                ) : (
-                  t("saveResources") || "保存资源"
-                )}
-              </button>
-            )}
-
-            {/* Custom Attributes */}
-            <div>
-              <label className="text-xs text-text-dim font-medium mb-2 block">{t("customAttributes")}</label>
-              {customAttrs.length > 0 && (
-                <div className="flex flex-col gap-1 mb-2">
-                  {customAttrs.map(attr => (
-                    <div key={attr.name} className="flex items-center gap-2 bg-surface-alt rounded p-2 group">
-                      <span className="flex-1 text-sm text-text">{attr.name}</span>
-                      <span className="text-xs text-text-muted font-mono w-12 text-right">{attr.value}</span>
-                      {!readOnly && (
-                        <button onClick={() => removeCustomAttr(attr.name)}
-                          className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!readOnly && (
-                <div className="flex gap-2">
-                  <input value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
-                    placeholder={t("customAttrPlaceholder")} onKeyDown={e => e.key === "Enter" && addCustomAttr()}
-                    className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
-                  <input type="number" min={0} max={999} value={newAttrValue}
-                    onChange={e => setNewAttrValue(parseInt(e.target.value) || 0)}
-                    className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                  <button onClick={addCustomAttr}
-                    className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Tab: Skills */}
-        {activeTab === "skills" && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-text-dim font-medium">{t("skillsList")}</label>
-              <span className="text-[10px] text-text-muted">{t("skillsHint")}</span>
-            </div>
-            <div className="flex flex-col gap-1 mb-3">
-              {skills.length === 0 && (
-                <p className="text-xs text-text-dim italic text-center py-4">{t("noSkills")}</p>
-              )}
-              {skills.map(s => (
-                <div key={s.id} className="flex items-center gap-2 bg-surface-alt rounded p-2 group">
-                  <span className="flex-1 text-sm text-text font-medium">{s.skillName}</span>
-                  <div className="w-24 h-2 bg-bg rounded-full overflow-hidden border border-border">
-                    <div className={`h-full rounded-full ${s.skillValue >= 75 ? "bg-success" : s.skillValue >= 50 ? "bg-accent" : "bg-danger"}`}
-                      style={{ width: `${Math.min(100, s.skillValue)}%` }} />
-                  </div>
-                  <span className="text-xs text-text-muted font-mono w-8 text-right">{s.skillValue}</span>
-                  {!readOnly && (
-                    <button onClick={() => removeSkill(s.id)}
-                      className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {!readOnly && (
-              <div className="flex gap-2">
-                <input value={newSkillName} onChange={e => setNewSkillName(e.target.value)}
-                  placeholder={t("skillNamePlaceholder")} onKeyDown={e => e.key === "Enter" && addSkill()}
-                  className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
-                <input type="number" min={1} max={99} value={newSkillValue}
-                  onChange={e => setNewSkillValue(parseInt(e.target.value) || 1)}
-                  className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                <button onClick={addSkill}
-                  className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab: Background */}
-        {activeTab === "background" && (
-          <div className="flex flex-col gap-4">
-            <div>
-              <label className="text-xs text-text-dim font-medium mb-1 block">{t("bioPlaceholder").slice(0, 4)}</label>
-              <textarea value={bio} onChange={e => setBio(e.target.value)} onBlur={readOnly ? undefined : saveCharacterData}
-                placeholder={t("bioPlaceholder")} rows={6}
-                readOnly={readOnly}
-                className="w-full p-2 border border-input-border bg-input-bg rounded text-sm text-text resize-none outline-none focus:ring-1 focus:ring-primary disabled:opacity-85 disabled:cursor-default" />
-            </div>
-            {!readOnly && (
-              <button onClick={saveCharacterData}
-                disabled={saveStatus === "saving"}
-                className={`text-white py-2 rounded-theme font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1 ${
-                  saveStatus === "success" ? "bg-success" :
-                  saveStatus === "error" ? "bg-danger" :
-                  "bg-primary hover:bg-primary-hover"
-                }`}>
-                {saveStatus === "saving" ? (
-                  <>
-                    <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
-                    {t("saving") || "保存中..."}
-                  </>
-                ) : saveStatus === "success" ? (
-                  <>✓ {t("saveSuccess") || "保存成功"}</>
-                ) : saveStatus === "error" ? (
-                  <>× {t("saveFailed") || "保存失败"}</>
-                ) : (
-                  t("saveBio")
-                )}
-              </button>
-            )}
-          </div>
-        )}
+          {activeTab === "background" && (
+            <BackgroundTab
+              bio={bio}
+              onBioChange={setBio}
+              readOnly={readOnly}
+              saveStatus={saveStatus}
+              onSave={saveCharacterData}
+            />
+          )}
         </div>
       </div>
     </div>

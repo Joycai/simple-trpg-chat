@@ -4,37 +4,21 @@
 // Negative IDs guarantee no collision with real DB auto-increment IDs.
 let localEphemeralId = -1;
 
-import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
-
-// Run before the browser paints on the client, but fall back to useEffect during
-// SSR so React doesn't warn. Used to settle the sidebar's collapsed state ahead
-// of the first paint so it never flashes open then closes on room entry.
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
-import { ChatMessage } from "@/components/room/chat/ChatMessage";
-import { ChatInput } from "@/components/room/chat/ChatInput";
-import { CharacterPanel } from "@/components/room/character/CharacterPanel";
-import { RoomSettings } from "@/components/room/RoomSettings";
-import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
-import { BotManager } from "@/components/room/bot/BotManager";
-import { AiImportPanel } from "@/components/room/bot/AiImportPanel";
-import { ExportButton } from "@/components/room/ExportButton";
-import { RoomInfoPanel } from "@/components/room/RoomInfoPanel";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
-import { HostCheckDialog } from "@/components/room/chat/HostCheckDialog";
-import { SkillSetPrompt } from "@/components/room/character/SkillSetPrompt";
-import { SkillPanel } from "@/components/room/character/SkillPanel";
-import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
-import { OverlayShell } from "@/components/shared/OverlayShell";
 import { RoomTopBar } from "@/components/room/RoomTopBar";
-import { MembersDialog } from "@/components/room/MembersDialog";
+import { ChatArea } from "@/components/room/chat/ChatArea";
+import { RoomOverlays } from "@/components/room/RoomOverlays";
+import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
+import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
-import type { Message, RoomClientProps } from "@/components/room/types";
-import { canSee, channelOf, countsAsDmUnread, isAudience } from "@/lib/messaging/audience";
+import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
+import { channelOf } from "@/lib/messaging/audience";
 
 export function RoomClient({
   room,
@@ -59,7 +43,7 @@ export function RoomClient({
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
   const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
   const [nickname, setNickname] = useState(currentNickname);
-  const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
+  const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -73,9 +57,9 @@ export function RoomClient({
   const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [checkMode, setCheckMode] = useState<null | "check" | "psychology" | "sancheck">(null);
+  const [checkMode, setCheckMode] = useState<CheckMode | null>(null);
   const [showCheckMenu, setShowCheckMenu] = useState(false);
-  const [pendingSkillCheck, setPendingSkillCheck] = useState<{ messageId: number; skillName: string } | null>(null);
+  const [pendingSkillCheck, setPendingSkillCheck] = useState<PendingSkillCheck | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
@@ -88,21 +72,24 @@ export function RoomClient({
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
-  const [sidebarWidth, setSidebarWidth] = useState<number>(200);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
-  // True only while actively dragging the resize handle, so the sidebar can
-  // suppress its width transition (instant drag) without losing the smooth
-  // collapse/expand animation.
-  const [sidebarResizing, setSidebarResizing] = useState<boolean>(false);
-  // False until the first viewport check runs; gates the open/close animation
-  // so the initial collapsed state doesn't slide on page load.
-  const [sidebarHydrated, setSidebarHydrated] = useState<boolean>(false);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
   const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
   const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
   const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
-  const [typingBots, setTypingBots] = useState<Record<number, { nickname: string; typing: boolean; isPrivate?: boolean; targetUserId?: number }>>({});
+  const [typingBots, setTypingBots] = useState<TypingBots>({});
+
+  // Conversation sidebar (width / collapsed / mobile + drag-to-resize).
+  const {
+    width: sidebarWidth,
+    collapsed: sidebarCollapsed,
+    resizing: sidebarResizing,
+    hydrated: sidebarHydrated,
+    isMobile,
+    setCollapsed: setSidebarCollapsed,
+    toggleCollapsed: toggleSidebar,
+    resetWidth: resetSidebarWidth,
+    handleResizeStart,
+  } = useSidebar();
 
   // Frozen rooms are read-only for players; the host can still operate.
   const readOnly = !!room.frozen && !isHost;
@@ -139,37 +126,7 @@ export function RoomClient({
       }
       setUnreadCounts(merged);
     }).catch(() => {});
-    const savedWidth = localStorage.getItem("trpg-sidebar-width");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (savedWidth) setSidebarWidth(Number(savedWidth));
   }, [room.id]);
-
-  // Settle the collapsed state before the first paint so entering a room shows
-  // the sidebar already in its correct state — never open-then-close.
-  useIsomorphicLayoutEffect(() => {
-    const checkIsMobile = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-      if (mobile) {
-        setSidebarCollapsed(true);
-      } else {
-        const savedCollapsed = localStorage.getItem("trpg-sidebar-collapsed");
-        setSidebarCollapsed(savedCollapsed === "true");
-      }
-    };
-    checkIsMobile();
-    window.addEventListener("resize", checkIsMobile);
-    return () => window.removeEventListener("resize", checkIsMobile);
-  }, []);
-
-  // Enable the open/close transition only on the frame after the initial state
-  // has been applied. Doing it in a later commit (not the same one as the
-  // collapse above) means the on-load state snaps in without animating, while
-  // every subsequent user toggle still animates.
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setSidebarHydrated(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
 
   // Incremental pruning: when seenIdsRef exceeds 500, drop the oldest half
   // instead of rebuilding from messages (avoids O(n) rebuild on every batch).
@@ -179,30 +136,6 @@ export function RoomClient({
       for (const id of toDelete) seenIdsRef.current.delete(id);
     }
   }, [messages.length]);
-
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-    setSidebarResizing(true);
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      // Constraint width between 160px and 360px
-      const newWidth = Math.max(160, Math.min(360, startWidth + deltaX));
-      setSidebarWidth(newWidth);
-      localStorage.setItem("trpg-sidebar-width", String(newWidth));
-    };
-
-    const handleMouseUp = () => {
-      setSidebarResizing(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  };
 
   const handleTabChange = useCallback((tab: "public" | number) => {
     setActiveTab(tab);
@@ -215,9 +148,8 @@ export function RoomClient({
     }
     if (isMobile) {
       setSidebarCollapsed(true);
-      localStorage.setItem("trpg-sidebar-collapsed", "true");
     }
-  }, [room.id, isMobile]);
+  }, [room.id, isMobile, setSidebarCollapsed]);
 
   // Build mention targets (players + bots, excluding self)
   const mentionTargets = useMemo(() => {
@@ -266,7 +198,6 @@ export function RoomClient({
   }, [messages, activeTab, userId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sseRef = useRef<EventSource | null>(null);
   const statusRef = useRef(status);
   const isAtBottomRef = useRef(true);
 
@@ -302,7 +233,7 @@ export function RoomClient({
       scrollTimeoutRef.current = null;
       const el = scrollRef.current;
       if (!el) return;
-      const threshold = 150; 
+      const threshold = 150;
       const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
       isAtBottomRef.current = atBottom;
       setShowScrollButton(!atBottom);
@@ -352,151 +283,19 @@ export function RoomClient({
     }
   }, [tabMessages, typingBots]); // Re-scroll when switching tabs or typing state changes
 
-  useEffect(() => {
-    const abortController = new AbortController();
-    let reconnectTimeout: NodeJS.Timeout;
-    let retryCount = 0;
-    const maxRetries = 5;
-
-    const setupSSE = () => {
-      if (abortController.signal.aborted) return;
-      if (sseRef.current) sseRef.current.close();
-      setStatus("connecting");
-      const es = new EventSource(`/api/rooms/${room.id}/events`);
-      sseRef.current = es;
-
-      es.onopen = () => {
-        setStatus("connected");
-        retryCount = 0; // Reset retry count on successful connection
-      };
-
-      es.onmessage = (event) => {
-        if (abortController.signal.aborted) return;
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "room_settings_updated") {
-            router.refresh();
-            return;
-          }
-          if (data.type === "ai_import_result") {
-            // Forward async AI-import results to the AiImportPanel via a window event,
-            // so we reuse this single SSE connection instead of opening a second one.
-            window.dispatchEvent(new CustomEvent("ai-import-result", { detail: data }));
-            return;
-          }
-          if (data.type === "check_update") {
-            // A target responded to a host check request — patch the stored respondedUserIds
-            // so the x/y count updates and the roller's dice icon is disabled.
-            const idStr = String(data.checkRequestId);
-            setMessages((prev) => prev.map((m) => {
-              if (String(m.id) !== idStr || !m.diceDetail) return m;
-              try {
-                const detail = JSON.parse(m.diceDetail);
-                if (detail?.checkRequest) {
-                  detail.checkRequest.respondedUserIds = data.respondedUserIds;
-                  return { ...m, diceDetail: JSON.stringify(detail) };
-                }
-              } catch { /* */ }
-              return m;
-            }));
-            return;
-          }
-          if (data.type === "inventory_updated") {
-            // Host edited an item — bump the key so any open InventoryPanel reloads
-            // the edited content (distributed copies sync via the item relation).
-            setInventoryRefreshKey((k) => k + 1);
-            return;
-          }
-          if (data.type === "typing") {
-            setTypingBots((prev) => {
-              const next = { ...prev };
-              if (data.typing) {
-                next[data.botUserId] = {
-                  nickname: data.nickname,
-                  typing: true,
-                  isPrivate: data.isPrivate,
-                  targetUserId: data.targetUserId,
-                };
-              } else {
-                delete next[data.botUserId];
-              }
-              return next;
-            });
-            return;
-          }
-          if (data.id) {
-            const view = { userId: data.userId, targetUserId: data.targetUserId ?? null, audience: data.audience };
-            // Defensive: the SSE route already filtered by audience, but re-check
-            // so a mis-targeted row never leaks into this client's state.
-            if (isAudience(data.audience) && !canSee(view, userId, isHost)) return;
-
-            // Bump the DM unread badge only for genuine inbound 1:1 DM turns —
-            // inline notices (self/directed/gm) have their own indicators.
-            if (countsAsDmUnread(view, userId)) {
-              if (activeTabRef.current !== data.userId) {
-                setUnreadCounts((prev) => ({
-                  ...prev,
-                  [data.userId]: (prev[data.userId] || 0) + 1,
-                }));
-              } else {
-                markDMReadAction(room.id, data.userId).catch(() => {});
-              }
-            }
-            // Robust dedup: check seenIdsRef first to prevent duplicates from HMR listener accumulation
-            const idStr = String(data.id);
-            if (seenIdsRef.current.has(idStr)) return;
-            seenIdsRef.current.add(idStr);
-
-            setMessages((prev) => {
-              // 1. Secondary dedup: array-based check (safety net)
-              if (prev.some(m => String(m.id) === idStr)) return prev;
-
-              // 2. If this is a message we sent, search for the optimistic placeholder
-              if (data.userId === userId) {
-                const optIndex = prev.findIndex(m =>
-                  m.userId === userId &&
-                  m.content === data.content &&
-                  m.type === data.type &&
-                  m.targetUserId === data.targetUserId &&
-                  typeof m.id === 'number' && m.id < 0
-                );
-                if (optIndex !== -1) {
-                  const copy = [...prev];
-                  copy[optIndex] = data; // Replace optimistic placeholder with the real message
-                  return copy;
-                }
-              }
-
-              return [...prev, data];
-            });
-          }
-        } catch { /* */ }
-      };
-
-      es.onerror = () => {
-        if (abortController.signal.aborted) return;
-        setStatus("error");
-        es.close();
-
-        if (retryCount < maxRetries) {
-          const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 16000);
-          console.warn(`SSE connection failed. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/${maxRetries})...`);
-          retryCount++;
-          reconnectTimeout = setTimeout(setupSSE, backoffDelay);
-        } else {
-          console.error("SSE connection failed after maximum retries.");
-        }
-      };
-    };
-
-    setupSSE();
-
-    return () => {
-      abortController.abort();
-      if (sseRef.current) sseRef.current.close();
-      clearTimeout(reconnectTimeout);
-    };
-  }, [room.id, userId, isHost]);
+  // Single SSE connection: routes inbound events into the right state setter.
+  useRoomEvents({
+    roomId: room.id,
+    userId,
+    isHost,
+    activeTabRef,
+    seenIdsRef,
+    setMessages,
+    setStatus,
+    setUnreadCounts,
+    setTypingBots,
+    setInventoryRefreshKey,
+  });
 
   // Re-fetch the current user's sheet so an open 角色卡 / 技能 panel reflects command-driven
   // changes (.st / .sc) without a full page reload. router.refresh() updates the
@@ -624,14 +423,6 @@ export function RoomClient({
     await respondCheck(messageId);
   }, [pendingSkillCheck, room.id, userId, respondCheck]);
 
-  const handleToggleSidebar = () => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("trpg-sidebar-collapsed", String(next));
-      return next;
-    });
-  };
-
   const handleToggleInventory = () => {
     setShowInventory((v) => !v);
     // Clear only the local unread dot here. The server-side "viewed" flags are
@@ -652,7 +443,7 @@ export function RoomClient({
         botCount={botCount}
         sidebarCollapsed={sidebarCollapsed}
         totalUnread={totalUnread}
-        onToggleSidebar={handleToggleSidebar}
+        onToggleSidebar={toggleSidebar}
         editingRoomName={editingRoomName}
         roomNameDraft={roomNameDraft}
         savingRoomName={savingRoomName}
@@ -697,13 +488,7 @@ export function RoomClient({
           width={sidebarWidth}
           collapsed={sidebarCollapsed}
           resizing={sidebarResizing || !sidebarHydrated}
-          onToggleCollapse={() => {
-            setSidebarCollapsed((prev) => {
-              const val = !prev;
-              localStorage.setItem("trpg-sidebar-collapsed", String(val));
-              return val;
-            });
-          }}
+          onToggleCollapse={toggleSidebar}
         />
 
         {/* Backdrop for mobile sidebar — stays mounted so it can fade in/out
@@ -714,10 +499,7 @@ export function RoomClient({
             className={`fixed inset-0 bg-black/40 z-20 transition-opacity duration-300 ${
               sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 cursor-pointer"
             }`}
-            onClick={() => {
-              setSidebarCollapsed(true);
-              localStorage.setItem("trpg-sidebar-collapsed", "true");
-            }}
+            onClick={() => setSidebarCollapsed(true)}
           />
         )}
 
@@ -727,10 +509,7 @@ export function RoomClient({
             onMouseDown={handleResizeStart}
             className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-all duration-150 shrink-0 relative z-10 group"
             title={t("tooltipResize")}
-            onDoubleClick={() => {
-              setSidebarWidth(200);
-              localStorage.setItem("trpg-sidebar-width", "200");
-            }}
+            onDoubleClick={resetSidebarWidth}
           >
             {/* Collapse toggle button on the handle (like VS Code or Notion) */}
             <div
@@ -738,7 +517,6 @@ export function RoomClient({
               onClick={(e) => {
                 e.stopPropagation();
                 setSidebarCollapsed(true);
-                localStorage.setItem("trpg-sidebar-collapsed", "true");
               }}
               title={t("tooltipCollapseSidebar")}
             >
@@ -748,177 +526,90 @@ export function RoomClient({
         )}
 
         {/* Main Content: Chat Area */}
-        <div className="flex-1 flex flex-col relative min-w-0">
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
-            <div className="max-w-4xl mx-auto flex flex-col gap-1">
-              {tabMessages.map((msg) => {
-                const playerData = players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number } }) => (p.users?.id || p.user_id || p.user?.id) === msg.userId);
-                return (
-                  <ChatMessage
-                    key={msg.id}
-                    nickname={msg.nickname}
-                    content={msg.content}
-                    type={msg.type as "text" | "dice" | "system" | "clue" | "image" | "check_request"}
-                    diceDetail={msg.diceDetail}
-                    isPrivate={msg.isPrivate}
-                    audience={msg.audience}
-                    createdAt={msg.createdAt}
-                    isOwn={msg.userId === userId}
-                    userId={userId}
-                    senderId={msg.userId}
-                    isHost={isHost}
-                    onViewCharacter={handleViewPlayerCard}
-                    onStartDM={handleTabChange}
-                    onCheckRequest={handleCheckRequest}
-                    messageId={msg.id}
-                    isBot={!!playerData?.users?.isBot}
-                    roomId={room.id}
-                    hostId={room.hostId}
-                    avatarColor={playerData?.room_members?.avatarColor}
-                    avatar={playerData?.room_members?.avatar}
-                  />
-                );
-              })}
-              {Object.entries(typingBots)
-                .filter(([botId, bot]) => {
-                  if (bot.isPrivate) {
-                    return activeTab === Number(botId);
-                  } else {
-                    return activeTab === "public";
-                  }
-                })
-                .map(([botId, bot]) => (
-                  <div key={botId} className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-text-dim bg-surface/50 border border-border/40 rounded-theme max-w-max animate-pulse my-1 font-mono">
-                    <span>🤖</span>
-                    <span>{t("botThinking", { nickname: bot.nickname })}</span>
-                  </div>
-                ))}
-              {tabMessages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-50 py-20">
-                  <span className="text-4xl mb-4">{activeTab === "public" ? "🏠" : "🔒"}</span>
-                  <p>{activeTab === "public" ? t("publicEmpty") : t("dmEmpty")}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {showScrollButton && (
-            <button onClick={() => scrollToBottom(true)} className="absolute bottom-28 right-8 z-10 bg-scroll-btn hover:opacity-90 text-white w-10 h-10 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group" title={t("scrollToBottom")}>
-              <span className="text-xl group-hover:animate-bounce">↓</span>
-            </button>
-          )}
-
-          <div className="bg-surface-alt border-t border-border px-4 py-3 shrink-0">
-            <div className="max-w-4xl mx-auto">
-              {activeTab !== "public" && (
-                  <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
-                    <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname ?? "" })}</span>
-                    <button onClick={() => handleTabChange("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
-                  </div>
-                )}
-              <ChatInput onSendMessage={handleSendMessage} roomId={room.id} mentions={mentionTargets} readOnly={readOnly} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showCharacter && (
-        <CharacterPanel
-          roomId={room.id}
-          userId={userId}
-          currentNickname={nickname}
-          characterData={characterData}
-          roomRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"}
-          onClose={() => setShowCharacter(false)}
-          onNicknameChange={(newNick) => setNickname(newNick)}
-          readOnly={readOnly}
-          refreshKey={skillRefreshKey}
-          avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatarColor}
-          avatar={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatar?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === userId)?.room_members?.avatar}
-        />
-      )}
-      {viewingPlayerId !== null && (
-        <CharacterPanel
-          roomId={room.id}
-          userId={viewingPlayerId}
-          currentNickname={viewingPlayerNickname}
-          characterData={viewingPlayerCharData}
-          roomRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"}
-          onClose={() => {
-            setViewingPlayerId(null);
-            setViewingPlayerCharData(null);
-            setViewingPlayerNickname("");
-          }}
-          onNicknameChange={() => {}}
-          readOnly={true}
-          targetUserId={viewingPlayerId}
-          loading={loadingPlayerCard}
-          avatarColor={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatarColor?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatarColor}
-          avatar={players.find((p: { users?: { id?: number }; user_id?: number; user?: { id?: number }; room_members?: { avatar?: string | null } }) => (p.users?.id || p.user_id || p.user?.id) === viewingPlayerId)?.room_members?.avatar}
-          isGM={isHost}
-        />
-      )}
-      {showBotManager && (
-        <BotManager roomId={room.id} isHost={isHost} onClose={() => setShowBotManager(false)} aiEnabled={aiEnabled} validProviderIds={validProviderIds} />
-      )}
-      {showAiImport && (
-        <AiImportPanel roomId={room.id} onClose={() => setShowAiImport(false)} />
-      )}
-      {checkMode && (
-        <HostCheckDialog
-          roomId={room.id}
-          mode={checkMode}
-          players={activeTab === "public" ? mentionTargets : mentionTargets.filter(p => p.id === activeTab)}
-          isPrivate={activeTab !== "public"}
-          channelTargetUserId={activeTab !== "public" ? activeTab : undefined}
-          onClose={() => setCheckMode(null)}
-        />
-      )}
-      {pendingSkillCheck && (
-        <SkillSetPrompt
-          skillName={pendingSkillCheck.skillName}
-          onConfirm={handleConfirmSkillSet}
-          onClose={() => setPendingSkillCheck(null)}
-        />
-      )}
-      {showMembers && (
-        <MembersDialog
+        <ChatArea
+          scrollRef={scrollRef}
+          onScroll={handleScroll}
+          tabMessages={tabMessages}
           players={players}
           userId={userId}
-          hostId={room.hostId}
           isHost={isHost}
-          aiEnabled={aiEnabled}
-          validProviderIds={validProviderIds}
-          playerCount={playerCount}
-          botCount={botCount}
-          onViewPlayerCard={handleViewPlayerCard}
+          roomId={room.id}
+          hostId={room.hostId}
+          typingBots={typingBots}
+          activeTab={activeTab}
+          showScrollButton={showScrollButton}
+          scrollToBottom={scrollToBottom}
+          dmConversations={dmConversations}
+          mentionTargets={mentionTargets}
+          readOnly={readOnly}
+          onViewCharacter={handleViewPlayerCard}
           onStartDM={handleTabChange}
-          onClose={() => setShowMembers(false)}
+          onCheckRequest={handleCheckRequest}
+          onSendMessage={handleSendMessage}
         />
-      )}
-      {showInventory && (
-        <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowInventory(false)} readOnly={readOnly} />
-      )}
-      {showItemManager && isHost && (
-        <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={players.map((m: { users?: { id?: number; username?: string }; user_id?: number; room_members?: { nickname?: string }; nickname?: string }) => ({ id: (m.users?.id || m.user_id) ?? 0, username: m.users?.username || "", nickname: m.room_members?.nickname || m.nickname || "" }))} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
-      )}
-      {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={(room as { ruleTemplate?: string }).ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
-      )}
-      {showRoomInfo && (
-        <RoomInfoPanel room={{ ...room, diceRules: room.diceRules ?? "basic", ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
-      )}
-      {showExport && (
-        <OverlayShell onClose={() => setShowExport(false)} panelClassName="max-w-md w-full mx-4">
-          {() => <ExportButton roomId={room.id} roomName={room.name} />}
-        </OverlayShell>
-      )}
-      {showSkills && (
-        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} readOnly={readOnly} refreshKey={skillRefreshKey} />
-      )}
-      {showUserSettings && (
-        <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />
-      )}
+      </div>
+
+      <RoomOverlays
+        room={room}
+        userId={userId}
+        isHost={isHost}
+        nickname={nickname}
+        characterData={characterData}
+        readOnly={readOnly}
+        players={players}
+        aiEnabled={aiEnabled}
+        validProviderIds={validProviderIds}
+        userName={userName}
+        userRole={userRole}
+        roomTheme={roomTheme}
+        roomThemeMode={roomThemeMode}
+        roomDiceRules={roomDiceRules}
+        inventoryRefreshKey={inventoryRefreshKey}
+        skillRefreshKey={skillRefreshKey}
+        mentionTargets={mentionTargets}
+        playerCount={playerCount}
+        botCount={botCount}
+        activeTab={activeTab}
+        viewingPlayerId={viewingPlayerId}
+        viewingPlayerNickname={viewingPlayerNickname}
+        viewingPlayerCharData={viewingPlayerCharData}
+        loadingPlayerCard={loadingPlayerCard}
+        onCloseViewingPlayer={() => {
+          setViewingPlayerId(null);
+          setViewingPlayerCharData(null);
+          setViewingPlayerNickname("");
+        }}
+        showCharacter={showCharacter}
+        setShowCharacter={setShowCharacter}
+        showBotManager={showBotManager}
+        setShowBotManager={setShowBotManager}
+        showAiImport={showAiImport}
+        setShowAiImport={setShowAiImport}
+        showMembers={showMembers}
+        setShowMembers={setShowMembers}
+        showInventory={showInventory}
+        setShowInventory={setShowInventory}
+        showItemManager={showItemManager}
+        setShowItemManager={setShowItemManager}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        showRoomInfo={showRoomInfo}
+        setShowRoomInfo={setShowRoomInfo}
+        showExport={showExport}
+        setShowExport={setShowExport}
+        showSkills={showSkills}
+        setShowSkills={setShowSkills}
+        showUserSettings={showUserSettings}
+        setShowUserSettings={setShowUserSettings}
+        checkMode={checkMode}
+        setCheckMode={setCheckMode}
+        pendingSkillCheck={pendingSkillCheck}
+        setPendingSkillCheck={setPendingSkillCheck}
+        onConfirmSkillSet={handleConfirmSkillSet}
+        onNicknameChange={(newNick) => setNickname(newNick)}
+        onViewPlayerCard={handleViewPlayerCard}
+        onStartDM={handleTabChange}
+      />
     </div>
   );
 }
