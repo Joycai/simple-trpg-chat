@@ -7,11 +7,11 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { getCachedSiteTitle } from "@/lib/config";
 import { APP_VERSION } from "@/lib/version";
-import { LobbyClient } from "@/components/LobbyClient";
+import { LobbyClient } from "@/components/lobby/LobbyClient";
 import { Dices } from "lucide-react";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { ThemeModeSwitcher } from "@/components/ThemeModeSwitcher";
-import { UserDropdown } from "@/components/UserDropdown";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
+import { ThemeModeSwitcher } from "@/components/theme/ThemeModeSwitcher";
+import { UserDropdown } from "@/components/lobby/UserDropdown";
 
 export default async function HomePage() {
   const t = await getTranslations("nav");

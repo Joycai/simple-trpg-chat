@@ -1,12 +1,19 @@
 /**
  * Simple TRPG Chat — PostgreSQL Schema (Drizzle ORM)
  *
- * Mirror of schema.ts for PostgreSQL dialect.
- * Tables: users | rooms | room_members | messages | room_skills | system_config
- *         | clue_cards | clue_visibility
+ * Single source of truth for the database (PostgreSQL only). 17 tables:
+ *   Identity:   users
+ *   Room core:  rooms | room_members | room_skills | room_dm_reads
+ *   Messaging:  messages
+ *   Inventory:  inventory_items | inventory_distributions
+ *   Clues:      clue_cards | clue_visibility
+ *   AI economy: ai_providers | ai_token_usages | ai_point_logs
+ *   Platform:   system_config | daily_stats | bot_presets | login_history
+ *
+ * See docs/arch/database.md for column-level reference.
  */
 
-import { pgTable, text, integer, serial, boolean, timestamp, unique, index, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { Audience } from '@/lib/messaging/audience';
 
@@ -63,7 +70,7 @@ export const users = pgTable('users', {
   themeModePreference: text('theme_mode_preference'),
   sessionToken: text('session_token'),
   isBanned: boolean('is_banned').notNull().default(false),
-  aiPoints: doublePrecision('ai_points').notNull().default(0.0),
+  aiPoints: numeric('ai_points', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
@@ -92,7 +99,12 @@ export const roomMembers = pgTable('room_members', {
   characterData: text('character_data'),
   avatarColor: text('avatar_color'),
   avatar: text('avatar'),
-});
+}, (t) => ({
+  // A user has exactly one membership per room. The unique index also serves the
+  // hot (roomId)-prefixed lookups (player list, membership checks). Existing rows
+  // must be deduped before `db:push` adds this — see src/db/dedup-room-members.ts.
+  unq: unique().on(t.roomId, t.userId),
+}));
 
 export const roomSkills = pgTable('room_skills', {
   id: serial('id').primaryKey(),
@@ -297,9 +309,9 @@ export const aiProviders = pgTable('ai_providers', {
   apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
-  tokenRateInput: doublePrecision('token_rate_input').notNull().default(0.0),
-  tokenRateCached: doublePrecision('token_rate_cached').notNull().default(0.0),
-  tokenRateOutput: doublePrecision('token_rate_output').notNull().default(0.0),
+  tokenRateInput: numeric('token_rate_input', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  tokenRateCached: numeric('token_rate_cached', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  tokenRateOutput: numeric('token_rate_output', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
@@ -359,9 +371,9 @@ export const botPresets = pgTable('bot_presets', {
 export const aiPointLogs = pgTable('ai_point_logs', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  amount: doublePrecision('amount').notNull(),
-  beforePoints: doublePrecision('before_points').notNull(),
-  afterPoints: doublePrecision('after_points').notNull(),
+  amount: numeric('amount', { precision: 20, scale: 10, mode: 'number' }).notNull(),
+  beforePoints: numeric('before_points', { precision: 20, scale: 10, mode: 'number' }).notNull(),
+  afterPoints: numeric('after_points', { precision: 20, scale: 10, mode: 'number' }).notNull(),
   type: text('type').notNull(), // 'usage' | 'admin'
   description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),

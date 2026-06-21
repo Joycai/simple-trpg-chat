@@ -7,9 +7,15 @@ import postgres from 'postgres';
 import * as pgSchema from './schema';
 
 function readDbConfig(): { url: string } {
+  // Resolve the connection URL the same way drizzle.config.ts does, so the app
+  // and drizzle-kit (db:push/studio) always target the same database:
+  // DATABASE_URL wins, then fall back to db.config.json.
+  if (process.env.DATABASE_URL) {
+    return { url: process.env.DATABASE_URL };
+  }
   const configPath = path.join(process.cwd(), 'db.config.json');
   if (!fs.existsSync(configPath)) {
-    throw new Error('[DB] db.config.json not found. Run setup.sh (Linux/macOS) or setup.bat (Windows) to configure PostgreSQL.');
+    throw new Error('[DB] DATABASE_URL not set and db.config.json not found. Run setup.sh (Linux/macOS) or setup.bat (Windows) to configure PostgreSQL.');
   }
   const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   if (!config.url) {
@@ -35,14 +41,11 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export const db = pgDrizzle(client, { schema: pgSchema });
+// Surfaced in the admin dashboard (dbType). PostgreSQL is the only dialect.
 export const currentDialect = 'postgresql' as const;
 
 console.log('[DB] Initialized PostgreSQL');
 
 export function sqlNow() {
   return sql`NOW()`;
-}
-
-export function sqlBool(val: boolean) {
-  return val;
 }

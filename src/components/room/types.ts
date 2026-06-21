@@ -29,6 +29,29 @@ export interface Message {
   createdAt: string;
 }
 
+export type ConnectionStatus = "connecting" | "connected" | "error";
+
+export type CheckMode = "check" | "psychology" | "sancheck";
+
+export interface PendingSkillCheck {
+  messageId: number;
+  skillName: string;
+}
+
+// A mention/check target (player or bot, excluding self) derived from the
+// room's player list.
+export interface MentionTarget {
+  id: number;
+  nickname: string;
+  isBot: boolean;
+  isBotDisabled: boolean;
+  isProviderError: boolean;
+}
+
+// Bots currently "typing" in the room, keyed by bot user id. `isPrivate`/`targetUserId`
+// distinguish a public think-indicator from one inside a specific DM channel.
+export type TypingBots = Record<number, { nickname: string; typing: boolean; isPrivate?: boolean; targetUserId?: number }>;
+
 // Loose shape for a room member as delivered by the server query. The relation
 // keys vary (`users`/`user`/`user_id`) depending on the call site, so every
 // access path stays optional.

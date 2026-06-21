@@ -41,6 +41,15 @@ export async function createUser(formData: FormData) {
 export async function deleteUser(id: number) {
   await requireAdmin();
 
+  // Guard against the destructive cascade: deleting a host would wipe every room
+  // they own (and all members' messages/items/clues in them). Require those rooms
+  // to be transferred or deleted first.
+  const hosted = await db.select({ id: rooms.id }).from(rooms).where(eq(rooms.hostId, id));
+  if (hosted.length > 0) {
+    const t = await getTranslations("admin");
+    throw new Error(t("deleteUserHostsRooms", { count: hosted.length }));
+  }
+
   await db.delete(users).where(eq(users.id, id));
   revalidatePath("/admin");
 }

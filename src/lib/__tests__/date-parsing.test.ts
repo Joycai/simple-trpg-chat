@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseLoginDate } from "../../components/UserLoginHistory";
+import { parseLoginDate } from "@/components/user/UserLoginHistory";
 
 describe("UserLoginHistory - parseLoginDate helper", () => {
   it("should parse standard ISO strings with T and Z", () => {

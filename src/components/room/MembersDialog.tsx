@@ -1,11 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Icons } from "../icons";
-import { OverlayShell } from "../OverlayShell";
+import { Icons } from "@/components/shared/icons";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import { getBotStatus } from "@/lib/botStatus";
-import type { PlayerEntry } from "./types";
+import type { PlayerEntry } from "@/components/room/types";
 
 interface MembersDialogProps {
   players: PlayerEntry[];

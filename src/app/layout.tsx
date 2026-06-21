@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { AppProvider } from "@/components/AppProvider";
+import { AppProvider } from "@/components/theme/AppProvider";
 import { getSiteTheme, getUserThemePreference, getSiteThemeMode, getUserThemeModePreference } from "@/app/actions/theme";
 import { recordPageVisit } from "@/lib/stats";
 import { getCachedSiteTitle, getCachedSiteFavicon } from "@/lib/config";

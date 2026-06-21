@@ -1,6 +1,6 @@
 "use server";
 
-import { db, sqlBool } from "@/db";
+import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
 import { eq, and, not, desc, inArray, count, sql, or } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -81,13 +81,13 @@ export async function updateInventoryItemAction(
   // and public clue rows). Unviewed copies stay "new" and aren't re-notified.
   const reflagged = await db
     .update(inventoryDistributions)
-    .set({ updated: sqlBool(true) as unknown as boolean, viewed: sqlBool(false) as unknown as boolean })
+    .set({ updated: true, viewed: false })
     .where(
       and(
         eq(inventoryDistributions.itemId, itemId),
         not(eq(inventoryDistributions.toUserId, hostId)),
         sql`${inventoryDistributions.toUserId} IS NOT NULL`,
-        sql`${inventoryDistributions.viewed} = ${sqlBool(true)}`
+        sql`${inventoryDistributions.viewed} = ${true}`
       )
     )
     .returning({ toUserId: inventoryDistributions.toUserId });
@@ -411,12 +411,12 @@ export async function markInventoryViewedAction(roomId: number) {
   // Opening the panel acknowledges both freshly-received ("new") and edited
   // ("updated") copies, so clear both flags in one pass.
   await db.update(inventoryDistributions)
-    .set({ viewed: sqlBool(true) as unknown as boolean, updated: sqlBool(false) as unknown as boolean })
+    .set({ viewed: true, updated: false })
     .where(
       and(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, userId),
-        sql`${inventoryDistributions.viewed} = ${sqlBool(false)}`
+        sql`${inventoryDistributions.viewed} = ${false}`
       )
     );
 
@@ -435,7 +435,7 @@ export async function getUnreadInventoryCountAction(roomId: number) {
       and(
         eq(inventoryDistributions.roomId, roomId),
         eq(inventoryDistributions.toUserId, userId),
-        sql`${inventoryDistributions.viewed} = ${sqlBool(false)}`
+        sql`${inventoryDistributions.viewed} = ${false}`
       )
     );
 
