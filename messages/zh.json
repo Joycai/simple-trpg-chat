@@ -380,7 +380,8 @@
     "saving": "保存中..."
   },
   "theme": {
-    "switch": "切换主题"
+    "switch": "切换主题",
+    "label": "主题"
   },
   "common": {
     "error": "出错了",
