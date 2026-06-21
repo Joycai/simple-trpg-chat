@@ -16,6 +16,7 @@ import { CharacterHeader } from "@/components/room/character/CharacterHeader";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
+import { ShrineLantern } from "@/components/shrine/ShrineLantern";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
 
 interface CharacterPanelProps {
@@ -308,8 +309,10 @@ export function CharacterPanel({
 
   return (
     <>
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
-      <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-lg mx-4 h-[85vh] md:h-[600px] max-h-[90vh] flex flex-col overflow-hidden ${panelClass}`}
+    <div className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 ${backdropClass}`} onClick={close}>
+      <ShrineLantern side="left" />
+      <ShrineLantern side="right" />
+      <div className={`relative z-[2] bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-lg mx-4 h-[85vh] md:h-[600px] max-h-[90vh] flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
 
         <CharacterHeader

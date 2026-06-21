@@ -3,33 +3,33 @@
    古木为框架，注連縄(绳结) + 紙垂(御币) + 鳥居为母题。 */
 [data-theme="shrine"] {
   /* === Core palette: washi white + miko vermilion === */
-  --theme-bg: 247 242 233;          /* 生成り washi off-white */
-  --theme-surface: 255 252 246;     /* paper white */
-  --theme-surface-alt: 240 232 218; /* light straw */
-  --theme-border: 214 198 176;      /* warm sand line */
-  --theme-text: 38 30 27;           /* 墨 sumi ink (warm) */
-  --theme-text-muted: 122 105 92;
-  --theme-text-dim: 162 145 128;
-  --theme-primary: 198 48 38;       /* 朱 torii / 緋袴 vermilion */
-  --theme-primary-hover: 165 36 28;
-  --theme-accent: 184 142 56;       /* 真鍮 brass gold (鈴/金具) */
-  --theme-accent-hover: 150 112 36;
+  --theme-bg: 240 233 219;          /* aged 生成り washi */
+  --theme-surface: 250 245 234;     /* paper white */
+  --theme-surface-alt: 231 220 199; /* light straw */
+  --theme-border: 198 178 150;      /* weathered cedar line */
+  --theme-text: 42 32 26;           /* 墨 sumi ink (warm) */
+  --theme-text-muted: 116 100 86;
+  --theme-text-dim: 158 140 120;
+  --theme-primary: 190 50 38;       /* 錆朱 rusted vermilion */
+  --theme-primary-hover: 160 36 26;
+  --theme-accent: 174 132 50;       /* antique brass */
+  --theme-accent-hover: 144 106 32;
   --theme-accent-foreground: 40 30 8;
   --theme-danger: 150 26 32;        /* 深紅 deep maroon — cooler/darker than vermilion primary */
-  --theme-success: 56 124 78;       /* 常磐 evergreen */
+  --theme-success: 64 110 70;       /* 御神木 moss evergreen */
   --theme-ai: 47 82 138;            /* 藍 indigo — AI feature accent */
   --theme-ai-hover: 36 66 116;
   --theme-ai-foreground: 255 252 246;
-  --theme-header-bg: 243 236 224;   /* cream band */
-  --theme-header-border: 210 192 168;
-  --theme-input-bg: 255 252 246;
-  --theme-input-border: 208 190 166;
-  --theme-dice-card-bg: 250 240 234;   /* 御札 pale vermilion wash */
-  --theme-dice-card-border: 222 170 158;
-  --theme-private-border: 198 48 38;
-  --theme-private-bg: 250 238 233;
-  --theme-scroll-btn: 198 48 38;
-  --theme-primary-foreground: 255 252 246;
+  --theme-header-bg: 235 224 204;   /* cream band */
+  --theme-header-border: 204 184 156;
+  --theme-input-bg: 250 245 234;
+  --theme-input-border: 202 184 158;
+  --theme-dice-card-bg: 248 236 228;   /* 御札 pale vermilion wash */
+  --theme-dice-card-border: 220 168 156;
+  --theme-private-border: 190 50 38;
+  --theme-private-bg: 248 235 229;
+  --theme-scroll-btn: 190 50 38;
+  --theme-primary-foreground: 250 245 234;
 
   /* === Typography (Japanese mincho) === */
   --theme-radius: 0.25rem;
@@ -51,12 +51,12 @@
                0 0 16px rgba(198, 48, 38, 0.12);
 
   /* === Skeuomorphic: soft warm wood shadow === */
-  --theme-card-shadow: 0 1px 2px rgba(80, 50, 25, 0.06),
-                       0 4px 12px rgba(80, 50, 25, 0.10);
+  --theme-card-shadow: 0 1px 2px rgba(70, 42, 20, 0.08),
+                       0 5px 16px rgba(70, 42, 20, 0.13);
 
   /* === Shimenawa rope + shide (注連縄 + 紙垂) — used by .conv-divider === */
   --theme-shimenawa: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='18' viewBox='0 0 96 18'%3E%3Crect x='0' y='3' width='96' height='7' rx='3.5' fill='%23cdab6b'/%3E%3Cg stroke='%23a98842' stroke-width='1.1' opacity='0.55'%3E%3Cline x1='8' y1='3' x2='3' y2='10'/%3E%3Cline x1='20' y1='3' x2='15' y2='10'/%3E%3Cline x1='32' y1='3' x2='27' y2='10'/%3E%3Cline x1='44' y1='3' x2='39' y2='10'/%3E%3Cline x1='56' y1='3' x2='51' y2='10'/%3E%3Cline x1='68' y1='3' x2='63' y2='10'/%3E%3Cline x1='80' y1='3' x2='75' y2='10'/%3E%3Cline x1='92' y1='3' x2='87' y2='10'/%3E%3C/g%3E%3Cpath d='M44 9 h8 v3 h-3 v2 h3 v3 h-8 v-3 h3 v-2 h-3 z' fill='%23fcfbf6' stroke='%23c9bda3' stroke-width='0.6'/%3E%3C/svg%3E");
-  --theme-primary-foreground: 255 252 246;
+  --theme-primary-foreground: 250 245 234;
 }
 
 /* === 古木: light cedar beams framing the white shrine walls === */
@@ -196,36 +196,36 @@
    shimenawa + white shide divider already reads on dark, so it stays.
    ===================================================================== */
 [data-theme="shrine"][data-mode="dark"] {
-  --theme-bg: 26 22 20;             /* sumi-black night washi (warm) */
-  --theme-surface: 36 30 27;
-  --theme-surface-alt: 46 38 33;
-  --theme-border: 72 60 50;
-  --theme-text: 238 230 216;        /* lantern-lit washi */
-  --theme-text-muted: 178 162 142;
-  --theme-text-dim: 128 114 98;
-  --theme-primary: 224 76 60;       /* glowing vermilion torii */
-  --theme-primary-hover: 236 96 80;
-  --theme-accent: 206 168 86;       /* brass gold, brighter */
-  --theme-accent-hover: 220 184 104;
+  --theme-bg: 22 20 27;             /* cool sumi night */
+  --theme-surface: 35 30 33;        /* lantern-lit wood */
+  --theme-surface-alt: 45 39 41;
+  --theme-border: 80 64 56;
+  --theme-text: 240 232 218;        /* lantern-lit washi */
+  --theme-text-muted: 182 164 144;
+  --theme-text-dim: 128 114 100;
+  --theme-primary: 232 84 64;       /* glowing torii vermilion */
+  --theme-primary-hover: 244 104 84;
+  --theme-accent: 226 182 96;       /* lantern brass-gold */
+  --theme-accent-hover: 240 198 112;
   --theme-accent-foreground: 30 24 8;
   --theme-danger: 208 92 96;        /* cooler crimson, kept apart from vermilion */
   --theme-success: 96 168 116;      /* evergreen, lifted */
-  --theme-ai: 116 146 206;          /* indigo, lifted */
+  --theme-ai: 124 152 212;          /* indigo, lifted */
   --theme-ai-hover: 136 164 220;
   --theme-ai-foreground: 14 18 30;
-  --theme-header-bg: 32 27 24;
-  --theme-header-border: 72 60 50;
-  --theme-input-bg: 36 30 27;
-  --theme-input-border: 84 70 58;
-  --theme-dice-card-bg: 46 34 31;   /* 御札 dark vermilion wash */
-  --theme-dice-card-border: 96 60 54;
-  --theme-private-border: 224 76 60;
-  --theme-private-bg: 46 32 30;
-  --theme-scroll-btn: 224 76 60;
+  --theme-header-bg: 27 24 31;
+  --theme-header-border: 80 64 56;
+  --theme-input-bg: 35 30 33;
+  --theme-input-border: 86 70 60;
+  --theme-dice-card-bg: 46 36 33;   /* 御札 dark vermilion wash */
+  --theme-dice-card-border: 104 64 56;
+  --theme-private-border: 232 84 64;
+  --theme-private-bg: 48 33 31;
+  --theme-scroll-btn: 232 84 64;
   --theme-primary-foreground: 255 250 244;
 
-  --theme-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
-                       0 4px 12px rgba(0, 0, 0, 0.45);
+  --theme-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5),
+                       0 6px 16px rgba(0, 0, 0, 0.55);
   --theme-glow: 0 0 6px rgba(224, 76, 60, 0.4),
                0 0 18px rgba(224, 76, 60, 0.18);
 
@@ -288,4 +288,24 @@
 }
 [data-theme="shrine"][data-mode="dark"] .filter-tab-active {
   color: #e86a5a;
+}
+
+/* ===== 鳥居 Great Torii crest (login hero) ===== */
+.shrine-torii { display: none; }
+[data-theme="shrine"] .shrine-torii { display: block; }
+
+/* ===== 石灯籠 Stone lanterns — night only ===== */
+.shrine-lantern { display: none; position: absolute; pointer-events: none; }
+[data-theme="shrine"][data-mode="dark"] .shrine-lantern { display: block; }
+.shrine-lantern .lan  { width: 100%; height: auto; display: block;
+  filter: drop-shadow(0 7px 11px rgba(0,0,0,.55)); }
+.shrine-lantern .lfire { transform-origin: center;
+  filter: drop-shadow(0 0 5px rgba(247,178,78,.95)) drop-shadow(0 0 14px rgba(244,150,60,.55));
+  animation: shrine-flicker 3.4s ease-in-out infinite; }
+.shrine-lantern .lglow { position: absolute; left: 50%; top: 34%;
+  width: 240%; height: 120px; transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+    rgba(247,178,78,.30), rgba(247,160,70,.10) 45%, rgba(247,178,78,0) 72%); }
+@keyframes shrine-flicker {
+  0%,100% { opacity:.9 } 38% { opacity:1 } 54% { opacity:.84 } 72% { opacity:.97 }
 }
