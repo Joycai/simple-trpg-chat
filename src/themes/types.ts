@@ -94,20 +94,20 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
     id: "rainglass",
     name: "霓虹雨夜",
     nameEn: "Neon Rainglass",
-    description: "深蓝夜底，雨痕青与霓虹品红倒影，磨砂玻璃面板、雨珠与都市辉光，赛博都市夜雨质感",
+    description: "冷青黑夜底，电青与霓虹品红倒影，磨砂玻璃面板、雨珠与都市辉光，深色为主的赛博都市夜雨质感",
     descriptionEn:
-      "Deep-blue night with rain-cyan and neon-magenta reflections, frosted glass panels, raindrops and city glow — a cyber-city rainy night",
-    swatch: { bg: "#070b14", border: "#38bdf8" },
+      "Cool teal-black night with electric-cyan and neon-magenta reflections, frosted glass panels, raindrops and city glow — a dark-first cyber-city rainy night",
+    swatch: { bg: "#060c10", border: "#22d3ee" },
     icon: "🌧️",
   },
   aether: {
     id: "aether",
     name: "苍穹幻境",
     nameEn: "Azure Aether",
-    description: "明亮天蓝配金辉，水晶切面与飞行石高光、金线花纹指令窗，晴空幻想冒险世界气息",
+    description: "蓝天白云大地，明亮天蓝配洁白云面，金辉与草绿大地点缀，水晶切面与金线花纹指令窗，浅色为主的晴空幻想冒险气息",
     descriptionEn:
-      "Bright azure with golden glow, crystal facets and floating-stone highlights, gilt-filigree command windows — a skybound fantasy-adventure world",
-    swatch: { bg: "#eef6fd", border: "#d9a528" },
+      "Blue sky, white clouds and golden earth — bright azure with white cloud panels, gilt and verdant earth accents, crystal facets and gilt-filigree command windows — a light-first skybound fantasy adventure",
+    swatch: { bg: "#deedfa", border: "#d69e28" },
     icon: "🔮",
   },
 } as const;

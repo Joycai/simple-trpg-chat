@@ -1,38 +1,38 @@
 /* ---- Neon Rainglass — 拟物化霓虹雨夜（赛博都市 · 磨砂玻璃） ----
    概念：赛博都市的雨。磨砂玻璃面板(backdrop-blur)、雨珠、窗上水痕、
    雨痕青与霓虹品红双色为母题。
-   · DARK  = 深蓝夜底，雨夜霓虹倒影（原设计）。
-   · LIGHT = 阴天日光下的磨砂玻璃：冷灰玻璃幕墙，青与品红收敛为亮底霓虹
-             强调，毛玻璃质感保持不变。 */
+   · DARK  = 主形态：冷青黑夜底，电青与霓虹品红倒影，毛玻璃赛博雨夜。
+   · LIGHT = 次形态：阴天日光下的冷钢磨砂玻璃 —— 去蓝、转为中性冷钢灰，
+             青绿与品红收敛为霓虹强调，毛玻璃质感保持不变（天蓝让给 aether）。 */
 
-/* ============ LIGHT (baseline) — overcast daylight frosted glass ============ */
+/* ============ LIGHT (baseline) — overcast cool-steel frosted glass ============ */
 [data-theme="rainglass"] {
-  --theme-bg: 228 234 242;          /* overcast cool sky */
-  --theme-surface: 242 246 251;     /* pale glass pane */
-  --theme-surface-alt: 232 238 246;
-  --theme-border: 200 212 228;      /* cool glass edge */
-  --theme-text: 24 34 52;           /* cool ink */
-  --theme-text-muted: 92 108 134;
-  --theme-text-dim: 140 156 182;
-  --theme-primary: 14 132 200;      /* rain cyan, deepened for light ground */
-  --theme-primary-hover: 10 110 170;
-  --theme-accent: 214 60 140;       /* neon magenta, deepened */
-  --theme-accent-hover: 190 48 122;
+  --theme-bg: 216 222 226;          /* overcast cool steel */
+  --theme-surface: 231 236 239;     /* frosted glass pane */
+  --theme-surface-alt: 222 228 231;
+  --theme-border: 188 200 207;      /* cool steel edge */
+  --theme-text: 22 30 36;           /* cool ink */
+  --theme-text-muted: 86 100 110;
+  --theme-text-dim: 130 146 156;
+  --theme-primary: 8 145 178;       /* rain cyan-teal, deepened for light ground */
+  --theme-primary-hover: 6 122 150;
+  --theme-accent: 205 45 130;       /* neon magenta, deepened */
+  --theme-accent-hover: 182 38 116;
   --theme-accent-foreground: 247 240 245;
   --theme-danger: 220 70 70;
   --theme-success: 22 158 110;
   --theme-ai: 124 92 224;           /* violet hologram, deepened */
   --theme-ai-hover: 106 76 200;
   --theme-ai-foreground: 247 245 252;
-  --theme-header-bg: 236 241 248;
-  --theme-header-border: 200 212 228;
-  --theme-input-bg: 247 250 253;
-  --theme-input-border: 196 210 226;
-  --theme-dice-card-bg: 235 242 250;
-  --theme-dice-card-border: 196 214 232;
-  --theme-private-border: 14 132 200;
-  --theme-private-bg: 232 241 250;
-  --theme-scroll-btn: 14 132 200;
+  --theme-header-bg: 223 229 233;
+  --theme-header-border: 188 200 207;
+  --theme-input-bg: 236 240 243;
+  --theme-input-border: 186 198 206;
+  --theme-dice-card-bg: 226 232 236;
+  --theme-dice-card-border: 190 202 210;
+  --theme-private-border: 8 145 178;
+  --theme-private-bg: 224 231 236;
+  --theme-scroll-btn: 8 145 178;
   --theme-primary-foreground: 247 250 253;
 
   /* === Shared identity: clean modern sans, soft glass corners === */
@@ -46,37 +46,50 @@
   --theme-radius-bl: 0.85rem;
 
   /* Light decoration vars */
-  --theme-glow: 0 0 6px rgba(14, 132, 200, 0.3),
-               0 0 16px rgba(14, 132, 200, 0.12);
+  --theme-glow: 0 0 6px rgba(8, 145, 178, 0.3),
+               0 0 16px rgba(8, 145, 178, 0.12);
   --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
-                       0 6px 18px rgba(40, 70, 110, 0.12),
-                       0 2px 4px rgba(40, 70, 110, 0.08);
-  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%230e84c8' stroke-opacity='0.04' stroke-width='1'/%3E%3C/svg%3E");
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg stroke='%230e84c8' stroke-width='1' stroke-linecap='round' opacity='0.6'%3E%3Cpath d='M18 3 L15 12'/%3E%3Cpath d='M34 4 L31 13'/%3E%3Cpath d='M86 4 L83 13'/%3E%3Cpath d='M102 3 L99 12'/%3E%3C/g%3E%3Cpath d='M60 3 C63 8 65 10 60 13 C55 10 57 8 60 3 Z' fill='none' stroke='%230e84c8' stroke-width='1.2'/%3E%3C/svg%3E");
+                       0 6px 18px rgba(40, 55, 66, 0.12),
+                       0 2px 4px rgba(40, 55, 66, 0.08);
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%230891b2' stroke-opacity='0.04' stroke-width='1'/%3E%3C/svg%3E");
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg stroke='%230891b2' stroke-width='1' stroke-linecap='round' opacity='0.6'%3E%3Cpath d='M18 3 L15 12'/%3E%3Cpath d='M34 4 L31 13'/%3E%3Cpath d='M86 4 L83 13'/%3E%3Cpath d='M102 3 L99 12'/%3E%3C/g%3E%3Cpath d='M60 3 C63 8 65 10 60 13 C55 10 57 8 60 3 Z' fill='none' stroke='%230891b2' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+
+/* Ambient neon glow on the page bg so frosted panels have colour to bloom
+   into a halo (a flat bg blurs to nothing — no glass look). */
+[data-theme="rainglass"] body,
+[data-theme="rainglass"] .bg-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(60% 50% at 8% -5%, rgba(8, 145, 178, 0.10), transparent 70%),
+    radial-gradient(55% 45% at 100% 0%, rgba(205, 45, 130, 0.07), transparent 70%),
+    radial-gradient(70% 60% at 50% 115%, rgba(124, 92, 224, 0.06), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, 4px 4px;
 }
 
 [data-theme="rainglass"] .conv-sidebar {
-  background: linear-gradient(180deg, rgba(238, 244, 251, 0.82) 0%, rgba(226, 234, 245, 0.82) 100%);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-right: 1px solid rgba(14, 132, 200, 0.18);
+  background: linear-gradient(180deg, rgba(231, 236, 239, 0.7) 0%, rgba(220, 226, 230, 0.64) 100%);
+  backdrop-filter: blur(4px) saturate(1.4);
+  border-right: 1px solid rgba(8, 145, 178, 0.18);
 }
 [data-theme="rainglass"] .conv-tab {
-  background: linear-gradient(90deg, rgba(232, 238, 246, 0.5) 0%, rgba(242, 246, 251, 0.25) 100%);
+  background: linear-gradient(90deg, rgba(224, 230, 233, 0.5) 0%, rgba(233, 238, 241, 0.25) 100%);
   border-left: 3px solid transparent;
-  border-bottom: 1px solid rgba(200, 212, 228, 0.6);
+  border-bottom: 1px solid rgba(188, 200, 207, 0.6);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition: all 0.25s ease-in-out;
 }
 [data-theme="rainglass"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(220, 230, 242, 0.7) 0%, rgba(232, 238, 246, 0.4) 100%);
+  background: linear-gradient(90deg, rgba(212, 220, 225, 0.7) 0%, rgba(224, 230, 233, 0.4) 100%);
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="rainglass"] .conv-tab.active {
   background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.12) 0%, transparent 100%);
   border-left-color: rgb(var(--theme-primary));
   border-bottom-color: rgb(var(--theme-primary) / 0.3);
-  box-shadow: 0 2px 4px rgba(40, 70, 110, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 4px rgba(40, 55, 66, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   color: rgb(var(--theme-primary)) !important;
 }
 [data-theme="rainglass"] .conv-divider {
@@ -86,27 +99,26 @@
   background-image: var(--theme-divider);
   background-repeat: no-repeat;
   background-position: center;
-  filter: drop-shadow(0 0 1px rgba(14, 132, 200, 0.4));
+  filter: drop-shadow(0 0 1px rgba(8, 145, 178, 0.4));
 }
 [data-theme="rainglass"] .clue-card,
 [data-theme="rainglass"] .inventory-card,
 [data-theme="rainglass"] .item-detail-panel {
-  background-color: rgba(242, 246, 251, 0.6) !important;
-  background-image: linear-gradient(rgba(247, 250, 253, 0.55), rgba(236, 242, 249, 0.55)) !important;
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
-  border: 1px solid rgba(176, 196, 220, 0.6) !important;
+  background-color: rgba(231, 236, 239, 0.64) !important;
+  background-image: linear-gradient(rgba(236, 240, 243, 0.58), rgba(224, 230, 233, 0.58)) !important;
+  backdrop-filter: blur(4px) saturate(1.4);
+  border: 1px solid rgba(176, 190, 200, 0.6) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
-              0 6px 18px rgba(40, 70, 110, 0.12) !important;
+              0 6px 18px rgba(40, 55, 66, 0.12) !important;
   position: relative;
   overflow: visible;
   transition: all 0.2s ease;
 }
 [data-theme="rainglass"] .clue-card:hover,
 [data-theme="rainglass"] .inventory-card:hover {
-  border-color: rgba(14, 132, 200, 0.5) !important;
+  border-color: rgba(8, 145, 178, 0.5) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
-              0 0 16px rgba(14, 132, 200, 0.18) !important;
+              0 0 16px rgba(8, 145, 178, 0.18) !important;
 }
 [data-theme="rainglass"] .clue-card::before,
 [data-theme="rainglass"] .inventory-card::before,
@@ -136,120 +148,148 @@
 }
 [data-theme="rainglass"] .chat-bubble-other::after {
   left: -8px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%230e84c8' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%230e84c8' fill-opacity='0.18'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 2px rgba(14, 132, 200, 0.5));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%230891b2' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%230891b2' fill-opacity='0.18'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 2px rgba(8, 145, 178, 0.5));
 }
 [data-theme="rainglass"] .chat-bubble-own::after {
   right: -8px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%23d63c8c' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%23d63c8c' fill-opacity='0.18'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 2px rgba(214, 60, 140, 0.5));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%23cd2d82' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%23cd2d82' fill-opacity='0.18'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 2px rgba(205, 45, 130, 0.5));
 }
 [data-theme="rainglass"] .theme-border {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
-              0 0 14px rgba(14, 132, 200, 0.18),
-              0 8px 24px rgba(40, 70, 110, 0.14);
+              0 0 14px rgba(8, 145, 178, 0.18),
+              0 8px 24px rgba(40, 55, 66, 0.14);
 }
 [data-theme="rainglass"] .filter-indicator {
-  background: #0e84c8;
-  box-shadow: 0 0 10px rgba(14, 132, 200, 0.45), 0 0 20px rgba(14, 132, 200, 0.2);
+  background: #0891b2;
+  box-shadow: 0 0 10px rgba(8, 145, 178, 0.45), 0 0 20px rgba(8, 145, 178, 0.2);
 }
 [data-theme="rainglass"] .filter-tab-active {
-  color: #0e84c8;
-  text-shadow: 0 0 8px rgba(14, 132, 200, 0.3);
+  color: #0891b2;
+  text-shadow: 0 0 8px rgba(8, 145, 178, 0.3);
 }
 
-/* ============ DARK — neon rainy night (the original design) ============ */
+/* === Frosted glass: translucent floating surfaces (overlays, cards, header) ===
+   Only elevated/floating layers turn to glass; inner bg-surface-alt content
+   blocks stay opaque so text keeps its contrast. */
+[data-theme="rainglass"] .overlay-modal,
+[data-theme="rainglass"] .overlay-drawer,
+[data-theme="rainglass"] .theme-border.bg-surface {
+  background-color: rgb(var(--theme-surface) / 0.72) !important;
+  backdrop-filter: blur(4px) saturate(1.4);
+}
+[data-theme="rainglass"] .bg-header-bg {
+  background-color: rgb(var(--theme-header-bg) / 0.72) !important;
+  backdrop-filter: blur(4px) saturate(1.4);
+}
+
+/* ============ DARK — neon rainy night (the hero) ============ */
 [data-theme="rainglass"][data-mode="dark"] {
-  --theme-bg: 7 11 20;              /* deepest rain-night sky */
-  --theme-surface: 17 26 43;
-  --theme-surface-alt: 12 20 34;
-  --theme-border: 42 58 85;
-  --theme-text: 220 230 245;       /* cool wet light */
-  --theme-text-muted: 141 163 196;
-  --theme-text-dim: 86 104 138;
-  --theme-primary: 56 189 248;     /* rain cyan (neon sign) */
-  --theme-primary-hover: 14 165 233;
+  --theme-bg: 6 12 16;              /* deepest cool teal-black sky */
+  --theme-surface: 15 24 30;
+  --theme-surface-alt: 11 19 24;
+  --theme-border: 38 54 62;
+  --theme-text: 216 232 238;       /* cool wet light */
+  --theme-text-muted: 134 158 168;
+  --theme-text-dim: 84 104 114;
+  --theme-primary: 34 211 238;     /* electric rain cyan (neon sign) */
+  --theme-primary-hover: 18 190 218;
   --theme-accent: 244 114 182;     /* neon magenta (city reflection) */
   --theme-accent-hover: 236 72 153;
-  --theme-accent-foreground: 6 18 31;
+  --theme-accent-foreground: 6 16 20;
   --theme-danger: 248 113 113;     /* warning red */
   --theme-success: 52 211 153;
   --theme-ai: 167 139 250;         /* violet hologram — AI feature accent */
   --theme-ai-hover: 139 92 246;
-  --theme-ai-foreground: 6 18 31;
-  --theme-header-bg: 10 16 28;
-  --theme-header-border: 42 58 85;
-  --theme-input-bg: 17 26 43;
-  --theme-input-border: 48 66 94;
-  --theme-dice-card-bg: 17 26 43;
-  --theme-dice-card-border: 42 58 85;
-  --theme-private-border: 56 189 248;
-  --theme-private-bg: 13 24 42;     /* deep glass blue */
-  --theme-scroll-btn: 56 189 248;
-  --theme-primary-foreground: 6 18 31;  /* dark text on bright cyan */
+  --theme-ai-foreground: 6 16 20;
+  --theme-header-bg: 9 15 20;
+  --theme-header-border: 38 54 62;
+  --theme-input-bg: 15 24 30;
+  --theme-input-border: 44 62 72;
+  --theme-dice-card-bg: 15 24 30;
+  --theme-dice-card-border: 38 54 62;
+  --theme-private-border: 34 211 238;
+  --theme-private-bg: 11 22 28;     /* deep glass teal */
+  --theme-scroll-btn: 34 211 238;
+  --theme-primary-foreground: 6 18 22;  /* dark text on bright cyan */
 
   /* === Skeuomorphic: cyan neon glow === */
-  --theme-glow: 0 0 8px rgba(56, 189, 248, 0.45),
-               0 0 22px rgba(56, 189, 248, 0.18);
+  --theme-glow: 0 0 8px rgba(34, 211, 238, 0.45),
+               0 0 22px rgba(34, 211, 238, 0.18);
   /* === Skeuomorphic: soft drop + glass top-edge highlight === */
   --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
-                       0 6px 18px rgba(2, 6, 18, 0.5),
-                       0 2px 4px rgba(2, 6, 18, 0.4);
+                       0 6px 18px rgba(2, 8, 12, 0.5),
+                       0 2px 4px rgba(2, 8, 12, 0.4);
   /* === Skeuomorphic: faint diagonal rain on the glass === */
   --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%23ffffff' stroke-opacity='0.03' stroke-width='1'/%3E%3C/svg%3E");
   /* === Signature motif: falling-rain divider with a droplet === */
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg stroke='%2338bdf8' stroke-width='1' stroke-linecap='round' opacity='0.5'%3E%3Cpath d='M18 3 L15 12'/%3E%3Cpath d='M34 4 L31 13'/%3E%3Cpath d='M86 4 L83 13'/%3E%3Cpath d='M102 3 L99 12'/%3E%3C/g%3E%3Cpath d='M60 3 C63 8 65 10 60 13 C55 10 57 8 60 3 Z' fill='none' stroke='%2338bdf8' stroke-width='1.2'/%3E%3C/svg%3E");
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg stroke='%2322d3ee' stroke-width='1' stroke-linecap='round' opacity='0.5'%3E%3Cpath d='M18 3 L15 12'/%3E%3Cpath d='M34 4 L31 13'/%3E%3Cpath d='M86 4 L83 13'/%3E%3Cpath d='M102 3 L99 12'/%3E%3C/g%3E%3Cpath d='M60 3 C63 8 65 10 60 13 C55 10 57 8 60 3 Z' fill='none' stroke='%2322d3ee' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+
+/* Ambient neon glow on the page bg so frosted panels have colour to bloom
+   into a halo (a flat bg blurs to nothing — no glass look). */
+[data-theme="rainglass"][data-mode="dark"] body,
+[data-theme="rainglass"][data-mode="dark"] .bg-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(60% 50% at 8% -5%, rgba(34, 211, 238, 0.18), transparent 70%),
+    radial-gradient(55% 45% at 100% 0%, rgba(244, 114, 182, 0.14), transparent 70%),
+    radial-gradient(70% 60% at 50% 115%, rgba(124, 92, 224, 0.13), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, 4px 4px;
 }
 
 [data-theme="rainglass"][data-mode="dark"] .conv-sidebar {
-  background: linear-gradient(180deg, rgba(13, 22, 40, 0.82) 0%, rgba(8, 14, 26, 0.82) 100%);
-  border-right: 1px solid rgba(56, 189, 248, 0.18);
+  background: linear-gradient(180deg, rgba(11, 20, 26, 0.6) 0%, rgba(6, 12, 16, 0.55) 100%);
+  backdrop-filter: blur(4px) saturate(1.5);
+  border-right: 1px solid rgba(34, 211, 238, 0.18);
 }
 [data-theme="rainglass"][data-mode="dark"] .conv-tab {
-  background: linear-gradient(90deg, rgba(23, 38, 64, 0.4) 0%, rgba(12, 20, 34, 0.2) 100%);
-  border-bottom: 1px solid rgba(42, 58, 85, 0.5);
+  background: linear-gradient(90deg, rgba(15, 26, 32, 0.4) 0%, rgba(9, 16, 20, 0.2) 100%);
+  border-bottom: 1px solid rgba(38, 54, 62, 0.5);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 [data-theme="rainglass"][data-mode="dark"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(34, 52, 84, 0.6) 0%, rgba(18, 30, 50, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(22, 38, 46, 0.6) 0%, rgba(12, 22, 28, 0.3) 100%);
 }
 [data-theme="rainglass"][data-mode="dark"] .conv-tab.active {
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(18, 30, 50, 0.12) 100%);
-  border-bottom-color: rgba(56, 189, 248, 0.3);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.16) 0%, rgba(12, 22, 28, 0.12) 100%);
+  border-bottom-color: rgba(34, 211, 238, 0.3);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 [data-theme="rainglass"][data-mode="dark"] .conv-divider {
-  filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.5));
+  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.5));
 }
 [data-theme="rainglass"][data-mode="dark"] .clue-card,
 [data-theme="rainglass"][data-mode="dark"] .inventory-card,
 [data-theme="rainglass"][data-mode="dark"] .item-detail-panel {
-  background-color: rgba(20, 31, 52, 0.55) !important;
-  background-image: linear-gradient(rgba(20, 31, 52, 0.4), rgba(14, 22, 38, 0.55)) !important;
-  backdrop-filter: blur(12px) saturate(1.1);
-  -webkit-backdrop-filter: blur(12px) saturate(1.1);
-  border: 1px solid rgba(82, 110, 150, 0.45) !important;
+  background-color: rgba(15, 24, 30, 0.55) !important;
+  background-image: linear-gradient(rgba(15, 24, 30, 0.45), rgba(11, 19, 24, 0.55)) !important;
+  backdrop-filter: blur(4px) saturate(1.5);
+  border: 1px solid rgba(60, 86, 98, 0.45) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-              0 6px 18px rgba(2, 6, 18, 0.45) !important;
-  --theme-text: 224 234 248;
-  --theme-text-muted: 150 172 204;
-  --theme-text-dim: 100 120 152;
+              0 6px 18px rgba(2, 8, 12, 0.45) !important;
+  --theme-text: 216 232 238;
+  --theme-text-muted: 134 158 168;
+  --theme-text-dim: 84 104 114;
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="rainglass"][data-mode="dark"] .clue-card:hover,
 [data-theme="rainglass"][data-mode="dark"] .inventory-card:hover {
-  border-color: rgba(56, 189, 248, 0.6) !important;
+  border-color: rgba(34, 211, 238, 0.6) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
-              0 0 16px rgba(56, 189, 248, 0.25) !important;
+              0 0 16px rgba(34, 211, 238, 0.25) !important;
 }
 [data-theme="rainglass"][data-mode="dark"] .clue-card::before,
 [data-theme="rainglass"][data-mode="dark"] .inventory-card::before,
 [data-theme="rainglass"][data-mode="dark"] .item-detail-panel::before {
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
 }
 [data-theme="rainglass"][data-mode="dark"] .chat-bubble-other::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%2338bdf8' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%2338bdf8' fill-opacity='0.25'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.8));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%2322d3ee' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%2322d3ee' fill-opacity='0.25'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.8));
 }
 [data-theme="rainglass"][data-mode="dark"] .chat-bubble-own::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 28' fill='none' stroke='%23f472b6' stroke-width='1.6'%3E%3Cpath d='M12 2 C18 12 21 16 12 24 C3 16 6 12 12 2 Z' fill='%23f472b6' fill-opacity='0.25'/%3E%3C/svg%3E");
@@ -257,15 +297,27 @@
 }
 [data-theme="rainglass"][data-mode="dark"] .theme-border {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-              0 0 14px rgba(56, 189, 248, 0.28),
-              0 0 36px rgba(56, 189, 248, 0.12),
-              0 8px 24px rgba(2, 6, 18, 0.45);
+              0 0 14px rgba(34, 211, 238, 0.28),
+              0 0 36px rgba(34, 211, 238, 0.12),
+              0 8px 24px rgba(2, 8, 12, 0.45);
 }
 [data-theme="rainglass"][data-mode="dark"] .filter-indicator {
-  background: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6), 0 0 24px rgba(14, 165, 233, 0.3);
+  background: #22d3ee;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.6), 0 0 24px rgba(8, 145, 178, 0.3);
 }
 [data-theme="rainglass"][data-mode="dark"] .filter-tab-active {
-  color: #7dd3fc;
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+  color: #67e8f9;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+/* === Frosted glass: translucent floating surfaces (overlays, cards, header) === */
+[data-theme="rainglass"][data-mode="dark"] .overlay-modal,
+[data-theme="rainglass"][data-mode="dark"] .overlay-drawer,
+[data-theme="rainglass"][data-mode="dark"] .theme-border.bg-surface {
+  background-color: rgb(var(--theme-surface) / 0.62) !important;
+  backdrop-filter: blur(4px) saturate(1.5);
+}
+[data-theme="rainglass"][data-mode="dark"] .bg-header-bg {
+  background-color: rgb(var(--theme-header-bg) / 0.62) !important;
+  backdrop-filter: blur(4px) saturate(1.5);
 }
