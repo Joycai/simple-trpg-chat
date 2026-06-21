@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useTheme } from "./ThemeProvider";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import type { ThemeId } from "@/themes/types";
 
 interface AdminThemeSetterProps {

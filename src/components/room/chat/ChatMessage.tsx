@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, memo } from "react";
 import { formatTime, formatDiceResult } from "@/lib/utils";
-import { ImagePreview } from "./ImagePreview";
+import { ImagePreview } from "@/components/shared/ImagePreview";
 import { useTranslations } from "next-intl";
-import { MarkdownRenderer } from "./MarkdownRenderer";
-import { ResourceStatusTooltip } from "./ResourceStatusTooltip";
+import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
+import { ResourceStatusTooltip } from "@/components/room/chat/ResourceStatusTooltip";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";

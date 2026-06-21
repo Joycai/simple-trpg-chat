@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { DiceRoller } from "./DiceRoller";
-import { Icons } from "./icons";
+import { DiceRoller } from "@/components/room/chat/DiceRoller";
+import { Icons } from "@/components/shared/icons";
 import { useTranslations } from "next-intl";
 
 interface MentionTarget {

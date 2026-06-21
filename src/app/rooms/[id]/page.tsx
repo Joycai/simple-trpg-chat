@@ -4,8 +4,8 @@ import { rooms, roomMembers, messages, users, systemConfig, aiProviders } from "
 import { eq, or, desc } from "drizzle-orm";
 import { messageVisibilityWhere } from "@/lib/messaging/router";
 import { redirect } from "next/navigation";
-import { RoomClient } from "@/components/RoomClient";
-import { RoomThemeSetter } from "@/components/RoomThemeSetter";
+import { RoomClient } from "@/components/room/RoomClient";
+import { RoomThemeSetter } from "@/components/theme/RoomThemeSetter";
 import type { ThemeId, ThemeMode } from "@/themes/types";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";

@@ -6,7 +6,7 @@ import { createInventoryItemAction, updateInventoryItemAction, distributeItemAct
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
-import { Icons } from "./icons";
+import { Icons } from "@/components/shared/icons";
 
 interface InventoryItem {
   id: number;

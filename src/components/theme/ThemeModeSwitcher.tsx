@@ -1,7 +1,7 @@
 "use client";
 
 import { Monitor, Sun, Moon, type LucideIcon } from "lucide-react";
-import { useTheme } from "./ThemeProvider";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { useTranslations } from "next-intl";
 import { THEME_MODES, type ThemeMode } from "@/themes/types";
 

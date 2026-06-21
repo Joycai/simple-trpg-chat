@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { aiTokenUsages, users, aiProviders } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { TokenUsageDashboard } from "@/components/TokenUsageDashboard";
+import { TokenUsageDashboard } from "@/components/admin/usage/TokenUsageDashboard";
 
 export default async function AdminUsagePage() {
   const t = await getTranslations("tokenUsage");

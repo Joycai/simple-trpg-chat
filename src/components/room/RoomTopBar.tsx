@@ -3,8 +3,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Icons } from "../icons";
-import type { Room } from "./types";
+import { Icons } from "@/components/shared/icons";
+import type { Room } from "@/components/room/types";
 
 type CheckMode = null | "check" | "psychology" | "sancheck";
 

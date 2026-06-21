@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getTranslations } from "next-intl/server";
-import { AdminUserManager } from "@/components/AdminUserManager";
+import { AdminUserManager } from "@/components/admin/users/AdminUserManager";
 
 export default async function AdminUsersPage() {
   const t = await getTranslations("admin");

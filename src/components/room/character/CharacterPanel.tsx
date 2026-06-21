@@ -10,8 +10,8 @@ import type { CharacterData, CocAttributes } from "@/lib/character-types";
 import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
 import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
-import { Icons } from "./icons";
-import { AvatarCropper } from "./AvatarCropper";
+import { Icons } from "@/components/shared/icons";
+import { AvatarCropper } from "@/components/room/character/AvatarCropper";
 
 interface CharacterPanelProps {
   roomId: number;

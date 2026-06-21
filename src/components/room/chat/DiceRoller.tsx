@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Icons } from "./icons";
+import { Icons } from "@/components/shared/icons";
 
 const DICE_FACES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
 

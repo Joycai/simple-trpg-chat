@@ -10,30 +10,30 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } fr
 // SSR so React doesn't warn. Used to settle the sidebar's collapsed state ahead
 // of the first paint so it never flashes open then closes on room entry.
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
-import { ChatMessage } from "./ChatMessage";
-import { ChatInput } from "./ChatInput";
-import { CharacterPanel } from "./CharacterPanel";
-import { RoomSettings } from "./RoomSettings";
-import { InventoryPanel } from "./InventoryPanel";
-import { BotManager } from "./BotManager";
-import { AiImportPanel } from "./AiImportPanel";
-import { ExportButton } from "./ExportButton";
-import { RoomInfoPanel } from "./RoomInfoPanel";
-import { ConversationPanel } from "./ConversationPanel";
-import { HostCheckDialog } from "./HostCheckDialog";
-import { SkillSetPrompt } from "./SkillSetPrompt";
-import { SkillPanel } from "./SkillPanel";
-import { UserSettingsPanel } from "./UserSettingsPanel";
-import { OverlayShell } from "./OverlayShell";
-import { RoomTopBar } from "./room/RoomTopBar";
-import { MembersDialog } from "./room/MembersDialog";
+import { ChatMessage } from "@/components/room/chat/ChatMessage";
+import { ChatInput } from "@/components/room/chat/ChatInput";
+import { CharacterPanel } from "@/components/room/character/CharacterPanel";
+import { RoomSettings } from "@/components/room/RoomSettings";
+import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
+import { BotManager } from "@/components/room/bot/BotManager";
+import { AiImportPanel } from "@/components/room/bot/AiImportPanel";
+import { ExportButton } from "@/components/room/ExportButton";
+import { RoomInfoPanel } from "@/components/room/RoomInfoPanel";
+import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
+import { HostCheckDialog } from "@/components/room/chat/HostCheckDialog";
+import { SkillSetPrompt } from "@/components/room/character/SkillSetPrompt";
+import { SkillPanel } from "@/components/room/character/SkillPanel";
+import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
+import { OverlayShell } from "@/components/shared/OverlayShell";
+import { RoomTopBar } from "@/components/room/RoomTopBar";
+import { MembersDialog } from "@/components/room/MembersDialog";
 import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
-import type { Message, RoomClientProps } from "./room/types";
+import type { Message, RoomClientProps } from "@/components/room/types";
 import { canSee, channelOf, countsAsDmUnread, isAudience } from "@/lib/messaging/audience";
 
 export function RoomClient({

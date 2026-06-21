@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Palette, Check } from "lucide-react";
-import { useTheme } from "./ThemeProvider";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { useLocale, useTranslations } from "next-intl";
 import { getThemeName, getThemeDesc } from "@/themes/types";
 

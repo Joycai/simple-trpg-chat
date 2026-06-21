@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions/user";
 import { useTranslations } from "next-intl";
-import { UserSettingsPanel } from "@/components/UserSettingsPanel";
+import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
 
 interface UserDropdownProps {
   userName: string;

@@ -2,8 +2,8 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { getSiteTheme } from "@/app/actions/theme";
 import type { ThemeId } from "@/themes/types";
-import { AdminThemeSetter } from "@/components/AdminThemeSetter";
-import { AdminSidebar } from "@/components/AdminSidebar";
+import { AdminThemeSetter } from "@/components/theme/AdminThemeSetter";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { getCachedSiteTitle } from "@/lib/config";
 import { APP_VERSION } from "@/lib/version";
 

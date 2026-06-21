@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Key, History, Ban, Coins } from "lucide-react";
 import { createUser, deleteUser, resetPassword, changeOwnPassword, toggleBanUser, updateUserAiPoints } from "@/app/admin/actions";
 import { getUserLoginHistory } from "@/app/actions/login-history";
-import { UserLoginHistory } from "@/components/UserLoginHistory";
+import { UserLoginHistory } from "@/components/user/UserLoginHistory";
 import { useRouter } from "next/navigation";
 
 interface User {

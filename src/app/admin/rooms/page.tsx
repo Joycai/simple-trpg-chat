@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { rooms, users, roomMembers } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { AdminRoomManager } from "@/components/AdminRoomManager";
+import { AdminRoomManager } from "@/components/admin/rooms/AdminRoomManager";
 
 export default async function AdminRoomsPage() {
   const t = await getTranslations("admin");

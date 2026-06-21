@@ -1,6 +1,6 @@
 "use client";
 
-import { ThemeProvider } from "./ThemeProvider";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import type { ThemeId, ThemeMode } from "@/themes/types";
 import type { ReactNode } from "react";
 

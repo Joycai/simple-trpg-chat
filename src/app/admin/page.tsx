@@ -2,7 +2,7 @@ import { db, currentDialect } from "@/db";
 import { users, systemConfig, rooms } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { AdminDashboard } from "@/components/AdminDashboard";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 
 export default async function AdminPage() {
   const t = await getTranslations("admin");

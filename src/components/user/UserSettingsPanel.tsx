@@ -8,7 +8,7 @@ import { getMyLoginHistory } from "@/app/actions/login-history";
 import { getMyProviders, createProvider, updateProvider, deleteProvider, getMyPrivateTokenUsages } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
 import { setUserLocale } from "@/app/actions/locale";
-import { UserLoginHistory } from "@/components/UserLoginHistory";
+import { UserLoginHistory } from "@/components/user/UserLoginHistory";
 import { getMyAiPointsInfo } from "@/app/actions/ai-points";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 

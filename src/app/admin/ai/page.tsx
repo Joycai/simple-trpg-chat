@@ -2,9 +2,9 @@ import { db } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { AdminAiToggle } from "@/components/AdminAiToggle";
-import { AdminProviderManager } from "@/components/AdminProviderManager";
-import { AdminBotPresets } from "@/components/AdminBotPresets";
+import { AdminAiToggle } from "@/components/admin/ai/AdminAiToggle";
+import { AdminProviderManager } from "@/components/admin/ai/AdminProviderManager";
+import { AdminBotPresets } from "@/components/admin/ai/AdminBotPresets";
 import { getBotPresetsAction } from "@/app/actions/bot-presets";
 
 export default async function AdminAiFeaturesPage() {

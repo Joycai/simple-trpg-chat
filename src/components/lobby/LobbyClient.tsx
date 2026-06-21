@@ -4,8 +4,8 @@ import { useState, useRef } from "react";
 import { createRoomAction, joinRoomAction } from "@/app/actions/room";
 import { useLocale, useTranslations } from "next-intl";
 import { THEME_LIST, getThemeName } from "@/themes/types";
-import { Icons } from "@/components/icons";
-import { OverlayShell } from "@/components/OverlayShell";
+import { Icons } from "@/components/shared/icons";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 import Link from "next/link";
 
 interface Room {
