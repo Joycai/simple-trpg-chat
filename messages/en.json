@@ -240,6 +240,8 @@
     "submit": "Create",
     "userList": "Account List",
     "delete": "Delete",
+    "deleteUserConfirm": "Delete user {name}? This cannot be undone.",
+    "deleteUserHostsRooms": "Cannot delete: this user still hosts {count} room(s). Transfer or delete those rooms first.",
     "noUsers": "No accounts found",
     "userManagement": "User Management",
     "userManagementDesc": "Manage user accounts and permissions",

@@ -240,6 +240,8 @@
     "submit": "创建",
     "userList": "账号列表",
     "delete": "删除",
+    "deleteUserConfirm": "确定删除用户 {name}？此操作不可撤销。",
+    "deleteUserHostsRooms": "无法删除：该用户仍在主持 {count} 个房间，请先转移或删除这些房间。",
     "noUsers": "暂无账号",
     "userManagement": "用户管理",
     "userManagementDesc": "管理系统用户账号和权限",

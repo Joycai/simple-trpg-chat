@@ -67,6 +67,17 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
     }
   };
 
+  const handleDeleteUser = async (id: number, username: string) => {
+    if (!confirm(t("deleteUserConfirm", { name: username }))) return;
+    try {
+      await deleteUser(id);
+      router.refresh();
+    } catch (e: unknown) {
+      // Surfaces the server-side guard (e.g. user still hosts rooms).
+      alert(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const openHistory = async (userId: number, username: string) => {
     setHistoryUser({ id: userId, username });
     setLoadingHistory(true);
@@ -346,12 +357,12 @@ export function AdminUserManager({ users: allUsers }: AdminUserManagerProps) {
                       )}
                     </>
                   )}
-                  <form action={deleteUser.bind(null, user.id)} className="inline">
-                    <button className="text-danger/60 hover:text-danger text-xs transition disabled:opacity-20"
-                      disabled={user.username === "admin"}>
-                      {user.username === "admin" ? "—" : t("delete")}
-                    </button>
-                  </form>
+                  <button
+                    onClick={() => handleDeleteUser(user.id, user.username)}
+                    className="text-danger/60 hover:text-danger text-xs transition disabled:opacity-20"
+                    disabled={user.username === "admin"}>
+                    {user.username === "admin" ? "—" : t("delete")}
+                  </button>
                 </td>
               </tr>
             ))
