@@ -8,7 +8,6 @@ import { useTranslations } from "next-intl";
 
 export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
-  const t = useTranslations("admin");
 
   const [providers, setProviders] = useState<Awaited<ReturnType<typeof getAllProviders>>>([]);
   const [loading, setLoading] = useState(true);

@@ -156,7 +156,7 @@ export function formatDiceResult(diceDetail: string | null, t?: (key: string, op
 
     // Skill check (.rc) result
     if (detail.check) {
-      const { skillName, target, roll, success, grade } = detail.check;
+      const { skillName, target, success, grade } = detail.check;
       let label: string;
       if (t) {
         if (grade === "critical") label = `🟢 ${t("critical")}`;

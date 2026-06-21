@@ -159,7 +159,6 @@ export function CharacterPanel({
     setCurrentSan(cd.cocDerived?.san_current ?? d.san);
     setCurrentMp(cd.cocDerived?.mp_current ?? d.mp);
     /* eslint-enable react-hooks/set-state-in-effect */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterData]);
 
   const saveNickname = async () => {

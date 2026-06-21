@@ -1,9 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { messages, roomMembers, rooms, users } from "@/db/schema";
+import { messages, roomMembers, rooms } from "@/db/schema";
 import { eq, asc, and, gt } from "drizzle-orm";
-import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 

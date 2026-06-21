@@ -4,7 +4,6 @@ import { db, sqlBool } from "@/db";
 import { users, roomMembers } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
@@ -156,7 +155,7 @@ export async function deleteBotAction(roomId: number, botUserId: number) {
 /**
  * checkBotMentionAction (UI helper)
  */
-export async function checkBotMentionAction(roomId: number, content: string, senderUserId: number) {
+export async function checkBotMentionAction(roomId: number, content: string, _senderUserId: number) {
   const bots = await getRoomBotsAction(roomId);
   for (const bot of bots) {
     if (content.includes(`@${bot.nickname}`)) {

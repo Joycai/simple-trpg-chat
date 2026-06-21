@@ -20,7 +20,7 @@ vi.mock("@/auth", () => {
 
 vi.mock("@/lib/auth-helpers", () => {
   return {
-    checkRoomAccess: vi.fn((roomId: number, requireHost?: boolean) => {
+    checkRoomAccess: vi.fn((_roomId: number, _requireHost?: boolean) => {
       if (!mockSession) return Promise.reject(new Error("Not authenticated"));
       return Promise.resolve({
         userId: parseInt(mockSession.user.id),

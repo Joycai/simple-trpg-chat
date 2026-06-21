@@ -65,7 +65,7 @@ export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?:
   if (Object.keys(data.privateConversations).length > 0) {
     lines.push(`## ${t("privateLogs")}`);
     lines.push("");
-    for (const [key, msgs] of Object.entries(data.privateConversations)) {
+    for (const [_key, msgs] of Object.entries(data.privateConversations)) {
       if (msgs.length === 0) continue;
       const p1 = msgs[0].nickname || `#${msgs[0].userId}`;
       const p2 = msgs[0].targetNickname || `#${msgs[0].targetUserId}`;

@@ -8,7 +8,7 @@ import { dispatchMessage } from "@/lib/messaging/router";
 import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { z } from "zod";
-import { computeCocDerived, type CharacterData, type CocAttributes, type CustomAttribute } from "@/lib/character-types";
+import { computeCocDerived, type CharacterData } from "@/lib/character-types";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({

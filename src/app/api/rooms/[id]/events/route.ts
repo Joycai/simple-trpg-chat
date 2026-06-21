@@ -70,7 +70,7 @@ export async function GET(
     try {
       // Send a protocol-compliant keep-alive comment payload
       conn.controller.enqueue(pingEncoder.encode(":\n\n"));
-    } catch (err) {
+    } catch {
       // If enqueue throws, the stream controller is closed/errored; prune it
       conn.cleanup();
     }

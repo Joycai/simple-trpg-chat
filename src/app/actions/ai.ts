@@ -4,7 +4,7 @@ import { db, sqlNow } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 
 /**

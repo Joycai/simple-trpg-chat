@@ -9,7 +9,6 @@ import {
   type CharacterData,
   type CocAttributes,
   type CustomAttribute,
-  type ResourceBar,
   COC_DEFAULT_ATTRIBUTES,
   computeCocDerived,
 } from "@/lib/character-types";

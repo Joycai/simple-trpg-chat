@@ -31,8 +31,6 @@ export function ConversationPanel({
   onTabChange,
   dmConversations,
   onStartDM,
-  roomId,
-  userId,
   width,
   collapsed,
   resizing = false,

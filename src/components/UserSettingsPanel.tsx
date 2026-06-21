@@ -113,61 +113,42 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
     if (tab === "history") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingHistory(true);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHistoryError("");
       getMyLoginHistory()
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .then(data => setRecords(data))
         .catch((e: unknown) => {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setHistoryError(e instanceof Error ? e.message : "Failed to load login history");
         })
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingHistory(false));
     }
     if (tab === "ai") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingProviders(true);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProvidersError("");
       getMyProviders()
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .then(data => setProviders(data as typeof providers))
         .catch((e: unknown) => {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setProvidersError(e instanceof Error ? e.message : "Failed to load AI providers");
         })
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingProviders(false));
     }
     if (tab === "ai-usage") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingUsage(true);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsageError("");
       getMyPrivateTokenUsages()
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .then(data => setUsageRecords(data as typeof usageRecords))
         .catch((e: unknown) => {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setUsageError(e instanceof Error ? e.message : "Failed to load usage statistics");
         })
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingUsage(false));
     }
     if (tab === "ai-points") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingPoints(true);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPointsError("");
       getMyAiPointsInfo()
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .then(data => setPointsInfo(data as typeof pointsInfo))
         .catch((e: unknown) => {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPointsError(e instanceof Error ? e.message : "Failed to load AI points info");
         })
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         .finally(() => setLoadingPoints(false));
     }
   }, [tab]);

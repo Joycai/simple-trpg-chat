@@ -29,7 +29,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
+  const [_mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
 
   // Private chat states
@@ -47,7 +47,6 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsPrivate(isPrivateLocked);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isPrivateLocked) setPrivateTargetId(null); // When locked to a tab, we don't need the local target selector
   }, [isPrivateLocked]);
 

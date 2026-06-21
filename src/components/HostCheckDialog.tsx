@@ -39,7 +39,8 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
 
   const togglePlayer = (id: number) => {
     const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
     setSelectedIds(next);
   };
 
