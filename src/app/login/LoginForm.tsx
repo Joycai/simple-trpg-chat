@@ -73,8 +73,8 @@ export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginF
 
   return (
     <div className="relative overflow-hidden flex flex-col items-center justify-center min-h-screen bg-surface">
-      <ShrineLantern side="left" />
-      <ShrineLantern side="right" />
+      <ShrineLantern side="left" width={58} bottom={20} />
+      <ShrineLantern side="right" width={58} bottom={20} />
       <form
         onSubmit={handleSubmit}
         className="relative z-[2] p-8 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
