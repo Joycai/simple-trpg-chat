@@ -86,6 +86,7 @@
     "publicChat": "公频消息",
     "noDmMembers": "暂无私聊成员",
     "startDm": "发起私聊",
+    "investigators": "成员",
     "skillSetTitle": "设置技能",
     "skillSetDesc": "你尚未设置技能【{skillName}】，请输入数值后再进行检定。",
     "skillSetLabel": "技能数值（{min}-{max}）",

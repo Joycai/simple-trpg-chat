@@ -86,6 +86,7 @@
     "publicChat": "Public Chat",
     "noDmMembers": "No DM members yet",
     "startDm": "Start Private Chat",
+    "investigators": "Members",
     "skillSetTitle": "Set Skill",
     "skillSetDesc": "You haven't set 【{skillName}】 yet. Enter a value to roll the check.",
     "skillSetLabel": "Skill value ({min}-{max})",
