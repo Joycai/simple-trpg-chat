@@ -35,14 +35,11 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export const db = pgDrizzle(client, { schema: pgSchema });
+// Surfaced in the admin dashboard (dbType). PostgreSQL is the only dialect.
 export const currentDialect = 'postgresql' as const;
 
 console.log('[DB] Initialized PostgreSQL');
 
 export function sqlNow() {
   return sql`NOW()`;
-}
-
-export function sqlBool(val: boolean) {
-  return val;
 }

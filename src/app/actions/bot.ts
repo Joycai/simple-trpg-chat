@@ -1,6 +1,6 @@
 "use server";
 
-import { db, sqlBool } from "@/db";
+import { db } from "@/db";
 import { users, roomMembers } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -78,7 +78,7 @@ export async function getRoomBotsAction(roomId: number) {
     .select()
     .from(roomMembers)
     .innerJoin(users, eq(roomMembers.userId, users.id))
-    .where(and(eq(roomMembers.roomId, roomId), sql`${users.isBot} = ${sqlBool(true)}`));
+    .where(and(eq(roomMembers.roomId, roomId), sql`${users.isBot} = ${true}`));
 
   return results.map((r: { users: { id: number; displayName: string | null; botConfigJson: string | null }; room_members: { id: number; nickname: string; avatarColor: string | null } }) => ({
     id: r.users.id,

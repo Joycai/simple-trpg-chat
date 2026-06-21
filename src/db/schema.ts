@@ -1,9 +1,16 @@
 /**
  * Simple TRPG Chat — PostgreSQL Schema (Drizzle ORM)
  *
- * Mirror of schema.ts for PostgreSQL dialect.
- * Tables: users | rooms | room_members | messages | room_skills | system_config
- *         | clue_cards | clue_visibility
+ * Single source of truth for the database (PostgreSQL only). 17 tables:
+ *   Identity:   users
+ *   Room core:  rooms | room_members | room_skills | room_dm_reads
+ *   Messaging:  messages
+ *   Inventory:  inventory_items | inventory_distributions
+ *   Clues:      clue_cards | clue_visibility
+ *   AI economy: ai_providers | ai_token_usages | ai_point_logs
+ *   Platform:   system_config | daily_stats | bot_presets | login_history
+ *
+ * See docs/arch/database.md for column-level reference.
  */
 
 import { pgTable, text, integer, serial, boolean, timestamp, unique, index, doublePrecision } from 'drizzle-orm/pg-core';
