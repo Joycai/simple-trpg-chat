@@ -99,7 +99,12 @@ export const roomMembers = pgTable('room_members', {
   characterData: text('character_data'),
   avatarColor: text('avatar_color'),
   avatar: text('avatar'),
-});
+}, (t) => ({
+  // A user has exactly one membership per room. The unique index also serves the
+  // hot (roomId)-prefixed lookups (player list, membership checks). Existing rows
+  // must be deduped before `db:push` adds this — see src/db/dedup-room-members.ts.
+  unq: unique().on(t.roomId, t.userId),
+}));
 
 export const roomSkills = pgTable('room_skills', {
   id: serial('id').primaryKey(),

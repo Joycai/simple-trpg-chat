@@ -16,6 +16,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:doctor": "tsx src/db/doctor.ts",
     "db:backfill-audience": "tsx src/db/backfill-audience.ts",
+    "db:dedup-room-members": "tsx src/db/dedup-room-members.ts",
     "tsc": "tsc",
     "test": "vitest run",
     "test:e2e": "playwright test",
