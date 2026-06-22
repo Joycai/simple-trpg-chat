@@ -41,23 +41,32 @@ export async function getSessionStatus(
   userId: string,
   tokenSession: string,
 ): Promise<{ status: SessionStatus; kickedFromIp?: string }> {
+  // Read the token/ban state from the DB and refresh the cache. Throws on DB error.
+  async function loadFresh(): Promise<{ token: string; isBanned: boolean }> {
+    const { db } = await import("./db");
+    const { users } = await import("./db/schema");
+    const { eq } = await import("drizzle-orm");
+    const [user] = await db.select({ sessionToken: users.sessionToken, isBanned: users.isBanned }).from(users).where(eq(users.id, parseInt(userId)));
+    const token = user?.sessionToken || "";
+    const isBanned = !!user?.isBanned;
+    sessionCache.set(userId, { token, isBanned, expires: Date.now() + CACHE_TTL });
+    return { token, isBanned };
+  }
+
   const now = Date.now();
   let dbToken: string;
   let isBanned: boolean;
+  let fromCache: boolean;
 
   const cached = sessionCache.get(userId);
   if (cached && cached.expires > now) {
     dbToken = cached.token;
     isBanned = cached.isBanned;
+    fromCache = true;
   } else {
     try {
-      const { db } = await import("./db");
-      const { users } = await import("./db/schema");
-      const { eq } = await import("drizzle-orm");
-      const [user] = await db.select({ sessionToken: users.sessionToken, isBanned: users.isBanned }).from(users).where(eq(users.id, parseInt(userId)));
-      dbToken = user?.sessionToken || "";
-      isBanned = !!user?.isBanned;
-      sessionCache.set(userId, { token: dbToken, isBanned, expires: now + CACHE_TTL });
+      ({ token: dbToken, isBanned } = await loadFresh());
+      fromCache = false;
     } catch {
       return { status: "unavailable" }; // DB error: block user (fail-closed)
     }
@@ -65,6 +74,19 @@ export async function getSessionStatus(
 
   if (isBanned) return { status: "banned" };
   if (dbToken !== tokenSession) {
+    // A mismatch kicks the user — never do that on a possibly-stale cache entry.
+    // The cache is per-runtime/per-worker (Edge middleware vs Node, and per prod
+    // worker) and isn't reached by login's invalidateSessionCache(), so a freshly
+    // rotated token can mismatch a warm stale entry. Re-read the DB once to confirm.
+    if (fromCache) {
+      try {
+        ({ token: dbToken, isBanned } = await loadFresh());
+      } catch {
+        return { status: "unavailable" };
+      }
+      if (isBanned) return { status: "banned" };
+      if (dbToken === tokenSession) return { status: "valid" };
+    }
     return { status: "token_mismatch", kickedFromIp: await getLatestLoginIp(userId) };
   }
   return { status: "valid" };
