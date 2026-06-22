@@ -17,6 +17,8 @@ interface UseRoomEventsParams {
   setUnreadCounts: React.Dispatch<React.SetStateAction<Record<number, number>>>;
   setTypingBots: React.Dispatch<React.SetStateAction<TypingBots>>;
   setInventoryRefreshKey: React.Dispatch<React.SetStateAction<number>>;
+  setOnlineUserIds: React.Dispatch<React.SetStateAction<Set<number>>>;
+  setCharacterResources: React.Dispatch<React.SetStateAction<Map<number, { hp_current: number; hpMax: number }>>>;
 }
 
 /* Owns the room's single SSE connection: subscribes to /api/rooms/[id]/events,
@@ -33,6 +35,8 @@ export function useRoomEvents({
   setUnreadCounts,
   setTypingBots,
   setInventoryRefreshKey,
+  setOnlineUserIds,
+  setCharacterResources,
 }: UseRoomEventsParams) {
   const router = useRouter();
 
@@ -90,6 +94,21 @@ export function useRoomEvents({
             // Host edited an item — bump the key so any open InventoryPanel reloads
             // the edited content (distributed copies sync via the item relation).
             setInventoryRefreshKey((k) => k + 1);
+            return;
+          }
+          if (data.type === "presence_update") {
+            setOnlineUserIds(new Set(data.onlineUserIds as number[]));
+            return;
+          }
+          if (data.type === "character_updated") {
+            const uid = data.userId as number;
+            const hpCurrent = data.hp_current as number;
+            const hpMax = data.hpMax as number;
+            setCharacterResources((prev) => {
+              const next = new Map(prev);
+              next.set(uid, { hp_current: hpCurrent, hpMax });
+              return next;
+            });
             return;
           }
           if (data.type === "typing") {

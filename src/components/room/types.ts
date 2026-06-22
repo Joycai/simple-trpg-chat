@@ -59,7 +59,7 @@ export type PlayerEntry = {
   users?: { id?: number; isBot?: boolean; displayName?: string; username?: string; botConfigJson?: string | null };
   user?: { id?: number; isBot?: boolean };
   user_id?: number;
-  room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null };
+  room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null; characterData?: string | null };
   nickname?: string;
 };
 

@@ -5,6 +5,7 @@ import { roomMembers, rooms } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { broadcastToRoom } from "@/lib/events";
 import {
   type CharacterData,
   type CocAttributes,
@@ -330,6 +331,13 @@ export async function updateResourcesAction(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, targetUserId)
     ));
+
+  broadcastToRoom(roomId, {
+    type: "character_updated",
+    userId: targetUserId,
+    hp_current: charData.cocDerived.hp_current ?? charData.cocDerived.hp,
+    hpMax: charData.cocDerived.hpMax,
+  });
 
   revalidatePath(`/rooms/${roomId}`);
   return charData;

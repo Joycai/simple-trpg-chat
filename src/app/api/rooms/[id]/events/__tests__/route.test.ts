@@ -43,9 +43,11 @@ vi.mock("@/lib/events", () => {
   const subscribeToUser = vi.fn((_roomId: number, _userId: number, _listener: (data: unknown) => void) => {
     return () => {};
   });
+  const broadcastToRoom = vi.fn();
   return {
     subscribeToRoom,
     subscribeToUser,
+    broadcastToRoom,
     _listeners: listeners,
   };
 });
@@ -65,9 +67,12 @@ describe("SSE API Endpoint", () => {
         role: "player",
       },
     };
-    // Clean up the global connection Map between tests
+    // Clean up the global connection Maps between tests
     if (globalThis.__userConnections) {
       globalThis.__userConnections.clear();
+    }
+    if (globalThis.__roomPresence) {
+      globalThis.__roomPresence.clear();
     }
   });
 

@@ -72,6 +72,8 @@ export function RoomClient({
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
+  const [characterResources, setCharacterResources] = useState<Map<number, { hp_current: number; hpMax: number }>>(new Map());
   const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
   const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
   const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
@@ -155,30 +157,40 @@ export function RoomClient({
   const mentionTargets = useMemo(() => {
     return (players || [])
       .filter((p: { users?: { id?: number }; user_id?: number }) => (p.users?.id || p.user_id) !== userId)
-      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string } }) => {
+      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string; characterData?: string | null } }) => {
         const u = p.users || p.user;
         const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
+        const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
+        const cocDerived = charData?.cocDerived;
         return {
           id: (u?.id || p.user_id) ?? 0,
           nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
           isBot: !!u?.isBot,
           isBotDisabled,
           isProviderError,
+          hp: cocDerived?.hp_current ?? cocDerived?.hp ?? undefined as number | undefined,
+          maxHp: cocDerived?.hpMax ?? undefined as number | undefined,
         };
       });
   }, [players, userId, aiEnabled, validProviderIds]);
 
   // Build DM conversations
   const dmConversations = useMemo(() => {
-    return mentionTargets.map(p => ({
-      userId: p.id,
-      nickname: p.nickname,
-      isBot: p.isBot,
-      unread: unreadCounts[p.id] || 0,
-      isBotDisabled: p.isBotDisabled,
-      isProviderError: p.isProviderError,
-    }));
-  }, [mentionTargets, unreadCounts]);
+    return mentionTargets.map(p => {
+      const liveRes = characterResources.get(p.id);
+      return {
+        userId: p.id,
+        nickname: p.nickname,
+        isBot: p.isBot,
+        unread: unreadCounts[p.id] || 0,
+        isBotDisabled: p.isBotDisabled,
+        isProviderError: p.isProviderError,
+        isOnline: onlineUserIds.has(p.id),
+        hp: liveRes?.hp_current ?? p.hp,
+        maxHp: liveRes?.hpMax ?? p.maxHp,
+      };
+    });
+  }, [mentionTargets, unreadCounts, onlineUserIds, characterResources]);
 
   const totalUnread = useMemo(() => {
     return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
@@ -295,6 +307,8 @@ export function RoomClient({
     setUnreadCounts,
     setTypingBots,
     setInventoryRefreshKey,
+    setOnlineUserIds,
+    setCharacterResources,
   });
 
   // Re-fetch the current user's sheet so an open 角色卡 / 技能 panel reflects command-driven
@@ -482,7 +496,9 @@ export function RoomClient({
           activeTab={activeTab}
           onTabChange={handleTabChange}
           dmConversations={dmConversations}
-          onStartDM={() => setShowMembers(true)}
+          onStartDM={handleTabChange}
+          onViewCard={handleViewPlayerCard}
+          isHost={isHost}
           roomId={room.id}
           userId={userId}
           width={sidebarWidth}

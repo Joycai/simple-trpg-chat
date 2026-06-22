@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { subscribeToRoom, subscribeToUser } from "@/lib/events";
+import { subscribeToRoom, subscribeToUser, broadcastToRoom } from "@/lib/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { checkRoomAccess } from "@/lib/auth-helpers";
@@ -26,11 +26,16 @@ interface RoomEvent {
 // Next.js HMR workaround: persist userConnections on globalThis during development
 declare global {
   var __userConnections: Map<number, Set<ActiveConnection>> | undefined;
+  var __roomPresence: Map<number, Map<number, number>> | undefined;
 }
 
 const userConnections = globalThis.__userConnections || new Map<number, Set<ActiveConnection>>();
-// Always persist — production needs shared state
 globalThis.__userConnections = userConnections;
+
+// Tracks active SSE connection counts per room per user: roomId → (userId → count).
+// Used to broadcast presence_update events when users come online/go offline.
+const roomPresence = globalThis.__roomPresence || new Map<number, Map<number, number>>();
+globalThis.__roomPresence = roomPresence;
 
 export async function GET(
   req: NextRequest,
@@ -135,6 +140,18 @@ export async function GET(
 
       const unsubscribe = subscribeToRoom(roomId, listener);
 
+      // Presence: register this connection and broadcast updated online list to all room members.
+      // Must run after subscribeToRoom so this connection also receives the broadcast.
+      {
+        let roomConns = roomPresence.get(roomId);
+        if (!roomConns) {
+          roomConns = new Map<number, number>();
+          roomPresence.set(roomId, roomConns);
+        }
+        roomConns.set(userId, (roomConns.get(userId) || 0) + 1);
+        broadcastToRoom(roomId, { type: "presence_update", onlineUserIds: Array.from(roomConns.keys()) });
+      }
+
       // User-targeted events (typing indicators, etc.) — no privacy filter needed
       const userListener = (data: unknown) => {
         const ev2 = data as RoomEvent;
@@ -167,6 +184,19 @@ export async function GET(
         clearInterval(heartbeat);
         unsubscribe();
         userUnsubscribe();
+
+        // Presence: decrement connection count; broadcast offline only when user has no connections left.
+        const roomConns = roomPresence.get(roomId);
+        if (roomConns) {
+          const count = roomConns.get(userId) || 0;
+          if (count <= 1) {
+            roomConns.delete(userId);
+            if (roomConns.size === 0) roomPresence.delete(roomId);
+            broadcastToRoom(roomId, { type: "presence_update", onlineUserIds: Array.from(roomConns.keys()) });
+          } else {
+            roomConns.set(userId, count - 1);
+          }
+        }
 
         // Decrement connection count
         const conns = userConnections.get(userId);

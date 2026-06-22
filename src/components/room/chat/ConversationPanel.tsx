@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 interface DMConversation {
@@ -10,13 +11,18 @@ interface DMConversation {
   lastMessage?: string;
   isBotDisabled?: boolean;
   isProviderError?: boolean;
+  isOnline?: boolean;
+  hp?: number;
+  maxHp?: number;
 }
 
 interface ConversationPanelProps {
   activeTab: "public" | number; // "public" or userId
   onTabChange: (tab: "public" | number) => void;
   dmConversations: DMConversation[];
-  onStartDM: () => void;
+  onStartDM: (userId: number) => void;
+  onViewCard?: (userId: number, nickname: string) => void;
+  isHost: boolean;
   roomId: number;
   userId: number;
   width: number;
@@ -42,7 +48,10 @@ export function ConversationPanel({
   onTabChange,
   dmConversations,
   onStartDM,
+  onViewCard,
+  isHost,
   width,
+  userId,
   collapsed,
   resizing = false,
   onToggleCollapse,
@@ -50,6 +59,7 @@ export function ConversationPanel({
   roomMeta,
 }: ConversationPanelProps) {
   const t = useTranslations("room");
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
 
   return (
     // Outer animation shell — desktop collapses by animating width (chat reflows
@@ -67,6 +77,11 @@ export function ConversationPanel({
           : "w-64 lg:w-[var(--sidebar-width)] translate-x-0"
       }`}
     >
+    {/* Click-away overlay — closes any open member dropdown */}
+    {openDropdown !== null && (
+      <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)} />
+    )}
+
     <div className="flex flex-col bg-surface-alt border-r border-border h-full select-none conv-sidebar w-64 lg:w-[var(--sidebar-width)]">
 
       {/* Sidebar Header — room name + meta */}
@@ -159,60 +174,110 @@ export function ConversationPanel({
         {t("investigators")}
       </div>
 
-      {/* Member list with avatar initials + health bar placeholder */}
+      {/* Member list — avatar + name + HP bar + action dropdown */}
       <div className="flex-1 overflow-y-auto" style={{ padding: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-        {dmConversations.map(conv => (
-          <div
-            key={conv.userId}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px" }}
-          >
-            <span
-              style={{
-                width: 22, height: 22, borderRadius: "50%",
-                background: avatarColor(conv.userId),
-                color: "#fff", fontSize: 11, fontWeight: 700,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
-              }}
+        {dmConversations.map(conv => {
+          const hpPct = conv.hp != null && conv.maxHp
+            ? Math.max(0, Math.min(100, (conv.hp / conv.maxHp) * 100))
+            : 100;
+          const isDropdownOpen = openDropdown === conv.userId;
+          const canViewCard = isHost && !conv.isBot;
+          const canDM = conv.userId !== userId;
+
+          return (
+            <div
+              key={conv.userId}
+              className="group relative flex items-center gap-2 rounded-md hover:bg-surface/60 transition-colors duration-100"
+              style={{ padding: "5px 6px" }}
             >
-              {conv.nickname.charAt(0).toUpperCase()}
-            </span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div
-                className="text-text"
-                style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-              >
-                {conv.nickname}
-                {conv.isBot && (
-                  <span className="ml-1 text-[9px] text-text-dim font-normal">GM</span>
+              {/* Avatar with presence dot */}
+              <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0 }}>
+                <span
+                  style={{
+                    width: 24, height: 24, borderRadius: "50%",
+                    background: avatarColor(conv.userId),
+                    color: "#fff", fontSize: 11, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  {conv.nickname.charAt(0).toUpperCase()}
+                </span>
+                {!conv.isBot && (
+                  <span
+                    style={{
+                      position: "absolute", bottom: -1, right: -1,
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: conv.isOnline ? "rgb(var(--theme-success))" : "rgb(var(--theme-border))",
+                      border: "1.5px solid rgb(var(--theme-surface-alt))",
+                    }}
+                  />
                 )}
               </div>
-              {!conv.isBot && (
-                <div style={{ height: 3, borderRadius: 2, background: "rgb(var(--theme-border))", marginTop: 3 }}>
-                  <div style={{ width: "100%", height: "100%", borderRadius: 2, background: "rgb(var(--theme-success))" }} />
+
+              {/* Name + HP bar */}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  className="text-text"
+                  style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {conv.nickname}
+                  {conv.isBot && (
+                    <span className="ml-1 text-[9px] text-text-dim font-normal">GM</span>
+                  )}
+                </div>
+                {!conv.isBot && (
+                  <div style={{ height: 3, borderRadius: 2, background: "rgb(var(--theme-border))", marginTop: 3 }}>
+                    <div style={{ width: `${hpPct}%`, height: "100%", borderRadius: 2, background: "rgb(var(--theme-success))", transition: "width 300ms var(--ease-emphasized)" }} />
+                  </div>
+                )}
+              </div>
+
+              {/* Action button + dropdown — only shown when there's at least one action */}
+              {(canViewCard || canDM) && (
+                <div className="relative z-50" style={{ flexShrink: 0 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOpenDropdown(isDropdownOpen ? null : conv.userId); }}
+                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded hover:bg-border text-text-muted hover:text-text transition-all cursor-pointer"
+                    style={{ width: 20, height: 20, fontSize: 13, lineHeight: 1 }}
+                    title={t("memberOptions")}
+                  >
+                    ⋯
+                  </button>
+
+                  {isDropdownOpen && (
+                    <div
+                      className="overlay-pop absolute right-0 top-full mt-0.5 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[120px]"
+                      style={{ zIndex: 50, "--overlay-pop-origin": "top right" } as React.CSSProperties}
+                    >
+                      {canViewCard && (
+                        <button
+                          onClick={() => { onViewCard?.(conv.userId, conv.nickname); setOpenDropdown(null); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-surface-alt cursor-pointer transition-colors"
+                        >
+                          {t("btnViewCard")}
+                        </button>
+                      )}
+                      {canDM && (
+                        <button
+                          onClick={() => { onStartDM(conv.userId); setOpenDropdown(null); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-surface-alt cursor-pointer transition-colors"
+                        >
+                          {t("btnDm")}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {dmConversations.length === 0 && (
           <div className="py-8 text-center text-text-dim text-[10px]">
             {t("noDmMembers")}
           </div>
         )}
-      </div>
-
-      {/* New DM Button */}
-      <div className="p-2 border-t border-border/50 bg-surface/30 shrink-0">
-        <button
-          onClick={onStartDM}
-          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg border border-dashed border-border hover:border-primary/50 transition cursor-pointer"
-          title={t("startDm")}
-        >
-          <span className="text-sm">＋</span>
-          <span>{t("startDm")}</span>
-        </button>
       </div>
     </div>
     </div>
