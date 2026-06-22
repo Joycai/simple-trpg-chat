@@ -53,6 +53,28 @@ describe("Account Banning & Single-Session Invalidation", () => {
     expect(kickedFromIp).toBeUndefined();
   });
 
+  it("should NOT kick on a stale cache entry — re-reads the DB before reporting mismatch", async () => {
+    // Prime the cache for this userId with an old token.
+    mockSelect.mockReturnValue({
+      from: vi.fn(() => ({
+        where: vi.fn(() => Promise.resolve([{ sessionToken: "tok-old", isBanned: false }])),
+      })),
+    });
+    const primed = await getSessionStatus("99", "tok-old");
+    expect(primed.status).toBe("valid");
+
+    // A re-login rotated the DB token to "tok-new" (cache still warm with "tok-old").
+    // The presented JWT now carries "tok-new"; without the re-read fix this would be
+    // a false "token_mismatch" from the stale cache.
+    mockSelect.mockReturnValue({
+      from: vi.fn(() => ({
+        where: vi.fn(() => Promise.resolve([{ sessionToken: "tok-new", isBanned: false }])),
+      })),
+    });
+    const { status } = await getSessionStatus("99", "tok-new");
+    expect(status).toBe("valid");
+  });
+
   it("should fail closed with 'unavailable' on a DB error", async () => {
     mockSelect.mockImplementation(() => {
       throw new Error("db down");
