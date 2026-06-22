@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 
 interface DMConversation {
   userId: number;
@@ -14,6 +15,8 @@ interface DMConversation {
   isOnline?: boolean;
   hp?: number;
   maxHp?: number;
+  avatar?: string | null;
+  avatarColor?: string | null;
 }
 
 interface ConversationPanelProps {
@@ -34,14 +37,6 @@ interface ConversationPanelProps {
   roomMeta?: string;
 }
 
-const AVATAR_COLORS = [
-  "#c0392b", "#2980b9", "#27ae60", "#7c4ec8",
-  "#e67e22", "#16a085", "#8e44ad", "#d35400",
-];
-
-function avatarColor(userId: number) {
-  return AVATAR_COLORS[Math.abs(userId) % AVATAR_COLORS.length];
-}
 
 export function ConversationPanel({
   activeTab,
@@ -192,16 +187,25 @@ export function ConversationPanel({
             >
               {/* Avatar with presence dot */}
               <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0 }}>
-                <span
-                  style={{
-                    width: 24, height: 24, borderRadius: "50%",
-                    background: avatarColor(conv.userId),
-                    color: "#fff", fontSize: 11, fontWeight: 700,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >
-                  {conv.nickname.charAt(0).toUpperCase()}
-                </span>
+                {conv.avatar ? (
+                  <img
+                    src={conv.avatar}
+                    alt={conv.nickname}
+                    style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", display: "block" }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      width: 24, height: 24, borderRadius: "50%",
+                      background: conv.avatarColor || getRandomColorForUser(conv.userId),
+                      color: getContrastColor(conv.avatarColor || getRandomColorForUser(conv.userId)),
+                      fontSize: 11, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    {conv.nickname.charAt(0).toUpperCase()}
+                  </span>
+                )}
                 {!conv.isBot && (
                   <span
                     style={{

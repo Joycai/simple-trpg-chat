@@ -157,7 +157,7 @@ export function RoomClient({
   const mentionTargets = useMemo(() => {
     return (players || [])
       .filter((p: { users?: { id?: number }; user_id?: number }) => (p.users?.id || p.user_id) !== userId)
-      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string; characterData?: string | null } }) => {
+      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string; characterData?: string | null; avatar?: string | null; avatarColor?: string | null } }) => {
         const u = p.users || p.user;
         const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
         const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
@@ -170,6 +170,8 @@ export function RoomClient({
           isProviderError,
           hp: cocDerived?.hp_current ?? cocDerived?.hp ?? undefined as number | undefined,
           maxHp: cocDerived?.hpMax ?? undefined as number | undefined,
+          avatar: p.room_members?.avatar ?? null,
+          avatarColor: p.room_members?.avatarColor ?? null,
         };
       });
   }, [players, userId, aiEnabled, validProviderIds]);
@@ -188,6 +190,8 @@ export function RoomClient({
         isOnline: onlineUserIds.has(p.id),
         hp: liveRes?.hp_current ?? p.hp,
         maxHp: liveRes?.hpMax ?? p.maxHp,
+        avatar: p.avatar,
+        avatarColor: p.avatarColor,
       };
     });
   }, [mentionTargets, unreadCounts, onlineUserIds, characterResources]);
