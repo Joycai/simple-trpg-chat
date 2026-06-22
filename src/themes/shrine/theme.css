@@ -189,6 +189,11 @@
   color: #c63026;
   text-shadow: none;
 }
+/* Inventory/manage filter pills paint vermilion text on a vermilion
+   bg-primary fill — keep the readable washi foreground instead. */
+[data-theme="shrine"] .filter-tab-active.bg-primary {
+  color: rgb(var(--theme-primary-foreground));
+}
 
 /* =====================================================================
    DARK — 夜祭 night-festival shrine. Sumi-black washi ground, glowing
@@ -288,6 +293,9 @@
 }
 [data-theme="shrine"][data-mode="dark"] .filter-tab-active {
   color: #e86a5a;
+}
+[data-theme="shrine"][data-mode="dark"] .filter-tab-active.bg-primary {
+  color: rgb(var(--theme-primary-foreground));
 }
 
 /* ===== 鳥居 Great Torii crest (login hero) ===== */
