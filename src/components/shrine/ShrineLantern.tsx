@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
 
-export function ShrineLantern({ side = 'left', width = 60, bottom = 24 }:
-  { side?: 'left' | 'right'; width?: number; bottom?: number }) {
+export function ShrineLantern({ side = 'left', width = 60, bottom = 24, offset = '7%' }:
+  { side?: 'left' | 'right'; width?: number; bottom?: number; offset?: string }) {
   return (
     <div className="shrine-lantern"
-         style={{ [side]: '7%', bottom, width, zIndex: 1 } as CSSProperties}>
+         style={{ [side]: offset, bottom, width, zIndex: 1 } as CSSProperties}>
       <div className="lglow" />
       <svg className="lan" viewBox="0 0 64 170">
         <defs>

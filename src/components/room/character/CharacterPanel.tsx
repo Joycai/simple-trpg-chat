@@ -310,8 +310,8 @@ export function CharacterPanel({
   return (
     <>
     <div className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 ${backdropClass}`} onClick={close}>
-      <ShrineLantern side="left" />
-      <ShrineLantern side="right" />
+      <ShrineLantern side="left" width={62} bottom={34} offset="8%" />
+      <ShrineLantern side="right" width={62} bottom={34} offset="8%" />
       <div className={`relative z-[2] bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-lg mx-4 h-[85vh] md:h-[600px] max-h-[90vh] flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
 
