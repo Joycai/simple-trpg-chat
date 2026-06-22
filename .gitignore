@@ -49,3 +49,10 @@ yarn-error.log*
 next-env.d.ts
 !.env.example
 drizzle-pg/
+
+# design-sync artifacts (ephemeral — rebuild from .design-sync/ config)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
