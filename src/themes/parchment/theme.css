@@ -96,8 +96,7 @@
 
 /* Parchment fine paper cards (clues, inventory etc.) */
 [data-theme="parchment"] .clue-card,
-[data-theme="parchment"] .inventory-card,
-[data-theme="parchment"] .item-detail-panel {
+[data-theme="parchment"] .inventory-card {
   background-color: #f4e6c6 !important;
   /* Multi-layered background: semi-transparent solid color on top to soften the underlying texture, maximizing text readability */
   background-image: linear-gradient(rgba(244, 230, 198, 0.95), rgba(244, 230, 198, 0.95)), var(--theme-surface-texture) !important;
@@ -125,8 +124,7 @@
 
 /* Illuminated ink rule across card top (fades at the ends like a quill stroke) */
 [data-theme="parchment"] .clue-card::before,
-[data-theme="parchment"] .inventory-card::before,
-[data-theme="parchment"] .item-detail-panel::before {
+[data-theme="parchment"] .inventory-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -260,8 +258,7 @@
 }
 
 [data-theme="parchment"][data-mode="dark"] .clue-card,
-[data-theme="parchment"][data-mode="dark"] .inventory-card,
-[data-theme="parchment"][data-mode="dark"] .item-detail-panel {
+[data-theme="parchment"][data-mode="dark"] .inventory-card {
   background-color: #2a2018 !important;
   background-image: linear-gradient(rgba(42, 32, 24, 0.96), rgba(42, 32, 24, 0.96)) !important;
   border: 1px solid #4a3a2a !important;

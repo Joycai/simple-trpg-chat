@@ -111,8 +111,7 @@
   filter: drop-shadow(0 0 1px rgba(8, 145, 178, 0.4));
 }
 [data-theme="rainglass"] .clue-card,
-[data-theme="rainglass"] .inventory-card,
-[data-theme="rainglass"] .item-detail-panel {
+[data-theme="rainglass"] .inventory-card {
   background-color: rgba(231, 236, 239, 0.64) !important;
   background-image: linear-gradient(rgba(236, 240, 243, 0.58), rgba(224, 230, 233, 0.58)) !important;
   backdrop-filter: blur(4px) saturate(1.4);
@@ -130,8 +129,7 @@
               0 0 16px rgba(8, 145, 178, 0.18) !important;
 }
 [data-theme="rainglass"] .clue-card::before,
-[data-theme="rainglass"] .inventory-card::before,
-[data-theme="rainglass"] .item-detail-panel::before {
+[data-theme="rainglass"] .inventory-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -288,8 +286,7 @@
   filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.5));
 }
 [data-theme="rainglass"][data-mode="dark"] .clue-card,
-[data-theme="rainglass"][data-mode="dark"] .inventory-card,
-[data-theme="rainglass"][data-mode="dark"] .item-detail-panel {
+[data-theme="rainglass"][data-mode="dark"] .inventory-card {
   background-color: rgba(15, 24, 30, 0.55) !important;
   background-image: linear-gradient(rgba(15, 24, 30, 0.45), rgba(11, 19, 24, 0.55)) !important;
   backdrop-filter: blur(4px) saturate(1.5);
@@ -308,8 +305,7 @@
               0 0 16px rgba(34, 211, 238, 0.25) !important;
 }
 [data-theme="rainglass"][data-mode="dark"] .clue-card::before,
-[data-theme="rainglass"][data-mode="dark"] .inventory-card::before,
-[data-theme="rainglass"][data-mode="dark"] .item-detail-panel::before {
+[data-theme="rainglass"][data-mode="dark"] .inventory-card::before {
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
 }
 [data-theme="rainglass"][data-mode="dark"] .chat-bubble-other::after {

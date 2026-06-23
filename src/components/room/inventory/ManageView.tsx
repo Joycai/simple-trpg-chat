@@ -42,7 +42,7 @@ export function ManageView({
     <div className="flex flex-col gap-5">
       {/* Create button — opens the create modal */}
       <button onClick={onCreateClick}
-        className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-b from-success to-success/80 text-primary-foreground py-3 rounded-theme font-bold transition hover:brightness-110 cursor-pointer shadow-[0_0_16px_rgb(var(--theme-success)/0.35)]">
+        className="btn-primary w-full flex items-center justify-center gap-1.5 bg-gradient-to-b from-success to-success/80 text-primary-foreground py-3 rounded-theme font-bold transition hover:brightness-110 cursor-pointer shadow-[0_0_16px_rgb(var(--theme-success)/0.35)]">
         <Icons.Plus className="w-4 h-4" /> {t("createItem")}
       </button>
 

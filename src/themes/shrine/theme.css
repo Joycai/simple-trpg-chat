@@ -1,91 +1,117 @@
-/* ---- Ancient Shrine — 拟物化和风神社（巫女·红白） ----
-   概念：日系神社 / 巫女。白衣washi为底，緋袴朱色为主，
-   古木为框架，注連縄(绳结) + 紙垂(御币) + 鳥居为母题。 */
-[data-theme="shrine"] {
-  /* === Core palette: washi white + miko vermilion === */
-  --theme-bg: 240 233 219;          /* aged 生成り washi */
-  --theme-surface: 250 245 234;     /* paper white */
-  --theme-surface-alt: 231 220 199; /* light straw */
-  --theme-border: 198 178 150;      /* weathered cedar line */
-  --theme-text: 42 32 26;           /* 墨 sumi ink (warm) */
-  --theme-text-muted: 116 100 86;
-  --theme-text-dim: 158 140 120;
-  --theme-primary: 190 50 38;       /* 錆朱 rusted vermilion */
-  --theme-primary-hover: 160 36 26;
-  --theme-accent: 174 132 50;       /* antique brass */
-  --theme-accent-hover: 144 106 32;
-  --theme-accent-foreground: 40 30 8;
-  --theme-danger: 150 26 32;        /* 深紅 deep maroon — cooler/darker than vermilion primary */
-  --theme-success: 64 110 70;       /* 御神木 moss evergreen */
-  --theme-ai: 47 82 138;            /* 藍 indigo — AI feature accent */
-  --theme-ai-hover: 36 66 116;
-  --theme-ai-foreground: 255 252 246;
-  --theme-header-bg: 235 224 204;   /* cream band */
-  --theme-header-border: 204 184 156;
-  --theme-input-bg: 250 245 234;
-  --theme-input-border: 202 184 158;
-  --theme-dice-card-bg: 248 236 228;   /* 御札 pale vermilion wash */
-  --theme-dice-card-border: 220 168 156;
-  --theme-private-border: 190 50 38;
-  --theme-private-bg: 248 235 229;
-  --theme-scroll-btn: 190 50 38;
-  --theme-primary-foreground: 250 245 234;
+/* ---- Ancient Shrine — 远古神社 · 古社和纸 ----
+   概念：日系神社 / 古社。朱红为主，鎏金为辅，木纹和纸为底。
+   主色 朱红 #e07a3a  强调 鎏金 #d4af4a  AI色 藏青 #8089c4 */
 
-  /* === Typography (Japanese mincho) === */
+/* =====================================================================
+   LIGHT — 白昼神社  亮色和纸底，朱红鸟居，鎏金点缀
+   ===================================================================== */
+[data-theme="shrine"] {
+  /* === Core palette (light) === */
+  --theme-bg: 221 210 188;            /* #ddd2bc washi ground */
+  --theme-surface: 236 227 209;       /* #ece3d1 card / panel */
+  --theme-surface-alt: 224 214 194;   /* #e0d6c2 inner block / input */
+  --theme-border: 205 191 163;        /* #cdbfa3 edge / divider */
+  --theme-text: 36 27 17;             /* #241b11 墨 sumi ink */
+  --theme-text-muted: 124 110 88;     /* #7c6e58 */
+  --theme-text-dim: 150 137 116;      /* #968974 */
+  --theme-primary: 176 106 38;        /* #b06a26 朱红 */
+  --theme-primary-hover: 154 90 31;   /* #9a5a1f */
+  --theme-primary-foreground: 248 240 222; /* #f8f0de */
+  --theme-accent: 168 130 31;         /* #a8821f 鎏金 */
+  --theme-accent-hover: 140 108 24;
+  --theme-accent-foreground: 40 30 6;
+  --theme-danger: 192 57 43;          /* #c0392b 朱砂 */
+  --theme-success: 63 128 67;         /* #3f8043 苔绿 */
+  --theme-ai: 93 104 176;             /* #5d68b0 藏青 */
+  --theme-ai-hover: 107 120 192;
+  --theme-ai-foreground: 240 242 255;
+  --theme-header-bg: 216 203 182;
+  --theme-header-border: 205 191 163;
+  --theme-input-bg: 236 227 209;
+  --theme-input-border: 205 191 163;
+  --theme-dice-card-bg: 240 232 212;
+  --theme-dice-card-border: 200 168 130;
+  --theme-private-border: 176 106 38;
+  --theme-private-bg: 244 232 212;
+  --theme-scroll-btn: 176 106 38;
+
+  /* === Skill palette — 和色 traditional Japanese pigments (light / washi ground) === */
+  --theme-skill-0: 168 130 32;   /* 金 kin — gold */
+  --theme-skill-1:  56 112 58;   /* 若竹 waka-take — bamboo green */
+  --theme-skill-2:  78  98 172;  /* 藍 ai — indigo */
+  --theme-skill-3: 182  78  32;  /* 丹 tan — cinnabar red-orange */
+  --theme-skill-4: 138  76 162;  /* 紫 murasaki — wisteria purple */
+  --theme-skill-5: 174 118  36;  /* 橘 tachibana — mandarin amber */
+
+  /* === Glow cleared — 远古神社无辉光 === */
+  --theme-glow: 0 0 0 transparent;
+  --theme-card-shadow: 0 1px 2px rgba(60, 36, 14, 0.08),
+                       0 5px 16px rgba(60, 36, 14, 0.12);
+
+  /* === Typography — Noto Serif SC for display/headings === */
   --theme-radius: 0.25rem;
-  --theme-font: var(--font-shippori), 'Shippori Mincho', 'Yu Mincho', 'Noto Serif CJK SC', 'Songti SC', serif;
-  --theme-font-display: var(--font-shippori), 'Shippori Mincho', 'Yu Mincho', 'Noto Serif CJK SC', 'Songti SC', serif;
+  --theme-font: var(--font-inter), 'Inter', sans-serif;
+  --theme-font-display: var(--font-noto-serif-sc, var(--font-shippori)), 'Noto Serif SC', 'Shippori Mincho', 'Yu Mincho', 'Noto Serif CJK SC', serif;
   --theme-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
 
-  /* === Skeuomorphic: asymmetric corner (joinery precision) === */
+  /* === Skeuomorphic: asymmetric corner (joinery) === */
   --theme-radius-tl: 2px;
   --theme-radius-tr: 4px;
   --theme-radius-br: 2px;
   --theme-radius-bl: 4px;
 
-  /* === Skeuomorphic: faint washi fiber grain (light) === */
-  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23000000' opacity='0.045'/%3E%3Ccircle cx='3' cy='3' r='0.4' fill='%238a6a3a' opacity='0.05'/%3E%3C/svg%3E");
-
-  /* === Skeuomorphic: vermilion stamp glow (朱印) === */
-  --theme-glow: 0 0 6px rgba(198, 48, 38, 0.3),
-               0 0 16px rgba(198, 48, 38, 0.12);
-
-  /* === Skeuomorphic: soft warm wood shadow === */
-  --theme-card-shadow: 0 1px 2px rgba(70, 42, 20, 0.08),
-                       0 5px 16px rgba(70, 42, 20, 0.13);
+  /* === Washi fiber texture (for inline card use) === */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23000000' opacity='0.03'/%3E%3Ccircle cx='3' cy='3' r='0.4' fill='%238a6a3a' opacity='0.04'/%3E%3C/svg%3E");
 
   /* === Shimenawa rope + shide (注連縄 + 紙垂) — used by .conv-divider === */
   --theme-shimenawa: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='18' viewBox='0 0 96 18'%3E%3Crect x='0' y='3' width='96' height='7' rx='3.5' fill='%23cdab6b'/%3E%3Cg stroke='%23a98842' stroke-width='1.1' opacity='0.55'%3E%3Cline x1='8' y1='3' x2='3' y2='10'/%3E%3Cline x1='20' y1='3' x2='15' y2='10'/%3E%3Cline x1='32' y1='3' x2='27' y2='10'/%3E%3Cline x1='44' y1='3' x2='39' y2='10'/%3E%3Cline x1='56' y1='3' x2='51' y2='10'/%3E%3Cline x1='68' y1='3' x2='63' y2='10'/%3E%3Cline x1='80' y1='3' x2='75' y2='10'/%3E%3Cline x1='92' y1='3' x2='87' y2='10'/%3E%3C/g%3E%3Cpath d='M44 9 h8 v3 h-3 v2 h3 v3 h-8 v-3 h3 v-2 h-3 z' fill='%23fcfbf6' stroke='%23c9bda3' stroke-width='0.6'/%3E%3C/svg%3E");
-  --theme-primary-foreground: 250 245 234;
 }
 
-/* === 古木: light cedar beams framing the white shrine walls === */
+/* === Light body — 木纹和纸底色 === */
+[data-theme="shrine"] body {
+  background:
+    repeating-linear-gradient(91deg, rgba(0,0,0,.025) 0 1px, rgba(0,0,0,0) 1px 4px),
+    repeating-linear-gradient(89deg, rgba(120,90,50,.04) 0 34px, rgba(80,56,28,.04) 34px 70px),
+    linear-gradient(180deg, #e4d8c2, #ddd2bc 60%, #d8ccb4);
+}
+
+/* === 和纸纤维叠层 — 亮色 opacity .30 === */
+[data-theme="shrine"] body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 9998;
+  opacity: .30;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* === 古木 cedar sidebar — light === */
 [data-theme="shrine"] .conv-sidebar {
-  background: linear-gradient(180deg, #efe4cd 0%, #e4d3b0 100%);
-  border-right: 2px solid #cbb38e;
+  background: linear-gradient(180deg, #e8dec8 0%, #ddd0b8 100%);
+  border-right: 2px solid #cdbfa3;
 }
 
-/* Wood tab joinery and board style (light) */
+/* Wood tab joinery (light) */
 [data-theme="shrine"] .conv-tab {
-  background: linear-gradient(90deg, rgba(220, 200, 165, 0.45) 0%, rgba(205, 182, 142, 0.2) 100%);
+  background: linear-gradient(90deg, rgba(205,191,163, 0.45) 0%, rgba(190,175,148, 0.2) 100%);
   border-left: 3px solid transparent;
-  border-bottom: 1px solid rgba(180, 150, 110, 0.35);
+  border-bottom: 1px solid rgba(180,160,130, 0.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition: all 0.25s ease-in-out;
 }
 [data-theme="shrine"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(206, 182, 142, 0.6) 0%, rgba(190, 162, 120, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(185,165,130, 0.6) 0%, rgba(170,148,112, 0.3) 100%);
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="shrine"] .conv-tab.active {
-  background: linear-gradient(90deg, rgba(198, 48, 38, 0.12) 0%, rgba(198, 48, 38, 0.03) 100%);
+  background: linear-gradient(90deg, rgba(176,106,38, 0.12) 0%, rgba(176,106,38, 0.03) 100%);
   border-left-color: rgb(var(--theme-primary));
-  border-bottom-color: rgba(198, 48, 38, 0.3);
-  box-shadow: 0 2px 4px rgba(120, 60, 30, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border-bottom-color: rgba(176,106,38, 0.3);
+  box-shadow: 0 2px 4px rgba(90,52,18, 0.12), inset 0 1px 0 rgba(255,255,255, 0.6);
   color: rgb(var(--theme-primary)) !important;
 }
 
-/* === 注連縄 + 紙垂: shimenawa rope w/ shide as the sacred section divider === */
+/* === 注連縄 + 紙垂: shimenawa rope as the sacred section divider === */
 [data-theme="shrine"] .conv-divider {
   border: 0 !important;
   height: 18px;
@@ -94,45 +120,40 @@
   background-repeat: repeat-x;
   background-position: center;
   opacity: 0.9;
-  filter: drop-shadow(0 1px 1px rgba(90, 55, 25, 0.18));
+  filter: drop-shadow(0 1px 1px rgba(90,55,25, 0.18));
 }
 
-/* Shrine washi cards (clues, inventory etc.) — light paper, torii-lintel header */
+/* Shrine washi cards (light) */
 [data-theme="shrine"] .clue-card,
-[data-theme="shrine"] .inventory-card,
-[data-theme="shrine"] .item-detail-panel {
-  background-color: #faf2e2 !important;
-  background-image: linear-gradient(rgba(250, 242, 226, 0.92), rgba(250, 242, 226, 0.92)), var(--theme-surface-texture) !important;
+[data-theme="shrine"] .inventory-card {
+  background-color: #ece3d1 !important;
+  background-image: linear-gradient(rgba(236,227,209, 0.92), rgba(236,227,209, 0.92)), var(--theme-surface-texture) !important;
   background-size: auto, 4px 4px !important;
-  border: 1px solid #d6c0a0 !important;
-  box-shadow: inset 0 0 16px rgba(139, 90, 43, 0.08),
-              1px 2px 4px rgba(80, 50, 25, 0.12) !important;
+  border: 1px solid #cdbfa3 !important;
+  box-shadow: inset 0 0 16px rgba(100,68,28, 0.07),
+              1px 2px 4px rgba(60,36,14, 0.10) !important;
   position: relative;
   overflow: visible;
   transition: all 0.2s ease;
 }
-
 [data-theme="shrine"] .clue-card:hover,
 [data-theme="shrine"] .inventory-card:hover {
   border-color: rgb(var(--theme-primary)) !important;
-  box-shadow: inset 0 0 16px rgba(139, 90, 43, 0.08),
-              0 4px 10px rgba(120, 60, 30, 0.18) !important;
+  box-shadow: inset 0 0 16px rgba(100,68,28, 0.07),
+              0 4px 10px rgba(90,52,18, 0.15) !important;
 }
 
 /* 鳥居 lintel: vermilion beam + gold trim along card top */
 [data-theme="shrine"] .clue-card::before,
-[data-theme="shrine"] .inventory-card::before,
-[data-theme="shrine"] .item-detail-panel::before {
+[data-theme="shrine"] .inventory-card::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 5px;
   background: linear-gradient(rgb(var(--theme-primary)) 0 70%, rgb(var(--theme-accent)) 70% 100%) !important;
 }
 
-/* 鳥居: torii chat-bubble seal (vermilion, pops on washi) */
+/* 鳥居: torii chat-bubble seal (light) */
 [data-theme="shrine"] .chat-bubble {
   position: relative;
   overflow: visible !important;
@@ -140,162 +161,229 @@
 [data-theme="shrine"] .chat-bubble-other::after {
   content: "";
   position: absolute;
-  top: -8px;
-  left: -8px;
-  width: 16px;
-  height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c63026'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
+  top: -8px; left: -8px;
+  width: 16px; height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b06a26'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 1px 2px rgba(90, 55, 25, 0.35));
+  filter: drop-shadow(0 1px 2px rgba(60,36,14, 0.30));
   z-index: 10;
 }
 [data-theme="shrine"] .chat-bubble-own::after {
   content: "";
   position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 16px;
-  height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c63026'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
+  top: -8px; right: -8px;
+  width: 16px; height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b06a26'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 1px 2px rgba(90, 55, 25, 0.35));
+  filter: drop-shadow(0 1px 2px rgba(60,36,14, 0.30));
   z-index: 10;
 }
 
-/* === Skeuomorphic card edge: bold vermillion torii-beam bottom border + hover stamp (light washi) === */
+/* Card bottom-border treatment (light) */
 [data-theme="shrine"] .theme-border {
   --theme-radius-tl: 2px;
   --theme-radius-tr: 4px;
   --theme-radius-br: 2px;
   --theme-radius-bl: 4px;
   border-bottom: 4px solid rgb(var(--theme-primary));
-  box-shadow: 0 4px 14px rgba(80, 50, 25, 0.12);
+  box-shadow: 0 4px 14px rgba(60,36,14, 0.10);
 }
 [data-theme="shrine"] .theme-border:hover {
-  box-shadow: 0 0 12px rgba(200, 55, 35, 0.3),
-              0 4px 14px rgba(80, 50, 25, 0.12);
+  box-shadow: 0 4px 14px rgba(60,36,14, 0.18);
 }
 
-/* === Lobby filter tabs: vermillion + gold omamori (light washi) === */
+/* 御守 filter tabs — light */
 [data-theme="shrine"] .filter-indicator {
-  background: linear-gradient(180deg, #c63026 0%, #a5241c 100%);
-  box-shadow: 0 0 6px rgba(198, 48, 38, 0.4), inset 0 1px 0 rgba(184, 142, 56, 0.4);
-  border: 1px solid rgba(165, 36, 28, 0.6);
+  background: linear-gradient(180deg, #b06a26 0%, #9a5a1f 100%);
+  box-shadow: inset 0 1px 0 rgba(212,175,74, 0.35);
+  border: 1px solid rgba(154,90,31, 0.6);
   border-radius: 3px;
 }
 [data-theme="shrine"] .filter-tab-active {
-  color: #c63026;
+  color: #b06a26;
   text-shadow: none;
 }
-/* Inventory/manage filter pills paint vermilion text on a vermilion
-   bg-primary fill — keep the readable washi foreground instead. */
 [data-theme="shrine"] .filter-tab-active.bg-primary {
   color: rgb(var(--theme-primary-foreground));
 }
 
+/* 蜜色木按钮 — light primary button (procedural honey wood: base + grain + sheen + bevel) */
+[data-theme="shrine"] .btn-primary {
+  background:
+    linear-gradient(180deg, rgba(255,243,214,.55), rgba(255,243,214,0) 34%, rgba(90,54,20,.34)),
+    repeating-linear-gradient(95deg, rgba(120,80,34,.16) 0 3px, rgba(150,104,46,.07) 3px 7px, rgba(110,72,30,.14) 7px 11px),
+    linear-gradient(180deg, #d9a85a, #bd8636);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,243,214,.75),
+    inset 0 -2px 3px rgba(90,52,18,.40),
+    inset 0 0 0 1px rgba(150,92,40,.50),
+    0 3px 0 #8a531c,
+    0 5px 10px rgba(60,36,14,.30);
+  color: #2a1c0b;
+  text-shadow: 0 1px 0 rgba(255,243,214,.4);
+}
+[data-theme="shrine"] .btn-primary:hover:not(:disabled) { filter: brightness(1.05); }
+[data-theme="shrine"] .btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,243,214,.6),
+    inset 0 -1px 2px rgba(90,52,18,.40),
+    inset 0 0 0 1px rgba(150,92,40,.50),
+    0 1px 0 #8a531c,
+    0 2px 5px rgba(60,36,14,.30);
+}
+
 /* =====================================================================
-   DARK — 夜祭 night-festival shrine. Sumi-black washi ground, glowing
-   vermilion torii, brass-gold accents, lantern-warm ink. The straw
-   shimenawa + white shide divider already reads on dark, so it stays.
+   DARK — 夜祭 夜神社  墨黑为底，朱红鸟居，鎏金灯火
    ===================================================================== */
 [data-theme="shrine"][data-mode="dark"] {
-  --theme-bg: 22 20 27;             /* cool sumi night */
-  --theme-surface: 35 30 33;        /* lantern-lit wood */
-  --theme-surface-alt: 45 39 41;
-  --theme-border: 80 64 56;
-  --theme-text: 240 232 218;        /* lantern-lit washi */
-  --theme-text-muted: 182 164 144;
-  --theme-text-dim: 128 114 100;
-  --theme-primary: 232 84 64;       /* glowing torii vermilion */
-  --theme-primary-hover: 244 104 84;
-  --theme-accent: 226 182 96;       /* lantern brass-gold */
-  --theme-accent-hover: 240 198 112;
+  --theme-bg: 20 16 11;               /* #14100b cool sumi night */
+  --theme-surface: 31 22 13;          /* #1f160d lantern-lit wood */
+  --theme-surface-alt: 26 18 11;      /* #1a120b inner block */
+  --theme-border: 70 52 30;           /* #46341e */
+  --theme-text: 236 225 206;          /* #ece1ce lantern-lit washi */
+  --theme-text-muted: 168 153 126;    /* #a8997e */
+  --theme-text-dim: 110 99 80;        /* #6e6350 */
+  --theme-primary: 224 122 58;        /* #e07a3a glowing torii */
+  --theme-primary-hover: 200 99 31;   /* #c8631f */
+  --theme-primary-foreground: 26 18 11; /* #1a120b */
+  --theme-accent: 212 175 74;         /* #d4af4a lantern brass-gold */
+  --theme-accent-hover: 224 188 84;
   --theme-accent-foreground: 30 24 8;
-  --theme-danger: 208 92 96;        /* cooler crimson, kept apart from vermilion */
-  --theme-success: 96 168 116;      /* evergreen, lifted */
-  --theme-ai: 124 152 212;          /* indigo, lifted */
-  --theme-ai-hover: 136 164 220;
-  --theme-ai-foreground: 14 18 30;
-  --theme-header-bg: 27 24 31;
-  --theme-header-border: 80 64 56;
-  --theme-input-bg: 35 30 33;
-  --theme-input-border: 86 70 60;
-  --theme-dice-card-bg: 46 36 33;   /* 御札 dark vermilion wash */
-  --theme-dice-card-border: 104 64 56;
-  --theme-private-border: 232 84 64;
-  --theme-private-bg: 48 33 31;
-  --theme-scroll-btn: 232 84 64;
-  --theme-primary-foreground: 255 250 244;
+  --theme-danger: 214 96 74;          /* #d6604a */
+  --theme-success: 94 165 97;         /* #5ea561 */
+  --theme-ai: 128 137 196;            /* #8089c4 藏青 */
+  --theme-ai-hover: 142 156 208;
+  --theme-ai-foreground: 20 24 46;
+  --theme-header-bg: 24 16 9;
+  --theme-header-border: 70 52 30;
+  --theme-input-bg: 31 22 13;
+  --theme-input-border: 74 56 32;
+  --theme-dice-card-bg: 36 26 16;
+  --theme-dice-card-border: 90 60 40;
+  --theme-private-border: 224 122 58;
+  --theme-private-bg: 44 26 16;
+  --theme-scroll-btn: 224 122 58;
 
-  --theme-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5),
-                       0 6px 16px rgba(0, 0, 0, 0.55);
-  --theme-glow: 0 0 6px rgba(224, 76, 60, 0.4),
-               0 0 18px rgba(224, 76, 60, 0.18);
+  /* === Skill palette — 和色 lifted for the night-festival dark ground === */
+  --theme-skill-0: 226 186  68;  /* 黄金 ōgon — bright gold */
+  --theme-skill-1: 108 188 108;  /* 萌葱 moegi — spring green */
+  --theme-skill-2: 128 152 222;  /* 瑠璃 ruri — lapis indigo */
+  --theme-skill-3: 238 128  58;  /* 橙朱 tōshu — orange vermilion */
+  --theme-skill-4: 178 128 212;  /* 藤 fuji — wisteria purple */
+  --theme-skill-5: 202 162  82;  /* 琥珀 kohaku — amber */
 
-  /* Faint pale fiber on the dark washi (the light grain would vanish) */
+  --theme-card-shadow: 0 1px 2px rgba(0,0,0, 0.50),
+                       0 6px 16px rgba(0,0,0, 0.55);
+  --theme-glow: 0 0 0 transparent;
+
+  /* Pale washi fiber on dark ground */
   --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23ffffff' opacity='0.04'/%3E%3Ccircle cx='3' cy='3' r='0.4' fill='%23d8b87a' opacity='0.05'/%3E%3C/svg%3E");
 }
 
-[data-theme="shrine"][data-mode="dark"] .conv-sidebar {
-  background: linear-gradient(180deg, #2a2420 0%, #1e1916 100%);
-  border-right: 2px solid #4a3e32;
+/* === Dark body — 夜木纹和纸底色 === */
+[data-theme="shrine"][data-mode="dark"] body {
+  background:
+    repeating-linear-gradient(91deg, rgba(0,0,0,.05) 0 1px, rgba(0,0,0,0) 1px 4px),
+    repeating-linear-gradient(89deg, rgba(120,78,40,.05) 0 34px, rgba(70,44,22,.06) 34px 70px),
+    linear-gradient(180deg, #1b130b, #14100b 60%, #171009);
 }
+
+/* === 和纸纤维叠层 — 暗色 opacity .50 === */
+[data-theme="shrine"][data-mode="dark"] body::before {
+  opacity: .50;
+}
+
+/* Dark sidebar */
+[data-theme="shrine"][data-mode="dark"] .conv-sidebar {
+  background: linear-gradient(180deg, #261b10 0%, #1a1009 100%);
+  border-right: 2px solid #46341e;
+}
+
+/* Dark tabs */
 [data-theme="shrine"][data-mode="dark"] .conv-tab {
-  background: linear-gradient(90deg, rgba(46, 38, 33, 0.5) 0%, rgba(36, 30, 27, 0.25) 100%);
-  border-bottom-color: rgba(72, 60, 50, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: linear-gradient(90deg, rgba(40,28,16, 0.5) 0%, rgba(30,20,10, 0.25) 100%);
+  border-bottom-color: rgba(70,52,30, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255, 0.04);
 }
 [data-theme="shrine"][data-mode="dark"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(60, 50, 42, 0.6) 0%, rgba(46, 38, 33, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(56,40,22, 0.6) 0%, rgba(42,30,16, 0.3) 100%);
 }
 [data-theme="shrine"][data-mode="dark"] .conv-tab.active {
   background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.16) 0%, rgb(var(--theme-primary) / 0.04) 100%);
   border-bottom-color: rgb(var(--theme-primary) / 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 4px rgba(0,0,0, 0.3), inset 0 1px 0 rgba(255,255,255, 0.04);
 }
 
+/* Dark washi cards */
 [data-theme="shrine"][data-mode="dark"] .clue-card,
-[data-theme="shrine"][data-mode="dark"] .inventory-card,
-[data-theme="shrine"][data-mode="dark"] .item-detail-panel {
-  background-color: #241e1b !important;
-  background-image: linear-gradient(rgba(36, 30, 27, 0.94), rgba(36, 30, 27, 0.94)), var(--theme-surface-texture) !important;
-  border: 1px solid #483e32 !important;
-  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.38),
-              1px 2px 4px rgba(0, 0, 0, 0.3) !important;
+[data-theme="shrine"][data-mode="dark"] .inventory-card {
+  background-color: #1f160d !important;
+  background-image: linear-gradient(rgba(31,22,13, 0.94), rgba(31,22,13, 0.94)), var(--theme-surface-texture) !important;
+  border: 1px solid #46341e !important;
+  box-shadow: inset 0 0 16px rgba(0,0,0, 0.38),
+              1px 2px 4px rgba(0,0,0, 0.3) !important;
 }
 [data-theme="shrine"][data-mode="dark"] .clue-card:hover,
 [data-theme="shrine"][data-mode="dark"] .inventory-card:hover {
-  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.38),
-              0 4px 10px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: inset 0 0 16px rgba(0,0,0, 0.38),
+              0 4px 10px rgba(0,0,0, 0.4) !important;
 }
 
-/* Brighter torii seal so it glows on the night ground */
+/* Brighter torii seal on the night ground */
 [data-theme="shrine"][data-mode="dark"] .chat-bubble-other::after,
 [data-theme="shrine"][data-mode="dark"] .chat-bubble-own::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e04c3c'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 4px rgba(224, 76, 60, 0.5));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e07a3a'%3E%3Cpath d='M2,6 h20 v-2 h-20 z M4,6 h16 v2 h-16 z M6,8 v14 h3 v-9 h6 v9 h3 v-14 z M5,11 h14 v2 h-14 z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 1px 3px rgba(224,122,58, 0.35));
 }
 
+/* Dark card border treatment — elevation only, no glow */
 [data-theme="shrine"][data-mode="dark"] .theme-border {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0,0,0, 0.4);
 }
 [data-theme="shrine"][data-mode="dark"] .theme-border:hover {
-  box-shadow: 0 0 14px rgba(224, 76, 60, 0.35),
-              0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 18px rgba(0,0,0, 0.5);
 }
 
+/* Dark filter tabs */
 [data-theme="shrine"][data-mode="dark"] .filter-indicator {
-  background: linear-gradient(180deg, #e04c3c 0%, #c2342a 100%);
-  box-shadow: 0 0 8px rgba(224, 76, 60, 0.5), inset 0 1px 0 rgba(206, 168, 86, 0.4);
-  border: 1px solid rgba(224, 76, 60, 0.6);
+  background: linear-gradient(180deg, #e07a3a 0%, #c8631f 100%);
+  box-shadow: inset 0 1px 0 rgba(212,175,74, 0.35);
+  border: 1px solid rgba(224,122,58, 0.6);
 }
 [data-theme="shrine"][data-mode="dark"] .filter-tab-active {
-  color: #e86a5a;
+  color: #e07a3a;
 }
 [data-theme="shrine"][data-mode="dark"] .filter-tab-active.bg-primary {
   color: rgb(var(--theme-primary-foreground));
+}
+
+/* 蜜色木按钮 — dark primary button (procedural honey wood, matches the night-festival design) */
+[data-theme="shrine"][data-mode="dark"] .btn-primary {
+  background:
+    linear-gradient(180deg, rgba(255,236,200,.50), rgba(255,236,200,0) 32%, rgba(58,28,10,.40)),
+    repeating-linear-gradient(95deg, rgba(80,44,18,.30) 0 3px, rgba(120,76,32,.16) 3px 7px, rgba(70,38,16,.26) 7px 11px),
+    linear-gradient(180deg, #cf9a4e, #a9742f);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,236,200,.60),
+    inset 0 -2px 3px rgba(60,28,10,.50),
+    inset 0 0 0 1px rgba(120,72,32,.60),
+    0 3px 0 #6e3f16,
+    0 5px 10px rgba(10,6,2,.50);
+  color: #271707;
+  text-shadow: 0 1px 0 rgba(255,236,200,.35);
+}
+[data-theme="shrine"][data-mode="dark"] .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+[data-theme="shrine"][data-mode="dark"] .btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,236,200,.5),
+    inset 0 -1px 2px rgba(60,28,10,.50),
+    inset 0 0 0 1px rgba(120,72,32,.60),
+    0 1px 0 #6e3f16,
+    0 2px 5px rgba(10,6,2,.50);
 }
 
 /* ===== 鳥居 Great Torii crest (login hero) ===== */
