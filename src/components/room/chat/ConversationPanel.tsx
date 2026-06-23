@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
+import { useClickOutside } from "@/lib/useClickOutside";
+import { Icons } from "@/components/shared/icons";
 
 interface DMConversation {
   userId: number;
@@ -28,13 +30,11 @@ interface ConversationPanelProps {
   isHost: boolean;
   roomId: number;
   userId: number;
+  hostId: number;
   width: number;
   collapsed: boolean;
   /** Suppresses the width/transform transition while the user drags the resize handle. */
   resizing?: boolean;
-  onToggleCollapse: () => void;
-  roomName: string;
-  roomMeta?: string;
 }
 
 
@@ -47,14 +47,15 @@ export function ConversationPanel({
   isHost,
   width,
   userId,
+  hostId,
   collapsed,
   resizing = false,
-  onToggleCollapse,
-  roomName,
-  roomMeta,
 }: ConversationPanelProps) {
   const t = useTranslations("room");
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useClickOutside(dropdownRef, () => setOpenDropdown(null), openDropdown !== null);
+  const onlineCount = dmConversations.filter((c) => c.isOnline).length;
 
   return (
     // Outer animation shell — desktop collapses by animating width (chat reflows
@@ -72,32 +73,16 @@ export function ConversationPanel({
           : "w-64 lg:w-[var(--sidebar-width)] translate-x-0"
       }`}
     >
-    {/* Click-away overlay — closes any open member dropdown */}
-    {openDropdown !== null && (
-      <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)} />
-    )}
-
     <div className="flex flex-col bg-surface-alt border-r border-border h-full select-none conv-sidebar w-64 lg:w-[var(--sidebar-width)]">
 
-      {/* Sidebar Header — room name + meta */}
-      <div className="border-b border-border flex items-start justify-between" style={{ padding: "14px 14px 10px" }}>
-        <div className="min-w-0 flex-1">
-          <div className="font-display font-bold text-[15px] text-text leading-tight truncate">{roomName}</div>
-          {roomMeta && (
-            <div className="text-[10px] mt-[3px] text-ai">{roomMeta}</div>
-          )}
-        </div>
-        <button
-          onClick={onToggleCollapse}
-          className="ml-2 mt-0.5 p-1 rounded hover:bg-border text-text-muted hover:text-text transition cursor-pointer text-xs flex items-center justify-center w-5 h-5 shrink-0"
-          title={t("collapseSidebar")}
-        >
-          ◀
-        </button>
-      </div>
-
       {/* Channels section */}
-      <div className="flex flex-col" style={{ padding: "10px 8px", gap: 2 }}>
+      <div
+        className="text-text-dim uppercase tracking-[1px]"
+        style={{ padding: "10px 14px 4px", font: "600 10px/1 var(--theme-font-mono)" }}
+      >
+        {t("channels")}
+      </div>
+      <div className="flex flex-col" style={{ padding: "2px 8px 10px", gap: 2 }}>
         {/* Public channel */}
         <button
           onClick={() => onTabChange("public")}
@@ -114,7 +99,10 @@ export function ConversationPanel({
               : "3px solid transparent",
           }}
         >
-          # {t("publicChat")}
+          <span className="flex items-center gap-2">
+            <Icons.Navigation className="w-4 h-4 shrink-0" />
+            {t("publicChat")}
+          </span>
         </button>
 
         {/* DM channel tabs */}
@@ -136,8 +124,8 @@ export function ConversationPanel({
             }}
           >
             <span className="flex items-center gap-1.5 pr-5 truncate">
-              <span className="shrink-0 opacity-60">🔒</span>
-              <span className="truncate">DM · {conv.nickname}</span>
+              <Icons.Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />
+              <span className="truncate">{t("btnDm")} · {conv.nickname}</span>
               {conv.isBot && conv.isBotDisabled && (
                 <span className="text-[8px] font-normal px-0.5 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 shrink-0">
                   {t("tagDisabled")}
@@ -158,15 +146,18 @@ export function ConversationPanel({
         ))}
       </div>
 
-      {/* Divider */}
-      <div style={{ height: 1, margin: "6px 12px", background: "rgb(var(--theme-border))" }} />
+      {/* Divider — rain-droplet motif (per theme) */}
+      <div className="conv-divider" />
 
-      {/* Members section label */}
-      <div
-        className="text-text-dim uppercase tracking-[1px]"
-        style={{ padding: "4px 14px", font: "600 10px/1 var(--theme-font-mono)" }}
-      >
-        {t("investigators")}
+      {/* Members section label + online count */}
+      <div className="flex items-center justify-between" style={{ padding: "4px 14px" }}>
+        <span className="text-text-dim uppercase tracking-[1px]" style={{ font: "600 10px/1 var(--theme-font-mono)" }}>
+          {t("investigators")}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-success font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-success" />
+          {t("onlineCount", { count: onlineCount })}
+        </span>
       </div>
 
       {/* Member list — avatar + name + HP bar + action dropdown */}
@@ -175,6 +166,10 @@ export function ConversationPanel({
           const hpPct = conv.hp != null && conv.maxHp
             ? Math.max(0, Math.min(100, (conv.hp / conv.maxHp) * 100))
             : 100;
+          const hasHp = !conv.isBot && conv.hp != null && conv.maxHp != null;
+          const hpColor = hpPct > 60 ? "rgb(var(--theme-success))" : hpPct > 30 ? "#f59e0b" : "rgb(var(--theme-danger))";
+          const isSelf = conv.userId === userId;
+          const isHostMember = conv.userId === hostId;
           const isDropdownOpen = openDropdown === conv.userId;
           const canViewCard = isHost && !conv.isBot;
           const canDM = conv.userId !== userId;
@@ -182,7 +177,9 @@ export function ConversationPanel({
           return (
             <div
               key={conv.userId}
-              className="group relative flex items-center gap-2 rounded-md hover:bg-surface/60 transition-colors duration-100"
+              className={`group relative flex items-center gap-2 rounded-md border transition-colors duration-100 ${
+                isSelf ? "bg-primary/10 border-primary/25" : "border-transparent hover:bg-surface/60"
+              }`}
               style={{ padding: "5px 6px" }}
             >
               {/* Avatar with presence dot */}
@@ -220,25 +217,31 @@ export function ConversationPanel({
 
               {/* Name + HP bar */}
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div
-                  className="text-text"
-                  style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                >
-                  {conv.nickname}
+                <div className="flex items-center gap-1.5" style={{ fontSize: 12 }}>
+                  <span className="text-text truncate">{conv.nickname}</span>
+                  {isSelf && <span className="text-text-dim text-[10px] shrink-0">({t("you")})</span>}
+                  {isHostMember && (
+                    <span className="text-[8px] font-bold text-accent border border-accent/40 rounded px-1 leading-[1.4] shrink-0">KP</span>
+                  )}
                   {conv.isBot && (
-                    <span className="ml-1 text-[9px] text-text-dim font-normal">GM</span>
+                    <span className="text-[8px] font-bold text-ai border border-ai/40 rounded px-1 leading-[1.4] shrink-0">BOT</span>
+                  )}
+                  {hasHp && (
+                    <span className="ml-auto font-mono text-[10px] shrink-0" style={{ color: hpColor }}>
+                      {conv.hp}/{conv.maxHp}
+                    </span>
                   )}
                 </div>
                 {!conv.isBot && (
-                  <div style={{ height: 3, borderRadius: 2, background: "rgb(var(--theme-border))", marginTop: 3 }}>
-                    <div style={{ width: `${hpPct}%`, height: "100%", borderRadius: 2, background: "rgb(var(--theme-success))", transition: "width 300ms var(--ease-emphasized)" }} />
+                  <div style={{ height: 3, borderRadius: 2, background: "rgb(var(--theme-border))", marginTop: 4 }}>
+                    <div style={{ width: `${hpPct}%`, height: "100%", borderRadius: 2, background: hpColor, transition: "width 300ms var(--ease-emphasized)" }} />
                   </div>
                 )}
               </div>
 
               {/* Action button + dropdown — only shown when there's at least one action */}
               {(canViewCard || canDM) && (
-                <div className="relative z-50" style={{ flexShrink: 0 }}>
+                <div className="relative z-50" style={{ flexShrink: 0 }} ref={isDropdownOpen ? dropdownRef : undefined}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setOpenDropdown(isDropdownOpen ? null : conv.userId); }}
                     className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded hover:bg-border text-text-muted hover:text-text transition-all cursor-pointer"

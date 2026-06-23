@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { buildExportAction } from "@/app/actions/export";
+import { Icons } from "@/components/shared/icons";
 
 interface ExportButtonProps {
   roomId: number;
@@ -41,62 +42,51 @@ export function ExportButton({ roomId, roomName }: ExportButtonProps) {
     }
   };
 
+  const formats = [
+    { key: "markdown" as const, label: "Markdown", desc: t("exportMdDesc"), Icon: Icons.FileText },
+    { key: "json" as const, label: "JSON", desc: t("exportJsonDesc"), Icon: Icons.Braces },
+  ];
+
   return (
-    <div className="bg-surface border border-border rounded-theme p-5 shadow-lg">
-      <h3 className="font-bold text-text mb-3 flex items-center gap-2 text-sm">
-        <span className="w-2 h-2 rounded-full bg-accent" />
+    <div className="bg-surface theme-border rounded-theme p-6 shadow-2xl w-full">
+      <h3 className="font-bold text-text mb-2 flex items-center gap-2.5 text-lg font-theme-display">
+        <span className="w-2.5 h-2.5 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--theme-accent)/0.6)]" />
         {t("exportTitle")}
       </h3>
-      <p className="text-xs text-text-muted mb-4">
+      <p className="text-sm text-text-muted mb-5 leading-relaxed">
         {t("exportDesc")}
       </p>
 
-      {/* Format Selector — Radio Cards */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <button
-          onClick={() => setFormat("markdown")}
-          disabled={exporting}
-          className={`p-3 rounded-theme border text-left transition-all ${
-            format === "markdown"
-              ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
-              : "border-border bg-surface-alt hover:border-primary/30"
-          }`}
-        >
-          <div className="text-lg mb-1">📝</div>
-          <div className="text-sm font-bold text-text mb-0.5">Markdown</div>
-          <div className="text-[10px] text-text-dim">{t("exportMdDesc")}</div>
-        </button>
-        <button
-          onClick={() => setFormat("json")}
-          disabled={exporting}
-          className={`p-3 rounded-theme border text-left transition-all ${
-            format === "json"
-              ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
-              : "border-border bg-surface-alt hover:border-primary/30"
-          }`}
-        >
-          <div className="text-lg mb-1">📊</div>
-          <div className="text-sm font-bold text-text mb-0.5">JSON</div>
-          <div className="text-[10px] text-text-dim">{t("exportJsonDesc")}</div>
-        </button>
+      {/* Format selector — radio cards */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        {formats.map(({ key, label, desc, Icon }) => {
+          const active = format === key;
+          return (
+            <button key={key} onClick={() => setFormat(key)} disabled={exporting}
+              className={`p-4 rounded-theme border text-left transition cursor-pointer ${
+                active ? "border-primary/60 bg-primary/10 shadow-[var(--theme-glow)]" : "border-border bg-surface-alt/40 hover:border-primary/30"
+              }`}>
+              <Icon className={`w-6 h-6 mb-2 ${active ? "text-primary" : "text-text-muted"}`} />
+              <div className="text-base font-bold text-text mb-0.5">{label}</div>
+              <div className="text-xs text-text-dim">{desc}</div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Export Button */}
-      <button
-        onClick={handleExport}
-        disabled={exporting}
-        className="w-full bg-primary hover:bg-primary-hover disabled:opacity-60 text-white py-3 rounded-theme font-bold text-sm transition flex items-center justify-center gap-2"
-      >
+      {/* Export button */}
+      <button onClick={handleExport} disabled={exporting}
+        className="w-full py-3.5 rounded-theme font-bold text-sm transition hover:brightness-110 cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2 bg-gradient-to-b from-primary to-primary/85 text-primary-foreground shadow-[var(--theme-glow)]">
         {exporting ? (
           <>
-            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-current/30 border-t-current rounded-full" />
             {t("exporting")}
           </>
         ) : (
-          `${t("exportAction")} ${format === "markdown" ? "Markdown" : "JSON"}`
+          <>
+            <Icons.Download className="w-4 h-4" />
+            {`${t("exportAction")} ${format === "markdown" ? "Markdown" : "JSON"}`}
+          </>
         )}
       </button>
 

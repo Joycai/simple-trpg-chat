@@ -5,6 +5,7 @@ import { users, aiPointLogs, rooms } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { invalidateSessionCache } from "@/auth.config";
+import { broadcastToRoom } from "@/lib/events";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -38,6 +39,28 @@ export async function createUser(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function updateUser(id: number, displayName: string, role: string) {
+  await requireAdmin();
+
+  const allowedRoles = ["player", "host", "admin"];
+  if (!allowedRoles.includes(role)) throw new Error("Invalid role");
+  const name = displayName.trim();
+  if (!name) throw new Error("Missing display name");
+
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+  if (!user) throw new Error("User not found");
+  // Never let the built-in admin be demoted out of the admin role (lockout guard).
+  if (user.username === "admin" && role !== "admin") throw new Error("Cannot change the default admin's role");
+
+  await db.update(users)
+    .set({ displayName: name, role, updatedAt: new Date().toISOString() })
+    .where(eq(users.id, id));
+
+  // A role change must refresh the cached session so it takes effect immediately.
+  invalidateSessionCache(String(id));
+  revalidatePath("/admin");
+}
+
 export async function deleteUser(id: number) {
   await requireAdmin();
 
@@ -60,6 +83,22 @@ export async function deleteRoom(id: number) {
   // All room-scoped tables cascade on rooms.id delete (members, messages,
   // skills, dm reads, inventory items/distributions, clue cards).
   await db.delete(rooms).where(eq(rooms.id, id));
+  revalidatePath("/admin/rooms");
+}
+
+export async function adminSetRoomFrozen(id: number, frozen: boolean) {
+  await requireAdmin();
+  await db.update(rooms).set({ frozen }).where(eq(rooms.id, id));
+  // Notify any live members so the freeze takes effect without a manual reload.
+  broadcastToRoom(id, { type: "room_settings_updated" });
+  revalidatePath("/admin/rooms");
+}
+
+export async function adminSetRoomStatus(id: number, status: "active" | "closed") {
+  await requireAdmin();
+  if (status !== "active" && status !== "closed") throw new Error("Invalid status");
+  await db.update(rooms).set({ status }).where(eq(rooms.id, id));
+  broadcastToRoom(id, { type: "room_settings_updated" });
   revalidatePath("/admin/rooms");
 }
 
@@ -113,7 +152,7 @@ export async function toggleBanUser(id: number) {
   revalidatePath("/admin");
 }
 
-export async function updateUserAiPoints(id: number, points: number) {
+export async function updateUserAiPoints(id: number, points: number, note?: string) {
   await requireAdmin();
 
   await db.transaction(async (tx) => {
@@ -130,14 +169,14 @@ export async function updateUserAiPoints(id: number, points: number) {
       })
       .where(eq(users.id, id));
 
-    // Log the change
+    // Log the change — use the admin-provided note as the description when present.
     await tx.insert(aiPointLogs).values({
       userId: id,
       amount: afterPoints - beforePoints,
       beforePoints,
       afterPoints,
       type: "admin",
-      description: "Admin adjusted points",
+      description: note?.trim() || "Admin adjusted points",
     });
   });
 

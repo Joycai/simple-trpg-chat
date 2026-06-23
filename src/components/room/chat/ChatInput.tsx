@@ -24,6 +24,9 @@ interface ChatInputProps {
 // Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
 const IMAGE_MAX_BYTES = 1024 * 1024;
 
+// Quick-insert command chips shown above the input.
+const QUICK_COMMANDS = [".rc 侦查", ".sc 1/1d6", ".rd100"];
+
 export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
@@ -109,6 +112,11 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
       setIsPrivate(false);
       setPrivateTargetId(null);
     }
+    inputRef.current?.focus();
+  };
+
+  const insertQuick = (cmd: string) => {
+    setMessage(cmd + " ");
     inputRef.current?.focus();
   };
 
@@ -297,25 +305,38 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         </div>
       )}
 
+      {/* Quick command chips */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        {QUICK_COMMANDS.map((cmd) => (
+          <button
+            key={cmd}
+            type="button"
+            onClick={() => insertQuick(cmd)}
+            className="px-2.5 py-1 rounded-theme border border-primary/30 bg-primary/5 text-primary text-xs font-theme-mono hover:bg-primary/15 transition cursor-pointer"
+          >
+            {cmd}
+          </button>
+        ))}
+      </div>
+
       {/* Input row */}
-      <div className={`flex items-end gap-2 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
+      <div className={`flex items-end gap-1.5 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
         isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
       }`}>
-        <button
-          onClick={() => setShowDice(!showDice)}
-          className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
-            showDice ? "bg-accent text-accent-foreground" : "bg-surface-alt text-text-muted hover:bg-border hover:text-text"
-          }`}
-          title={t("btnRollTooltip")}
-          aria-label={t("btnRollTooltip")}
-        >
-          <Icons.Dices className="w-[18px] h-[18px]" />
-        </button>
+        <textarea
+          ref={inputRef}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isPrivate ? t("whisperingPlaceholder") : t("inputPlaceholder")}
+          className="flex-1 px-2 py-2 border-0 outline-none text-sm bg-transparent text-text resize-none overflow-y-auto max-h-32 min-h-[36px]"
+          rows={1}
+        />
 
         <button
           onClick={() => imageInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 bg-surface-alt text-text-muted hover:bg-border hover:text-text disabled:opacity-50"
+          className="flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 bg-transparent text-text-muted hover:bg-surface-alt hover:text-text disabled:opacity-50"
           title={t("btnImageTooltip")}
           aria-label={t("btnImageTooltip")}
         >
@@ -331,11 +352,22 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           className="hidden"
         />
 
+        <button
+          onClick={() => setShowDice(!showDice)}
+          className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+            showDice ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
+          }`}
+          title={t("btnRollTooltip")}
+          aria-label={t("btnRollTooltip")}
+        >
+          <Icons.Dices className="w-[18px] h-[18px]" />
+        </button>
+
         {!isPrivateLocked && (
           <button
             onClick={() => setIsPrivate(!isPrivate)}
             className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
-              isPrivate ? "bg-private-bg text-accent border border-private-border" : "bg-surface-alt text-text-muted hover:bg-border hover:text-text"
+              isPrivate ? "bg-private-bg text-accent border border-private-border" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
             }`}
             title={t("btnPrivateTooltip")}
             aria-label={t("btnPrivateTooltip")}
@@ -345,26 +377,18 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           </button>
         )}
 
-        <textarea
-          ref={inputRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isPrivate ? t("whisperingPlaceholder") : t("inputPlaceholder")}
-          className="flex-1 p-2 border-0 outline-none text-sm bg-transparent text-text resize-none overflow-y-auto max-h-32 min-h-[36px]"
-          rows={1}
-        />
-
         <button
           onClick={handleSend}
           disabled={!message.trim() || (!isPrivateLocked && isPrivate && !privateTargetId)}
-          className={`px-4 py-2 rounded-theme text-sm font-bold transition ${
-            isPrivate 
-              ? "bg-accent hover:bg-accent-hover text-accent-foreground" 
-              : "bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white"
+          title={t("send")}
+          aria-label={t("send")}
+          className={`flex items-center justify-center w-10 h-10 rounded-theme font-bold transition shrink-0 shadow-[var(--theme-glow)] ${
+            isPrivate
+              ? "bg-accent hover:bg-accent-hover text-accent-foreground"
+              : "bg-primary hover:bg-primary-hover disabled:bg-text-dim disabled:shadow-none text-primary-foreground"
           }`}
         >
-          {t("send")}
+          <Icons.Send className="w-[18px] h-[18px]" />
         </button>
       </div>
     </div>

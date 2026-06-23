@@ -36,6 +36,7 @@
   --color-ai-foreground: rgb(var(--theme-ai-foreground));
   --color-danger: rgb(var(--theme-danger));
   --color-success: rgb(var(--theme-success));
+  --color-warning: rgb(var(--theme-warning, 245 158 11));
   --color-header-bg: rgb(var(--theme-header-bg));
   --color-header-border: rgb(var(--theme-header-border));
   --color-input-bg: rgb(var(--theme-input-bg));

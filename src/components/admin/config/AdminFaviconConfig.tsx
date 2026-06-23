@@ -2,7 +2,7 @@
 
 import { useState, useRef, type ChangeEvent } from "react";
 import { useTranslations } from "next-intl";
-import { ImageIcon, Save, RotateCcw } from "lucide-react";
+import { ImageIcon, Upload, Save, RotateCcw } from "lucide-react";
 import { updateSiteFavicon } from "@/app/actions/theme";
 
 interface AdminFaviconConfigProps {
@@ -13,7 +13,6 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
   const t = useTranslations("admin");
   const [previewUrl, setPreviewUrl] = useState(initialFavicon);
   const [pendingDataUrl, setPendingDataUrl] = useState<string | null>(null);
-  const [fileName, setFileName] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"success" | "error">("success");
@@ -28,8 +27,6 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
       setMsgType("error");
       return;
     }
-
-    setFileName(file.name);
     setMsg("");
 
     const reader = new FileReader();
@@ -64,7 +61,6 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
     if (result.success) {
       setPreviewUrl("");
       setPendingDataUrl(null);
-      setFileName("");
       setMsg(t("saveSuccess"));
       setMsgType("success");
     } else {
@@ -75,39 +71,20 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
   };
 
   return (
-    <section className="bg-surface p-6 rounded-xl border border-border shadow-lg flex flex-col gap-6 transition-all duration-200 hover:border-purple-500/20">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="p-2.5 bg-primary/10 text-primary rounded-lg shrink-0">
-          <ImageIcon className="w-6 h-6" />
-        </div>
-        <div>
-          <h3 className="font-bold text-text text-lg mb-1">
-            {t("editSiteFavicon")}
-          </h3>
-          <p className="text-xs text-text-muted leading-relaxed">
-            {t("editSiteFaviconDesc")}
-          </p>
-        </div>
-      </div>
+    <section className="bg-surface theme-border rounded-theme p-6 flex flex-col gap-5">
+      <h3 className="font-bold text-text font-theme-display">{t("siteFaviconTitle")}</h3>
 
-      <div className="border-t border-border/60" />
-
-      {/* Preview + file picker */}
       <div className="flex items-center gap-5">
-        <div className="shrink-0">
-          <p className="text-xs font-bold text-text-muted mb-2">{t("faviconPreview")}</p>
-          <div className="w-16 h-16 rounded-lg border border-border bg-bg flex items-center justify-center overflow-hidden">
-            {previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt="favicon preview" className="w-10 h-10 object-contain" />
-            ) : (
-              <ImageIcon className="w-8 h-8 text-text-dim" />
-            )}
-          </div>
+        <div className="w-20 h-20 rounded-theme border border-primary/40 bg-primary/5 flex items-center justify-center overflow-hidden shrink-0">
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt="favicon preview" className="w-12 h-12 object-contain" />
+          ) : (
+            <ImageIcon className="w-8 h-8 text-primary/60" />
+          )}
         </div>
 
-        <div className="flex flex-col gap-2 flex-1">
+        <div className="flex flex-col gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -119,43 +96,44 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={saving}
-            className="inline-flex items-center gap-2 border border-border bg-bg hover:bg-surface-hover text-text font-semibold px-4 py-2 rounded-lg text-sm transition cursor-pointer disabled:opacity-50 w-fit"
+            className="inline-flex items-center gap-2 border border-border bg-surface-alt hover:bg-surface text-text font-medium px-4 py-2.5 rounded-theme text-sm transition cursor-pointer disabled:opacity-50 w-fit"
           >
-            <ImageIcon className="w-4 h-4" />
-            {t("faviconChooseFile")}
+            <Upload className="w-4 h-4" />
+            {t("uploadFavicon")}
           </button>
-          {fileName && (
-            <p className="text-xs text-text-muted">{fileName}</p>
-          )}
+          <p className="text-xs text-text-dim">{t("faviconRecommend")}</p>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <button
-          onClick={handleSave}
-          disabled={saving || !pendingDataUrl}
-          className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white font-bold px-4 py-2 rounded-lg text-sm transition shadow-md hover:shadow-lg disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? t("saving") : t("saveConfig")}
-        </button>
-
-        <button
-          onClick={handleReset}
-          disabled={saving || (!previewUrl && !pendingDataUrl)}
-          className="inline-flex items-center gap-2 border border-border hover:bg-surface-hover text-text-muted font-semibold px-4 py-2 rounded-lg text-sm transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RotateCcw className="w-4 h-4" />
-          {t("faviconReset")}
-        </button>
-
-        {msg && (
-          <span className={`text-xs font-semibold animate-fade-in ${msgType === "success" ? "text-success" : "text-danger"}`}>
-            {msg}
-          </span>
-        )}
-      </div>
+      {(pendingDataUrl || msg) && (
+        <div className="flex items-center gap-3">
+          {pendingDataUrl && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground font-medium px-3 py-1.5 rounded-theme text-xs transition cursor-pointer disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saving ? t("saving") : t("saveConfig")}
+            </button>
+          )}
+          {previewUrl && (
+            <button
+              onClick={handleReset}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 border border-border hover:bg-surface-alt text-text-muted font-medium px-3 py-1.5 rounded-theme text-xs transition cursor-pointer disabled:opacity-50"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              {t("faviconReset")}
+            </button>
+          )}
+          {msg && (
+            <span className={`text-xs font-semibold ${msgType === "success" ? "text-success" : "text-danger"}`}>
+              {msg}
+            </span>
+          )}
+        </div>
+      )}
     </section>
   );
 }

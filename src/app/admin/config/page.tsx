@@ -1,17 +1,13 @@
-import { db, currentDialect } from "@/db";
+import { db } from "@/db";
 import { systemConfig } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
-import { SiteThemeSelector } from "@/components/theme/SiteThemeSelector";
-import { SiteThemeModeSelector } from "@/components/theme/SiteThemeModeSelector";
-import { AdminSensitiveWords } from "@/components/admin/config/AdminSensitiveWords";
-import { AdminTitleConfig } from "@/components/admin/config/AdminTitleConfig";
-import { AdminFaviconConfig } from "@/components/admin/config/AdminFaviconConfig";
+import { AdminConfigClient } from "@/components/admin/config/AdminConfigClient";
 import { getSiteTheme, getSiteThemeMode } from "@/app/actions/theme";
 import { getCachedSiteTitle } from "@/lib/config";
+import { parseSensitiveWords } from "@/lib/sensitive-words";
 import type { ThemeId, ThemeMode } from "@/themes/types";
-import { Database, HardDrive } from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
   const [t, siteTitle] = await Promise.all([
@@ -22,47 +18,35 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AdminConfigPage() {
-  const t = await getTranslations("admin");
-  const [wordsConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "sensitive_words"));
-  const sensitiveWords = wordsConfig?.value || "";
-  const [titleConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_title"));
-  const siteTitle = titleConfig?.value || "";
-  const [faviconConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "site_favicon"));
-  const siteFavicon = faviconConfig?.value ?? "";
-  const dbType = currentDialect;
-  const siteTheme = await getSiteTheme();
-  const siteMode = await getSiteThemeMode();
+  const rows = await db
+    .select()
+    .from(systemConfig)
+    .where(
+      inArray(systemConfig.key, [
+        "site_title",
+        "site_favicon",
+        "site_icp",
+        "site_icp_url",
+        "sensitive_words",
+        "sensitive_words_enabled",
+      ])
+    );
+  const cfg = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+
+  const [siteTheme, siteMode] = await Promise.all([getSiteTheme(), getSiteThemeMode()]);
 
   return (
-    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-text">{t("systemConfig")}</h1>
-        <p className="text-sm text-text-muted mt-1">{t("systemConfigDesc")}</p>
-      </div>
-
-      <section className="bg-surface p-5 rounded-xl border border-border shadow-lg">
-        <h3 className="font-bold text-text mb-3 flex items-center gap-2 text-sm">
-          <span className="w-2 h-2 rounded-full bg-primary" />
-          {t("dbConfig")}
-        </h3>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-muted">{t("dbType")}</span>
-          <span className="text-sm font-bold text-text inline-flex items-center gap-1">
-            {dbType === "postgresql" ? <><Database className="w-4 h-4" /> PostgreSQL</> : <><HardDrive className="w-4 h-4" /> SQLite</>}
-          </span>
-        </div>
-        <p className="text-[10px] text-text-dim mt-2">{t("dbConfigHint")}</p>
-      </section>
-
-      <AdminTitleConfig initialTitle={siteTitle} />
-
-      <AdminFaviconConfig initialFavicon={siteFavicon} />
-
-      <SiteThemeSelector currentTheme={siteTheme as ThemeId} />
-
-      <SiteThemeModeSelector currentMode={siteMode as ThemeMode} />
-
-      <AdminSensitiveWords initialWords={sensitiveWords} />
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <AdminConfigClient
+        initialTitle={cfg.site_title ?? ""}
+        initialIcp={cfg.site_icp ?? ""}
+        initialIcpUrl={cfg.site_icp_url ?? ""}
+        initialFavicon={cfg.site_favicon ?? ""}
+        initialSensitiveEnabled={cfg.sensitive_words_enabled !== "0"}
+        initialCustomWords={parseSensitiveWords(cfg.sensitive_words ?? "")}
+        currentTheme={siteTheme as ThemeId}
+        currentMode={siteMode as ThemeMode}
+      />
     </div>
   );
 }

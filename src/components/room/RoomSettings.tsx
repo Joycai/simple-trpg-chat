@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, type LucideIcon } from "lucide-react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
-import { THEME_LIST, THEME_MODES, getThemeName, getThemeDesc } from "@/themes/types";
+import { THEME_LIST, THEME_MODES, getThemeName } from "@/themes/types";
 import type { ThemeId, ThemeMode } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -73,9 +73,9 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
-          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
-          <button onClick={close} className="text-text-muted hover:text-text p-1 hover:bg-surface-alt rounded transition cursor-pointer">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <h3 className="font-bold text-xl text-text font-theme-display">{t("title")}</h3>
+          <button onClick={close} aria-label={tCommon("close")} className="text-text-muted hover:text-text p-1 hover:bg-surface-alt rounded-theme transition cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -92,10 +92,10 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                     key={key}
                     type="button"
                     onClick={() => setTab(key)}
-                    className={`flex items-center gap-2.5 px-3 py-2 text-xs md:text-sm font-medium transition-all duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer ${
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-xs md:text-sm font-medium transition-all duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer border ${
                       isActive
-                        ? "text-primary bg-primary/10 border-b-2 md:border-b-0 md:border-l-4 border-primary font-semibold"
-                        : "text-text-muted hover:text-text hover:bg-surface-alt/50"
+                        ? "text-primary bg-primary/10 border-primary/40 font-semibold"
+                        : "text-text-muted border-transparent hover:text-text hover:bg-surface-alt/50"
                     }`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "text-text-dim"}`} />
@@ -117,34 +117,35 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                     <p className="text-xs text-text-muted">{t("desc", { roomName })}</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {THEME_LIST.map((theme) => (
-                      <label
-                        key={theme.id}
-                        className={`flex items-center gap-3 p-3 rounded-theme border cursor-pointer transition ${
-                          selectedTheme === theme.id
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-text-muted"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="theme"
-                          value={theme.id}
-                          checked={selectedTheme === theme.id}
-                          onChange={() => setSelectedTheme(theme.id as ThemeId)}
-                          className="accent-primary shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-text truncate">{getThemeName(theme.id, locale)}</div>
-                          <div className="text-xs text-text-dim mt-0.5 line-clamp-2">{getThemeDesc(theme.id, locale)}</div>
-                        </div>
-                        {/* Theme preview dot — colors come from the theme registry */}
-                        <div
-                          className="w-6 h-6 rounded-full border-[3px] shrink-0"
-                          style={{ backgroundColor: theme.swatch.bg, borderColor: theme.swatch.border }}
-                        />
-                      </label>
-                    ))}
+                    {THEME_LIST.map((theme) => {
+                      const active = selectedTheme === theme.id;
+                      return (
+                        <label
+                          key={theme.id}
+                          className={`flex items-center gap-3 px-4 py-3.5 rounded-theme border cursor-pointer transition ${
+                            active ? "border-primary bg-primary/10" : "border-border hover:border-text-muted"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="theme"
+                            value={theme.id}
+                            checked={active}
+                            onChange={() => setSelectedTheme(theme.id as ThemeId)}
+                            className="sr-only"
+                          />
+                          <span className={`flex items-center justify-center w-5 h-5 rounded-full border-2 shrink-0 transition ${active ? "border-primary" : "border-input-border"}`}>
+                            {active && <span className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                          </span>
+                          <span className="flex-1 min-w-0 text-sm font-medium text-text truncate">{getThemeName(theme.id, locale)}</span>
+                          {/* Theme preview dot — colors come from the theme registry */}
+                          <span
+                            className="w-5 h-5 rounded-full border-2 shrink-0"
+                            style={{ backgroundColor: theme.swatch.bg, borderColor: theme.swatch.border }}
+                          />
+                        </label>
+                      );
+                    })}
                   </div>
 
                   {/* Color mode — applies to all participants in this room */}
@@ -162,9 +163,9 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                             role="radio"
                             aria-checked={active}
                             onClick={() => setSelectedMode(m)}
-                            className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-theme border transition cursor-pointer ${
+                            className={`flex flex-col items-center justify-center gap-1.5 p-4 rounded-theme border transition cursor-pointer ${
                               active
-                                ? "border-primary bg-primary/10 text-primary"
+                                ? "border-primary bg-primary/10 text-primary shadow-[var(--theme-glow)]"
                                 : "border-border text-text-muted hover:border-text-muted"
                             }`}
                           >
@@ -240,7 +241,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
               <button
                 type="submit"
                 disabled={saving}
-                className="bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-foreground px-6 py-2 rounded-theme font-bold text-sm transition cursor-pointer"
+                className="bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 disabled:opacity-50 text-primary-foreground px-6 py-2.5 rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]"
               >
                 {saving ? t("saving") : t("save")}
               </button>

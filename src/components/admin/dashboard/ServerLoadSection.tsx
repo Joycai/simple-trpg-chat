@@ -11,7 +11,7 @@ export function ServerLoadSection({ loadData }: { loadData: LoadData | null }) {
   const t = useTranslations("admin");
 
   return (
-    <section className="bg-surface p-5 theme-border border border-border shadow-lg flex flex-col gap-4">
+    <section className="bg-surface p-5 theme-border border border-border rounded-theme shadow-lg flex flex-col gap-4 h-full">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-text flex items-center gap-2 text-sm">
           <Activity className="w-4 h-4 text-accent animate-pulse" />
@@ -21,7 +21,7 @@ export function ServerLoadSection({ loadData }: { loadData: LoadData | null }) {
 
       {loadData ? (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {/* CPU Metric */}
             <div className="p-3 bg-bg/40 border border-border/60 rounded-lg flex flex-col gap-2">
               <div className="flex justify-between text-xs font-semibold">
@@ -71,7 +71,7 @@ export function ServerLoadSection({ loadData }: { loadData: LoadData | null }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <StatusBadge
               label={t("uptime")}
               value={

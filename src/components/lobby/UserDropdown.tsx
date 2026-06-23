@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, User, Settings, LogOut } from "lucide-react";
+import { ChevronDown, SlidersHorizontal, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions/user";
 import { useTranslations } from "next-intl";
 import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
@@ -64,26 +64,28 @@ export function UserDropdown({ userName, userRole }: UserDropdownProps) {
         {/* Dropdown */}
         {open && (
           <div
-            className="overlay-pop absolute right-0 top-full mt-2 w-56 bg-surface border border-border rounded-theme shadow-lg z-50 overflow-hidden"
+            className="overlay-pop theme-border absolute right-0 top-full mt-2 w-60 bg-surface border border-border rounded-theme z-50 overflow-hidden p-1.5"
             style={{ transformOrigin: "top right" }}
           >
             {/* Profile info */}
-            <div className="px-4 py-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-text-muted" />
-                <span className="text-sm font-medium text-text">{userName}</span>
-              </div>
-              <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${roleColor}`}>
-                {roleLabel}
+            <div className="flex items-center gap-3 px-2.5 py-3 border-b border-border mb-1">
+              <span className={`grid place-items-center w-10 h-10 rounded-full text-sm font-bold uppercase border shrink-0 ${roleColor}`}>
+                {userName.charAt(0)}
               </span>
+              <div className="min-w-0">
+                <span className="block text-sm font-semibold text-text truncate">{userName}</span>
+                <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${roleColor}`}>
+                  {roleLabel}
+                </span>
+              </div>
             </div>
 
             {/* Personal Settings */}
             <button
               onClick={() => { setOpen(false); setShowSettings(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-surface-alt transition-colors text-left cursor-pointer"
+              className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-theme text-sm text-text hover:bg-surface-alt transition-colors text-left cursor-pointer"
             >
-              <Settings className="w-4 h-4 text-text-muted" />
+              <SlidersHorizontal className="w-4 h-4 text-text-muted" />
               {ts("title")}
             </button>
 
@@ -91,7 +93,7 @@ export function UserDropdown({ userName, userRole }: UserDropdownProps) {
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text hover:bg-surface-alt transition-colors text-left cursor-pointer"
+                className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-theme text-sm text-text hover:bg-surface-alt transition-colors text-left cursor-pointer"
               >
                 <LogOut className="w-4 h-4 text-text-muted" />
                 {t("logout")}

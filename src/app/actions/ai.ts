@@ -4,7 +4,7 @@ import { db, sqlNow } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
 
 /**
@@ -28,11 +28,37 @@ export async function updateSystemConfig(key: string, value: string) {
     set: { value, updatedAt: sqlNow() },
   });
 
-  if (key === "sensitive_words") {
+  if (key === "sensitive_words" || key === "sensitive_words_enabled") {
     const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
     clearSensitiveWordsCache();
   }
 
+  updateTag("system_config");
+  revalidatePath("/admin");
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Batch-save several system config keys in one round-trip (admin only).
+ * Used by the system-config "保存配置" footer.
+ */
+export async function updateSystemConfigBatch(entries: Record<string, string>) {
+  await requireAdmin();
+
+  const rows = Object.entries(entries).map(([key, value]) => ({ key, value }));
+  for (const row of rows) {
+    await db.insert(systemConfig).values(row).onConflictDoUpdate({
+      target: systemConfig.key,
+      set: { value: row.value, updatedAt: sqlNow() },
+    });
+  }
+
+  if ("sensitive_words" in entries || "sensitive_words_enabled" in entries) {
+    const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
+    clearSensitiveWordsCache();
+  }
+
+  updateTag("system_config");
   revalidatePath("/admin");
   revalidatePath("/", "layout");
 }

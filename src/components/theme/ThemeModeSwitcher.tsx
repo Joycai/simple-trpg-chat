@@ -11,37 +11,25 @@ const ICONS: Record<ThemeMode, LucideIcon> = {
   dark: Moon,
 };
 
-/** Compact auto/light/dark segmented control for the lobby top-bar (per-user). */
+/** Single-button auto→light→dark cycler for the lobby top-bar (per-user).
+    The icon reflects the current mode; clicking advances to the next one. */
 export function ThemeModeSwitcher() {
   const { mode, setMode } = useTheme();
   const t = useTranslations("themeMode");
 
+  const Icon = ICONS[mode];
+  const nextMode = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
+
   return (
-    <div
-      role="radiogroup"
+    <button
+      type="button"
       aria-label={t("label")}
-      title={t("switch")}
-      className="flex items-center h-9 p-0.5 rounded-theme border border-border bg-surface-alt"
+      title={`${t(mode)} · ${t("switch")}`}
+      onClick={() => setMode(nextMode)}
+      className="flex items-center justify-center w-9 h-9 rounded-theme border border-border bg-surface-alt text-text-muted hover:text-text hover:bg-surface transition-colors cursor-pointer"
     >
-      {THEME_MODES.map((m) => {
-        const Icon = ICONS[m];
-        const active = mode === m;
-        return (
-          <button
-            key={m}
-            role="radio"
-            aria-checked={active}
-            title={t(m)}
-            onClick={() => setMode(m)}
-            className={`flex items-center justify-center w-8 h-8 rounded-theme transition-colors cursor-pointer ${
-              active ? "bg-primary/10 text-primary" : "text-text-muted hover:text-text"
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            <span className="sr-only">{t(m)}</span>
-          </button>
-        );
-      })}
-    </div>
+      <Icon className="w-4 h-4" />
+      <span className="sr-only">{t(mode)}</span>
+    </button>
   );
 }

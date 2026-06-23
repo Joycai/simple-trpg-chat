@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { RefreshCw, Users, TrendingUp, Eye, BarChart2 } from "lucide-react";
+import { Users, TrendingUp, Eye, BarChart2 } from "lucide-react";
 
 export type StatsRange = "day" | "week" | "month" | "3month" | "year";
 
@@ -16,11 +16,9 @@ interface TrafficStatsSectionProps {
   statsData: StatsData | null;
   range: StatsRange;
   onRangeChange: (r: StatsRange) => void;
-  loading: boolean;
-  onRefresh: () => void;
 }
 
-export function TrafficStatsSection({ statsData, range, onRangeChange, loading, onRefresh }: TrafficStatsSectionProps) {
+export function TrafficStatsSection({ statsData, range, onRangeChange }: TrafficStatsSectionProps) {
   const t = useTranslations("admin");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -92,36 +90,26 @@ export function TrafficStatsSection({ statsData, range, onRangeChange, loading, 
   const step = points.length > 0 ? Math.ceil(points.length / 6) : 1;
 
   return (
-    <section className="bg-surface p-5 theme-border border border-border shadow-lg flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <section className="bg-surface p-5 theme-border border border-border rounded-theme shadow-lg flex flex-col gap-4 h-full">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="font-bold text-text flex items-center gap-2 text-sm">
           <BarChart2 className="w-4 h-4 text-accent" />
           {t("trafficStats")}
         </h3>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-surface-alt border border-border rounded overflow-hidden">
-            {(["day", "week", "month", "3month", "year"] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => onRangeChange(r)}
-                className={`px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors ${
-                  range === r
-                    ? "bg-accent text-surface font-semibold"
-                    : "text-text-muted hover:text-text hover:bg-bg/40"
-                }`}
-              >
-                {t(`range${r.charAt(0).toUpperCase() + r.slice(1)}`)}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="text-text-muted hover:text-text p-1 rounded hover:bg-surface-alt transition disabled:opacity-50 cursor-pointer"
-            title={t("refresh")}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          </button>
+        <div className="flex items-center gap-1 bg-surface-alt border border-border rounded-theme p-1">
+          {(["day", "week", "month", "3month", "year"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => onRangeChange(r)}
+              className={`px-2.5 py-1 text-xs font-medium cursor-pointer transition rounded-theme ${
+                range === r
+                  ? "bg-primary text-primary-foreground font-semibold shadow-[var(--theme-glow)]"
+                  : "text-text-muted hover:text-text hover:bg-bg/40"
+              }`}
+            >
+              {t(`range${r.charAt(0).toUpperCase() + r.slice(1)}`)}
+            </button>
+          ))}
         </div>
       </div>
 

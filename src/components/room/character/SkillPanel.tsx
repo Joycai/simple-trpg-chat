@@ -5,6 +5,8 @@ import { getRoomSkills, upsertSkillAction, deleteSkillAction } from "@/app/actio
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { Icons } from "@/components/shared/icons";
+import { skillColor } from "@/components/room/character/skill-color";
 
 interface Skill {
   id: number;
@@ -75,38 +77,38 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
 
       {/* Sidebar drawer */}
       <div
-        className={`relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
+        className={`relative ml-auto w-full sm:w-[28rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
-          <h3 className="font-bold text-text text-lg">{t("title")}</h3>
-          <button
-            onClick={close}
-            className="text-text-muted hover:text-text text-xl leading-none transition"
-            title={tCommon("close")}
-          >
-            ×
+        <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">
+          <h3 className="font-bold text-text text-xl font-theme-display">{t("title")}</h3>
+          <button onClick={close} title={tCommon("close")}
+            className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <Icons.X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-5 flex flex-col gap-5">
-          {/* Tip */}
-          <div className="bg-surface-alt rounded-theme p-3 text-xs text-text-muted border border-border">
-            💡 {t("commandHintPrefix")}<code className="bg-bg px-1 py-0.5 rounded text-text font-mono">{t("commandHintCode")}</code>
+        <div className="p-6 flex flex-col gap-5">
+          {/* Command hint */}
+          <div className="flex items-center gap-2.5 bg-surface-alt rounded-theme px-4 py-3 text-sm border border-border">
+            <Icons.Info className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-text-muted">{t("commandHintPrefix")}</span>
+            <code className="border border-primary/30 bg-primary/5 text-primary font-theme-mono text-xs px-2 py-0.5 rounded-theme">{t("commandHintCode")}</code>
+            <span className="text-text-muted">{t("commandHintSuffix")}</span>
           </div>
 
           {/* Add form */}
           {!readOnly && (
-          <div className="bg-surface-alt rounded-theme p-4 border border-border">
-            <h4 className="text-sm font-bold text-text mb-3">{t("addOrOverwrite")}</h4>
-            <div className="flex gap-2 mb-2">
+          <div className="theme-border bg-surface-alt rounded-theme p-5 border border-border">
+            <h4 className="text-base font-bold text-text mb-4">{t("addOrOverwrite")}</h4>
+            <div className="flex gap-2 mb-3">
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder={t("namePlaceholder")}
-                className="flex-1 px-3 py-2 text-sm border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text"
+                className="flex-1 px-3 py-2.5 text-sm border border-input-border bg-input-bg rounded-theme outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary text-text placeholder:text-text-dim"
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               />
               <input
@@ -115,13 +117,13 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
                 onChange={(e) => setNewValue(parseInt(e.target.value) || 0)}
                 min={1}
                 max={99}
-                className="w-16 px-2 py-2 text-sm border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-center font-mono"
+                className="w-16 px-2 py-2.5 text-sm border border-input-border bg-input-bg rounded-theme outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary text-text text-center font-mono"
               />
             </div>
             <button
               onClick={handleAdd}
               disabled={!newName.trim()}
-              className="w-full bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded-lg text-sm font-bold transition"
+              className="w-full bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:shadow-none text-primary-foreground py-2.5 rounded-theme text-sm font-bold transition shadow-[var(--theme-glow)]"
             >
               {t("btnAdd")}
             </button>
@@ -132,34 +134,23 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
           {loading ? (
             <div className="text-center text-text-muted text-sm py-8">{tCommon("loading")}</div>
           ) : skills.length === 0 ? (
-            <div className="text-center text-text-muted py-8">
-              <div className="text-3xl mb-2">📝</div>
+            <div className="text-center text-text-muted py-10">
+              <Icons.ClipboardList className="w-9 h-9 mx-auto mb-2 opacity-40" />
               <p className="text-sm">{t("noSkills")}</p>
               <p className="text-xs mt-1">{t("noSkillsDesc")}</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {skills.map((skill) => (
+            <div className="flex flex-col gap-3">
+              {[...skills].sort((a, b) => a.skillName.localeCompare(b.skillName, "zh") || a.id - b.id).map((skill) => {
+                const col = skillColor(skill.skillName);
+                return (
                 <div
                   key={skill.id}
-                  className="bg-surface-alt rounded-theme p-3 border border-border group hover:border-primary/30 transition"
+                  className="bg-surface-alt rounded-theme p-4 border border-border group hover:border-primary/30 transition"
                 >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-bold text-text">{skill.skillName}</span>
-                    {!readOnly && (
-                      <button
-                        onClick={() => handleDelete(skill.skillName)}
-                        className="text-[10px] text-danger/50 hover:text-danger transition opacity-0 group-hover:opacity-100"
-                        title={t("deleteTooltip")}
-                      >
-                        🗑
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Value bar */}
                   {editing === skill.id ? (
-                    <div className="flex gap-2 items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 text-sm font-bold text-text">{skill.skillName}</span>
                       <input
                         type="number"
                         value={editValue}
@@ -167,51 +158,54 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
                         min={1}
                         max={99}
                         autoFocus
-                        className="w-16 px-2 py-1 text-xs border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-center font-mono"
+                        className="w-16 px-2 py-1 text-xs border border-input-border bg-input-bg rounded-theme outline-none focus:ring-[3px] focus:ring-primary/[0.18] text-text text-center font-mono"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") handleEdit(skill.skillName);
                           if (e.key === "Escape") setEditing(null);
                         }}
                       />
-                      <button
-                        onClick={() => handleEdit(skill.skillName)}
-                        className="text-xs bg-primary text-white px-2 py-1 rounded hover:bg-primary-hover"
-                      >
-                        ✓
+                      <button onClick={() => handleEdit(skill.skillName)} aria-label="confirm"
+                        className="flex items-center justify-center w-7 h-7 rounded-theme bg-primary text-primary-foreground hover:bg-primary-hover">
+                        <Icons.Check className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setEditing(null)}
-                        className="text-xs text-text-muted hover:text-text px-2 py-1"
-                      >
-                        ×
+                      <button onClick={() => setEditing(null)} aria-label="cancel"
+                        className="flex items-center justify-center w-7 h-7 rounded-theme text-text-muted hover:text-text hover:bg-surface">
+                        <Icons.X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-bg rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            skill.skillValue >= 80 ? "bg-danger" :
-                            skill.skillValue >= 50 ? "bg-accent" :
-                            "bg-primary"
-                          }`}
-                          style={{ width: `${Math.min(100, skill.skillValue)}%` }}
-                        />
+                    <>
+                      <div className="flex justify-between items-center mb-2.5">
+                        <span className="text-sm font-bold text-text">{skill.skillName}</span>
+                        <div className="flex items-center gap-2">
+                          {!readOnly && (
+                            <button
+                              onClick={() => handleDelete(skill.skillName)}
+                              className="text-text-dim hover:text-danger transition opacity-0 group-hover:opacity-100 cursor-pointer"
+                              title={t("deleteTooltip")}
+                            >
+                              <Icons.Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <span
+                            className={`text-lg font-mono font-bold transition ${readOnly ? "" : "cursor-pointer"}`}
+                            style={col.textStyle}
+                            onClick={readOnly ? undefined : () => { setEditing(skill.id); setEditValue(skill.skillValue); }}
+                            title={readOnly ? undefined : t("editTooltip")}
+                          >
+                            {skill.skillValue}
+                          </span>
+                        </div>
                       </div>
-                      <span
-                        className={`text-sm font-mono font-bold text-text transition ${readOnly ? "" : "cursor-pointer hover:text-primary"}`}
-                        onClick={readOnly ? undefined : () => {
-                          setEditing(skill.id);
-                          setEditValue(skill.skillValue);
-                        }}
-                        title={readOnly ? undefined : t("editTooltip")}
-                      >
-                        {skill.skillValue}
-                      </span>
-                    </div>
+                      <div className="h-2 bg-bg rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all"
+                          style={{ ...col.barStyle, width: `${Math.min(100, skill.skillValue)}%` }} />
+                      </div>
+                    </>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Shield, History, X, Bot, BarChart3, Coins } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { setUserLocale } from "@/app/actions/locale";
@@ -33,39 +34,42 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   };
 
   const roleLabel = userRole === "admin" ? ts("roleAdmin") : userRole === "host" ? ts("roleHost") : ts("rolePlayer");
-  const roleColor = userRole === "admin" ? "bg-danger/20 text-danger" : userRole === "host" ? "bg-success/20 text-success" : "bg-primary/20 text-primary";
+  const roleColor = userRole === "admin" ? "bg-danger/20 text-danger border-danger/30" : userRole === "host" ? "bg-success/20 text-success border-success/30" : "bg-primary/20 text-primary border-primary/30";
 
-  return (
+  // Portal to <body>: the rainglass header sets `backdrop-filter`, which makes it
+  // the containing block for `position: fixed`, so this modal must escape the
+  // header to center on the viewport. (Only renders after a client click.)
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
       <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-4xl mx-4 h-[85vh] md:h-[620px] max-h-[90vh] overflow-hidden flex flex-col ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <h3 className="font-bold text-text text-lg">{ts("title")}</h3>
-          <button onClick={close} className="text-text-muted hover:text-text p-1 hover:bg-surface-alt rounded transition cursor-pointer">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="font-bold text-text text-xl">{ts("title")}</h3>
+          <button onClick={close} className="text-text-muted hover:text-text p-1 hover:bg-surface-alt rounded-theme transition cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* User info bar + Language switcher */}
-        <div className="px-5 py-3 bg-surface-alt/40 border-b border-border flex flex-wrap gap-3 items-center justify-between">
+        <div className="px-6 py-4 bg-surface-alt/40 border-b border-border flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border border-primary/20">
+            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-base border border-primary/30">
               {(userName || "")[0]?.toUpperCase() || "?"}
             </div>
-            <div>
-              <div className="text-sm font-semibold text-text flex items-center gap-2">
-                {userName}
-                <span className={`px-2 py-0.5 rounded-theme text-[9px] font-extrabold tracking-wider uppercase ${roleColor}`}>{roleLabel}</span>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-base font-semibold text-text">{userName}</span>
+              <span className={`px-2 py-0.5 rounded-theme text-[10px] font-extrabold tracking-wider uppercase border ${roleColor}`}>{roleLabel}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted font-medium">{ts("language")}:</span>
+            <span className="text-sm text-text-muted font-medium">{ts("language")}</span>
             <select
               value={locale}
               onChange={handleLocaleChange}
-              className="p-1 bg-surface border border-border rounded text-xs text-text outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition"
+              className="px-3 py-2 bg-input-bg border border-input-border rounded-theme text-sm text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary transition"
             >
               <option value="zh">中文</option>
               <option value="en">English</option>
@@ -89,10 +93,10 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                 <button
                   key={key}
                   onClick={() => setTab(key)}
-                  className={`flex items-center gap-2.5 px-3 py-2 text-xs md:text-sm font-medium transition-all duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 text-xs md:text-sm font-medium transition-all duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer border ${
                     isActive
-                      ? "text-primary bg-primary/10 border-b-2 md:border-b-0 md:border-l-4 border-primary font-semibold"
-                      : "text-text-muted hover:text-text hover:bg-surface-alt/50"
+                      ? "text-primary bg-primary/10 border-primary/30 font-semibold"
+                      : "text-text-muted hover:text-text hover:bg-surface-alt/50 border-transparent"
                   }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "text-text-dim"}`} />
@@ -112,6 +116,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2, Trash2, Plus, X, Check } from "lucide-react";
 import { createBotPresetAction, updateBotPresetAction, deleteBotPresetAction } from "@/app/actions/bot-presets";
+
+const DOT_COLORS = ["bg-ai", "bg-primary", "bg-accent", "bg-success", "bg-warning"];
 
 interface BotPreset {
   id: number;
@@ -26,6 +29,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const router = useRouter();
 
   // Create Form State
+  const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [defaultNickname, setDefaultNickname] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -60,6 +64,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       setDefaultNickname("");
       setSystemPrompt("");
       setAllowEditPrompt(true);
+      setShowCreate(false);
       router.refresh();
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : "Failed to create preset");
@@ -103,6 +108,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   };
 
   const startEdit = (preset: BotPreset) => {
+    setShowCreate(false);
     setEditingId(preset.id);
     setEditName(preset.name);
     setEditDefaultNickname(preset.defaultNickname);
@@ -112,218 +118,172 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   };
 
   return (
-    <section className="bg-surface p-5 rounded-xl border border-border shadow-lg flex flex-col gap-4">
-      <h3 className="font-bold text-text flex items-center gap-2 text-sm">
-        <span className="w-2 h-2 rounded-full bg-primary" />
-        {t("presetManagement")}
-        <span className="text-xs text-text-dim font-normal ml-auto">
-          {presets.length} Presets
-        </span>
-      </h3>
-      <p className="text-xs text-text-muted -mt-2">{t("presetManagementDesc")}</p>
+    <section className="bg-surface theme-border border border-border rounded-theme shadow-lg p-5 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-bold text-text text-lg font-theme-display">{t("botPresetsTitle")}</h3>
+        {editingId === null && (
+          <button
+            onClick={() => { setShowCreate(v => !v); setCreateError(""); }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-theme text-sm font-bold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> {t("addPreset")}
+          </button>
+        )}
+      </div>
 
-      {/* Edit Form */}
-      {editingId !== null && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-2">
-          <h4 className="text-sm font-bold text-primary mb-3 flex items-center gap-1.5">
-            <Edit2 className="w-3.5 h-3.5" />
-            {t("editPreset")}
-          </h4>
-          <form onSubmit={handleUpdateSubmit} className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-text-dim">{t("presetName")}</label>
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder={t("presetNamePlaceholder")}
-                  className="p-2 bg-surface border border-border rounded text-text text-sm"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-text-dim">{t("defaultNickname")}</label>
-                <input
-                  value={editDefaultNickname}
-                  onChange={(e) => setEditDefaultNickname(e.target.value)}
-                  placeholder={t("defaultNicknamePlaceholder")}
-                  className="p-2 bg-surface border border-border rounded text-text text-sm font-mono"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-text-dim">{t("systemPrompt")}</label>
-              <textarea
-                value={editSystemPrompt}
-                onChange={(e) => setEditSystemPrompt(e.target.value)}
-                placeholder={t("promptPlaceholder")}
-                rows={4}
-                className="p-2 bg-surface border border-border rounded text-text text-sm font-mono resize-none"
-                required
-              />
-            </div>
-
-            <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer py-1 select-none">
-              <input
-                type="checkbox"
-                checked={editAllowEditPrompt}
-                onChange={(e) => setEditAllowEditPrompt(e.target.checked)}
-                className="w-3.5 h-3.5 accent-primary cursor-pointer"
-              />
-              <span className="font-medium">{t("allowEditPrompt")}</span>
-              <span className="text-[10px] text-text-dim">({t("allowEditPromptDesc")})</span>
-            </label>
-
-            {editError && <p className="text-xs text-danger">{editError}</p>}
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg font-bold text-sm transition cursor-pointer"
-              >
-                {t("savePreset")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditingId(null)}
-                className="text-text-dim hover:text-text text-sm px-2 cursor-pointer"
-              >
-                {tCommon("cancel")}
+      {/* Edit Modal */}
+      {editingId !== null && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditingId(null)}>
+          <div className="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface z-10">
+              <h3 className="font-bold text-text text-lg font-theme-display flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-primary" />
+                {t("editPreset")}
+              </h3>
+              <button type="button" onClick={() => setEditingId(null)}
+                className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+                <X className="w-5 h-5" />
               </button>
             </div>
-          </form>
-        </div>
+            <form onSubmit={handleUpdateSubmit} className="p-5 flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim font-medium">{t("presetName")}</label>
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder={t("presetNamePlaceholder")} required
+                    className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim font-medium">{t("defaultNickname")} @</label>
+                  <input value={editDefaultNickname} onChange={(e) => setEditDefaultNickname(e.target.value)} placeholder={t("defaultNicknamePlaceholder")} required
+                    className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm font-theme-mono placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-text-dim font-medium">{t("systemPrompt")}</label>
+                <textarea value={editSystemPrompt} onChange={(e) => setEditSystemPrompt(e.target.value)} placeholder={t("promptPlaceholder")} rows={5} required
+                  className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm font-theme-mono resize-none placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+              </div>
+
+              <label className={`flex items-start gap-3 px-3.5 py-3 rounded-theme border cursor-pointer transition ${editAllowEditPrompt ? "border-primary/50 bg-primary/10" : "border-input-border bg-input-bg hover:bg-surface-alt"}`}>
+                <input type="checkbox" checked={editAllowEditPrompt} onChange={(e) => setEditAllowEditPrompt(e.target.checked)} className="sr-only" />
+                <span className={`w-5 h-5 rounded flex items-center justify-center border-2 shrink-0 mt-0.5 transition ${editAllowEditPrompt ? "bg-primary border-primary text-primary-foreground" : "border-input-border"}`}>
+                  {editAllowEditPrompt && <Check className="w-3.5 h-3.5" />}
+                </span>
+                <div>
+                  <div className="text-sm font-medium text-text">{t("allowEditPrompt")}</div>
+                  <div className="text-xs text-text-dim mt-0.5">{t("allowEditPromptDesc")}</div>
+                </div>
+              </label>
+
+              {editError && <p className="text-xs text-danger">{editError}</p>}
+
+              <div className="flex items-center gap-3 pt-1">
+                <button type="button"
+                  onClick={() => editingId !== null && handleDelete(editingId, editName)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-theme text-sm font-medium border border-danger/40 text-danger hover:bg-danger/10 transition cursor-pointer">
+                  <Trash2 className="w-4 h-4" /> {t("delete")}
+                </button>
+                <div className="flex items-center gap-3 ml-auto">
+                  <button type="button" onClick={() => setEditingId(null)}
+                    className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">{tCommon("cancel")}</button>
+                  <button type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
+                    {t("savePreset")}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
 
-      {/* Create Form */}
-      <details className="group border border-border rounded-lg bg-surface-alt p-3 [&_summary::-webkit-details-marker]:hidden">
-        <summary className="text-sm text-text-muted cursor-pointer hover:text-text transition flex items-center gap-1">
-          <span className="transition-transform group-open:rotate-90">▶</span>
-          <span className="font-medium">＋ {t("createPreset")}</span>
-        </summary>
-        <form onSubmit={handleCreate} className="flex flex-col gap-3 mt-3 border-t border-border pt-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-text-dim">{t("presetName")}</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("presetNamePlaceholder")}
-                className="p-2 bg-surface border border-border rounded text-text text-sm"
-                required
-              />
+      {/* Create Modal */}
+      {showCreate && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setShowCreate(false); setCreateError(""); }}>
+          <div className="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface z-10">
+              <div>
+                <h3 className="font-bold text-text text-lg font-theme-display flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  {t("botPresetsTitle")}
+                </h3>
+                <p className="text-xs text-text-muted mt-1">{t("presetModalDesc")}</p>
+              </div>
+              <button type="button" onClick={() => { setShowCreate(false); setCreateError(""); }}
+                className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-text-dim">{t("defaultNickname")}</label>
-              <input
-                value={defaultNickname}
-                onChange={(e) => setDefaultNickname(e.target.value)}
-                placeholder={t("defaultNicknamePlaceholder")}
-                className="p-2 bg-surface border border-border rounded text-text text-sm font-mono"
-                required
-              />
-            </div>
+            <form onSubmit={handleCreate} className="p-5 flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim font-medium">{t("presetName")}</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("presetNamePlaceholder")} required
+                    className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-text-dim font-medium">{t("defaultNickname")} @</label>
+                  <input value={defaultNickname} onChange={(e) => setDefaultNickname(e.target.value)} placeholder={t("defaultNicknamePlaceholder")} required
+                    className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm font-theme-mono placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-text-dim font-medium">{t("systemPrompt")}</label>
+                <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} placeholder={t("promptPlaceholder")} rows={5} required
+                  className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm font-theme-mono resize-none placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+              </div>
+
+              <label className={`flex items-start gap-3 px-3.5 py-3 rounded-theme border cursor-pointer transition ${allowEditPrompt ? "border-primary/50 bg-primary/10" : "border-input-border bg-input-bg hover:bg-surface-alt"}`}>
+                <input type="checkbox" checked={allowEditPrompt} onChange={(e) => setAllowEditPrompt(e.target.checked)} className="sr-only" />
+                <span className={`w-5 h-5 rounded flex items-center justify-center border-2 shrink-0 mt-0.5 transition ${allowEditPrompt ? "bg-primary border-primary text-primary-foreground" : "border-input-border"}`}>
+                  {allowEditPrompt && <Check className="w-3.5 h-3.5" />}
+                </span>
+                <div>
+                  <div className="text-sm font-medium text-text">{t("allowEditPrompt")}</div>
+                  <div className="text-xs text-text-dim mt-0.5">{t("allowEditPromptDesc")}</div>
+                </div>
+              </label>
+
+              {createError && <p className="text-xs text-danger">{createError}</p>}
+
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <button type="button" onClick={() => { setShowCreate(false); setCreateError(""); }}
+                  className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">{tCommon("cancel")}</button>
+                <button type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
+                  {t("createPreset")}
+                </button>
+              </div>
+            </form>
           </div>
+        </div>,
+        document.body
+      )}
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-dim">{t("systemPrompt")}</label>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder={t("promptPlaceholder")}
-              rows={4}
-              className="p-2 bg-surface border border-border rounded text-text text-sm font-mono resize-none"
-              required
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer py-1 select-none">
-            <input
-              type="checkbox"
-              checked={allowEditPrompt}
-              onChange={(e) => setAllowEditPrompt(e.target.checked)}
-              className="w-3.5 h-3.5 accent-primary cursor-pointer"
-            />
-            <span className="font-medium">{t("allowEditPrompt")}</span>
-            <span className="text-[10px] text-text-dim">({t("allowEditPromptDesc")})</span>
-          </label>
-
-          {createError && <p className="text-xs text-danger">{createError}</p>}
-
-          <button
-            type="submit"
-            className="bg-primary hover:bg-primary-hover text-white py-2 rounded-lg font-bold text-sm transition cursor-pointer"
-          >
-            {t("createPreset")}
-          </button>
-        </form>
-      </details>
-
-      {/* Preset List Table */}
-      <div className="overflow-x-auto mt-2">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="text-text-muted text-xs border-b border-border">
-              <th className="pb-2.5 font-medium">{t("presetName")}</th>
-              <th className="pb-2.5 font-medium">{t("defaultNickname")}</th>
-              <th className="pb-2.5 font-medium max-w-[200px]">{t("systemPrompt")}</th>
-              <th className="pb-2.5 font-medium text-center">{t("allowEditPrompt")}</th>
-              <th className="pb-2.5 font-medium text-right">{t("actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {presets.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-12 text-center text-text-dim text-sm">
-                  {t("noPresets")}
-                </td>
-              </tr>
-            ) : (
-              presets.map((preset) => (
-                <tr
-                  key={preset.id}
-                  className="border-b border-border last:border-0 hover:bg-surface-alt transition text-xs"
-                >
-                  <td className="py-3 font-semibold text-text">{preset.name}</td>
-                  <td className="py-3 font-mono text-text-muted">{preset.defaultNickname}</td>
-                  <td className="py-3 max-w-[200px] truncate text-text-muted font-mono" title={preset.systemPrompt}>
-                    {preset.systemPrompt}
-                  </td>
-                  <td className="py-3 text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        preset.allowEditPrompt
-                          ? "bg-success/20 text-success"
-                          : "bg-text-dim/20 text-text-dim"
-                      }`}
-                    >
-                      {preset.allowEditPrompt ? "YES" : "NO"}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right flex items-center justify-end gap-2.5">
-                    <button
-                      onClick={() => startEdit(preset)}
-                      className="text-text-muted/60 hover:text-primary transition cursor-pointer"
-                      title={t("editPreset")}
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(preset.id, preset.name)}
-                      className="text-danger/60 hover:text-danger transition cursor-pointer"
-                      title={t("delete")}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Preset chips */}
+      {presets.length === 0 && !showCreate && editingId === null ? (
+        <div className="py-8 text-center text-text-dim text-sm">{t("noPresets")}</div>
+      ) : (
+        <div className="flex flex-wrap gap-2.5">
+          {presets.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => startEdit(preset)}
+              className={`group inline-flex items-center gap-2 px-3.5 py-2.5 rounded-theme border bg-surface-alt/40 transition cursor-pointer ${
+                editingId === preset.id ? "border-primary/60 bg-primary/10" : "border-border hover:border-primary/40 hover:bg-surface-alt"
+              }`}
+              title={preset.systemPrompt}
+            >
+              <span className={`w-2 h-2 rounded-full shrink-0 ${DOT_COLORS[preset.id % DOT_COLORS.length]}`} />
+              <span className="text-sm font-bold text-text">{preset.name}</span>
+              <span className="text-xs text-text-dim font-theme-mono">{preset.defaultNickname}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

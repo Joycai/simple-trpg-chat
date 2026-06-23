@@ -40,27 +40,27 @@ export function MembersDialog({
   return (
     <OverlayShell
       onClose={onClose}
-      panelClassName="bg-surface border border-border rounded-theme shadow-2xl p-5 w-full max-w-md mx-4"
+      panelClassName="bg-surface theme-border overlay-modal rounded-theme shadow-2xl p-6 w-full max-w-md mx-4"
     >
       {(close) => (
        <>
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="font-bold text-lg text-text leading-tight">{t("titleMembers")}</h3>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="inline-flex items-center text-[11px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">{t("labelPlayers", { count: playerCount })}</span>
-              {botCount > 0 && <span className="inline-flex items-center text-[11px] font-medium bg-accent/10 text-accent px-2 py-0.5 rounded-full">{t("labelBots", { count: botCount })}</span>}
+            <h3 className="font-bold text-xl text-text font-theme-display leading-tight">{t("titleMembers")}</h3>
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="inline-flex items-center text-xs font-bold bg-primary/15 text-primary px-2.5 py-1 rounded-full">{t("labelPlayers", { count: playerCount })}</span>
+              {botCount > 0 && <span className="inline-flex items-center text-xs font-bold bg-ai/15 text-ai px-2.5 py-1 rounded-full">{t("labelBots", { count: botCount })}</span>}
             </div>
           </div>
-          <button onClick={close} title={tCommon("close")}
-            className="p-1.5 -mr-1.5 -mt-1 rounded-lg text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer shrink-0">
+          <button onClick={close} aria-label={tCommon("close")}
+            className="p-1.5 -mr-1.5 -mt-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer shrink-0">
             <Icons.X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Member list */}
-        <div className="flex flex-col gap-0.5 max-h-[55vh] overflow-y-auto -mx-1.5 px-1.5">
+        <div className="flex flex-col gap-1.5 max-h-[55vh] overflow-y-auto -mx-1 px-1">
           {(players || []).map((p: { users?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user?: { id?: number; isBot?: boolean; displayName?: string; username?: string }; user_id?: number; room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null }; nickname?: string }, i: number) => {
             const u = p.users || p.user || { id: p.user_id, displayName: p.nickname || "Player", isBot: false };
             const nick = p.room_members?.nickname || u.displayName || u.username || "#" + u.id;
@@ -71,62 +71,67 @@ export function MembersDialog({
             const badgeColor = p.room_members?.avatarColor || getRandomColorForUser(u.id);
             const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
             return (
-              <div key={i} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-surface-alt transition">
+              <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-theme border transition ${
+                isMe ? "border-primary/40 bg-primary/5" : "border-transparent hover:bg-surface-alt"
+              }`}>
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   {p.room_members?.avatar ? (
-                    <img src={p.room_members.avatar} alt={nick} className="w-9 h-9 rounded-full object-cover border border-border shadow-sm" />
+                    <img src={p.room_members.avatar} alt={nick} className="w-11 h-11 rounded-full object-cover border border-border shadow-sm" />
+                  ) : isMe ? (
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold bg-primary/15 text-primary ring-2 ring-primary/60 shadow-sm">
+                      {t("youAvatar")}
+                    </div>
                   ) : (
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shadow-sm font-theme-mono"
+                      className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shadow-sm font-theme-display"
                       style={{ backgroundColor: badgeColor, color: getContrastColor(badgeColor) }}
                     >
-                      {isBot ? "🤖" : nick.charAt(0).toUpperCase()}
+                      {isBot ? <Icons.Bot className="w-5 h-5" /> : nick.charAt(0).toUpperCase()}
                     </div>
                   )}
                   {isBot && isBotDisabled && (
-                    <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={t("aiDisabled")}>🚫</div>
-                  )}
-                  {isBot && !isBotDisabled && isProviderError && (
-                    <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[8px] leading-none border border-border p-[1px] shadow-sm select-none" title={t("providerError")}>⚠️</div>
+                    <div className="absolute -bottom-1 -right-1 bg-surface rounded-full leading-none border border-border p-0.5 shadow-sm select-none animate-pulse text-danger" title={t("aiDisabled")}>
+                      <Icons.Lock className="w-2.5 h-2.5" />
+                    </div>
                   )}
                 </div>
 
                 {/* Name + role */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`text-sm truncate ${isMe ? "font-bold text-primary" : "font-medium text-text"}`}>{nick}</span>
-                    {isMe && <span className="shrink-0 text-[11px] text-text-muted">{t("suffixMe")}</span>}
+                    <span className={`text-[15px] truncate ${isMe ? "font-bold text-primary" : "font-bold text-text"}`}>{nick}</span>
+                    {isMe && <span className="shrink-0 text-xs text-text-muted">{t("suffixMe")}</span>}
                     {isBot && isBotDisabled && (
-                      <span className="shrink-0 text-[10px] font-medium px-1.5 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
+                      <span className="shrink-0 text-[10px] font-bold px-1.5 rounded bg-danger/10 text-danger border border-danger/30 select-none">
                         {t("tagDisabled")}
                       </span>
                     )}
                     {isBot && !isBotDisabled && isProviderError && (
-                      <span className="shrink-0 text-[10px] font-medium px-1.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
+                      <span className="shrink-0 text-[10px] font-bold px-1.5 rounded bg-warning/10 text-warning border border-warning/30 select-none animate-pulse">
                         {t("tagProviderError")}
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-text-dim truncate mt-0.5">{roleLabel}</div>
+                  <div className="text-xs text-text-dim truncate mt-0.5">{roleLabel}</div>
                 </div>
 
                 {/* Actions */}
                 {!isMe && (
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     {isHost && (
                       <button
                         onClick={() => onViewPlayerCard(u.id ?? 0, nick)}
-                        className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition cursor-pointer"
+                        className="text-xs font-bold px-3 py-1.5 rounded-theme bg-primary/10 hover:bg-primary/20 text-primary transition cursor-pointer"
                       >
                         {t("btnViewCard")}
                       </button>
                     )}
                     <button
                       onClick={() => { onStartDM(u.id ?? 0); close(); }}
-                      className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-accent transition cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-theme bg-accent/10 hover:bg-accent/20 text-accent transition cursor-pointer"
                     >
-                      🔒 {t("btnDm")}
+                      <Icons.Lock className="w-3 h-3" /> {t("btnDm")}
                     </button>
                   </div>
                 )}

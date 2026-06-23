@@ -21,10 +21,37 @@ const CACHE_DURATION = 60000; // 60 seconds
 // Promise lock: coalesce concurrent refresh requests into a single DB call
 let refreshPromise: Promise<string[]> | null = null;
 
+let cachedEnabled: boolean | null = null;
+let enabledExpiresAt = 0;
+
 export function clearSensitiveWordsCache() {
   cachedCustomWords = null;
   cacheExpiresAt = 0;
   refreshPromise = null;
+  cachedEnabled = null;
+  enabledExpiresAt = 0;
+}
+
+/**
+ * Whether the sensitive-word filter is enabled. Defaults to enabled —
+ * only an explicit "0" disables it, preserving prior always-on behaviour.
+ */
+export async function isSensitiveFilterEnabled(): Promise<boolean> {
+  const now = Date.now();
+  if (cachedEnabled !== null && enabledExpiresAt > now) {
+    return cachedEnabled;
+  }
+  try {
+    const [row] = await db
+      .select({ value: systemConfig.value })
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "sensitive_words_enabled"));
+    cachedEnabled = row?.value !== "0";
+    enabledExpiresAt = now + CACHE_DURATION;
+    return cachedEnabled;
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -77,7 +104,8 @@ export async function getAllSensitiveWords(): Promise<string[]> {
  */
 export async function checkSensitiveWords(content: string): Promise<string | null> {
   if (!content) return null;
-  
+  if (!(await isSensitiveFilterEnabled())) return null;
+
   const keywords = await getAllSensitiveWords();
   // Normalize Unicode (NFKC) and strip zero-width characters to prevent simple bypasses
   const normalized = content.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "");

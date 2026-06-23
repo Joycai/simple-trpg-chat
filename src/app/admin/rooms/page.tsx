@@ -1,12 +1,9 @@
 import { db } from "@/db";
 import { rooms, users, roomMembers } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { getTranslations } from "next-intl/server";
 import { AdminRoomManager } from "@/components/admin/rooms/AdminRoomManager";
 
 export default async function AdminRoomsPage() {
-  const t = await getTranslations("admin");
-
   const allRooms = await db
     .select({
       id: rooms.id,
@@ -23,13 +20,7 @@ export default async function AdminRoomsPage() {
     .orderBy(rooms.createdAt);
 
   return (
-    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text">{t("roomManagement")}</h1>
-          <p className="text-sm text-text-muted mt-1">{t("roomManagementDesc")}</p>
-        </div>
-      </div>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <AdminRoomManager rooms={allRooms} />
     </div>
   );

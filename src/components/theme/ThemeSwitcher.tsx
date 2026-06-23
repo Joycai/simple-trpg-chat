@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Palette, Check } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useLocale, useTranslations } from "next-intl";
 import { getThemeName, getThemeDesc } from "@/themes/types";
@@ -36,14 +36,13 @@ export function ThemeSwitcher() {
         title={t("switch")}
         className="flex items-center gap-2 h-9 px-2.5 rounded-theme border border-border bg-surface-alt text-text-muted hover:text-text hover:bg-surface transition-colors cursor-pointer"
       >
-        <Palette className="w-4 h-4 shrink-0" />
-        <span className="hidden sm:inline text-sm max-w-[7rem] truncate text-text">
-          {getThemeName(active.id, locale)}
-        </span>
         <span
           className="w-3.5 h-3.5 rounded-full border-2 shrink-0"
           style={{ backgroundColor: active.swatch.bg, borderColor: active.swatch.border }}
         />
+        <span className="hidden sm:inline text-sm max-w-[7rem] truncate text-text">
+          {getThemeName(active.id, locale)}
+        </span>
         <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -51,13 +50,13 @@ export function ThemeSwitcher() {
       {open && (
         <div
           role="menu"
-          className="overlay-pop absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-surface border border-border rounded-theme shadow-lg z-50 overflow-hidden"
+          className="overlay-pop theme-border absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-surface border border-border rounded-theme z-50 overflow-hidden p-1.5"
           style={{ transformOrigin: "top right" }}
         >
-          <div className="px-3 py-2 border-b border-border text-[11px] font-semibold uppercase tracking-wide text-text-dim">
+          <div className="px-2.5 py-2 border-b border-border mb-1 text-[11px] font-semibold uppercase tracking-wide text-text-dim">
             {t("label")}
           </div>
-          <div className="max-h-[60vh] overflow-y-auto py-1">
+          <div className="max-h-[60vh] overflow-y-auto">
             {themeList.map((tm) => {
               const isActive = tm.id === theme;
               return (
@@ -66,7 +65,7 @@ export function ThemeSwitcher() {
                   role="menuitemradio"
                   aria-checked={isActive}
                   onClick={() => { setTheme(tm.id); setOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${
+                  className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-theme text-left transition-colors cursor-pointer ${
                     isActive ? "bg-primary/10" : "hover:bg-surface-alt"
                   }`}
                 >

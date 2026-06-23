@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
@@ -41,15 +41,26 @@ export default async function HomePage() {
 
   const joinedRoomIds = new Set(memberships.map((m) => m.roomId));
 
+  // Member count per room (for the "调查员 N 人" line on joined cards)
+  const counts = await db
+    .select({ roomId: roomMembers.roomId, count: sql<number>`count(*)::int` })
+    .from(roomMembers)
+    .groupBy(roomMembers.roomId);
+  const memberCounts: Record<number, number> = Object.fromEntries(
+    counts.map((c) => [c.roomId, c.count]),
+  );
+
   return (
     <div className="flex flex-col min-h-screen bg-bg">
       {/* Header */}
-      <header className="bg-header-bg border-b border-header-border px-4 py-3 text-text shadow-sm overflow-visible">
+      <header className="relative z-40 bg-header-bg border-b border-header-border px-4 py-3 text-text shadow-sm overflow-visible">
         <div className="max-w-6xl mx-auto flex justify-between items-center gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <h1 className="text-xl font-bold inline-flex items-center gap-1.5 min-w-0">
-              <Dices className="w-5 h-5 shrink-0" />
-              <span className="truncate">{siteTitle}</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="flex items-center justify-center w-9 h-9 rounded-theme border border-primary/40 bg-primary/10 text-primary shrink-0 shadow-[var(--theme-glow)]">
+              <Dices className="w-5 h-5" />
+            </span>
+            <h1 className="text-lg sm:text-xl font-bold text-text truncate font-theme-display">
+              {siteTitle}
             </h1>
             {isAdmin && (
               <Link href="/admin" className="shrink-0 text-xs bg-danger/20 text-danger border border-danger/30 px-2 py-1 rounded hover:bg-danger/30 transition">
@@ -75,6 +86,7 @@ export default async function HomePage() {
           <LobbyClient
             rooms={allRooms}
             joinedRoomIds={joinedRoomIds}
+            memberCounts={memberCounts}
             isHost={isHost}
             userId={userId}
           />

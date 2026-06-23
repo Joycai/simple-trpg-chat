@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { Icons } from "@/components/shared/icons";
 
 interface BotInfo {
   id: number;
@@ -38,7 +39,6 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
 
   const [bots, setBots] = useState<BotInfo[]>([]);
-  const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -122,7 +122,6 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       providerId: providerId ?? undefined,
       avatarColor: botColor,
     });
-    setShowCreate(false);
     resetForm();
     router.refresh();
     loadBots();
@@ -169,7 +168,6 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       setModel(providers[0].model || "gpt-4o");
     }
     setBotColor(bot.avatarColor || getRandomColorForUser(bot.id));
-    setShowCreate(false);
     setSelectedPresetId("");
     setAllowEditPrompt(true);
   };
@@ -179,290 +177,220 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     resetForm();
   };
 
+  const fieldCls = "w-full px-3.5 py-3 border border-input-border bg-input-bg rounded-theme text-text text-sm outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary placeholder:text-text-dim";
+  const labelCls = "text-sm text-text-muted mb-1.5 block";
+
+  const TOOLS = [
+    { key: "send_message", label: "toolSendMessage" },
+    { key: "roll_dice", label: "toolRollDice" },
+    { key: "inspect_item", label: "toolInspectItem" },
+    { key: "my_inventory", label: "toolMyInventory" },
+    { key: "my_clues", label: "toolMyClues" },
+    { key: "my_character", label: "toolMyCharacter" },
+    { key: "search_history", label: "toolSearchHistory" },
+    { key: "set_character_card", label: "toolSetCharacterCard" },
+  ] as const;
+
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
-      <div className={`bg-surface border border-border rounded-theme shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto ${panelClass}`}
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${backdropClass}`} onClick={close}>
+      <div className={`bg-surface theme-border overlay-modal rounded-theme shadow-2xl p-6 w-full max-w-lg max-h-[88vh] overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-text">{t("title")}</h3>
-          <button onClick={close} className="text-text-muted hover:text-text text-xl cursor-pointer">×</button>
+          <h3 className="font-bold text-xl text-text font-theme-display">{t("title")}</h3>
+          <button onClick={close} aria-label={tCommon("close")}
+            className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <Icons.X className="w-5 h-5" />
+          </button>
         </div>
 
         {loading ? (
           <div className="text-center text-text-muted py-8">{t("loading")}</div>
         ) : (
           <div className="flex flex-col gap-5">
-            {/* Work Directory Info */}
-            <div className="bg-surface-alt rounded-theme p-3 border border-border text-xs">
-              <div className="flex items-center gap-2 mb-1 text-text-dim font-medium">
-                <span>📁 Work Directory</span>
-              </div>
-              <code className="block text-text-muted font-mono text-[11px] break-all bg-surface p-1.5 rounded mt-1">
-                {typeof window !== "undefined" ? window.location.origin : ""}/api/rooms/{roomId}
-              </code>
-              <div className="text-[10px] text-text-dim mt-2 space-y-0.5">
-                <div>• Bot Data: <code className="text-text-muted">{t("dataDesc")}</code></div>
-                <div>• Context: <code className="text-text-muted">{t("contextDesc")}</code></div>
-              </div>
-            </div>
-
             {/* Existing bots */}
             {bots.length > 0 && (
-              <div>
-                <h4 className="text-xs text-text-dim font-medium mb-2 uppercase">{t("createdBots")}</h4>
-                <div className="flex flex-col gap-2">
-                  {bots.map(bot => {
-                    const isBotDisabled = !aiEnabled;
-                    const providerId = bot.config.providerId;
-                    const isProviderError = !providerId || !validProviderIds.includes(providerId);
+              <div className="flex flex-col gap-2.5">
+                <h4 className="text-sm text-text-muted">{t("createdBots")}</h4>
+                {bots.map(bot => {
+                  const isBotDisabled = !aiEnabled;
+                  const botProviderId = bot.config.providerId;
+                  const isProviderError = !botProviderId || !validProviderIds.includes(botProviderId);
+                  const color = bot.avatarColor || getRandomColorForUser(bot.id);
+                  const initial = (bot.config.name || bot.nickname || "?").trim().charAt(0) || "?";
+                  const activationLabel = bot.config.activation === "manual" ? t("activationManual") : t("activationMention");
 
-                    return (
-                      <div key={bot.id} className="bg-surface-alt rounded-theme p-3 border border-border flex items-center gap-3">
-                        <div className="relative shrink-0">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm font-theme-mono"
-                            style={{
-                              backgroundColor: bot.avatarColor || getRandomColorForUser(bot.id),
-                              color: getContrastColor(bot.avatarColor || getRandomColorForUser(bot.id)),
-                            }}
-                          >
-                            🤖
-                          </div>
-                          {isBotDisabled && (
-                            <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[10px] leading-none border border-border p-[1px] shadow-sm select-none animate-pulse" title={tRoom("aiDisabled")}>🚫</div>
-                          )}
-                          {!isBotDisabled && isProviderError && (
-                            <div className="absolute -bottom-1 -right-1 bg-surface rounded-full text-[10px] leading-none border border-border p-[1px] shadow-sm select-none" title={tRoom("providerError")}>⚠️</div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-text flex items-center flex-wrap gap-1.5">
-                            <span className="truncate">{bot.nickname}</span>
-                            {isBotDisabled && (
-                              <span className="text-[9px] font-normal px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none">
-                                {tRoom("tagDisabled")}
-                              </span>
-                            )}
-                            {!isBotDisabled && isProviderError && (
-                              <span className="text-[9px] font-normal px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none animate-pulse">
-                                {tRoom("tagProviderError")}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-text-muted truncate">
-                            {t("activationDesc", { model: bot.config.model || "gpt-4o-mini", activation: bot.config.activation === "manual" ? t("activationManual") : t("activationMention") })}
-                          </div>
-                          {!isBotDisabled && isProviderError && (
-                            <div className="text-[9px] text-yellow-500 mt-1 select-none font-medium animate-pulse">
-                              ⚠️ {tRoom("providerError")}
-                            </div>
-                          )}
-                          {isBotDisabled && (
-                            <div className="text-[9px] text-red-500 mt-1 select-none font-medium">
-                              🚫 {tRoom("aiDisabled")}
-                            </div>
-                          )}
-                        </div>
-                        {isHost && (
-                          <button
-                            onClick={async () => {
-                              await triggerBotAction(roomId, bot.id);
-                              router.refresh();
-                            }}
-                            className="text-xs text-accent hover:bg-accent/10 px-2 py-1 rounded transition font-bold cursor-pointer shrink-0"
-                            title={t("triggerManual")}
-                          >
-                            ⚡
-                          </button>
-                        )}
-                        <button
-                          onClick={() => startEdit(bot)}
-                          className="text-xs text-text-muted hover:text-primary px-2 py-1 rounded hover:bg-surface transition cursor-pointer shrink-0"
-                        >
-                          ✏️ {t("edit")}
-                        </button>
-                        {isBotDisabled ? (
-                          <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded font-bold select-none shrink-0">
-                            {tRoom("tagDisabled")}
-                          </span>
-                        ) : isProviderError ? (
-                          <span className="text-[10px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-0.5 rounded font-bold select-none shrink-0 animate-pulse">
-                            {tRoom("tagProviderError")}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold select-none shrink-0">ACTIVE</span>
-                        )}
+                  return (
+                    <div key={bot.id} className="bg-surface-alt/40 rounded-theme p-3 border border-border flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-theme flex items-center justify-center text-lg font-bold shrink-0 shadow-sm font-theme-display"
+                        style={{ backgroundColor: color, color: getContrastColor(color) }}>
+                        {initial}
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center flex-wrap gap-2">
+                          <span className="text-[15px] font-bold text-text truncate">{bot.nickname}</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-ai border border-ai/40 bg-ai/10 rounded px-1.5 py-0.5 leading-none select-none">
+                            <Icons.Lock className="w-3 h-3" /> BOT
+                          </span>
+                          {isBotDisabled && (
+                            <span className="text-[10px] font-bold text-danger border border-danger/40 bg-danger/10 rounded px-1.5 py-0.5 leading-none select-none">
+                              {tRoom("tagDisabled")}
+                            </span>
+                          )}
+                          {!isBotDisabled && isProviderError && (
+                            <span className="text-[10px] font-bold rounded px-1.5 py-0.5 leading-none select-none border" style={{ color: "#f59e0b", borderColor: "#f59e0b66", backgroundColor: "#f59e0b1a" }}>
+                              {tRoom("tagProviderError")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-text-muted truncate mt-0.5 font-theme-mono">
+                          @{bot.nickname} · {bot.config.model || "gpt-4o-mini"} · {activationLabel}
+                        </div>
+                      </div>
+                      {isHost && (
+                        <button onClick={async () => { await triggerBotAction(roomId, bot.id); router.refresh(); }}
+                          title={t("triggerManual")} aria-label={t("triggerManual")}
+                          className="flex items-center justify-center w-9 h-9 rounded-theme bg-accent/10 text-accent hover:bg-accent/20 transition cursor-pointer shrink-0">
+                          <Icons.Zap className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => startEdit(bot)} title={t("edit")} aria-label={t("edit")}
+                        className="flex items-center justify-center w-9 h-9 rounded-theme text-text-muted hover:text-primary hover:bg-surface-alt transition cursor-pointer shrink-0">
+                        <Icons.Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            )}
-
-            {!showCreate && !editingBot && isHost && (
-              <button onClick={() => setShowCreate(true)}
-                className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-theme font-bold transition cursor-pointer">
-                ＋ {t("createBot")}
-              </button>
             )}
 
             {/* Create / Edit form */}
-            {(showCreate || editingBot) && (
-              <div className="bg-surface-alt rounded-theme p-4 border border-primary/30 flex flex-col gap-3">
-                <h4 className="font-bold text-text text-sm">{editingBot ? t("editBot") : t("createBot")}</h4>
+            {isHost && (
+              <div className="bg-surface-alt/30 rounded-theme p-5 border border-ai/30 flex flex-col gap-4">
+                <h4 className="font-bold text-ai text-base font-theme-display">{editingBot ? t("editBot") : t("createBot")}</h4>
 
                 {presets.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-text-dim">{t("presetSelect")}</label>
-                    <select value={selectedPresetId} onChange={e => handlePresetChange(e.target.value)}
-                      className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
-                      <option value="">{t("manualPreset")}</option>
-                      {presets.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                  <div>
+                    <label className={labelCls}>{t("presetSelect")}</label>
+                    <div className="relative">
+                      <select value={selectedPresetId} onChange={e => handlePresetChange(e.target.value)}
+                        className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
+                        <option value="">{t("manualPreset")}</option>
+                        {presets.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                      </select>
+                      <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                 )}
-                
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">{t("name")}</label>
-                  <input value={botName} onChange={e => setBotName(e.target.value)}
-                    placeholder={t("namePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none" />
+
+                {/* Name + nickname */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>{t("name")}</label>
+                    <input value={botName} onChange={e => setBotName(e.target.value)} placeholder={t("namePlaceholder")} className={fieldCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>{t("nickname")}</label>
+                    <input value={botNickname} onChange={e => setBotNickname(e.target.value)} placeholder={t("nicknamePlaceholder")} className={`${fieldCls} font-theme-mono`} />
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">{t("nickname")}</label>
-                  <input value={botNickname} onChange={e => setBotNickname(e.target.value)}
-                    placeholder={t("nicknamePlaceholder")} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm font-mono outline-none" />
-                  <p className="text-[10px] text-text-muted">{t("nicknameHint", { name: botNickname || "..." })}</p>
-                </div>
-
-                {/* Avatar Color */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim font-medium">{tChar("avatarColor")}</label>
+                {/* Avatar color */}
+                <div>
+                  <label className={labelCls}>{tChar("avatarColor")}</label>
                   <div className="flex flex-wrap gap-2 items-center">
-                    {PRESET_AVATAR_COLORS.map(preset => (
-                      <button
-                        key={preset.hex}
-                        type="button"
-                        onClick={() => setBotColor(preset.hex)}
-                        className={`w-6 h-6 rounded-full border transition cursor-pointer relative ${
-                          botColor.toLowerCase() === preset.hex.toLowerCase()
-                            ? "border-text scale-110 shadow-sm"
-                            : "border-transparent hover:scale-105"
-                        }`}
-                        style={{ backgroundColor: preset.hex }}
-                        title={preset.name}
-                      >
-                        {botColor.toLowerCase() === preset.hex.toLowerCase() && (
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px]" style={{ color: preset.text }}>
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    {/* Custom Hex input */}
-                    <div className="flex items-center gap-1.5 ml-1.5">
-                      <input
-                        type="color"
-                        value={botColor.startsWith("#") && botColor.length === 7 ? botColor : "#6366f1"}
+                    {PRESET_AVATAR_COLORS.map(preset => {
+                      const sel = botColor.toLowerCase() === preset.hex.toLowerCase();
+                      return (
+                        <button key={preset.hex} type="button" onClick={() => setBotColor(preset.hex)} title={preset.name}
+                          className={`w-9 h-9 rounded-theme transition cursor-pointer relative ${sel ? "ring-2 ring-offset-2 ring-offset-surface ring-text" : "hover:scale-105"}`}
+                          style={{ backgroundColor: preset.hex }}>
+                          {sel && (
+                            <span className="absolute inset-0 flex items-center justify-center" style={{ color: preset.text }}>
+                              <Icons.Check className="w-4 h-4" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <input type="color" value={botColor.startsWith("#") && botColor.length === 7 ? botColor : "#6366f1"}
                         onChange={e => setBotColor(e.target.value)}
-                        className="w-6 h-6 border-0 p-0 rounded-full cursor-pointer bg-transparent outline-none overflow-hidden"
-                      />
-                      <input
-                        type="text"
-                        value={botColor}
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val.length <= 7) {
-                            setBotColor(val);
-                          }
-                        }}
-                        placeholder="#HEX"
-                        className="w-16 p-1 border border-input-border bg-input-bg rounded text-[10px] text-text font-mono outline-none"
-                      />
+                        className="w-9 h-9 border-0 p-0 rounded-theme cursor-pointer bg-transparent outline-none overflow-hidden" />
+                      <input type="text" value={botColor} onChange={e => { if (e.target.value.length <= 7) setBotColor(e.target.value); }}
+                        placeholder="#HEX" className="w-20 px-2 py-1.5 border border-input-border bg-input-bg rounded-theme text-xs text-text font-theme-mono outline-none" />
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">{t("prompt")}</label>
-                  <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
-                    placeholder={t("promptPlaceholder")} rows={4}
+                {/* System prompt */}
+                <div>
+                  <label className={labelCls}>{t("prompt")}</label>
+                  <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder={t("promptPlaceholder")} rows={4}
                     disabled={!allowEditPrompt}
-                    className={`p-2 border border-input-border bg-input-bg rounded text-text text-sm resize-none font-mono outline-none ${
-                      !allowEditPrompt ? "opacity-60 cursor-not-allowed" : ""
-                    }`} />
+                    className={`${fieldCls} resize-none leading-relaxed ${!allowEditPrompt ? "opacity-60 cursor-not-allowed" : ""}`} />
                 </div>
 
+                {/* AI provider */}
                 {providers.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-text-dim">AI Provider</label>
-                    <select value={providerId || ""} onChange={e => {
-                      const pid = parseInt(e.target.value);
-                      setProviderId(pid);
-                      const p = providers.find(x => x.id === pid);
-                      if (p) setModel(p.model || "gpt-4o");
-                    }} className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
-                      {providers.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}</option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-text-muted">{tp("presetLabel")}</p>
+                  <div>
+                    <label className={labelCls}>AI Provider</label>
+                    <div className="relative">
+                      <select value={providerId || ""} onChange={e => {
+                        const pid = parseInt(e.target.value); setProviderId(pid);
+                        const p = providers.find(x => x.id === pid); if (p) setModel(p.model || "gpt-4o");
+                      }} className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
+                        {providers.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}</option>
+                        ))}
+                      </select>
+                      <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                    {providerId && <p className="text-xs text-text-dim mt-1.5">{t("modelHint", { model })}</p>}
                   </div>
                 )}
 
-                {providers.length > 0 && providerId && (
-                  <p className="text-[10px] text-text-muted">{t("modelHint", { model })}</p>
-                )}
-                <div className="flex gap-3">
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-xs text-text-dim">{t("activation")}</label>
+                {/* Trigger mode */}
+                <div>
+                  <label className={labelCls}>{t("activation")}</label>
+                  <div className="relative">
                     <select value={activation} onChange={e => setActivation(e.target.value)}
-                      className="p-2 border border-input-border bg-input-bg rounded text-text text-sm outline-none">
+                      className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
                       <option value="@mention">{t("activationMention")}</option>
                       <option value="manual">{t("activationManual")}</option>
                     </select>
+                    <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
-                {/* Tool Selection */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-dim">{t("tools")}</label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { key: "send_message", label: "toolSendMessage" },
-                      { key: "roll_dice", label: "toolRollDice" },
-                      { key: "inspect_item", label: "toolInspectItem" },
-                      { key: "my_inventory", label: "toolMyInventory" },
-                      { key: "my_clues", label: "toolMyClues" },
-                      { key: "my_character", label: "toolMyCharacter" },
-                      { key: "search_history", label: "toolSearchHistory" },
-                      { key: "set_character_card", label: "toolSetCharacterCard" },
-                    ].map(tool => (
-                      <label key={tool.key} className={`flex items-center gap-1.5 p-1.5 rounded text-xs cursor-pointer transition ${
-                        enableTools.includes(tool.key) ? "bg-primary/10 text-primary" : "bg-surface text-text-muted"
-                      }`}>
-                        <input type="checkbox" checked={enableTools.includes(tool.key)}
-                          onChange={e => {
-                            if (e.target.checked) setEnableTools([...enableTools, tool.key]);
-                            else setEnableTools(enableTools.filter(t => t !== tool.key));
-                          }}
-                          className="w-3.5 h-3.5 accent-primary cursor-pointer" />
-                        {t(tool.label)}
-                      </label>
-                    ))}
+                {/* Tools as toggle pills */}
+                <div>
+                  <label className={labelCls}>{t("tools")}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {TOOLS.map(tool => {
+                      const on = enableTools.includes(tool.key);
+                      return (
+                        <button key={tool.key} type="button"
+                          onClick={() => setEnableTools(on ? enableTools.filter(k => k !== tool.key) : [...enableTools, tool.key])}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${
+                            on ? "border-primary/60 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-text hover:bg-surface-alt"
+                          }`}>
+                          {t(tool.label)}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-1">
-                  <button onClick={() => {
-                    setShowCreate(false);
-                    cancelEdit();
-                  }}
-                    className="flex-1 px-3 py-2 text-text-muted text-sm cursor-pointer">{tCommon("cancel")}</button>
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  {editingBot && (
+                    <button onClick={cancelEdit}
+                      className="flex-1 py-3 rounded-theme border border-border text-text-muted hover:text-text hover:bg-surface-alt font-bold text-sm cursor-pointer transition">
+                      {tCommon("cancel")}
+                    </button>
+                  )}
                   <button onClick={editingBot ? handleUpdate : handleCreate} disabled={!botName || !botNickname}
-                    className="flex-1 bg-primary hover:bg-primary-hover disabled:opacity-40 text-white py-2 rounded font-bold text-sm cursor-pointer">
+                    className="flex-1 py-3 rounded-theme bg-gradient-to-b from-primary to-primary/85 text-primary-foreground font-bold text-sm transition hover:brightness-110 cursor-pointer disabled:opacity-40 disabled:shadow-none shadow-[var(--theme-glow)]">
                     {editingBot ? t("submitSave") : t("submitCreate")}
                   </button>
                 </div>

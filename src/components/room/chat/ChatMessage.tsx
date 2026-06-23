@@ -5,6 +5,7 @@ import { formatTime, formatDiceResult } from "@/lib/utils";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
+import { Icons } from "@/components/shared/icons";
 import { ResourceStatusTooltip } from "@/components/room/chat/ResourceStatusTooltip";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { type CharacterData } from "@/lib/character-types";
@@ -200,14 +201,17 @@ export const ChatMessage = memo(function ChatMessage({
           {isTarget && !alreadyResponded && onCheckRequest && messageId !== undefined && (
             <button
               onClick={() => onCheckRequest(messageId, cr?.skillName ?? "", cr?.diceType ?? "")}
-              className="bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition animate-bounce"
+              className="bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center transition animate-bounce shadow-[var(--theme-glow)]"
               title={t("clickCheck")}
             >
-              🎲
+              <Icons.Dices className="w-4 h-4" />
             </button>
           )}
           {isTarget && alreadyResponded && (
-            <span className="text-accent text-base" title={t("checkDone")}>✅</span>
+            <Icons.Check className="w-4 h-4 text-success" aria-label={t("checkDone")} />
+          )}
+          {!isTarget && (
+            <Icons.Dices className="w-4 h-4 text-accent shrink-0" aria-hidden />
           )}
         </div>
       </div>
@@ -290,7 +294,7 @@ export const ChatMessage = memo(function ChatMessage({
       <div className={`flex flex-col max-w-[90%] sm:max-w-[85%] md:max-w-[80%] ${isOwn ? "items-end" : ""}`}>
         <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""} relative`}>
           <span
-            className={`text-[13px] font-semibold text-text-muted ${(!isBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
+            className={`text-[13px] font-semibold text-text-muted inline-flex items-center gap-1 ${(!isBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
             onClick={(e) => {
               if (!isBot && !isOwn && senderId) {
                 e.stopPropagation();
@@ -299,9 +303,18 @@ export const ChatMessage = memo(function ChatMessage({
             }}
           >
             {nickname}
-            {isBot && " 🤖"}
-            {visibilityBadge && ` (🔒 ${visibilityBadge})`}
+            {isBot && <Icons.Bot className="w-3.5 h-3.5 text-ai" aria-label="Bot" />}
           </span>
+          {senderId !== undefined && hostId !== undefined && senderId === hostId && (
+            <span className="text-[10px] font-bold text-ai bg-ai/15 border border-ai/30 px-1.5 py-0.5 rounded">
+              {t("roleHost")}
+            </span>
+          )}
+          {visibilityBadge && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-text-dim">
+              <Icons.Lock className="w-3 h-3" />{visibilityBadge}
+            </span>
+          )}
 
           {showMenu && senderId && (
             <div
@@ -330,7 +343,7 @@ export const ChatMessage = memo(function ChatMessage({
                   }}
                   className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-surface-alt transition cursor-pointer"
                 >
-                  🔒 {tRoom("btnDm")}
+                  <Icons.Lock className="w-3.5 h-3.5" /> {tRoom("btnDm")}
                 </button>
               )}
             </div>
@@ -350,25 +363,23 @@ export const ChatMessage = memo(function ChatMessage({
               : isImage
               ? "bg-surface border border-border text-text"
               : isOwn
-              ? "bg-primary text-primary-foreground"
+              ? "bg-primary/10 border border-primary/40 text-text"
               : "bg-surface border border-border text-text"
           }`}
         >
           {isDice ? (
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🎲</span>
-                <div>
-                  <span className="font-bold font-theme-mono text-sm leading-tight">
-                    {formatDiceResult(diceDetail || content, t)}
-                  </span>
-                </div>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-theme bg-primary/10 text-primary border border-primary/30 shrink-0">
+                <Icons.Dices className="w-4 h-4" />
+              </span>
+              <span className="font-bold font-theme-mono text-sm leading-tight">
+                {formatDiceResult(diceDetail || content, t)}
+              </span>
             </div>
           ) : isImage ? (
             imgError ? (
               <div className="flex items-center gap-2 px-3 py-4 text-xs text-text-dim italic">
-                <span className="text-lg not-italic">🖼️</span>
+                <Icons.Image className="w-4 h-4 not-italic" />
                 <span>{t("imageUnavailable")}</span>
               </div>
             ) : (
