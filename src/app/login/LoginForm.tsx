@@ -11,13 +11,17 @@ interface LoginFormProps {
   siteTitle: string;
   /** App version, from package.json. */
   version: string;
+  /** ICP filing number (China). Empty string hides the footer line. */
+  icp?: string;
+  /** ICP filing link; defaults to the MIIT portal upstream. */
+  icpUrl?: string;
   /** Why the user landed on /login, e.g. "elsewhere" when kicked by a newer login. */
   noticeReason?: string;
   /** IP of the login that kicked this session (single-session notice). */
   noticeIp?: string;
 }
 
-export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginFormProps) {
+export function LoginForm({ siteTitle, version, icp, icpUrl, noticeReason, noticeIp }: LoginFormProps) {
   const t = useTranslations("login");
   const [error, setError] = useState("");
   const notice =
@@ -254,10 +258,15 @@ export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginF
             {displayTitle}
           </a>
         </p>
-        {process.env.NEXT_PUBLIC_ICP_BEIAN && (
+        {icp && (
           <p className="text-[10px] text-text-dim/50">
-            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:underline">
-              {process.env.NEXT_PUBLIC_ICP_BEIAN}
+            <a
+              href={icpUrl || "https://beian.miit.gov.cn/"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {icp}
             </a>
           </p>
         )}

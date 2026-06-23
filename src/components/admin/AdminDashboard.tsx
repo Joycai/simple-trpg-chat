@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Database, HardDrive } from "lucide-react";
+import { Database, HardDrive, RefreshCw } from "lucide-react";
 import { getServerLoadAction } from "@/app/actions/server-load";
 import { getServerStatsAction } from "@/app/actions/stats";
 import { StatCard, StatusBadge } from "@/components/admin/dashboard/StatCards";
@@ -70,16 +70,37 @@ export function AdminDashboard({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-text font-theme-display">{t("dashboardTitle")}</h1>
+          <p className="text-sm text-text-muted mt-1">{t("dashboardDesc")}</p>
+        </div>
+        <button
+          onClick={handleManualRefresh}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-theme border border-border bg-surface text-text-muted hover:text-text hover:bg-surface-alt transition disabled:opacity-50 cursor-pointer shrink-0"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          <span className="text-sm font-medium">{t("refresh")}</span>
+        </button>
+      </div>
+
       {/* System Status */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatusBadge
           label={t("dbType")}
-          value={dbType === "postgresql" ? <span className="inline-flex items-center gap-1"><Database className="w-3.5 h-3.5" /> PostgreSQL</span> : <span className="inline-flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" /> SQLite</span>}
+          value={dbType === "postgresql" ? <span className="inline-flex items-center gap-2"><Database className="w-5 h-5" /> PostgreSQL</span> : <span className="inline-flex items-center gap-2"><HardDrive className="w-5 h-5" /> SQLite</span>}
           accent="primary"
         />
         <StatusBadge
           label={t("aiFeature")}
-          value={aiEnabled ? t("enabled") : t("disabled")}
+          value={
+            <span className="inline-flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${aiEnabled ? "bg-success animate-pulse" : "bg-text-dim"}`} />
+              {aiEnabled ? t("enabled") : t("disabled")}
+            </span>
+          }
           accent={aiEnabled ? "success" : "muted"}
         />
         <StatusBadge
@@ -90,21 +111,23 @@ export function AdminDashboard({
         <StatusBadge
           label={t("bots")}
           value={`${botCount}`}
-          accent="accent"
+          accent="ai"
         />
       </div>
 
-      {/* Traffic Statistics & Charts */}
-      <TrafficStatsSection
-        statsData={statsData}
-        range={range}
-        onRangeChange={setRange}
-        loading={loading}
-        onRefresh={handleManualRefresh}
-      />
-
-      {/* Server Load Section */}
-      <ServerLoadSection loadData={loadData} />
+      {/* Traffic + Server Load — two columns on large screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <TrafficStatsSection
+            statsData={statsData}
+            range={range}
+            onRangeChange={setRange}
+          />
+        </div>
+        <div className="lg:col-span-1">
+          <ServerLoadSection loadData={loadData} />
+        </div>
+      </div>
 
       {/* User Account Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

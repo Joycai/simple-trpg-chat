@@ -59,11 +59,11 @@ export function AdminSidebar({ onLogout, siteName, version }: AdminSidebarProps)
       >
         {/* Header inside Sidebar (primarily for desktop or mobile close button) */}
         <div className="px-5 py-5 border-b border-border flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-text tracking-wide">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-text tracking-wide font-theme-display">
               {t("sidebarTitle")}
             </h2>
-            <p className="text-[10px] text-text-dim mt-1 uppercase tracking-widest">{siteName}</p>
+            <p className="text-[10px] text-text-dim mt-1 uppercase tracking-widest truncate">{siteName} · TRPG</p>
           </div>
           <button
             onClick={closeSidebar}
@@ -127,10 +127,10 @@ export function AdminSidebar({ onLogout, siteName, version }: AdminSidebarProps)
           <form action={onLogout}>
             <button
               type="submit"
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-danger hover:bg-danger/10 transition-all duration-200 text-left cursor-pointer"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-theme text-sm text-text-muted hover:bg-danger/10 transition-all duration-200 text-left cursor-pointer group"
             >
-              <LogOut className="w-4 h-4" />
-              <span className="font-medium">{t("logout")}</span>
+              <LogOut className="w-4 h-4 text-danger" />
+              <span className="font-medium group-hover:text-danger transition-colors">{t("logout")}</span>
             </button>
           </form>
         </nav>
@@ -162,10 +162,10 @@ function SidebarLink({ href, icon, label, active, onClick, isSub }: SidebarLinkP
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-2.5 py-2 rounded-lg transition-all duration-200 ${
+      className={`flex items-center gap-2.5 py-2.5 rounded-theme border transition-all duration-200 ${
         active
-          ? "bg-primary/10 text-primary font-bold shadow-sm"
-          : "text-text-muted hover:text-text hover:bg-surface-alt"
+          ? "bg-primary/10 text-primary font-bold border-primary/40 shadow-[var(--theme-glow)]"
+          : "text-text-muted border-transparent hover:text-text hover:bg-surface-alt"
       } ${isSub ? "pl-9 pr-3 text-xs" : "px-3 text-sm"}`}
     >
       <span className={`flex items-center justify-center ${isSub ? "w-4.5 h-4.5" : "w-5 h-5"}`}>{icon}</span>

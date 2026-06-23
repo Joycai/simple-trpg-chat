@@ -1,11 +1,9 @@
 import { db, currentDialect } from "@/db";
 import { users, systemConfig, rooms } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { getTranslations } from "next-intl/server";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 
 export default async function AdminPage() {
-  const t = await getTranslations("admin");
   const allUsers = await db.select().from(users);
   const [aiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
   const aiEnabled = aiConfig?.value === "true";
@@ -20,13 +18,7 @@ export default async function AdminPage() {
   const roomCount = roomCountResult[0]?.count || 0;
 
   return (
-    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text">{t("dashboardTitle")}</h1>
-          <p className="text-sm text-text-muted mt-1">{t("dashboardDesc")}</p>
-        </div>
-      </div>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <AdminDashboard
         dbType={dbType}
         totalUsers={allUsers.length}

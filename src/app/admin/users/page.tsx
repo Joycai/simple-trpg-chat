@@ -1,10 +1,9 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { getTranslations } from "next-intl/server";
+import { users, loginHistory } from "@/db/schema";
+import { sql } from "drizzle-orm";
 import { AdminUserManager } from "@/components/admin/users/AdminUserManager";
 
 export default async function AdminUsersPage() {
-  const t = await getTranslations("admin");
   const allUsers = await db.select({
     id: users.id,
     username: users.username,
@@ -17,15 +16,17 @@ export default async function AdminUsersPage() {
     updatedAt: users.updatedAt,
   }).from(users);
 
+  // Most-recent login per user (real "last login" data, not stored on the user row)
+  const lastLoginRows = await db
+    .select({ userId: loginHistory.userId, last: sql<string>`max(${loginHistory.loginAt})` })
+    .from(loginHistory)
+    .groupBy(loginHistory.userId);
+  const lastLogins: Record<number, string> = {};
+  for (const r of lastLoginRows) if (r.last) lastLogins[r.userId] = r.last;
+
   return (
-    <div className="p-4 md:p-6 flex flex-col gap-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text">{t("userManagement")}</h1>
-          <p className="text-sm text-text-muted mt-1">{t("userManagementDesc")}</p>
-        </div>
-      </div>
-      <AdminUserManager users={allUsers} />
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
+      <AdminUserManager users={allUsers} lastLogins={lastLogins} />
     </div>
   );
 }
