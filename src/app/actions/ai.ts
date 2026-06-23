@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { systemConfig } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
@@ -46,12 +46,12 @@ export async function updateSystemConfigBatch(entries: Record<string, string>) {
   await requireAdmin();
 
   const rows = Object.entries(entries).map(([key, value]) => ({ key, value }));
-  for (const row of rows) {
-    await db.insert(systemConfig).values(row).onConflictDoUpdate({
-      target: systemConfig.key,
-      set: { value: row.value, updatedAt: sqlNow() },
-    });
-  }
+  if (rows.length === 0) return;
+  // Single multi-row upsert — `excluded.value` pulls each row's incoming value.
+  await db.insert(systemConfig).values(rows).onConflictDoUpdate({
+    target: systemConfig.key,
+    set: { value: sql`excluded.value`, updatedAt: sqlNow() },
+  });
 
   if ("sensitive_words" in entries || "sensitive_words_enabled" in entries) {
     const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");

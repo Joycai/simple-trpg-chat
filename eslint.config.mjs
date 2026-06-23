@@ -26,6 +26,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local-only tooling (gitignored): vendored bundles / design-sync scratch.
+    ".ds-sync/**",
+    "ds-bundle/**",
   ]),
 ]);
 
