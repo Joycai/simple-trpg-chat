@@ -8,15 +8,18 @@ import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { BackpackSkeleton, ManageSkeleton } from "./InventorySkeletons";
 import { ManageView } from "./ManageView";
 import { BackpackView } from "./BackpackView";
-import { CreateEditModal, DistributeModal, DetailModal } from "./InventoryModals";
+import { CreateEditModal, DistributeModal, DetailModal, ShareModal } from "./InventoryModals";
 import { Icons } from "@/components/shared/icons";
-import type { InventoryItem, Distribution, ContentFields, InventoryItemType } from "./inventory-helpers";
+import type { InventoryItem, Distribution, ContentFields, InventoryItemType, ItemMeta } from "./inventory-helpers";
+import { DEFAULT_ITEM_META } from "./inventory-helpers";
 
 interface InventoryPanelProps {
   roomId: number;
   userId: number;
   isHost: boolean;
-  players: { id: number; username: string; nickname: string }[];
+  /** Room host's user id — excluded as a share/distribute target on the player side. */
+  hostId?: number;
+  players: { id: number; username: string; nickname: string; isOnline?: boolean; avatarColor?: string | null; isBot?: boolean }[];
   onClose: () => void;
   /** Bumped via SSE when an item is edited, so the panel reloads the synced content. */
   refreshKey?: number;
@@ -25,7 +28,7 @@ interface InventoryPanelProps {
   view?: "backpack" | "manage";
 }
 
-export function InventoryPanel({ roomId, userId, isHost, players, onClose, refreshKey = 0, readOnly = false, view = "backpack" }: InventoryPanelProps) {
+export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClose, refreshKey = 0, readOnly = false, view = "backpack" }: InventoryPanelProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
@@ -48,6 +51,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const [title, setTitle] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [contentFields, setContentFields] = useState<ContentFields>({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
+  const [meta, setMeta] = useState<ItemMeta>({ ...DEFAULT_ITEM_META });
 
   // Distribute state
   const [distributeTargets, setDistributeTargets] = useState<number[]>([]);
@@ -57,8 +61,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const [detailDist, setDetailDist] = useState<Distribution | null>(null);
 
-  // Share state
-  const [shareTarget, setShareTarget] = useState<number | null>(null);
+  // Share state — the player-side "分发道具" modal (multi-select)
+  const [shareItem, setShareItem] = useState<InventoryItem | null>(null);
+  const [shareDist, setShareDist] = useState<Distribution | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -119,6 +124,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     setTitle("");
     setImageUrl(null);
     setContentFields({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
+    setMeta({ ...DEFAULT_ITEM_META });
   };
 
   // Prefill the shared form from an existing item and switch it into edit mode.
@@ -136,6 +142,13 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
       appearance: c.appearance || "",
       extra: c.extra || "",
     });
+    setMeta({
+      source: (item.source as ItemMeta["source"]) || DEFAULT_ITEM_META.source,
+      visibility: (item.visibility as ItemMeta["visibility"]) || DEFAULT_ITEM_META.visibility,
+      relation: (item.relation as ItemMeta["relation"]) || DEFAULT_ITEM_META.relation,
+      category: (item.category as ItemMeta["category"]) || DEFAULT_ITEM_META.category,
+      quantity: item.quantity ?? DEFAULT_ITEM_META.quantity,
+    });
     setShowCreate(true);
     setDetailItem(null);
   };
@@ -147,12 +160,21 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     else if (itemType === "character") contentJson = { basicInfo: contentFields.basicInfo, detail: contentFields.detail };
     else contentJson = { appearance: contentFields.appearance, extra: contentFields.extra };
 
+    // Persist only the metadata relevant to the chosen type; clear the rest.
+    const metaFields = {
+      source: itemType === "info" ? meta.source : null,
+      visibility: itemType === "info" ? meta.visibility : null,
+      relation: itemType === "character" ? meta.relation : null,
+      category: itemType === "item" ? meta.category : null,
+      quantity: itemType === "item" ? meta.quantity : null,
+    };
+
     const content = JSON.parse(JSON.stringify(contentJson));
     try {
       if (editingItemId !== null) {
-        await updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content, imageUrl: imageUrl ?? null });
+        await updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content, imageUrl: imageUrl ?? null, ...metaFields });
       } else {
-        await createInventoryItemAction(roomId, { type: itemType, title, content, imageUrl: imageUrl ?? undefined });
+        await createInventoryItemAction(roomId, { type: itemType, title, content, imageUrl: imageUrl ?? undefined, ...metaFields });
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : tCommon("error"));
@@ -193,15 +215,28 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     }
   };
 
-  const handleShare = async (itemId: number) => {
-    if (!shareTarget) return;
-    try {
-      await shareItemAction(roomId, itemId, shareTarget);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+  // Open the share modal for the item the player is currently viewing.
+  const openShare = (item: InventoryItem, dist: Distribution | null) => {
+    setShareItem(item);
+    setShareDist(dist);
+    setDetailItem(null); // close the detail view; the share modal stands alone
+  };
+
+  // Share copies of the item to every selected target (skipping any that error,
+  // e.g. a recipient who already owns it).
+  const handleShareMulti = async (targetIds: number[]) => {
+    if (!shareItem || targetIds.length === 0) return;
+    let lastErr: string | null = null;
+    for (const id of targetIds) {
+      try {
+        await shareItemAction(roomId, shareItem.id, id);
+      } catch (err: unknown) {
+        lastErr = err instanceof Error ? err.message : tCommon("error");
+      }
     }
-    setShareTarget(null);
-    setDetailItem(null);
+    if (lastErr) alert(lastErr);
+    setShareItem(null);
+    setShareDist(null);
     router.refresh();
     loadData();
   };
@@ -270,6 +305,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
               onTitleChange={setTitle}
               contentFields={contentFields}
               onContentFieldsChange={setContentFields}
+              meta={meta}
+              onMetaChange={setMeta}
               imageUrl={imageUrl}
               onImageChange={setImageUrl}
               onCancel={resetForm}
@@ -296,15 +333,23 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
               detailDist={detailDist}
               isHost={isHost}
               history={history}
+              readOnly={readOnly}
+              onClose={() => setDetailItem(null)}
+              onEdit={startEdit}
+              onShareOpen={() => openShare(detailItem, detailDist)}
+              onDistribute={openDistribute}
+            />
+          )}
+
+          {shareItem && (
+            <ShareModal
+              item={shareItem}
+              fromName={shareDist?.fromUsername || null}
               players={players}
               userId={userId}
-              readOnly={readOnly}
-              shareTarget={shareTarget}
-              onShareTargetChange={setShareTarget}
-              onClose={() => { setDetailItem(null); setShareTarget(null); }}
-              onEdit={startEdit}
-              onShare={handleShare}
-              onDistribute={openDistribute}
+              hostId={hostId}
+              onCancel={() => { setShareItem(null); setShareDist(null); }}
+              onShare={handleShareMulti}
             />
           )}
         </div>

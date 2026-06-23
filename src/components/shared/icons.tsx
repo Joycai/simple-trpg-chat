@@ -7,7 +7,7 @@ import {
   Heart, Clover, Ruler, Home, Wand, Search, Plus, Zap, Skull, Image,
   ImagePlus, MessageSquareLock, EyeOff, Loader2, Send, Minus, ChevronDown,
   Copy, SlidersHorizontal, Navigation, MessageSquare, Check, CheckCheck,
-  Target, Eye, Droplet, Braces,
+  Target, Eye, Droplet, Braces, Clock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -70,4 +70,5 @@ export const Icons = {
   Eye: wrap(Eye),
   Droplet: wrap(Droplet),
   Braces: wrap(Braces),
+  Clock: wrap(Clock),
 };

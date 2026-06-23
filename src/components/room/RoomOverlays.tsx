@@ -34,6 +34,7 @@ interface RoomOverlaysProps {
   inventoryRefreshKey: number;
   skillRefreshKey: number;
   mentionTargets: MentionTarget[];
+  onlineUserIds?: Set<number>;
   playerCount: number;
   botCount: number;
   activeTab: "public" | number;
@@ -86,7 +87,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
   const {
     room, userId, isHost, nickname, characterData, readOnly, players,
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode, roomDiceRules,
-    inventoryRefreshKey, skillRefreshKey, mentionTargets, playerCount, botCount, activeTab,
+    inventoryRefreshKey, skillRefreshKey, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
     showMembers, setShowMembers, showInventory, setShowInventory, showItemManager, setShowItemManager,
@@ -99,11 +100,17 @@ export function RoomOverlays(props: RoomOverlaysProps) {
   const memberOf = (uid: number | null) =>
     players.find((p) => (p.users?.id || p.user_id || p.user?.id) === uid)?.room_members;
 
-  const inventoryPlayers = players.map((m) => ({
-    id: (m.users?.id || m.user_id) ?? 0,
-    username: m.users?.username || "",
-    nickname: m.room_members?.nickname || m.nickname || "",
-  }));
+  const inventoryPlayers = players.map((m) => {
+    const id = (m.users?.id || m.user_id) ?? 0;
+    return {
+      id,
+      username: m.users?.username || "",
+      nickname: m.room_members?.nickname || m.nickname || "",
+      isOnline: onlineUserIds?.has(id) ?? false,
+      avatarColor: m.room_members?.avatarColor ?? null,
+      isBot: !!(m.users?.isBot || m.user?.isBot),
+    };
+  });
 
   return (
     <>
@@ -178,10 +185,10 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         />
       )}
       {showInventory && (
-        <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowInventory(false)} readOnly={readOnly} />
+        <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowInventory(false)} readOnly={readOnly} />
       )}
       {showItemManager && isHost && (
-        <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
+        <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
       )}
       {showSettings && (
         <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={room.ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />

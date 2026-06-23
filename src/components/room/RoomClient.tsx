@@ -587,6 +587,7 @@ export function RoomClient({
         inventoryRefreshKey={inventoryRefreshKey}
         skillRefreshKey={skillRefreshKey}
         mentionTargets={mentionTargets}
+        onlineUserIds={onlineUserIds}
         playerCount={playerCount}
         botCount={botCount}
         activeTab={activeTab}

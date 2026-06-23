@@ -168,6 +168,15 @@ export const inventoryItems = pgTable('inventory_items', {
   title: text('title').notNull(),
   contentJson: text('content_json').notNull(),
   imageUrl: text('image_url'),
+  // Type-specific metadata (nullable; populated per item type):
+  //   info      → source ('kp'|'player'|'system'), visibility ('all'|'kp')
+  //   character → relation ('ally'|'neutral'|'hostile'|'unknown')
+  //   item      → category ('weapon'|'tool'|'consumable'|'other'), quantity
+  source: text('source'),
+  visibility: text('visibility'),
+  relation: text('relation'),
+  category: text('category'),
+  quantity: integer('quantity'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 

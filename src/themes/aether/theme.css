@@ -105,8 +105,7 @@
 
 /* Aether command-window cards (clues, inventory etc.) */
 [data-theme="aether"] .clue-card,
-[data-theme="aether"] .inventory-card,
-[data-theme="aether"] .item-detail-panel {
+[data-theme="aether"] .inventory-card {
   background-color: #ffffff !important;
   background-image: linear-gradient(rgba(255, 255, 255, 0.96), rgba(238, 245, 252, 0.96)), var(--theme-surface-texture) !important;
   background-size: auto, 4px 4px !important;
@@ -133,8 +132,7 @@
 
 /* Gold→azure gilt header line across card top (command-window lintel) */
 [data-theme="aether"] .clue-card::before,
-[data-theme="aether"] .inventory-card::before,
-[data-theme="aether"] .item-detail-panel::before {
+[data-theme="aether"] .inventory-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -260,8 +258,7 @@
 }
 
 [data-theme="aether"][data-mode="dark"] .clue-card,
-[data-theme="aether"][data-mode="dark"] .inventory-card,
-[data-theme="aether"][data-mode="dark"] .item-detail-panel {
+[data-theme="aether"][data-mode="dark"] .inventory-card {
   background-color: #282a42 !important;
   background-image: linear-gradient(rgba(40, 42, 66, 0.95), rgba(33, 35, 56, 0.95)), var(--theme-surface-texture) !important;
   border: 1px solid #3c3e5e !important;

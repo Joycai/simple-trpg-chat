@@ -20,6 +20,11 @@ export async function createInventoryItemAction(
     title: string;
     content: unknown;
     imageUrl?: string;
+    source?: string | null;
+    visibility?: string | null;
+    relation?: string | null;
+    category?: string | null;
+    quantity?: number | null;
   }
 ) {
   const { userId } = await checkRoomAccess(roomId, true);
@@ -31,6 +36,11 @@ export async function createInventoryItemAction(
     title: data.title,
     contentJson: JSON.stringify(data.content),
     imageUrl: data.imageUrl || null,
+    source: data.source ?? null,
+    visibility: data.visibility ?? null,
+    relation: data.relation ?? null,
+    category: data.category ?? null,
+    quantity: data.quantity ?? null,
   }).returning();
 
   revalidatePath(`/rooms/${roomId}`);
@@ -56,6 +66,11 @@ export async function updateInventoryItemAction(
     title: string;
     content: unknown;
     imageUrl?: string | null;
+    source?: string | null;
+    visibility?: string | null;
+    relation?: string | null;
+    category?: string | null;
+    quantity?: number | null;
   }
 ) {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
@@ -73,6 +88,11 @@ export async function updateInventoryItemAction(
       contentJson: JSON.stringify(data.content),
       // Only overwrite imageUrl when explicitly provided (undefined = leave as-is)
       ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+      ...(data.source !== undefined ? { source: data.source } : {}),
+      ...(data.visibility !== undefined ? { visibility: data.visibility } : {}),
+      ...(data.relation !== undefined ? { relation: data.relation } : {}),
+      ...(data.category !== undefined ? { category: data.category } : {}),
+      ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
     })
     .where(eq(inventoryItems.id, itemId))
     .returning();

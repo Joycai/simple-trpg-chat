@@ -18,6 +18,7 @@ import {
   Cinzel,
   Cormorant_Garamond,
   Shippori_Mincho,
+  Noto_Serif_SC,
   Courier_Prime,
   Marcellus,
 } from "next/font/google";
@@ -76,11 +77,19 @@ const cormorant = Cormorant_Garamond({
   preload: false,
 });
 
-// --- Ancient Shrine (Japanese mincho) ---
+// --- Ancient Shrine (CJK mincho serif) ---
 const shippori = Shippori_Mincho({
   subsets: ["latin"],
   weight: ["400", "600", "800"],
   variable: "--font-shippori",
+  display: "swap",
+  preload: false,
+});
+
+const notoSerifSC = Noto_Serif_SC({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-noto-serif-sc",
   display: "swap",
   preload: false,
 });
@@ -104,5 +113,6 @@ export const fontVariables = [
   courierPrime.variable,
   cormorant.variable,
   shippori.variable,
+  notoSerifSC.variable,
   marcellus.variable,
 ].join(" ");
