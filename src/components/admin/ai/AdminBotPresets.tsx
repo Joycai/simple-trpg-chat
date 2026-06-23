@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Edit2, Trash2, Plus, X, Check } from "lucide-react";
 import { createBotPresetAction, updateBotPresetAction, deleteBotPresetAction } from "@/app/actions/bot-presets";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 
 const DOT_COLORS = ["bg-ai", "bg-primary", "bg-accent", "bg-success", "bg-warning"];
 
@@ -44,7 +45,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const [editAllowEditPrompt, setEditAllowEditPrompt] = useState(true);
   const [editError, setEditError] = useState("");
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent, close: () => void) => {
     e.preventDefault();
     setCreateError("");
 
@@ -64,14 +65,14 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       setDefaultNickname("");
       setSystemPrompt("");
       setAllowEditPrompt(true);
-      setShowCreate(false);
+      close();
       router.refresh();
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : "Failed to create preset");
     }
   };
 
-  const handleUpdateSubmit = async (e: React.FormEvent) => {
+  const handleUpdateSubmit = async (e: React.FormEvent, close: () => void) => {
     e.preventDefault();
     setEditError("");
 
@@ -88,7 +89,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
         systemPrompt: editSystemPrompt.trim(),
         allowEditPrompt: editAllowEditPrompt,
       });
-      setEditingId(null);
+      close();
       router.refresh();
     } catch (err: unknown) {
       setEditError(err instanceof Error ? err.message : "Failed to update preset");
@@ -133,19 +134,24 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
 
       {/* Edit Modal */}
       {editingId !== null && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditingId(null)}>
-          <div className="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <OverlayShell
+          onClose={() => setEditingId(null)}
+          rootClassName="p-4"
+          panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        >
+          {(close) => (
+            <>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface z-10">
               <h3 className="font-bold text-text text-lg font-theme-display flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-primary" />
                 {t("editPreset")}
               </h3>
-              <button type="button" onClick={() => setEditingId(null)}
+              <button type="button" onClick={close}
                 className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleUpdateSubmit} className="p-5 flex flex-col gap-4">
+            <form onSubmit={(e) => handleUpdateSubmit(e, close)} className="p-5 flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-text-dim font-medium">{t("presetName")}</label>
@@ -185,7 +191,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                   <Trash2 className="w-4 h-4" /> {t("delete")}
                 </button>
                 <div className="flex items-center gap-3 ml-auto">
-                  <button type="button" onClick={() => setEditingId(null)}
+                  <button type="button" onClick={close}
                     className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">{tCommon("cancel")}</button>
                   <button type="submit"
                     className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
@@ -194,15 +200,21 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                 </div>
               </div>
             </form>
-          </div>
-        </div>,
+            </>
+          )}
+        </OverlayShell>,
         document.body
       )}
 
       {/* Create Modal */}
       {showCreate && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setShowCreate(false); setCreateError(""); }}>
-          <div className="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <OverlayShell
+          onClose={() => { setShowCreate(false); setCreateError(""); }}
+          rootClassName="p-4"
+          panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        >
+          {(close) => (
+            <>
             <div className="flex items-start justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface z-10">
               <div>
                 <h3 className="font-bold text-text text-lg font-theme-display flex items-center gap-2">
@@ -211,12 +223,12 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                 </h3>
                 <p className="text-xs text-text-muted mt-1">{t("presetModalDesc")}</p>
               </div>
-              <button type="button" onClick={() => { setShowCreate(false); setCreateError(""); }}
+              <button type="button" onClick={close}
                 className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleCreate} className="p-5 flex flex-col gap-4">
+            <form onSubmit={(e) => handleCreate(e, close)} className="p-5 flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-text-dim font-medium">{t("presetName")}</label>
@@ -250,7 +262,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
               {createError && <p className="text-xs text-danger">{createError}</p>}
 
               <div className="flex items-center justify-end gap-3 pt-1">
-                <button type="button" onClick={() => { setShowCreate(false); setCreateError(""); }}
+                <button type="button" onClick={close}
                   className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">{tCommon("cancel")}</button>
                 <button type="submit"
                   className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
@@ -258,8 +270,9 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                 </button>
               </div>
             </form>
-          </div>
-        </div>,
+            </>
+          )}
+        </OverlayShell>,
         document.body
       )}
 

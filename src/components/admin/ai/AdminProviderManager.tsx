@@ -6,6 +6,7 @@ import { Plus, Globe, Eye, EyeOff, X, Check } from "lucide-react";
 import { getAllProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
 import { useTranslations } from "next-intl";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 
 export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
@@ -68,7 +69,7 @@ export function AdminProviderManager() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, []);
 
-  const handleSave = async () => {
+  const handleSave = async (close: () => void) => {
     if (!name.trim() || !endpoint.trim() || (!editId && !key.trim())) {
       setMsg(tp("msgRequireFields")); return;
     }
@@ -87,7 +88,7 @@ export function AdminProviderManager() {
       setMsg(result.error);
       return;
     }
-    setMsg(tp("msgSaved")); setShowForm(false); setEditId(null);
+    setMsg(tp("msgSaved")); close(); setEditId(null);
     setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false);
     setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0");
     await load();
@@ -162,14 +163,19 @@ export function AdminProviderManager() {
       )}
 
       {showForm && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setShowForm(false); setMsg(""); }}>
-          <div className="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <OverlayShell
+          onClose={() => { setShowForm(false); setMsg(""); }}
+          rootClassName="p-4"
+          panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        >
+          {(close) => (
+            <>
             <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface z-10">
               <h3 className="font-bold text-text text-lg font-theme-display flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-accent" />
                 {editId ? tp("editTitle") : tp("providerModalTitle")}
               </h3>
-              <button onClick={() => { setShowForm(false); setMsg(""); }} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+              <button onClick={close} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -276,14 +282,15 @@ export function AdminProviderManager() {
                   className="px-4 py-2.5 rounded-theme border border-border text-text-muted hover:text-text hover:bg-surface-alt disabled:opacity-50 text-sm font-medium transition cursor-pointer shrink-0">
                   {testing ? tp("btnTesting") : tp("btnTestConn")}
                 </button>
-                <button onClick={handleSave}
+                <button onClick={() => handleSave(close)}
                   className="flex-1 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
                   {tp("btnSave")}
                 </button>
               </div>
             </div>
-          </div>
-        </div>,
+            </>
+          )}
+        </OverlayShell>,
         document.body
       )}
     </section>

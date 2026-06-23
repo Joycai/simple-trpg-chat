@@ -7,7 +7,7 @@ import { THEME_LIST, THEME_MODES, getThemeName } from "@/themes/types";
 import type { ThemeId, ThemeMode } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
@@ -36,9 +36,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   const [selectedDiceRules, setSelectedDiceRules] = useState<string>(currentDiceRules || "basic");
   const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, close: () => void) => {
     e.preventDefault();
     setSaving(true);
     setError("");
@@ -67,11 +66,12 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   ] as const;
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
-      <div
-        className={`bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-2xl mx-4 h-[85vh] md:h-[34rem] max-h-[90vh] overflow-hidden flex flex-col ${panelClass}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <OverlayShell
+      onClose={onClose}
+      panelClassName="bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-2xl mx-4 h-[85vh] md:h-[34rem] max-h-[90vh] overflow-hidden flex flex-col"
+    >
+      {(close) => (
+        <>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <h3 className="font-bold text-xl text-text font-theme-display">{t("title")}</h3>
@@ -80,7 +80,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+        <form onSubmit={(e) => handleSubmit(e, close)} className="flex-1 flex flex-col overflow-hidden">
           {/* Navigation + Content */}
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             {/* Left tab rail */}
@@ -248,7 +248,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
             </div>
           </div>
         </form>
-      </div>
-    </div>
+        </>
+      )}
+    </OverlayShell>
   );
 }
