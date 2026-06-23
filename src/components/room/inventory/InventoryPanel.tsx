@@ -9,6 +9,7 @@ import { BackpackSkeleton, ManageSkeleton } from "./InventorySkeletons";
 import { ManageView } from "./ManageView";
 import { BackpackView } from "./BackpackView";
 import { CreateEditModal, DistributeModal, DetailModal } from "./InventoryModals";
+import { Icons } from "@/components/shared/icons";
 import type { InventoryItem, Distribution, ContentFields, InventoryItemType } from "./inventory-helpers";
 
 interface InventoryPanelProps {
@@ -45,6 +46,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [itemType, setItemType] = useState<InventoryItemType>("info");
   const [title, setTitle] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [contentFields, setContentFields] = useState<ContentFields>({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
 
   // Distribute state
@@ -115,6 +117,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     setEditingItemId(null);
     setItemType("info");
     setTitle("");
+    setImageUrl(null);
     setContentFields({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
   };
 
@@ -125,6 +128,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     setEditingItemId(item.id);
     setItemType(item.type);
     setTitle(item.title);
+    setImageUrl(item.imageUrl ?? null);
     setContentFields({
       text: c.text || "",
       basicInfo: c.basicInfo || "",
@@ -146,9 +150,9 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
     const content = JSON.parse(JSON.stringify(contentJson));
     try {
       if (editingItemId !== null) {
-        await updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content });
+        await updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content, imageUrl: imageUrl ?? null });
       } else {
-        await createInventoryItemAction(roomId, { type: itemType, title, content });
+        await createInventoryItemAction(roomId, { type: itemType, title, content, imageUrl: imageUrl ?? undefined });
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : tCommon("error"));
@@ -220,14 +224,16 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
       <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-96 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`} onClick={e => e.stopPropagation()}>
+      <div className={`relative ml-auto w-full sm:w-[36rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
-          <h3 className="font-bold text-text text-lg">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>
-          <button onClick={close} className="text-text-muted hover:text-text text-xl transition cursor-pointer">×</button>
+        <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">
+          <h3 className="font-bold text-text text-xl font-theme-display">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>
+          <button onClick={close} className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer" aria-label={tCommon("close")}>
+            <Icons.X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-5">
+        <div className="p-6">
           {loading ? (
             tab === "manage" && isHost ? <ManageSkeleton /> : <BackpackSkeleton />
           ) : tab === "manage" && isHost ? (
@@ -256,6 +262,7 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
 
           {showCreate && (
             <CreateEditModal
+              roomId={roomId}
               editingItemId={editingItemId}
               itemType={itemType}
               onItemTypeChange={setItemType}
@@ -263,6 +270,8 @@ export function InventoryPanel({ roomId, userId, isHost, players, onClose, refre
               onTitleChange={setTitle}
               contentFields={contentFields}
               onContentFieldsChange={setContentFields}
+              imageUrl={imageUrl}
+              onImageChange={setImageUrl}
               onCancel={resetForm}
               onSubmit={handleSubmit}
             />

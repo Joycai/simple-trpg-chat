@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { ShrineLantern, ShrineTorii } from "@/components/shrine/ShrineLantern";
+import { Dice5, User, Lock } from "lucide-react";
+import { Notice } from "@/components/shared/Notice";
 
 interface LoginFormProps {
   siteTitle: string;
@@ -69,73 +70,72 @@ export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginF
   }
 
   const displayTitle = siteTitle.trim();
-  const mainHeaderTitle = displayTitle.startsWith("🎲") ? displayTitle : `🎲 ${displayTitle}`;
 
   return (
-    <div className="relative overflow-hidden flex flex-col items-center justify-center min-h-screen bg-surface">
-      <ShrineLantern side="left" width={58} bottom={20} />
-      <ShrineLantern side="right" width={58} bottom={20} />
+    <div className="relative overflow-hidden flex flex-col items-center justify-center min-h-screen bg-bg px-4 py-8">
       <form
         onSubmit={handleSubmit}
-        className="relative z-[2] p-8 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-4 w-full max-w-sm border border-border"
+        className="relative z-[2] p-8 sm:p-10 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-6 w-full max-w-md border border-border"
       >
-        <div className="text-center mb-2">
-          <ShrineTorii />
-          <h1 className="text-2xl font-bold text-text">{mainHeaderTitle}</h1>
-          <p className="text-sm text-text-muted mt-1">{t("subtitle")}</p>
+        <div className="flex flex-col items-center text-center gap-3 mb-1">
+          <div className="flex items-center justify-center w-16 h-16 rounded-theme border border-primary/40 bg-primary/10 text-primary shadow-[var(--theme-glow)]">
+            <Dice5 className="w-8 h-8" strokeWidth={1.75} />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold text-text font-theme-display">{displayTitle}</h1>
+            <p className="text-sm text-text-muted">{t("subtitle")}</p>
+          </div>
         </div>
 
-        {notice && !error && (
-          <div className="bg-primary/10 border border-primary/30 text-text px-4 py-2 rounded text-sm text-center">
-            ℹ️ {notice}
-          </div>
-        )}
+        {notice && !error && <Notice variant="info">{notice}</Notice>}
 
-        {error && (
-          <div className="bg-danger/10 border border-danger/30 text-danger px-4 py-2 rounded text-sm text-center animate-pulse">
-            ⚠️ {error}
-          </div>
-        )}
+        {error && <Notice variant="error">{error}</Notice>}
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <label htmlFor="username" className="text-xs text-text-muted font-medium">
             {t("username")}
           </label>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            placeholder={t("usernamePlaceholder")}
-            required
-            autoComplete="username"
-            className="p-2.5 border border-border rounded-theme outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
-            autoFocus
-          />
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+            <input
+              id="username"
+              name="username"
+              type="text"
+              placeholder={t("usernamePlaceholder")}
+              required
+              autoComplete="username"
+              className="w-full pl-11 pr-3.5 py-3 border border-input-border rounded-theme outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary transition text-sm bg-input-bg text-text placeholder:text-text-dim"
+              autoFocus
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <label htmlFor="password" className="text-xs text-text-muted font-medium">
             {t("password")}
           </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            placeholder={t("passwordPlaceholder")}
-            required
-            autoComplete="current-password"
-            className="p-2.5 border border-border rounded-theme outline-none focus:ring-2 focus:ring-primary transition text-sm bg-surface"
-          />
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder={t("passwordPlaceholder")}
+              required
+              autoComplete="current-password"
+              className="w-full pl-11 pr-3.5 py-3 border border-input-border rounded-theme outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary transition text-sm bg-input-bg text-text placeholder:text-text-dim"
+            />
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={isPending}
-          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-white p-2.5 rounded-theme font-bold transition text-sm mt-2 flex items-center justify-center gap-2 cursor-pointer"
+          className="bg-primary hover:bg-primary-hover disabled:bg-text-dim text-primary-foreground py-3 rounded-theme font-bold transition text-sm mt-1 flex items-center justify-center gap-2 cursor-pointer shadow-[var(--theme-glow)]"
         >
           {isPending ? (
             <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin"></span>
               {t("submitting")}
             </>
           ) : (
@@ -143,7 +143,7 @@ export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginF
           )}
         </button>
 
-        <div className="text-[10px] text-text-muted text-center mt-1">
+        <div className="text-[10px] text-text-muted text-center -mt-1">
           {t("acceptLicensePrompt")}
           <button
             type="button"
@@ -154,7 +154,7 @@ export function LoginForm({ siteTitle, version, noticeReason, noticeIp }: LoginF
           </button>
         </div>
 
-        <p className="text-[10px] text-text-dim text-center mt-1">
+        <p className="text-[10px] text-text-dim text-center -mt-3">
           {t("hint")}
         </p>
       </form>

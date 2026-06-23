@@ -505,15 +505,10 @@ export function RoomClient({
           isHost={isHost}
           roomId={room.id}
           userId={userId}
+          hostId={room.hostId}
           width={sidebarWidth}
           collapsed={sidebarCollapsed}
           resizing={sidebarResizing || !sidebarHydrated}
-          onToggleCollapse={toggleSidebar}
-          roomName={roomNameDraft}
-          roomMeta={[
-            roomIsCoc7th ? "💀 CoC 7e" : room.ruleTemplate ? `🎲 ${room.ruleTemplate}` : null,
-            aiEnabled && botCount > 0 ? "Keeper online" : null,
-          ].filter(Boolean).join(" · ") || undefined}
         />
 
         {/* Backdrop for mobile sidebar — stays mounted so it can fade in/out

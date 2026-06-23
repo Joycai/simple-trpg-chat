@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction } from "@/app/actions/room";
 import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { Icons } from "@/components/shared/icons";
 
 interface RoomInfoPanelProps {
   room: {
@@ -96,131 +97,110 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   return (
     <div className="fixed inset-0 z-50 flex" onClick={close}>
       <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-80 bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
+      <div className={`relative ml-auto w-full sm:w-[26rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-surface border-b border-border px-5 py-4 flex justify-between items-center z-10">
-          <h3 className="font-bold text-text text-lg">{t("title")}</h3>
-          <button onClick={close} className="text-text-muted hover:text-text text-xl">×</button>
+        <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">
+          <h3 className="font-bold text-text text-xl font-theme-display">{t("title")}</h3>
+          <button onClick={close} aria-label={tCommon("close")}
+            className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <Icons.X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-5 flex flex-col gap-5">
+        <div className="px-6 py-5 flex flex-col gap-5">
           {/* Room name */}
           <div>
-            <label className="text-[10px] text-text-dim uppercase tracking-wider font-medium mb-1 block">{t("nameLabel")}</label>
-            <div className="flex items-center gap-2">
-              <p className="text-text font-bold text-lg flex-1">{room.name}</p>
+            <label className="text-sm text-text-muted mb-1.5 block">{t("nameLabel")}</label>
+            <div className="flex items-baseline gap-2">
+              <p className="text-text font-bold text-2xl flex-1 font-theme-display">{room.name}</p>
               {isHost && !editingName && (
                 <button
-                  onClick={() => {
-                    setEditingName(true);
-                    setNewName(room.name);
-                  }}
-                  className="text-xs text-primary hover:text-primary-hover transition"
+                  onClick={() => { setEditingName(true); setNewName(room.name); }}
+                  className="text-sm text-primary hover:text-primary-hover transition cursor-pointer shrink-0"
                 >
                   {t("editButton")}
                 </button>
               )}
             </div>
-            <p className="text-[10px] text-text-muted font-mono">#{room.id}</p>
+            <p className="text-xs text-text-muted font-theme-mono mt-1">#{room.id}</p>
           </div>
 
-          {/* Edit name modal */}
+          {/* Edit name form */}
           {isHost && editingName && (
-            <div className="bg-surface-alt border border-border rounded-lg p-4 flex flex-col gap-3">
+            <div className="bg-surface-alt/40 border border-border rounded-theme p-4 flex flex-col gap-3">
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder={t("nameLabel")}
                 maxLength={100}
-                className="p-2 border border-input-border bg-input-bg rounded outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
+                className="px-3.5 py-2.5 border border-input-border bg-input-bg rounded-theme outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary text-text text-sm"
                 autoFocus
               />
               {error && (
-                <div className="bg-danger/10 border border-danger/30 text-danger text-xs px-2 py-1 rounded">
+                <div className="bg-danger/10 border border-danger/30 text-danger text-xs px-2 py-1 rounded-theme">
                   {error}
                 </div>
               )}
               <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => setEditingName(false)}
-                  className="px-3 py-1.5 text-xs text-text-muted hover:text-text transition"
-                >
+                <button onClick={() => setEditingName(false)}
+                  className="px-3 py-1.5 text-xs text-text-muted hover:text-text transition cursor-pointer">
                   {tCommon("cancel")}
                 </button>
-                <button
-                  onClick={handleSaveName}
-                  disabled={savingName || !newName.trim()}
-                  className="px-3 py-1.5 text-xs bg-primary hover:bg-primary-hover disabled:opacity-50 text-white rounded transition"
-                >
+                <button onClick={handleSaveName} disabled={savingName || !newName.trim()}
+                  className="px-4 py-1.5 text-xs bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-foreground rounded-theme font-bold transition cursor-pointer">
                   {savingName ? t("saving") : t("save")}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Rules */}
-          <div className="bg-surface-alt rounded-theme p-4 border border-border">
-            <label className="text-[10px] text-text-dim uppercase tracking-wider font-medium mb-3 block">{t("configLabel")}</label>
+          {/* Config */}
+          <div className="bg-surface-alt/40 rounded-theme p-4 border border-border">
+            <label className="text-sm text-text-dim mb-3 block">{t("configLabel")}</label>
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-text-muted">{t("ruleTemplate")}</span>
-                <span className="text-xs font-bold text-text">{getRuleTemplateLabel(room.ruleTemplate)}</span>
+                <span className="text-sm text-text-muted">{t("ruleTemplate")}</span>
+                <span className="text-sm font-bold text-text">{getRuleTemplateLabel(room.ruleTemplate)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-text-muted">{t("diceRules")}</span>
-                <span className="text-xs font-bold text-text">{getDiceRulesLabel(room.diceRules)}</span>
+                <span className="text-sm text-text-muted">{t("diceRules")}</span>
+                <span className="text-sm font-bold text-text">{getDiceRulesLabel(room.diceRules)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-text-muted">{t("theme")}</span>
-                <span className="text-xs font-bold text-text">{getThemeName(room.theme as ThemeId, locale)}</span>
+                <span className="text-sm text-text-muted">{t("theme")}</span>
+                <span className="text-sm font-bold text-text">{getThemeName(room.theme as ThemeId, locale)}</span>
               </div>
             </div>
           </div>
 
-          {/* Host info */}
-          <div>
-            <label className="text-[10px] text-text-dim uppercase tracking-wider font-medium mb-1 block">{t("host")}</label>
-            <p className="text-sm text-text">
-              {isHost ? t("hostMe") : `ID: ${room.hostId}`}
-            </p>
-          </div>
-
           {/* Secret key — Host only */}
           {isHost && (
-            <div className="bg-danger/5 border border-danger/20 rounded-theme p-4">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] text-danger uppercase tracking-wider font-medium block">{t("secretKey")}</label>
+            <div className="bg-danger/5 border border-danger/30 rounded-theme p-4">
+              <div className="flex items-center justify-between mb-2.5">
+                <label className="text-sm font-medium text-danger block">{t("secretKey")}</label>
                 {!showPasswordConfirm && (
-                  <button
-                    onClick={() => setShowPasswordConfirm(true)}
-                    className="text-xs text-danger hover:text-danger/80 transition"
-                  >
+                  <button onClick={() => setShowPasswordConfirm(true)}
+                    className="text-sm text-danger hover:text-danger/80 transition cursor-pointer">
                     {t("regenerateButton")}
                   </button>
                 )}
               </div>
-              <code className="block bg-bg border border-danger/20 rounded p-2 font-mono font-bold text-sm text-center text-danger tracking-widest select-all">
+              <code className="block bg-bg border border-danger/20 rounded-theme py-3 font-theme-mono font-bold text-lg text-center text-danger tracking-[0.3em] select-all">
                 {room.secretKey}
               </code>
-              <p className="text-[10px] text-text-dim mt-1">{t("secretKeyDesc")}</p>
+              <p className="text-xs text-text-dim mt-2">{t("secretKeyDesc")}</p>
 
-              {/* Regenerate confirmation */}
               {showPasswordConfirm && (
                 <div className="mt-3 pt-3 border-t border-danger/20 flex flex-col gap-2">
                   <p className="text-xs text-danger">{t("regenerateWarning")}</p>
                   <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={() => setShowPasswordConfirm(false)}
-                      className="px-3 py-1.5 text-xs text-text-muted hover:text-text transition"
-                    >
+                    <button onClick={() => setShowPasswordConfirm(false)}
+                      className="px-3 py-1.5 text-xs text-text-muted hover:text-text transition cursor-pointer">
                       {tCommon("cancel")}
                     </button>
-                    <button
-                      onClick={handleRegeneratePassword}
-                      disabled={regeneratingPassword}
-                      className="px-3 py-1.5 text-xs bg-danger hover:bg-danger/80 disabled:opacity-50 text-white rounded transition"
-                    >
+                    <button onClick={handleRegeneratePassword} disabled={regeneratingPassword}
+                      className="px-4 py-1.5 text-xs bg-danger hover:bg-danger/80 disabled:opacity-50 text-white rounded-theme font-bold transition cursor-pointer">
                       {regeneratingPassword ? t("regenerating") : t("regenerateConfirm")}
                     </button>
                   </div>
@@ -231,34 +211,31 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
 
           {/* Freeze — Host only */}
           {isHost && (
-            <div className={`rounded-theme p-4 border ${room.frozen ? "bg-accent/5 border-accent/20" : "bg-surface-alt border-border"}`}>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] text-text-dim uppercase tracking-wider font-medium block">{t("freezeLabel")}</label>
-                <button
-                  onClick={handleToggleFreeze}
-                  disabled={togglingFreeze}
-                  className={`text-xs font-medium transition disabled:opacity-50 ${room.frozen ? "text-success hover:text-success/80" : "text-accent hover:text-accent/80"}`}
-                >
+            <div className={`rounded-theme p-4 border ${room.frozen ? "bg-warning/5 border-warning/30" : "bg-surface-alt/40 border-border"}`}>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text block">{t("freezeLabel")}</label>
+                <button onClick={handleToggleFreeze} disabled={togglingFreeze}
+                  className={`text-sm font-bold transition disabled:opacity-50 cursor-pointer ${room.frozen ? "text-success hover:text-success/80" : "text-warning hover:brightness-110"}`}>
                   {togglingFreeze ? t("saving") : room.frozen ? t("unfreeze") : t("freeze")}
                 </button>
               </div>
-              <p className="text-[10px] text-text-dim mt-1">{t("freezeDesc")}</p>
+              <p className="text-xs text-text-dim mt-1.5">{t("freezeDesc")}</p>
             </div>
           )}
 
           {/* Status & Created */}
-          <div className="border-t border-border pt-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-text-muted">{t("status")}</span>
-              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                room.frozen ? "bg-accent/10 text-accent" : room.status === "active" ? "bg-success/10 text-success" : "bg-text-dim/10 text-text-dim"
+          <div className="border-t border-border pt-4 flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-text-muted">{t("status")}</span>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                room.frozen ? "bg-warning/15 text-warning" : room.status === "active" ? "bg-success/15 text-success" : "bg-text-dim/10 text-text-dim"
               }`}>
                 {room.frozen ? t("statusFrozen") : room.status === "active" ? t("statusActive") : t("statusClosed")}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-text-muted">{t("createdAt")}</span>
-              <span className="text-xs text-text-dim font-mono">{room.createdAt}</span>
+              <span className="text-sm text-text-muted">{t("createdAt")}</span>
+              <span className="text-sm text-text-dim font-theme-mono">{(room.createdAt || "").slice(0, 10)}</span>
             </div>
           </div>
         </div>

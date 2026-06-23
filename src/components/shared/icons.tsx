@@ -6,6 +6,8 @@ import {
   Trash2, Pencil, X, Menu, ArrowLeft, LogOut, FileText,
   Heart, Clover, Ruler, Home, Wand, Search, Plus, Zap, Skull, Image,
   ImagePlus, MessageSquareLock, EyeOff, Loader2, Send, Minus, ChevronDown,
+  Copy, SlidersHorizontal, Navigation, MessageSquare, Check, CheckCheck,
+  Target, Eye, Droplet, Braces,
   type LucideIcon,
 } from "lucide-react";
 
@@ -58,4 +60,14 @@ export const Icons = {
   Send: wrap(Send),
   Minus: wrap(Minus),
   ChevronDown: wrap(ChevronDown),
+  Copy: wrap(Copy),
+  SlidersHorizontal: wrap(SlidersHorizontal),
+  Navigation: wrap(Navigation),
+  MessageSquare: wrap(MessageSquare),
+  Check: wrap(Check),
+  CheckCheck: wrap(CheckCheck),
+  Target: wrap(Target),
+  Eye: wrap(Eye),
+  Droplet: wrap(Droplet),
+  Braces: wrap(Braces),
 };

@@ -1,3 +1,5 @@
+import { Search, File, User, Box, type LucideIcon } from "lucide-react";
+
 export interface InventoryItem {
   id: number;
   type: "clue" | "info" | "character" | "item";
@@ -47,6 +49,21 @@ export function formatContent(item: InventoryItem): string {
 }
 
 export const typeEmoji = (tStr: string) => ({ clue: "🃏", info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
+
+// Category → lucide icon + semantic color (rainglass design): clue=cyan,
+// info=violet, character=magenta, item=green.
+export const typeIcon: Record<InventoryItemType, LucideIcon> = {
+  clue: Search,
+  info: File,
+  character: User,
+  item: Box,
+};
+export const typeColorClass: Record<InventoryItemType, string> = {
+  clue: "text-primary",
+  info: "text-ai",
+  character: "text-accent",
+  item: "text-success",
+};
 
 // Unread = freshly received OR edited-since-viewed. `updated` distinguishes the two
 // so the backpack can flag a host edit differently from a brand-new hand-off.

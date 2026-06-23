@@ -21,6 +21,7 @@
   --theme-accent-foreground: 247 240 245;
   --theme-danger: 220 70 70;
   --theme-success: 22 158 110;
+  --theme-warning: 217 145 32;      /* amber, deepened for light surfaces */
   --theme-ai: 124 92 224;           /* violet hologram, deepened */
   --theme-ai-hover: 106 76 200;
   --theme-ai-foreground: 247 245 252;
@@ -34,6 +35,14 @@
   --theme-private-bg: 224 231 236;
   --theme-scroll-btn: 8 145 178;
   --theme-primary-foreground: 247 250 253;
+
+  /* Skill name → colour palette (hashed per skill name). Deepened for light ground. */
+  --theme-skill-0: 8 145 178;    /* cyan-teal */
+  --theme-skill-1: 205 45 130;   /* magenta */
+  --theme-skill-2: 22 158 110;   /* green */
+  --theme-skill-3: 124 92 224;   /* violet */
+  --theme-skill-4: 217 119 6;    /* amber */
+  --theme-skill-5: 37 99 235;    /* blue */
 
   /* === Shared identity: clean modern sans, soft glass corners === */
   --theme-radius: 0.85rem;
@@ -183,6 +192,13 @@
   background-color: rgb(var(--theme-header-bg) / 0.72) !important;
   backdrop-filter: blur(4px) saturate(1.4);
 }
+/* Menus & dialogs — nearly opaque for readability over busy content. */
+[data-theme="rainglass"] .overlay-pop.theme-border,
+[data-theme="rainglass"] .overlay-modal.theme-border,
+[data-theme="rainglass"] .overlay-drawer {
+  background-color: rgb(var(--theme-surface) / 0.95) !important;
+  backdrop-filter: blur(2px) saturate(1.3);
+}
 
 /* ============ DARK — neon rainy night (the hero) ============ */
 [data-theme="rainglass"][data-mode="dark"] {
@@ -200,6 +216,7 @@
   --theme-accent-foreground: 6 16 20;
   --theme-danger: 248 113 113;     /* warning red */
   --theme-success: 52 211 153;
+  --theme-warning: 245 176 65;     /* amber — neon night */
   --theme-ai: 167 139 250;         /* violet hologram — AI feature accent */
   --theme-ai-hover: 139 92 246;
   --theme-ai-foreground: 6 16 20;
@@ -213,6 +230,14 @@
   --theme-private-bg: 11 22 28;     /* deep glass teal */
   --theme-scroll-btn: 34 211 238;
   --theme-primary-foreground: 6 18 22;  /* dark text on bright cyan */
+
+  /* Skill name → colour palette (hashed per skill name) — neon set for the dark hero. */
+  --theme-skill-0: 34 211 238;   /* electric cyan */
+  --theme-skill-1: 244 114 182;  /* neon magenta */
+  --theme-skill-2: 52 211 153;   /* neon green */
+  --theme-skill-3: 167 139 250;  /* violet hologram */
+  --theme-skill-4: 251 191 36;   /* amber */
+  --theme-skill-5: 96 165 250;   /* sky blue */
 
   /* === Skeuomorphic: cyan neon glow === */
   --theme-glow: 0 0 8px rgba(34, 211, 238, 0.45),
@@ -320,4 +345,12 @@
 [data-theme="rainglass"][data-mode="dark"] .bg-header-bg {
   background-color: rgb(var(--theme-header-bg) / 0.62) !important;
   backdrop-filter: blur(4px) saturate(1.5);
+}
+/* Menus & dialogs sit over busy content — keep them nearly opaque (readability)
+   with only a faint 2px frost, unlike the airier cards/header over the page bg. */
+[data-theme="rainglass"][data-mode="dark"] .overlay-pop.theme-border,
+[data-theme="rainglass"][data-mode="dark"] .overlay-modal.theme-border,
+[data-theme="rainglass"][data-mode="dark"] .overlay-drawer {
+  background-color: rgb(var(--theme-surface) / 0.94) !important;
+  backdrop-filter: blur(2px) saturate(1.4);
 }

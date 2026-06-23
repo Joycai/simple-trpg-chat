@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { ChatMessage } from "@/components/room/chat/ChatMessage";
 import { ChatInput } from "@/components/room/chat/ChatInput";
+import { Icons } from "@/components/shared/icons";
 import type { Message, PlayerEntry, TypingBots, MentionTarget } from "@/components/room/types";
 
 interface ChatAreaProps {
@@ -76,13 +77,15 @@ export function ChatArea({
             })
             .map(([botId, bot]) => (
               <div key={botId} className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-text-dim bg-surface/50 border border-border/40 rounded-theme max-w-max animate-pulse my-1 font-mono">
-                <span>🤖</span>
+                <Icons.Bot className="w-3.5 h-3.5" />
                 <span>{t("botThinking", { nickname: bot.nickname })}</span>
               </div>
             ))}
           {tabMessages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-text-muted opacity-50 py-20">
-              <span className="text-4xl mb-4">{activeTab === "public" ? "🏠" : "🔒"}</span>
+              {activeTab === "public"
+                ? <Icons.Navigation className="w-10 h-10 mb-4" />
+                : <Icons.Lock className="w-10 h-10 mb-4" />}
               <p>{activeTab === "public" ? t("publicEmpty") : t("dmEmpty")}</p>
             </div>
           )}

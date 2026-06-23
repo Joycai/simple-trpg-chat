@@ -6,7 +6,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { THEME_LIST, getThemeName } from "@/themes/types";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { Notice } from "@/components/shared/Notice";
 import Link from "next/link";
+
+/** Shared input/select styling for the create-room modal (rainglass spec). */
+const FIELD_CLS =
+  "w-full px-3 py-2.5 bg-input-bg border border-input-border rounded-theme outline-none text-sm text-text placeholder:text-text-dim focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary transition";
 
 interface Room {
   id: number;
@@ -20,11 +25,12 @@ interface Room {
 interface LobbyClientProps {
   rooms: Room[];
   joinedRoomIds: Set<number>;
+  memberCounts: Record<number, number>;
   isHost: boolean;
   userId: number;
 }
 
-export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClientProps) {
+export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId }: LobbyClientProps) {
   const t = useTranslations("lobby");
   const tc = useTranslations("createRoom");
   const locale = useLocale();
@@ -34,7 +40,14 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
   const [error, setError] = useState("");
   const [createError, setCreateError] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [copyMsg, setCopyMsg] = useState("");
   const keyInputRef = useRef<HTMLInputElement>(null);
+
+  const copyKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    setCopyMsg(tc("copiedToClipboard"));
+    window.setTimeout(() => setCopyMsg(""), 2000);
+  };
 
   const generateRandomKey = () => {
     const arr = new Uint8Array(8);
@@ -71,12 +84,13 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
     <div className="flex flex-col gap-8">
       {/* Title row */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-text">{t("title")}</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold text-text font-theme-display">{t("title")}</h2>
         {isHost && (
           <button
             onClick={() => setShowCreate(true)}
-            className="bg-success hover:bg-primary-hover text-white px-4 py-2 rounded-theme font-bold transition"
+            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-primary-foreground px-4 py-2.5 rounded-theme font-bold transition shadow-[var(--theme-glow)]"
           >
+            <Icons.Plus className="w-4 h-4" />
             {t("createRoom")}
           </button>
         )}
@@ -86,24 +100,25 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
       {showCreate && (
         <OverlayShell
           onClose={() => { setShowCreate(false); setCreatedKey(null); setCreateError(""); }}
-          panelClassName="bg-surface rounded-theme theme-border shadow-2xl border border-border w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto p-6"
+          panelClassName="bg-surface rounded-theme theme-border shadow-2xl border border-border w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto p-6 sm:p-8"
         >
           {(close) => (createdKey ? (
             /* Show key confirmation after creation */
             <div>
-              <h3 className="font-bold text-lg mb-3 text-accent">{tc("created")}</h3>
-              <div className="bg-surface-alt rounded p-4 border border-border space-y-3">
+              <h3 className="font-bold text-xl mb-3 text-accent">{tc("created")}</h3>
+              <div className="bg-surface-alt rounded-theme p-4 border border-border space-y-3">
                 <div>
                   <span className="text-sm text-text-muted">{tc("keyCopied")}</span>
                   <div className="mt-1 flex gap-2">
-                    <code className="flex-1 block bg-bg border rounded p-2 font-mono font-bold text-lg text-center tracking-widest select-all">
+                    <code className="flex-1 block bg-bg border border-border rounded-theme p-2 font-mono font-bold text-lg text-center tracking-widest text-accent select-all">
                       {createdKey}
                     </code>
                     <button
-                      onClick={() => navigator.clipboard.writeText(createdKey)}
-                      className="bg-accent hover:bg-accent-hover text-accent-foreground px-4 py-2 rounded font-bold text-sm"
+                      onClick={() => copyKey(createdKey)}
+                      className="inline-flex items-center gap-1.5 bg-accent/10 hover:bg-accent/20 border border-accent/40 text-accent px-4 py-2 rounded-theme font-bold text-sm transition"
                       title={tc("copyKey")}
                     >
+                      <Icons.Copy className="w-4 h-4" />
                       {tc("copyKey")}
                     </button>
                   </div>
@@ -112,14 +127,14 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               </div>
               <button
                 onClick={close}
-                className="mt-3 w-full bg-success hover:bg-primary-hover text-white py-2 rounded-theme font-bold"
+                className="mt-4 w-full bg-success hover:brightness-110 text-white py-2.5 rounded-theme font-bold transition shadow-[0_0_14px_rgb(var(--theme-success)/0.35)]"
               >
                 {tc("done")}
               </button>
             </div>
           ) : (
             <div>
-              <h3 className="font-bold text-lg mb-4 text-success">{tc("title")}</h3>
+              <h3 className="font-bold text-2xl mb-5 bg-gradient-to-r from-success to-primary bg-clip-text text-transparent w-fit">{tc("title")}</h3>
               <form
                 action={async (formData) => {
                   setCreateError("");
@@ -132,18 +147,18 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 }}
                 className="flex flex-col gap-4"
               >
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   <label htmlFor="roomName" className="text-xs text-text-muted font-medium">{tc("name")}</label>
                   <input
                     id="roomName"
                     name="name"
                     placeholder={tc("namePlaceholder")}
                     required
-                    className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50"
+                    className={FIELD_CLS}
                     autoFocus
                   />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   <label htmlFor="roomKey" className="text-xs text-text-muted font-medium">{tc("key")}</label>
                   <div className="flex gap-2">
                     <input
@@ -154,64 +169,59 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                       placeholder={tc("keyPlaceholder")}
                       required
                       minLength={1}
-                      className="flex-1 p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+                      className={`${FIELD_CLS} flex-1 font-mono text-accent`}
                     />
                     <button
                       type="button"
                       onClick={generateRandomKey}
-                      className="px-3 py-2 bg-surface-alt hover:bg-surface border border-border rounded text-sm font-mono text-accent transition"
+                      className="flex items-center justify-center w-11 shrink-0 bg-accent/10 hover:bg-accent/20 border border-accent/40 rounded-theme text-accent transition"
                       title={tc("randomKey")}
                     >
                       <Icons.Dices className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs text-text-muted">{tc("keyHint")}</p>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="roomTheme" className="text-xs text-text-muted font-medium">{tc("theme")}</label>
-                  <select
-                    id="roomTheme"
-                    name="theme"
-                    defaultValue="default"
-                    className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
-                  >
-                    {THEME_LIST.map((tm) => (
-                      <option key={tm.id} value={tm.id}>
-                        {tm.icon ? `${tm.icon} ` : ""}{getThemeName(tm.id, locale)}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-text-muted">{tc("themeHint")}</p>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
-                  <select
-                    id="ruleTemplate"
-                    name="ruleTemplate"
-                    defaultValue="basic"
-                    className="p-2 border rounded outline-none focus:ring-2 focus:ring-primary/50 bg-surface"
-                  >
-                    <option value="basic">{tc("ruleTemplateBasic")}</option>
-                    <option value="coc7th">{tc("ruleTemplateCoc7th")}</option>
-                  </select>
-                  <p className="text-xs text-text-muted">{tc("ruleTemplateHint")}</p>
-                </div>
-                {createError && (
-                  <div className="bg-danger/10 border border-danger/30 text-danger px-3 py-2 rounded text-sm">
-                    {createError}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="roomTheme" className="text-xs text-text-muted font-medium">{tc("theme")}</label>
+                    <select
+                      id="roomTheme"
+                      name="theme"
+                      defaultValue="default"
+                      className={FIELD_CLS}
+                    >
+                      {THEME_LIST.map((tm) => (
+                        <option key={tm.id} value={tm.id}>
+                          {tm.icon ? `${tm.icon} ` : ""}{getThemeName(tm.id, locale)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
-                <div className="flex gap-2 justify-end pt-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
+                    <select
+                      id="ruleTemplate"
+                      name="ruleTemplate"
+                      defaultValue="basic"
+                      className={FIELD_CLS}
+                    >
+                      <option value="basic">{tc("ruleTemplateBasic")}</option>
+                      <option value="coc7th">{tc("ruleTemplateCoc7th")}</option>
+                    </select>
+                  </div>
+                </div>
+                {createError && <Notice variant="error">{createError}</Notice>}
+                <div className="flex gap-2 justify-end items-center pt-2">
                   <button
                     type="button"
                     onClick={close}
-                    className="px-4 py-2 text-text-muted hover:text-text"
+                    className="px-4 py-2.5 text-text-muted hover:text-text transition"
                   >
                     {t("cancel")}
                   </button>
                   <button
                     type="submit"
-                    className="bg-success hover:bg-primary-hover text-white px-6 py-2 rounded-theme font-bold"
+                    className="bg-success hover:brightness-110 text-white px-6 py-2.5 rounded-theme font-bold transition shadow-[0_0_14px_rgb(var(--theme-success)/0.35)]"
                   >
                     {tc("submit")}
                   </button>
@@ -222,14 +232,19 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
         </OverlayShell>
       )}
 
+      {/* Copy success toast */}
+      {copyMsg && <Notice variant="success">{copyMsg}</Notice>}
+
       {/* Error */}
       {error && (
-        <div className="bg-danger/10 border border-danger/30 text-danger px-4 py-2 rounded text-sm">
-          {error}
-          <button onClick={() => setError("")} className="ml-2 font-bold">
-            ×
-          </button>
-        </div>
+        <Notice variant="error">
+          <span className="flex items-center justify-between gap-2">
+            {error}
+            <button onClick={() => setError("")} className="font-bold text-text-muted hover:text-text">
+              ×
+            </button>
+          </span>
+        </Notice>
       )}
 
       {/* Filter tabs — base styling lives in globals.css (.filter-*),
@@ -254,7 +269,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`filter-tab flex-1 text-center px-3 py-2 text-sm font-medium transition-colors duration-200 ${
+                className={`filter-tab flex-1 text-center px-3 py-3 text-sm font-medium transition-colors duration-200 ${
                   filter === key
                     ? "filter-tab-active"
                     : "text-text-muted hover:text-text"
@@ -285,7 +300,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
             return (
               <div
                 key={room.id}
-                className={`bg-surface rounded-theme theme-border shadow-sm border p-5 transition hover:shadow-md ${
+                className={`bg-surface rounded-theme theme-border shadow-sm border p-6 transition hover:shadow-md ${
                   isJoined ? "border-primary/30 bg-surface-alt" : ""
                 }`}
               >
@@ -302,17 +317,23 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 </div>
 
                 <div className="flex items-center gap-2 mb-2 text-xs text-text-muted">
-                  {isJoined && (
-                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-                      {t("joined")}
-                    </span>
-                  )}
                   {isOwner && (
-                    <span className="bg-success/10 text-success px-2 py-0.5 rounded font-medium">
+                    <span className="bg-success/10 text-success border border-success/30 px-2 py-0.5 rounded font-medium">
                       {t("host")}
                     </span>
                   )}
+                  {isJoined && !isOwner && (
+                    <span className="bg-primary/10 text-primary border border-primary/30 px-2 py-0.5 rounded font-medium">
+                      {t("joined")}
+                    </span>
+                  )}
                 </div>
+
+                {isJoined && !isOwner && (
+                  <p className="text-xs text-text-muted mb-3">
+                    {t("investigatorCount", { count: memberCounts[room.id] ?? 0 })}
+                  </p>
+                )}
 
                 {/* Show key to room owner */}
                 {isOwner && (
@@ -322,12 +343,11 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                       <span className="text-accent font-mono font-bold truncate select-all">{room.secretKey}</span>
                     </div>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(room.secretKey);
-                      }}
-                      className="text-[10px] text-accent hover:text-accent underline shrink-0 ml-2"
+                      onClick={() => copyKey(room.secretKey)}
+                      className="inline-flex items-center gap-1 text-[10px] text-accent hover:text-accent underline shrink-0 ml-2"
                       title={tc("copyKey")}
                     >
+                      <Icons.Copy className="w-3 h-3" />
                       {tc("copyKey")}
                     </button>
                   </div>
@@ -336,7 +356,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                 {(isJoined || isOwner) ? (
                   <Link
                     href={`/rooms/${room.id}`}
-                    className="block w-full text-center bg-primary hover:bg-primary-hover text-white py-2 rounded-theme font-bold text-sm transition"
+                    className="block w-full text-center bg-primary hover:bg-primary-hover text-primary-foreground py-2.5 rounded-theme font-bold text-sm transition shadow-[var(--theme-glow)]"
                   >
                     {t("enterRoom")}
                   </Link>
@@ -351,7 +371,7 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                           placeholder={t("keyPlaceholder")}
                           value={joinKey}
                           onChange={(e) => setJoinKey(e.target.value)}
-                          className="p-2 border rounded text-sm outline-none focus:ring-2 focus:ring-primary/50"
+                          className="p-2 border rounded text-sm outline-none focus:ring-[3px] focus:ring-primary/[0.18]"
                           autoFocus
                         />
                         <div className="flex gap-2">
@@ -374,12 +394,16 @@ export function LobbyClient({ rooms, joinedRoomIds, isHost, userId }: LobbyClien
                         </div>
                       </form>
                     ) : (
-                      <button
-                        onClick={() => setJoinRoomId(room.id)}
-                        className="w-full bg-surface-alt hover:bg-surface text-text py-2 rounded-theme font-medium text-sm transition"
-                      >
-                        {t("joinWithKey")}
-                      </button>
+                      <>
+                        <p className="text-xs text-text-muted mb-3">{t("needKey")}</p>
+                        <button
+                          onClick={() => setJoinRoomId(room.id)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 border border-border bg-transparent hover:bg-surface-alt text-text py-2.5 rounded-theme font-medium text-sm transition"
+                        >
+                          <Icons.Lock className="w-4 h-4" />
+                          {t("joinWithKey")}
+                        </button>
+                      </>
                     )}
                   </>
                 )}

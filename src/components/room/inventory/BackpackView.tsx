@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { isUnread, isUpdated, isNew, typeEmoji, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
+import { Package } from "lucide-react";
+import { isUnread, isUpdated, isNew, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
 
 interface BackpackViewProps {
   filteredItems: Distribution[];
@@ -19,21 +20,21 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
     /* === PLAYER BACKPACK VIEW (Unified RPG Grid with Filters) === */
     <div className="flex flex-col gap-4">
       {/* Filter Pills */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         <button onClick={() => onFilterChange("all")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+          className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all duration-200 cursor-pointer ${
             filterType === "all"
-              ? "bg-primary text-primary-foreground shadow-sm filter-tab-active"
-              : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
+              ? "bg-primary text-primary-foreground shadow-[var(--theme-glow)]"
+              : "text-text-muted hover:text-text border border-border bg-transparent hover:bg-surface-alt"
           }`}>
           {t("filterAll")}
         </button>
         {(["clue", "info", "character", "item"] as const).map(typeKey => (
           <button key={typeKey} onClick={() => onFilterChange(typeKey)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all duration-200 cursor-pointer ${
               filterType === typeKey
-                ? "bg-primary text-primary-foreground shadow-sm filter-tab-active"
-                : "bg-surface-alt text-text-muted hover:text-text border border-border/50"
+                ? "bg-primary text-primary-foreground shadow-[var(--theme-glow)]"
+                : "text-text-muted hover:text-text border border-border bg-transparent hover:bg-surface-alt"
             }`}>
             {typeTabLabel(typeKey)}
           </button>
@@ -42,28 +43,30 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
 
       {filteredItems.length === 0 ? (
         <div className="text-center text-text-muted py-12 text-sm">
-          <div className="text-4xl mb-3 opacity-30">🎒</div>
+          <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>{t("emptyBackpack", { type: filterType === "all" ? "" : typeTabLabel(filterType) })}</p>
           <p className="text-xs mt-1 opacity-60">{t("waitingKp")}</p>
         </div>
       ) : (
         (() => {
-          const GRID_COLS = 4;
-          // Render minimum 12 slots for RPG grid layout
-          const totalSlots = Math.max(12, Math.ceil(filteredItems.length / GRID_COLS) * GRID_COLS);
+          const GRID_COLS = 3;
+          // Render at least a 3×3 RPG grid, padded with empty slots.
+          const totalSlots = Math.max(9, Math.ceil(filteredItems.length / GRID_COLS) * GRID_COLS);
           const gridItems = [];
 
           for (let i = 0; i < totalSlots; i++) {
             const d = i < filteredItems.length ? filteredItems[i] : null;
+            const type = (d?.item?.type || "item") as InventoryItemType;
+            const Icon = typeIcon[type];
             gridItems.push(
               <div key={d ? d.id : `empty-${i}`}
                 className={d
-                  ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:scale-105 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center p-2 group inventory-card ${
-                      isUpdated(d) ? "border-accent/50 bg-accent/5 ring-1 ring-accent/40"
-                      : isUnread(d) ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30"
+                  ? `relative bg-surface-alt rounded-theme border cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/40 transition-all duration-200 aspect-square flex flex-col items-center justify-center gap-2.5 p-3 group inventory-card ${
+                      isUpdated(d) ? "border-accent/50 bg-accent/5 shadow-[0_0_14px_rgb(var(--theme-accent)/0.18)]"
+                      : isUnread(d) ? "border-primary/50 bg-primary/5 shadow-[var(--theme-glow)]"
                       : "border-border"
                     }`
-                  : "bg-bg/50 rounded-theme border border-dashed border-border/30 aspect-square opacity-40"
+                  : "rounded-theme border border-dashed border-border/50 aspect-square"
                 }
                 onClick={() => { if (d) { onSelect(d.item ?? null, d); } }}
                 title={d ? d.item?.title || "" : ""}
@@ -71,21 +74,21 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
                 {d && (
                   <>
                     {isUpdated(d) ? (
-                      <span title={t("badgeUpdatedTitle")} className="absolute -top-1.5 -right-1.5 bg-accent text-accent-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
+                      <span title={t("badgeUpdatedTitle")} className="absolute -top-2 -right-1.5 bg-accent text-accent-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow z-10">
                         {t("badgeUpdated")}
                       </span>
                     ) : isNew(d) ? (
-                      <span title={t("badgeNewTitle")} className="absolute -top-1.5 -right-1.5 bg-danger text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow animate-pulse z-10">
+                      <span title={t("badgeNewTitle")} className="absolute -top-2 -right-1.5 bg-danger text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow z-10">
                         {t("badgeNew")}
                       </span>
                     ) : null}
-                    <span className="text-2xl mb-1">{typeEmoji(d.item?.type || "item")}</span>
-                    <span className="text-[10px] font-bold text-text text-center leading-tight line-clamp-2">
+                    <Icon className={`w-7 h-7 ${typeColorClass[type]}`} strokeWidth={1.75} />
+                    <span className="text-xs font-bold text-text text-center leading-tight line-clamp-2">
                       {d.item?.title || `#${d.itemId}`}
                     </span>
-                    <span className="absolute bottom-1 right-1.5 text-[8px] text-text-dim opacity-0 group-hover:opacity-100 transition-opacity">
-                      {d.fromUserId !== userId ? "🎁" : ""}
-                    </span>
+                    {d.fromUserId !== userId && (
+                      <span className="absolute bottom-1.5 right-2 text-[8px] text-text-dim opacity-0 group-hover:opacity-100 transition-opacity">★</span>
+                    )}
                   </>
                 )}
               </div>
@@ -93,7 +96,7 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
           }
 
           return (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               {gridItems}
             </div>
           );

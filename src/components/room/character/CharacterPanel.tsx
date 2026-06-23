@@ -6,17 +6,15 @@ import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeActi
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CharacterData, CocAttributes } from "@/lib/character-types";
+import type { CocAttributes } from "@/lib/character-types";
 import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
-import { getRandomColorForUser } from "@/lib/avatar-colors";
+import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { AvatarCropper } from "@/components/room/character/AvatarCropper";
-import { CharacterHeader } from "@/components/room/character/CharacterHeader";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
-import { ShrineLantern } from "@/components/shrine/ShrineLantern";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
 
 interface CharacterPanelProps {
@@ -59,7 +57,7 @@ export function CharacterPanel({
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
 
   // Avatar photo: shows the uploaded image when present, falling back to a
   // colored initial. `avatarOverride` reflects a just-cropped image instantly,
@@ -85,6 +83,8 @@ export function CharacterPanel({
     ruleTemplate?: string;
     cocAttributes?: CocAttributes;
     bio?: string;
+    occupation?: string;
+    age?: number;
     customAttributes?: { name: string; value: number; max?: number }[];
     cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
   };
@@ -111,11 +111,11 @@ export function CharacterPanel({
     }
   }, [roomRuleTemplate, roomId, initDone, readOnly]);
   const [bio, setBio] = useState(charData.bio || "");
+  const [occupation, setOccupation] = useState(charData.occupation || "");
+  const [age, setAge] = useState<number | "">(charData.age ?? "");
 
-  // Custom attributes
+  // Custom attributes / resources (a custom item with `max` set renders as a resource bar)
   const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
-  const [newAttrName, setNewAttrName] = useState("");
-  const [newAttrValue, setNewAttrValue] = useState(10);
 
   // Resource current values
   const [currentHp, setCurrentHp] = useState(charData.cocDerived?.hp_current ?? derived.hp);
@@ -145,6 +145,8 @@ export function CharacterPanel({
     const cd = parseCharData(characterData) as {
       cocAttributes?: CocAttributes;
       bio?: string;
+      occupation?: string;
+      age?: number;
       customAttributes?: { name: string; value: number; max?: number }[];
       cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
     };
@@ -154,6 +156,8 @@ export function CharacterPanel({
     /* eslint-disable react-hooks/set-state-in-effect */
     setCocAttrs(attrs);
     setBio(cd.bio || "");
+    setOccupation(cd.occupation || "");
+    setAge(cd.age ?? "");
     setCustomAttrs(cd.customAttributes || []);
     setCurrentHp(cd.cocDerived?.hp_current ?? d.hp);
     setCurrentSan(cd.cocDerived?.san_current ?? d.san);
@@ -179,41 +183,47 @@ export function CharacterPanel({
     }
   };
 
-  const saveCharacterData = async () => {
-    const data: CharacterData = {
-      ruleTemplate,
-      cocAttributes: cocAttrs,
-      bio,
-    };
+  // Footer "保存" — persists attributes + bio (and resources for COC) in one go.
+  const handleSaveAll = async () => {
     setSaveStatus("saving");
     try {
-      await saveCharacterDataAction(roomId, data);
+      await saveCharacterDataAction(roomId, {
+        ruleTemplate, cocAttributes: cocAttrs, bio,
+        occupation: occupation.trim() || undefined,
+        age: age === "" ? undefined : Number(age),
+      });
+      if (ruleTemplate === "coc7th") {
+        await updateResourcesAction(roomId, targetUserId || userId, {
+          hp_current: currentHp, san_current: currentSan, mp_current: currentMp,
+        });
+      }
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
       router.refresh();
     } catch (e) {
-      console.error("Failed to save character data", e);
+      console.error("Failed to save character", e);
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
   };
 
-  const saveResourceValues = async () => {
-    setSaveStatus("saving");
-    try {
-      await updateResourcesAction(roomId, targetUserId || userId, {
-        hp_current: currentHp,
-        san_current: currentSan,
-        mp_current: currentMp,
-      });
-      setSaveStatus("success");
-      setTimeout(() => setSaveStatus("idle"), 2000);
-      router.refresh();
-    } catch (e) {
-      console.error("Failed to save resource values", e);
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
+  // Footer "导出" — downloads a readable text summary of the sheet (client-side).
+  const handleExport = () => {
+    const lines = [`${t("title")} · ${nickname}`, ""];
+    if (ruleTemplate === "coc7th") {
+      lines.push(`${t("hp")}: ${currentHp}/${derived.hpMax}`, `${t("san")}: ${currentSan}/${derived.sanMax}`, `${t("mp")}: ${currentMp}/${derived.mpMax}`, "");
+      lines.push(t("baseAttributes") + ":");
+      (Object.keys(cocAttrs) as (keyof CocAttributes)[]).forEach((k) => lines.push(`  ${k.toUpperCase()}: ${cocAttrs[k]}`));
     }
+    if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
+    if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${nickname || "character"}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const updateAttr = (key: keyof CocAttributes, value: number) => {
@@ -234,23 +244,29 @@ export function CharacterPanel({
     getMySkillsAction(roomId).then(setSkills).catch(() => {});
   };
 
-  const addCustomAttr = async () => {
-    if (!newAttrName.trim()) return;
+  // Add or overwrite a custom item. `max` present ⇒ rendered as a resource bar.
+  const addCustom = async (attr: { name: string; value: number; max?: number }) => {
+    const name = attr.name.trim();
+    if (!name) return;
+    const item = { ...attr, name };
     try {
-      await addCustomAttributeAction(roomId, { name: newAttrName.trim(), value: newAttrValue });
+      await addCustomAttributeAction(roomId, item);
       setCustomAttrs(prev => {
-        const idx = prev.findIndex(a => a.name === newAttrName.trim());
-        if (idx >= 0) {
-          const copy = [...prev];
-          copy[idx] = { name: newAttrName.trim(), value: newAttrValue };
-          return copy;
-        }
-        return [...prev, { name: newAttrName.trim(), value: newAttrValue }];
+        const idx = prev.findIndex(a => a.name === name);
+        if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
+        return [...prev, item];
       });
-      setNewAttrName("");
-      setNewAttrValue(10);
       router.refresh();
     } catch (e) { console.error(e); }
+  };
+
+  // Edit a custom item's current value / max in place (optimistic + persist).
+  const updateCustom = async (name: string, patch: { value?: number; max?: number }) => {
+    const existing = customAttrs.find(a => a.name === name);
+    if (!existing) return;
+    const item = { ...existing, ...patch };
+    setCustomAttrs(prev => prev.map(a => (a.name === name ? item : a)));
+    try { await addCustomAttributeAction(roomId, item); router.refresh(); } catch (e) { console.error(e); }
   };
 
   const removeCustomAttr = async (name: string) => {
@@ -261,100 +277,145 @@ export function CharacterPanel({
     } catch (e) { console.error(e); }
   };
 
-  const tabs: { id: TabId; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "attributes", label: t("tabAttributes"), Icon: Icons.BarChart3 },
-    { id: "skills", label: t("tabSkills"), Icon: Icons.ClipboardList },
-    { id: "background", label: t("tabBackground"), Icon: Icons.FileText },
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "attributes", label: t("tabAttributes") },
+    { id: "skills", label: t("tabSkills") },
+    { id: "background", label: t("tabBackground") },
   ];
 
-  if (loading) {
-    return (
-      <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
-        <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-sm mx-4 ${panelClass}`}
-          onClick={e => e.stopPropagation()}>
-          <div className="flex justify-between items-center mb-5">
-            <h3 className="font-bold text-lg text-text">{t("titleOther", { name: currentNickname })}</h3>
-            <button onClick={close} className="p-1.5 -mr-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
-              <Icons.X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="text-center py-12 text-text-muted flex flex-col items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4" />
-            <p className="text-sm font-medium">{tCommon("loading")}</p>
-          </div>
+  // Shared drawer chrome for the loading / empty states.
+  const drawerShell = (body: React.ReactNode) => (
+    <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
+      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+      <div className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
+        onClick={e => e.stopPropagation()}>
+        <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center">
+          <h3 className="font-bold text-text text-xl font-theme-display truncate">{t("titleOther", { name: currentNickname })}</h3>
+          <button onClick={close} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <Icons.X className="w-5 h-5" />
+          </button>
         </div>
+        {body}
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return drawerShell(
+      <div className="flex-1 text-center py-20 text-text-muted flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4" />
+        <p className="text-sm font-medium">{tCommon("loading")}</p>
       </div>
     );
   }
 
   if (readOnly && !hasExistingData) {
-    return (
-      <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
-        <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl p-6 w-full max-w-sm mx-4 ${panelClass}`}
-          onClick={e => e.stopPropagation()}>
-          <div className="flex justify-between items-center mb-5">
-            <h3 className="font-bold text-lg text-text">{t("titleOther", { name: currentNickname })}</h3>
-            <button onClick={close} className="p-1.5 -mr-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
-              <Icons.X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="text-center py-8 text-text-muted">
-            <span className="text-4xl block mb-3">🎴</span>
-            <p className="text-sm font-medium">{t("notInitialized")}</p>
-          </div>
-        </div>
+    return drawerShell(
+      <div className="flex-1 text-center py-16 text-text-muted flex flex-col items-center justify-center">
+        <Icons.User className="w-10 h-10 mb-3 opacity-40" />
+        <p className="text-sm font-medium">{t("notInitialized")}</p>
       </div>
     );
   }
 
+  const canSave = !readOnly || (isGM && canEditResources);
+
   return (
     <>
-    <div className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 ${backdropClass}`} onClick={close}>
-      <ShrineLantern side="left" width={62} bottom={34} offset="8%" />
-      <ShrineLantern side="right" width={62} bottom={34} offset="8%" />
-      <div className={`relative z-[2] bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-lg mx-4 h-[85vh] md:h-[600px] max-h-[90vh] flex flex-col overflow-hidden ${panelClass}`}
+    <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
+      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+      <div className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
 
-        <CharacterHeader
-          nickname={nickname}
-          currentNickname={currentNickname}
-          editingNick={editingNick}
-          onEditingNickChange={setEditingNick}
-          onNicknameChange={setNickname}
-          onSaveNickname={saveNickname}
-          avatarSrc={avatarSrc}
-          selectedColor={selectedColor}
-          readOnly={readOnly}
-          onChangeAvatar={() => setShowAvatarCropper(true)}
-          ruleTemplate={ruleTemplate}
-          onColorChange={handleColorChange}
-          onClose={close}
-        />
+        {/* Header — 角色卡 · 昵称 (click to edit) + close */}
+        <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center gap-3">
+          {editingNick ? (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-text-muted text-lg font-bold shrink-0">{t("title")} ·</span>
+              <input value={nickname} onChange={e => setNickname(e.target.value)}
+                onBlur={saveNickname}
+                onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { setNickname(currentNickname); setEditingNick(false); } }}
+                autoFocus
+                className="flex-1 min-w-0 text-lg font-bold text-text bg-input-bg border border-input-border rounded px-2 py-0.5 outline-none focus:ring-[3px] focus:ring-primary/[0.18]" />
+            </div>
+          ) : (
+            <h3 className="font-bold text-text text-xl font-theme-display flex items-center gap-1.5 min-w-0">
+              <span className="truncate">{readOnly ? t("titleOther", { name: nickname }) : `${t("title")} · ${nickname}`}</span>
+              {!readOnly && (
+                <button onClick={() => setEditingNick(true)} title={t("editName")} className="shrink-0 text-text-muted hover:text-primary transition cursor-pointer">
+                  <Icons.Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </h3>
+          )}
+          <button onClick={close} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer shrink-0">
+            <Icons.X className="w-5 h-5" />
+          </button>
+        </div>
 
-        {/* Tab Bar */}
-        <div className="shrink-0 flex gap-1 px-5 pt-3 border-b border-border bg-surface">
+        {/* Profile band — avatar + colour (first page only, per design) */}
+        {!readOnly && activeTab === "attributes" && (
+          <div className="shrink-0 border-b border-border px-6 py-4 flex items-center gap-4">
+            <div className="relative shrink-0">
+              <div className="w-16 h-16 rounded-theme overflow-hidden flex items-center justify-center border-2"
+                style={{ borderColor: selectedColor, boxShadow: `0 0 12px ${selectedColor}55` }}>
+                {avatarSrc
+                  ? <img src={avatarSrc} alt={nickname} className="w-full h-full object-cover" />
+                  : <span className="w-full h-full flex items-center justify-center text-2xl font-bold"
+                      style={{ backgroundColor: selectedColor, color: getContrastColor(selectedColor) }}>{nickname.charAt(0).toUpperCase()}</span>}
+              </div>
+              <button onClick={() => setShowAvatarCropper(true)} title={t("changeAvatar")}
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground border-2 border-surface flex items-center justify-center cursor-pointer">
+                <Icons.Pencil className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-text-muted mb-2">{t("avatarColor")}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {PRESET_AVATAR_COLORS.map(p => (
+                  <button key={p.hex} onClick={() => handleColorChange(p.hex)} title={p.name}
+                    className={`w-7 h-7 rounded-full transition cursor-pointer ${
+                      selectedColor.toLowerCase() === p.hex.toLowerCase()
+                        ? "ring-2 ring-offset-2 ring-offset-surface ring-primary scale-105" : "hover:scale-110"
+                    }`}
+                    style={{ backgroundColor: p.hex }} />
+                ))}
+                <label title={t("customColor")}
+                  className="w-7 h-7 rounded-full border border-dashed border-border flex items-center justify-center cursor-pointer text-text-muted hover:text-text hover:border-primary/50 transition">
+                  <Icons.Plus className="w-3.5 h-3.5" />
+                  <input type="color"
+                    value={selectedColor.startsWith("#") && selectedColor.length === 7 ? selectedColor : "#6366f1"}
+                    onChange={e => handleColorChange(e.target.value)}
+                    className="absolute w-0 h-0 opacity-0" />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Bar — underline */}
+        <div className="shrink-0 flex gap-6 px-6 border-b border-border bg-surface">
           {tabs.map(tab => (
             <button key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 -mb-px text-sm font-medium rounded-t-lg border-b-2 transition cursor-pointer ${
-                activeTab === tab.id
-                  ? "border-primary text-primary bg-primary/5"
-                  : "border-transparent text-text-muted hover:text-text hover:bg-surface-alt/60"
+              className={`relative py-3 text-sm font-medium transition cursor-pointer ${
+                activeTab === tab.id ? "text-primary" : "text-text-muted hover:text-text"
               }`}>
-              <tab.Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
+              {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary rounded-full shadow-[var(--theme-glow)]" />
+              )}
             </button>
           ))}
         </div>
 
-        {/* Tab content (scrolls; header stays pinned) */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* Tab content (scrolls) */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {activeTab === "attributes" && (
             <AttributesTab
               ruleTemplate={ruleTemplate}
               readOnly={readOnly}
               canEditResources={canEditResources}
-              isGM={isGM}
               derived={derived}
               currentHp={currentHp}
               onCurrentHpChange={setCurrentHp}
@@ -364,16 +425,10 @@ export function CharacterPanel({
               onCurrentMpChange={setCurrentMp}
               cocAttrs={cocAttrs}
               onUpdateAttr={updateAttr}
-              saveStatus={saveStatus}
-              onSaveCharacterData={saveCharacterData}
-              onSaveResources={saveResourceValues}
               customAttrs={customAttrs}
-              onRemoveCustomAttr={removeCustomAttr}
-              newAttrName={newAttrName}
-              onNewAttrNameChange={setNewAttrName}
-              newAttrValue={newAttrValue}
-              onNewAttrValueChange={setNewAttrValue}
-              onAddCustomAttr={addCustomAttr}
+              onAddCustom={addCustom}
+              onUpdateCustom={updateCustom}
+              onRemoveCustom={removeCustomAttr}
             />
           )}
 
@@ -394,10 +449,26 @@ export function CharacterPanel({
             <BackgroundTab
               bio={bio}
               onBioChange={setBio}
+              occupation={occupation}
+              onOccupationChange={setOccupation}
+              age={age}
+              onAgeChange={setAge}
               readOnly={readOnly}
-              saveStatus={saveStatus}
-              onSave={saveCharacterData}
             />
+          )}
+        </div>
+
+        {/* Footer — 导出 / 保存 */}
+        <div className="shrink-0 border-t border-border bg-surface px-6 py-4 flex gap-3">
+          <button onClick={handleExport}
+            className="flex-1 py-2.5 rounded-theme border border-border text-text font-bold text-sm hover:bg-surface-alt transition cursor-pointer">
+            {t("export")}
+          </button>
+          {canSave && (
+            <button onClick={handleSaveAll} disabled={saveStatus === "saving"}
+              className="flex-1 py-2.5 rounded-theme bg-primary hover:bg-primary-hover text-primary-foreground font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)] disabled:opacity-70 disabled:shadow-none">
+              {saveStatus === "saving" ? tCommon("loading") : saveStatus === "success" ? `✓ ${t("save")}` : t("save")}
+            </button>
           )}
         </div>
       </div>

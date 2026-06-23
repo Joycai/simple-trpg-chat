@@ -1,16 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Heart, Eye, Droplet, Plus, Trash2, X, Check } from "lucide-react";
 import type { CocAttributes, computeCocDerived } from "@/lib/character-types";
-import { SaveButton, type SaveStatus } from "./SaveButton";
 
 type CocDerived = ReturnType<typeof computeCocDerived>;
+type CustomItem = { name: string; value: number; max?: number };
 
 interface AttributesTabProps {
   ruleTemplate: string;
   readOnly: boolean;
   canEditResources: boolean;
-  isGM: boolean;
   derived: CocDerived;
   currentHp: number;
   onCurrentHpChange: (v: number) => void;
@@ -20,212 +21,183 @@ interface AttributesTabProps {
   onCurrentMpChange: (v: number) => void;
   cocAttrs: CocAttributes;
   onUpdateAttr: (key: keyof CocAttributes, value: number) => void;
-  saveStatus: SaveStatus;
-  onSaveCharacterData: () => void;
-  onSaveResources: () => void;
-  customAttrs: { name: string; value: number; max?: number }[];
-  onRemoveCustomAttr: (name: string) => void;
-  newAttrName: string;
-  onNewAttrNameChange: (v: string) => void;
-  newAttrValue: number;
-  onNewAttrValueChange: (v: number) => void;
-  onAddCustomAttr: () => void;
+  customAttrs: CustomItem[];
+  onAddCustom: (attr: CustomItem) => void;
+  onUpdateCustom: (name: string, patch: { value?: number; max?: number }) => void;
+  onRemoveCustom: (name: string) => void;
 }
 
+const num = (v: string) => Math.max(0, parseInt(v) || 0);
+
 export function AttributesTab({
-  ruleTemplate, readOnly, canEditResources, isGM, derived,
+  ruleTemplate, readOnly, canEditResources, derived,
   currentHp, onCurrentHpChange, currentSan, onCurrentSanChange, currentMp, onCurrentMpChange,
-  cocAttrs, onUpdateAttr, saveStatus, onSaveCharacterData, onSaveResources,
-  customAttrs, onRemoveCustomAttr, newAttrName, onNewAttrNameChange,
-  newAttrValue, onNewAttrValueChange, onAddCustomAttr,
+  cocAttrs, onUpdateAttr, customAttrs, onAddCustom, onUpdateCustom, onRemoveCustom,
 }: AttributesTabProps) {
   const t = useTranslations("character");
+  const isCoc = ruleTemplate === "coc7th";
 
-  // Map keys to the translation keys
+  // A custom item with a `max` renders as a resource bar; without, as a single value.
+  const customResources = customAttrs.filter(a => a.max != null);
+  const customSingles = customAttrs.filter(a => a.max == null);
+
+  // Inline add-form state (local to this tab).
+  const [addRes, setAddRes] = useState(false);
+  const [resName, setResName] = useState(""); const [resCur, setResCur] = useState(10); const [resMax, setResMax] = useState(10);
+  const [addAttr, setAddAttr] = useState(false);
+  const [attrName, setAttrName] = useState(""); const [attrVal, setAttrVal] = useState(10);
+
   const cocAttrKeys: { key: keyof CocAttributes; tKey: string }[] = [
-    { key: "str", tKey: "str" },
-    { key: "con", tKey: "con" },
-    { key: "siz", tKey: "siz" },
-    { key: "dex", tKey: "dex" },
-    { key: "app", tKey: "app" },
-    { key: "int", tKey: "int" },
-    { key: "pow", tKey: "pow" },
-    { key: "edu", tKey: "edu" },
-    { key: "luck", tKey: "luckAttr" },
+    { key: "str", tKey: "str" }, { key: "dex", tKey: "dex" }, { key: "con", tKey: "con" },
+    { key: "int", tKey: "int" }, { key: "pow", tKey: "pow" }, { key: "edu", tKey: "edu" },
+    { key: "siz", tKey: "siz" }, { key: "app", tKey: "app" }, { key: "luck", tKey: "luckAttr" },
   ];
 
+  const predefined = [
+    { label: t("hp"), icon: <Heart className="w-4 h-4" fill="currentColor" />, color: "var(--theme-danger)", current: currentHp, max: derived.hpMax, onChange: onCurrentHpChange, show: true },
+    { label: t("san"), icon: <Eye className="w-4 h-4" />, color: "var(--theme-ai)", current: currentSan, max: derived.sanMax, onChange: onCurrentSanChange, show: isCoc },
+    { label: t("mp"), icon: <Droplet className="w-4 h-4" />, color: "var(--theme-primary)", current: currentMp, max: derived.mpMax, onChange: onCurrentMpChange, show: isCoc },
+  ].filter(r => r.show);
+
+  const sectionHeader = (label: string, sub: string, onAdd?: () => void) => (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-text-dim font-medium">
+        {label} <span className="text-text-dim/60">· {sub}</span>
+      </span>
+      {!readOnly && onAdd && (
+        <button onClick={onAdd}
+          className="inline-flex items-center gap-1 text-xs font-bold text-primary border border-primary/40 rounded-theme px-2.5 py-1 hover:bg-primary/10 transition cursor-pointer">
+          <Plus className="w-3.5 h-3.5" /> {t("addBtn")}
+        </button>
+      )}
+    </div>
+  );
+
+  const fieldCls = "w-full px-3 py-2 bg-input-bg border border-input-border rounded-theme text-text text-sm outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary placeholder:text-text-dim";
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Resource Bars */}
-      <div>
-        <label className="text-xs text-text-dim font-medium mb-2 block">{t("resourceStatus")}</label>
-        <div className="flex flex-col gap-2">
-          {/* HP */}
-          <div>
-            <div className="flex justify-between text-xs text-text-muted mb-1">
-              <span>❤️ {t("hp")}</span>
-              {canEditResources ? (
-                <div className="flex gap-1 items-center">
-                  <input type="number" min={0} max={derived.hpMax}
-                    value={currentHp} onChange={e => onCurrentHpChange(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.hpMax)))}
-                    className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                  <span className="font-mono text-[11px] w-8">{currentHp}/{derived.hpMax}</span>
-                </div>
-              ) : (
-                <span className="font-mono">{currentHp}/{derived.hpMax}</span>
-              )}
-            </div>
-            <div className={`h-3 bg-surface-alt rounded-full overflow-hidden border border-border ${derived.hpMax > 0 && currentHp / derived.hpMax <= 0.25 ? "hp-critical" : ""}`}>
-              <div className={`h-full rounded-full transition-all duration-300 hp-bar-fill ${
-                derived.hpMax > 0 && currentHp / derived.hpMax > 0.5 ? "bg-success" :
-                derived.hpMax > 0 && currentHp / derived.hpMax > 0.25 ? "bg-accent" : "bg-danger"
-              }`} style={{ width: `${derived.hpMax > 0 ? Math.min(100, (currentHp / derived.hpMax) * 100) : 0}%` }} />
+    <div className="flex flex-col gap-6">
+      {/* ===== Resources ===== */}
+      <div className="flex flex-col gap-3">
+        {sectionHeader(t("resourcesLabel"), t("resourceColumns"), () => setAddRes(v => !v))}
+
+        {addRes && !readOnly && (
+          <div className="flex flex-col gap-2 bg-surface-alt/40 rounded-theme p-3 border border-border">
+            <input value={resName} onChange={e => setResName(e.target.value)} placeholder={t("customAttrPlaceholder")} autoFocus className={fieldCls} />
+            <div className="flex gap-2 items-center">
+              <input type="number" value={resCur} onChange={e => setResCur(num(e.target.value))} className={`${fieldCls} flex-1 text-center font-mono`} title={t("currentLabel")} />
+              <span className="text-text-dim">/</span>
+              <input type="number" value={resMax} onChange={e => setResMax(num(e.target.value))} className={`${fieldCls} flex-1 text-center font-mono`} title={t("maxLabel")} />
+              <button onClick={() => { if (resName.trim()) { onAddCustom({ name: resName.trim(), value: resCur, max: resMax }); setResName(""); setResCur(10); setResMax(10); setAddRes(false); } }}
+                className="flex items-center justify-center w-9 h-9 rounded-theme bg-primary text-primary-foreground shrink-0"><Check className="w-4 h-4" /></button>
             </div>
           </div>
+        )}
 
-          {/* COC-only: SAN / MP / LUCK / Attributes / Derived */}
-          {ruleTemplate === "coc7th" && (
-          <div>
-            {/* SAN */}
-            <div className="mb-2">
-              <div className="flex justify-between text-xs text-text-muted mb-1">
-                <span>💜 {t("san")}</span>
-                {canEditResources ? (
-                  <div className="flex gap-1 items-center">
-                    <input type="number" min={0} max={derived.sanMax}
-                      value={currentSan} onChange={e => onCurrentSanChange(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.sanMax)))}
-                      className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                    <span className="font-mono text-[11px] w-8">{currentSan}/{derived.sanMax}</span>
-                  </div>
-                ) : (
-                  <span className="font-mono">{currentSan}/{derived.sanMax}</span>
-                )}
-              </div>
-              <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
-                <div className="h-full rounded-full transition-all duration-300 bg-purple-500"
-                  style={{ width: `${derived.sanMax > 0 ? Math.min(100, (currentSan / derived.sanMax) * 100) : 0}%` }} />
+        {predefined.map(r => (
+          <ResourceCard key={r.label} label={r.label} icon={r.icon} color={r.color}
+            current={r.current} max={r.max} editable={canEditResources} maxEditable={false}
+            onCurrent={r.onChange} />
+        ))}
+        {customResources.map(r => (
+          <ResourceCard key={r.name} label={r.name} color="var(--theme-accent)"
+            current={r.value} max={r.max ?? 0} editable={!readOnly} maxEditable={!readOnly}
+            onCurrent={v => onUpdateCustom(r.name, { value: v })}
+            onMax={v => onUpdateCustom(r.name, { max: v })}
+            onRemove={readOnly ? undefined : () => onRemoveCustom(r.name)} />
+        ))}
+      </div>
+
+      {/* ===== Attributes (single values) ===== */}
+      {isCoc && (
+        <div className="flex flex-col gap-3">
+          {sectionHeader(t("attributesLabel"), t("singleValue"), () => setAddAttr(v => !v))}
+
+          {addAttr && !readOnly && (
+            <div className="flex flex-col gap-2 bg-surface-alt/40 rounded-theme p-3 border border-border">
+              <input value={attrName} onChange={e => setAttrName(e.target.value)} placeholder={t("customAttrPlaceholder")} autoFocus className={fieldCls} />
+              <div className="flex gap-2 items-center">
+                <input type="number" value={attrVal} onChange={e => setAttrVal(num(e.target.value))} className={`${fieldCls} flex-1 text-center font-mono`} />
+                <button onClick={() => { if (attrName.trim()) { onAddCustom({ name: attrName.trim(), value: attrVal }); setAttrName(""); setAttrVal(10); setAddAttr(false); } }}
+                  className="flex items-center justify-center w-9 h-9 rounded-theme bg-primary text-primary-foreground shrink-0"><Check className="w-4 h-4" /></button>
               </div>
             </div>
-
-            {/* MP */}
-            <div className="mb-2">
-              <div className="flex justify-between text-xs text-text-muted mb-1">
-                <span>💙 {t("mp")}</span>
-                {canEditResources ? (
-                  <div className="flex gap-1 items-center">
-                    <input type="number" min={0} max={derived.mpMax}
-                      value={currentMp} onChange={e => onCurrentMpChange(Math.max(0, Math.min(parseInt(e.target.value) || 0, derived.mpMax)))}
-                      className="w-12 p-0.5 border border-input-border bg-input-bg rounded text-[11px] text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-                    <span className="font-mono text-[11px] w-8">{currentMp}/{derived.mpMax}</span>
-                  </div>
-                ) : (
-                  <span className="font-mono">{currentMp}/{derived.mpMax}</span>
-                )}
-              </div>
-              <div className="h-3 bg-surface-alt rounded-full overflow-hidden border border-border">
-                <div className="h-full rounded-full transition-all duration-300 bg-blue-500"
-                  style={{ width: `${derived.mpMax > 0 ? Math.min(100, (currentMp / derived.mpMax) * 100) : 0}%` }} />
-              </div>
-            </div>
-
-            {/* LUCK */}
-            <div className="flex justify-between text-xs text-text-muted">
-              <span>🍀 {t("luck")}</span>
-              <span className="font-mono">{derived.luck}</span>
-            </div>
-          </div>
           )}
-        </div>
-      </div>
 
-      {/* COC Attributes */}
-      {ruleTemplate === "coc7th" && (
-      <div>
-        <label className="text-xs text-text-dim font-medium mb-2 block">{t("baseAttributes")}</label>
-        <div className="grid grid-cols-2 gap-2">
-          {cocAttrKeys.map(({ key, tKey }) => (
-            <div key={key} className="flex items-center gap-2 bg-surface-alt rounded p-2">
-              <label className="text-xs text-text-muted w-16 shrink-0">{t(tKey).split(" ")[0]}</label>
-              <input type="number" min={0} max={99}
-                value={cocAttrs[key]} onChange={e => onUpdateAttr(key, parseInt(e.target.value) || 0)}
-                disabled={readOnly}
-                className="w-14 p-1 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary disabled:opacity-85 disabled:cursor-default" />
-              <span className="text-[10px] text-text-dim w-8 text-right">{Math.floor((cocAttrs[key] - 50) / 5)}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      )}
-
-      {/* Derived */}
-      {ruleTemplate === "coc7th" && (
-      <div>
-        <label className="text-xs text-text-dim font-medium mb-2 block">{t("derivedAttributes")}</label>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="bg-surface-alt rounded p-2 text-center">
-            <span className="text-text-muted">MOV</span>
-            <div className="font-bold text-text font-mono">{derived.mov}</div>
-          </div>
-          <div className="bg-surface-alt rounded p-2 text-center">
-            <span className="text-text-muted">DB</span>
-            <div className="font-bold text-text font-mono">{derived.db}</div>
-          </div>
-          <div className="bg-surface-alt rounded p-2 text-center">
-            <span className="text-text-muted">{t("build")}</span>
-            <div className="font-bold text-text font-mono">{derived.build}</div>
-          </div>
-        </div>
-      </div>
-      )}
-
-      {ruleTemplate !== "coc7th" && (
-        <p className="text-xs text-text-dim text-center py-2">
-          {t("generalD100Hint")}
-        </p>
-      )}
-
-      {!readOnly && (
-        <div className="flex gap-2">
-          <SaveButton status={saveStatus} onClick={onSaveCharacterData} idleLabel={t("saveAttributes")} className="flex-1" />
-          {ruleTemplate === "coc7th" && (
-            <SaveButton status={saveStatus} onClick={onSaveResources} idleLabel={t("saveResources") || "保存资源"} className="flex-1" />
-          )}
-        </div>
-      )}
-      {canEditResources && readOnly && isGM && ruleTemplate === "coc7th" && (
-        <SaveButton status={saveStatus} onClick={onSaveResources} idleLabel={t("saveResources") || "保存资源"} className="w-full" />
-      )}
-
-      {/* Custom Attributes */}
-      <div>
-        <label className="text-xs text-text-dim font-medium mb-2 block">{t("customAttributes")}</label>
-        {customAttrs.length > 0 && (
-          <div className="flex flex-col gap-1 mb-2">
-            {customAttrs.map(attr => (
-              <div key={attr.name} className="flex items-center gap-2 bg-surface-alt rounded p-2 group">
-                <span className="flex-1 text-sm text-text">{attr.name}</span>
-                <span className="text-xs text-text-muted font-mono w-12 text-right">{attr.value}</span>
-                {!readOnly && (
-                  <button onClick={() => onRemoveCustomAttr(attr.name)}
-                    className="text-xs text-text-dim hover:text-danger opacity-0 group-hover:opacity-100 transition cursor-pointer">🗑</button>
-                )}
-              </div>
+          <div className="grid grid-cols-3 gap-3">
+            {cocAttrKeys.map(({ key, tKey }) => (
+              <AttrCard key={key} label={t(tKey)} value={cocAttrs[key]} readOnly={readOnly}
+                onChange={v => onUpdateAttr(key, v)} />
+            ))}
+            {customSingles.map(a => (
+              <AttrCard key={a.name} label={a.name} value={a.value} readOnly={readOnly}
+                onChange={v => onUpdateCustom(a.name, { value: v })}
+                onRemove={readOnly ? undefined : () => onRemoveCustom(a.name)} />
             ))}
           </div>
-        )}
-        {!readOnly && (
-          <div className="flex gap-2">
-            <input value={newAttrName} onChange={e => onNewAttrNameChange(e.target.value)}
-              placeholder={t("customAttrPlaceholder")} onKeyDown={e => e.key === "Enter" && onAddCustomAttr()}
-              className="flex-1 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text outline-none focus:ring-1 focus:ring-primary" />
-            <input type="number" min={0} max={999} value={newAttrValue}
-              onChange={e => onNewAttrValueChange(parseInt(e.target.value) || 0)}
-              className="w-16 p-1.5 border border-input-border bg-input-bg rounded text-sm text-text text-center font-mono outline-none focus:ring-1 focus:ring-primary" />
-            <button onClick={onAddCustomAttr}
-              className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-xs font-bold cursor-pointer">＋</button>
-          </div>
+        </div>
+      )}
+
+      {!isCoc && (
+        <p className="text-xs text-text-dim text-center py-2">{t("generalD100Hint")}</p>
+      )}
+    </div>
+  );
+}
+
+function ResourceCard({ label, icon, color, current, max, editable, maxEditable, onCurrent, onMax, onRemove }: {
+  label: string; icon?: React.ReactNode; color: string; current: number; max: number;
+  editable: boolean; maxEditable: boolean;
+  onCurrent: (v: number) => void; onMax?: (v: number) => void; onRemove?: () => void;
+}) {
+  const t = useTranslations("character");
+  const pct = max > 0 ? Math.min(100, (current / max) * 100) : 0;
+  const inputCls = "w-full px-3 py-2 bg-input-bg border border-input-border rounded-theme text-text text-lg font-bold font-mono text-center outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary disabled:opacity-70";
+  return (
+    <div className="rounded-theme border border-border bg-surface-alt/40 p-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="flex items-center gap-1.5 font-bold text-sm" style={{ color: `rgb(${color})` }}>{icon}{label}</span>
+        {onRemove && (
+          <button onClick={onRemove} aria-label="remove" className="text-text-dim hover:text-danger transition cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
         )}
       </div>
+      <div className="h-2 bg-bg rounded-full overflow-hidden mb-3">
+        <div className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundImage: `linear-gradient(90deg, rgb(${color} / 0.7), rgb(${color}))` }} />
+      </div>
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <div className="text-[11px] text-text-dim mb-1">{t("currentLabel")}</div>
+          <input type="number" value={current} disabled={!editable}
+            onChange={e => onCurrent(num(e.target.value))} className={inputCls} />
+        </div>
+        <span className="text-text-dim pb-2">/</span>
+        <div className="flex-1">
+          <div className="text-[11px] text-text-dim mb-1">{t("maxLabel")}</div>
+          <input type="number" value={max} disabled={!maxEditable}
+            onChange={e => onMax?.(num(e.target.value))} className={inputCls} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AttrCard({ label, value, readOnly, onChange, onRemove }: {
+  label: string; value: number; readOnly: boolean; onChange: (v: number) => void; onRemove?: () => void;
+}) {
+  return (
+    <div className="relative rounded-theme border border-border bg-surface-alt/40 px-3 py-3 flex flex-col gap-2">
+      {onRemove && (
+        <button onClick={onRemove} aria-label="remove" className="absolute top-1.5 right-1.5 text-text-dim hover:text-danger transition cursor-pointer">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <span className="text-xs text-text-muted text-center leading-tight">{label}</span>
+      <input type="number" value={value} disabled={readOnly}
+        onChange={e => onChange(num(e.target.value))}
+        className="w-full text-2xl font-bold text-primary font-theme-mono text-center bg-input-bg border border-input-border rounded-theme py-1 outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary disabled:opacity-80 disabled:bg-transparent disabled:border-transparent" />
     </div>
   );
 }
