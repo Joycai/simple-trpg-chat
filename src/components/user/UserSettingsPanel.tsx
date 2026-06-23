@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Shield, History, X, Bot, BarChart3, Coins } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { setUserLocale } from "@/app/actions/locale";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 import { SecurityTab } from "@/components/user/settings/SecurityTab";
 import { LoginHistoryTab } from "@/components/user/settings/LoginHistoryTab";
 import { AiProvidersTab } from "@/components/user/settings/AiProvidersTab";
@@ -23,7 +23,6 @@ type Tab = "security" | "history" | "ai" | "ai-usage" | "ai-points";
 export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsPanelProps) {
   const ts = useTranslations("userSettings");
   const locale = useLocale();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
 
   const [tab, setTab] = useState<Tab>("security");
 
@@ -42,8 +41,12 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass}`} onClick={close}>
-      <div className={`bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-4xl mx-4 h-[85vh] md:h-[620px] max-h-[90vh] overflow-hidden flex flex-col ${panelClass}`} onClick={e => e.stopPropagation()}>
+    <OverlayShell
+      onClose={onClose}
+      panelClassName="bg-surface border border-border rounded-theme theme-border shadow-2xl w-full max-w-md md:max-w-4xl mx-4 h-[85vh] md:h-[620px] max-h-[90vh] overflow-hidden flex flex-col"
+    >
+      {(close) => (
+        <>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="font-bold text-text text-xl">{ts("title")}</h3>
@@ -115,8 +118,9 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
             {tab === "ai-points" && <AiPointsTab userRole={userRole} />}
           </div>
         </div>
-      </div>
-    </div>,
+        </>
+      )}
+    </OverlayShell>,
     document.body,
   );
 }
