@@ -10,7 +10,7 @@
   --theme-bg: 216 222 226;          /* overcast cool steel */
   --theme-surface: 231 236 239;     /* frosted glass pane */
   --theme-surface-alt: 222 228 231;
-  --theme-border: 188 200 207;      /* cool steel edge */
+  --theme-border: 196 208 215;      /* cool steel edge */
   --theme-text: 22 30 36;           /* cool ink */
   --theme-text-muted: 86 100 110;
   --theme-text-dim: 130 146 156;
@@ -26,7 +26,7 @@
   --theme-ai-hover: 106 76 200;
   --theme-ai-foreground: 247 245 252;
   --theme-header-bg: 223 229 233;
-  --theme-header-border: 188 200 207;
+  --theme-header-border: 196 208 215;
   --theme-input-bg: 236 240 243;
   --theme-input-border: 186 198 206;
   --theme-dice-card-bg: 226 232 236;
@@ -55,9 +55,9 @@
   --theme-radius-bl: 0.85rem;
 
   /* Light decoration vars */
-  --theme-glow: 0 0 6px rgba(8, 145, 178, 0.3),
-               0 0 16px rgba(8, 145, 178, 0.12);
-  --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
+  --theme-glow: 0 0 10px rgba(8, 145, 178, 0.28),
+               0 0 14px rgba(8, 145, 178, 0.12);
+  --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.80),
                        0 6px 18px rgba(40, 55, 66, 0.12),
                        0 2px 4px rgba(40, 55, 66, 0.08);
   --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%230891b2' stroke-opacity='0.04' stroke-width='1'/%3E%3C/svg%3E");
@@ -166,13 +166,13 @@
   filter: drop-shadow(0 0 2px rgba(205, 45, 130, 0.5));
 }
 [data-theme="rainglass"] .theme-border {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
-              0 0 14px rgba(8, 145, 178, 0.18),
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.80),
+              0 0 14px rgba(8, 145, 178, 0.12),
               0 8px 24px rgba(40, 55, 66, 0.14);
 }
 [data-theme="rainglass"] .filter-indicator {
   background: #0891b2;
-  box-shadow: 0 0 10px rgba(8, 145, 178, 0.45), 0 0 20px rgba(8, 145, 178, 0.2);
+  box-shadow: 0 0 10px rgba(8, 145, 178, 0.28), 0 0 20px rgba(8, 145, 178, 0.12);
 }
 [data-theme="rainglass"] .filter-tab-active {
   color: #0891b2;
