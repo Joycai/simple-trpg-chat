@@ -316,7 +316,7 @@ export function AdminConfigClient({
             {DEFAULT_SENSITIVE_WORD_GROUPS.map((g) => (
               <span
                 key={g.key}
-                className="inline-flex items-center gap-1.5 text-xs bg-danger/5 border border-danger/20 text-danger-dim px-2.5 py-1.5 rounded-theme"
+                className="inline-flex items-center gap-1.5 text-xs bg-danger/5 border border-danger/20 text-danger/70 px-2.5 py-1.5 rounded-theme"
               >
                 {t(`swGroup_${g.key}`)}
                 <span className="text-[10px] text-text-dim font-theme-mono">{g.words.length}</span>
