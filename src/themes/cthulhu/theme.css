@@ -33,6 +33,15 @@
   --theme-private-border: 124 78 200;
   --theme-private-bg: 238 234 244;
   --theme-scroll-btn: 124 78 200;
+  --theme-warning: 184 122 24;      /* sickly amber */
+
+  /* === Skill palette — eldritch inks (deepened for pale archive paper) === */
+  --theme-skill-0: 124 78 200;   /* ghost violet */
+  --theme-skill-1: 22 144 128;   /* abyssal teal */
+  --theme-skill-2: 168 64 140;   /* fungal orchid */
+  --theme-skill-3: 36 140 100;   /* viridian green */
+  --theme-skill-4: 40 96 168;    /* deep cold blue */
+  --theme-skill-5: 176 92 36;    /* rust amber */
   --theme-primary-foreground: 244 245 242;
 
   /* === Shared identity: clinical sans body + gothic display serif, zero corners === */
@@ -170,6 +179,15 @@
   --theme-private-border: 168 122 246;
   --theme-private-bg: 24 18 38;     /* deep violet-black */
   --theme-scroll-btn: 168 122 246;
+  --theme-warning: 230 170 70;      /* sickly amber-gold */
+
+  /* === Skill palette — eldritch fluorescents === */
+  --theme-skill-0: 168 122 246;  /* ghost violet */
+  --theme-skill-1: 78 214 196;   /* abyssal teal */
+  --theme-skill-2: 213 99 178;   /* fungal orchid */
+  --theme-skill-3: 52 200 150;   /* viridian green */
+  --theme-skill-4: 96 156 240;   /* cold blue */
+  --theme-skill-5: 214 150 70;   /* eldritch amber */
   --theme-primary-foreground: 6 14 16;  /* dark text on light violet */
 
   /* === Skeuomorphic: fluorescent glow (breathing pulse) === */

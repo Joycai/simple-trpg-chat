@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Dice5, User, Lock } from "lucide-react";
 import { Notice } from "@/components/shared/Notice";
+import { ThemeLoginHero } from "@/components/theme/ThemeDecor";
 
 interface LoginFormProps {
   siteTitle: string;
@@ -76,11 +77,12 @@ export function LoginForm({ siteTitle, version, icp, icpUrl, noticeReason, notic
   const displayTitle = siteTitle.trim();
 
   return (
-    <div className="relative overflow-hidden flex flex-col items-center justify-center min-h-screen bg-bg px-4 py-8">
+    <div className="login-page-bg relative overflow-hidden flex flex-col items-center justify-center min-h-screen bg-bg px-4 py-8">
       <form
         onSubmit={handleSubmit}
-        className="relative z-[2] p-8 sm:p-10 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-6 w-full max-w-md border border-border"
+        className="login-card relative z-[2] p-8 sm:p-10 bg-surface rounded-theme theme-border shadow-lg flex flex-col gap-6 w-full max-w-md border border-border"
       >
+        <ThemeLoginHero />
         <div className="flex flex-col items-center text-center gap-3 mb-1">
           <div className="flex items-center justify-center w-16 h-16 rounded-theme border border-primary/40 bg-primary/10 text-primary shadow-[var(--theme-glow)]">
             <Dice5 className="w-8 h-8" strokeWidth={1.75} />

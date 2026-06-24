@@ -29,6 +29,15 @@
   --theme-private-border: 158 50 42;   /* sealing-wax red (a sealed letter) */
   --theme-private-bg: 246 232 214;
   --theme-scroll-btn: 130 64 30;
+  --theme-warning: 168 110 24;      /* ochre warning ink */
+
+  /* === Skill palette — traditional manuscript inks (deepened for cream paper) === */
+  --theme-skill-0: 130 64 30;    /* burnt sienna */
+  --theme-skill-1: 60 112 98;    /* verdigris */
+  --theme-skill-2: 74 86 146;    /* indigo ink */
+  --theme-skill-3: 158 50 42;    /* sealing-wax red */
+  --theme-skill-4: 110 78 140;   /* amethyst ink */
+  --theme-skill-5: 150 100 30;   /* gold ochre */
   --theme-primary-foreground: 252 246 230;  /* cream, softer than pure white */
 
   /* === Typography (literary serif + inscriptional display) === */
@@ -226,6 +235,15 @@
   --theme-private-border: 198 96 84; /* sealing-wax red, lifted */
   --theme-private-bg: 46 33 27;
   --theme-scroll-btn: 200 128 80;
+  --theme-warning: 224 168 78;      /* warm candlelit amber */
+
+  /* === Skill palette — manuscript inks, candlelit / lifted === */
+  --theme-skill-0: 200 128 80;   /* ember sienna */
+  --theme-skill-1: 112 178 158;  /* verdigris */
+  --theme-skill-2: 142 154 214;  /* indigo ink */
+  --theme-skill-3: 198 96 84;    /* sealing-wax red */
+  --theme-skill-4: 176 138 206;  /* amethyst */
+  --theme-skill-5: 206 168 96;   /* gold ochre */
   --theme-primary-foreground: 28 20 12;  /* dark text on ember button */
 
   --theme-card-shadow: 1px 2px 4px rgba(0, 0, 0, 0.42),

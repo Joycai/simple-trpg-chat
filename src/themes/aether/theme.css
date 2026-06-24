@@ -33,6 +33,15 @@
   --theme-private-border: 214 158 40;  /* a gilt-sealed message */
   --theme-private-bg: 250 244 226;
   --theme-scroll-btn: 38 130 214;
+  --theme-warning: 224 132 28;      /* warm sunlit orange-amber */
+
+  /* === Skill palette — sky / crystal / earth hues === */
+  --theme-skill-0: 38 130 214;   /* azure */
+  --theme-skill-1: 214 158 40;   /* gilt gold */
+  --theme-skill-2: 17 157 141;   /* orbal teal */
+  --theme-skill-3: 47 158 99;    /* verdant green */
+  --theme-skill-4: 150 92 200;   /* amethyst crystal */
+  --theme-skill-5: 214 92 130;   /* rose crystal */
   --theme-primary-foreground: 255 255 255;
 
   /* === Typography (elegant JRPG-menu serif) === */
@@ -224,6 +233,15 @@
   --theme-private-border: 232 186 86;
   --theme-private-bg: 46 40 24;     /* gilt-sealed parchment, dark */
   --theme-scroll-btn: 108 168 238;
+  --theme-warning: 240 176 72;      /* warm dusk amber */
+
+  /* === Skill palette — dusk sky / gilt / crystal === */
+  --theme-skill-0: 108 168 238;  /* azure */
+  --theme-skill-1: 232 186 86;   /* gilt gold */
+  --theme-skill-2: 56 196 178;   /* orbal teal */
+  --theme-skill-3: 80 188 130;   /* verdant */
+  --theme-skill-4: 184 146 236;  /* amethyst */
+  --theme-skill-5: 240 130 168;  /* rose */
   --theme-primary-foreground: 10 18 34;  /* dark text on bright azure */
 
   --theme-card-shadow: 0 1px 0 rgba(232, 186, 86, 0.15),

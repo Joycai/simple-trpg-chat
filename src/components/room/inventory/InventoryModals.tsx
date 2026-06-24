@@ -193,6 +193,30 @@ export function CreateEditModal({
               </div>
             )}
 
+            {/* Evidence / avatar / item image (clue + character + item) */}
+            {(itemType === "clue" || itemType === "character" || itemType === "item") && (
+              <div>
+                <label className="text-xs text-text-dim font-medium mb-1.5 block">
+                  {itemType === "character" ? t("avatarLabel") : itemType === "item" ? t("itemImageLabel") : t("imageLabel")}
+                </label>
+                {imageUrl ? (
+                  <div className="relative rounded-theme overflow-hidden border border-border">
+                    <img src={imageUrl} alt="" className="w-full max-h-48 object-cover" />
+                    <button onClick={() => onImageChange(null)} aria-label={tCommon("close")}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
+                      <Icons.X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 py-6 rounded-theme border border-dashed border-border text-text-muted hover:border-primary/40 hover:text-text transition cursor-pointer">
+                    {uploading ? <Icons.Loader2 className="w-5 h-5 animate-spin" /> : (itemType === "character" ? <Icons.User className="w-5 h-5" /> : <Icons.Image className="w-5 h-5" />)}
+                    <span className="text-sm">{uploading ? tCommon("loading") : (itemType === "character" ? t("avatarUploadHint") : itemType === "item" ? t("itemUploadHint") : t("uploadHint"))}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={e => { handleUpload(e.target.files?.[0]); e.target.value = ""; }} />
+                  </label>
+                )}
+              </div>
+            )}
+
             {/* Item — quantity + initial holder */}
             {itemType === "item" && (
               <div className="grid grid-cols-2 gap-3">
@@ -208,28 +232,6 @@ export function CreateEditModal({
                     <option value="">{t("holderPlaceholder")}</option>
                   </select>
                 </div>
-              </div>
-            )}
-
-            {/* Evidence / avatar image (clue + character only) */}
-            {(itemType === "clue" || itemType === "character") && (
-              <div>
-                <label className="text-xs text-text-dim font-medium mb-1.5 block">{itemType === "character" ? t("avatarLabel") : t("imageLabel")}</label>
-                {imageUrl ? (
-                  <div className="relative rounded-theme overflow-hidden border border-border">
-                    <img src={imageUrl} alt="" className="w-full max-h-48 object-cover" />
-                    <button onClick={() => onImageChange(null)} aria-label={tCommon("close")}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
-                      <Icons.X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 py-6 rounded-theme border border-dashed border-border text-text-muted hover:border-primary/40 hover:text-text transition cursor-pointer">
-                    {uploading ? <Icons.Loader2 className="w-5 h-5 animate-spin" /> : (itemType === "character" ? <Icons.User className="w-5 h-5" /> : <Icons.Image className="w-5 h-5" />)}
-                    <span className="text-sm">{uploading ? tCommon("loading") : (itemType === "character" ? t("avatarUploadHint") : t("uploadHint"))}</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={e => { handleUpload(e.target.files?.[0]); e.target.value = ""; }} />
-                  </label>
-                )}
               </div>
             )}
 
