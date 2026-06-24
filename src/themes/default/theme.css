@@ -32,6 +32,15 @@
   --theme-private-border: 167 139 250;
   --theme-private-bg: 245 243 255;
   --theme-scroll-btn: 37 99 235;
+  --theme-warning: 217 119 6;       /* amber-600 — readable on white */
+
+  /* === Skill name → palette (hashed per skill name) — modern tailwind hues === */
+  --theme-skill-0: 37 99 235;    /* blue */
+  --theme-skill-1: 22 163 74;    /* green */
+  --theme-skill-2: 217 119 6;    /* amber */
+  --theme-skill-3: 124 58 237;   /* violet */
+  --theme-skill-4: 219 39 119;   /* pink */
+  --theme-skill-5: 8 145 178;    /* cyan */
   --theme-radius: 0.75rem;
 
   /* === Typography (modern web) === */
@@ -79,6 +88,15 @@
   --theme-private-border: 167 139 250;
   --theme-private-bg: 46 41 78;
   --theme-scroll-btn: 96 165 250;
+  --theme-warning: 251 191 36;      /* amber-400 */
+
+  /* === Skill palette — brightened for slate dark === */
+  --theme-skill-0: 96 165 250;   /* blue */
+  --theme-skill-1: 74 222 128;   /* green */
+  --theme-skill-2: 251 191 36;   /* amber */
+  --theme-skill-3: 167 139 250;  /* violet */
+  --theme-skill-4: 244 114 182;  /* pink */
+  --theme-skill-5: 34 211 238;   /* cyan */
   --theme-primary-foreground: 12 18 32;  /* dark text on bright blue button */
 
   --theme-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),

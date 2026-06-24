@@ -34,6 +34,7 @@
   --theme-private-border: 176 106 38;
   --theme-private-bg: 244 232 212;
   --theme-scroll-btn: 176 106 38;
+  --theme-warning: 184 116 24;        /* 山吹 amber-gold warning */
 
   /* === Skill palette — 和色 traditional Japanese pigments (light / washi ground) === */
   --theme-skill-0: 168 130 32;   /* 金 kin — gold */
@@ -194,6 +195,20 @@
   box-shadow: 0 4px 14px rgba(60,36,14, 0.18);
 }
 
+/* Overlays (modals / menus / drawers) are NOT cards: drop the torii bottom
+   beam and the near-square joinery corners — they get a softly rounded panel
+   with a uniform edge instead. Applies to both light and dark. */
+[data-theme="shrine"] .overlay-modal.theme-border,
+[data-theme="shrine"] .overlay-pop.theme-border,
+[data-theme="shrine"] .overlay-drawer.theme-border,
+[data-theme="shrine"] .login-card.theme-border {
+  --theme-radius-tl: 0.75rem;
+  --theme-radius-tr: 0.75rem;
+  --theme-radius-br: 0.75rem;
+  --theme-radius-bl: 0.75rem;
+  border-bottom: 1px solid rgb(var(--theme-border));
+}
+
 /* 御守 filter tabs — light */
 [data-theme="shrine"] .filter-indicator {
   background: linear-gradient(180deg, #b06a26 0%, #9a5a1f 100%);
@@ -266,6 +281,7 @@
   --theme-private-border: 224 122 58;
   --theme-private-bg: 44 26 16;
   --theme-scroll-btn: 224 122 58;
+  --theme-warning: 224 168 70;        /* lantern amber-gold warning */
 
   /* === Skill palette — 和色 lifted for the night-festival dark ground === */
   --theme-skill-0: 226 186  68;  /* 黄金 ōgon — bright gold */
@@ -386,22 +402,67 @@
     0 2px 5px rgba(10,6,2,.50);
 }
 
-/* ===== 鳥居 Great Torii crest (login hero) ===== */
-.shrine-torii { display: none; }
-[data-theme="shrine"] .shrine-torii { display: block; }
+/* =====================================================================
+   Login-card hero band  (ShrineLoginHero)
+   鳥居 frieze by day · 枯木 + 石灯籠 by night.
+   Sits absolutely along the login card's top edge; content is padded
+   below it. Rendered only for [data-theme="shrine"] via the loginHero slot.
+   ===================================================================== */
+.shrine-login-hero { display: none; }
+[data-theme="shrine"] .shrine-login-hero {
+  display: block;
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 80px;
+  pointer-events: none;
+  z-index: 1;
+}
 
-/* ===== 石灯籠 Stone lanterns — night only ===== */
-.shrine-lantern { display: none; position: absolute; pointer-events: none; }
-[data-theme="shrine"][data-mode="dark"] .shrine-lantern { display: block; }
-.shrine-lantern .lan  { width: 100%; height: auto; display: block;
-  filter: drop-shadow(0 7px 11px rgba(0,0,0,.55)); }
-.shrine-lantern .lfire { transform-origin: center;
-  filter: drop-shadow(0 0 5px rgba(247,178,78,.95)) drop-shadow(0 0 14px rgba(244,150,60,.55));
-  animation: shrine-flicker 3.4s ease-in-out infinite; }
-.shrine-lantern .lglow { position: absolute; left: 50%; top: 34%;
-  width: 240%; height: 120px; transform: translate(-50%,-50%); border-radius: 50%;
-  background: radial-gradient(ellipse at center,
-    rgba(247,178,78,.30), rgba(247,160,70,.10) 45%, rgba(247,178,78,0) 72%); }
+/* Make room for the crown, and frame the card as a gate. Day: vermilion
+   pillars + torii lintel — the card itself is the torii you log in through.
+   Night: drop the pillars; the withered bough crowns the top instead. */
+[data-theme="shrine"] .login-card {
+  padding-top: 3.75rem;
+  border-left: 3px solid rgb(var(--theme-primary));
+  border-right: 3px solid rgb(var(--theme-primary));
+}
+[data-theme="shrine"][data-mode="dark"] .login-card {
+  padding-top: 5.25rem;
+  border-left: 1px solid rgb(var(--theme-border));
+  border-right: 1px solid rgb(var(--theme-border));
+}
+
+/* Day — torii lintel crowning the card. The kasagi overhangs both pillars
+   (left/right negative) and crests just above the top edge, so the card itself
+   becomes the gate. SVG height comes from the 480×74 viewBox aspect ratio. */
+[data-theme="shrine"] .shrine-hero-day {
+  position: absolute;
+  top: -30px;
+  left: -16px;
+  right: -16px;
+  filter: drop-shadow(0 3px 4px rgba(60, 36, 14, 0.28));
+}
+[data-theme="shrine"][data-mode="dark"] .shrine-hero-day { display: none; }
+
+/* Night — a withered bough crowns the top with a stone lantern hanging at each
+   end. Mirrors the day lintel's placement; height from the 480×96 viewBox. */
+[data-theme="shrine"] .shrine-hero-night { display: none; }
+[data-theme="shrine"][data-mode="dark"] .shrine-hero-night {
+  display: block;
+  position: absolute;
+  top: -24px;
+  left: -10px;
+  right: -10px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+}
+.shrine-hero-fire {
+  transform-origin: center;
+  filter: drop-shadow(0 0 4px rgba(247, 178, 78, 0.95))
+          drop-shadow(0 0 11px rgba(244, 150, 60, 0.55));
+  animation: shrine-flicker 3.4s ease-in-out infinite;
+}
+.shrine-hero-glow { animation: shrine-flicker 3.4s ease-in-out infinite; }
+
 @keyframes shrine-flicker {
   0%,100% { opacity:.9 } 38% { opacity:1 } 54% { opacity:.84 } 72% { opacity:.97 }
 }

@@ -610,6 +610,8 @@
     "markdownHint": "Markdown supported",
     "imageLabel": "Evidence image (optional)",
     "uploadHint": "Click or drag to upload",
+    "itemImageLabel": "Item image (optional)",
+    "itemUploadHint": "Click or drag to upload item image",
     "evidencePhoto": "Evidence photo",
     "create": "Create",
     "contentPlaceholder": "Text Content",

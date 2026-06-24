@@ -39,6 +39,24 @@ export interface ThemeSwatch {
   border: string;
 }
 
+/**
+ * Optional DOM decoration slots a theme can opt into.
+ *
+ * When a key is present, the corresponding generic slot component
+ * (ThemeCornerDecor, etc. in src/components/theme/ThemeDecor.tsx) renders the
+ * mapped component. Themes that omit a key render nothing — zero impact on other
+ * themes. Add new slot types here as needed; register implementations in ThemeDecor.tsx.
+ *
+ * Use this only for decorations that require real DOM nodes (animated SVGs,
+ * interactive elements). Static decorations belong in the theme's theme.css instead.
+ */
+export interface ThemeDecorations {
+  /** Key for panel/modal corner ornaments — e.g. 'gears', 'electric-arc', 'vines'. */
+  cornerDecor?: string;
+  /** Key for a login-card hero ornament — e.g. shrine's torii (day) / lantern tree (night). */
+  loginHero?: string;
+}
+
 /** Theme metadata for UI display — the single source of truth. */
 export interface ThemeMeta {
   id: ThemeId;
@@ -48,6 +66,7 @@ export interface ThemeMeta {
   descriptionEn: string; // description (English)
   swatch: ThemeSwatch;   // preview colors for theme pickers
   icon?: string;         // optional emoji shown in plain <option> lists
+  decorations?: ThemeDecorations; // optional DOM decoration slots (see ThemeDecor.tsx)
 }
 
 export const THEMES: Record<ThemeId, ThemeMeta> = {
@@ -89,6 +108,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Miko red-and-white palette, vermilion torii with shimenawa & shide, mincho type on bright washi paper",
     swatch: { bg: "#fffcf6", border: "#c63026" },
     icon: "⛩️",
+    decorations: { loginHero: "shrine" },
   },
   rainglass: {
     id: "rainglass",

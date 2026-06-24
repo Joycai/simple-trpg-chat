@@ -610,6 +610,8 @@
     "markdownHint": "支持 Markdown",
     "imageLabel": "证物图片（可选）",
     "uploadHint": "点击或拖拽上传图片",
+    "itemImageLabel": "物品图片（可选）",
+    "itemUploadHint": "点击或拖拽上传物品图片",
     "evidencePhoto": "证物照片",
     "create": "创建",
     "contentPlaceholder": "文本内容",
