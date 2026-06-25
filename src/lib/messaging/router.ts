@@ -10,7 +10,7 @@
  * may load", shared by every history query (initial render, pagination, etc.).
  */
 import { db } from "@/db";
-import { messages } from "@/db/schema";
+import { messages, type SystemKind } from "@/db/schema";
 import { broadcastToRoom } from "@/lib/events";
 import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import type { Audience } from "@/lib/messaging/audience";
@@ -34,6 +34,11 @@ export interface DispatchParams {
   channelPartnerId?: number | null;
   content: string;
   diceDetail?: string | null;
+  /**
+   * Subtype for `type === 'system'` messages — drives the UI's icon/tint
+   * (success / error / room event / scene marker). Ignored for other types.
+   */
+  systemKind?: SystemKind | null;
 }
 
 /** `targetUserId` (WHO) is stored only for audiences that reference a specific user. */
@@ -59,7 +64,7 @@ function storedChannel(audience: Audience, targetUserId?: number | null, channel
  * Returns the inserted row.
  */
 export async function dispatchMessage(params: DispatchParams) {
-  const { roomId, actorUserId, nickname, type, audience, content, diceDetail } = params;
+  const { roomId, actorUserId, nickname, type, audience, content, diceDetail, systemKind } = params;
 
   const [row] = await db
     .insert(messages)
@@ -71,6 +76,7 @@ export async function dispatchMessage(params: DispatchParams) {
       nickname,
       content,
       type,
+      systemKind: type === "system" ? (systemKind ?? null) : null,
       diceDetail: diceDetail ?? null,
       audience,
       // Legacy mirror — derived, never read for visibility.

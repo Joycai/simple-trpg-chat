@@ -8,6 +8,7 @@ import {
   ImagePlus, MessageSquareLock, EyeOff, Loader2, Send, Minus, ChevronDown,
   Copy, SlidersHorizontal, Navigation, MessageSquare, Check, CheckCheck,
   Target, Eye, Droplet, Braces, Clock,
+  HelpCircle, AlertTriangle, UserPlus, CheckSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -71,4 +72,8 @@ export const Icons = {
   Droplet: wrap(Droplet),
   Braces: wrap(Braces),
   Clock: wrap(Clock),
+  HelpCircle: wrap(HelpCircle),
+  AlertTriangle: wrap(AlertTriangle),
+  UserPlus: wrap(UserPlus),
+  CheckSquare: wrap(CheckSquare),
 };

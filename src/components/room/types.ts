@@ -23,6 +23,7 @@ export interface Message {
   nickname: string;
   content: string;
   type: "text" | "dice" | "system" | "clue" | "check_request" | "image";
+  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | null;
   diceDetail: string | null;
   audience: Audience;
   isPrivate: boolean;

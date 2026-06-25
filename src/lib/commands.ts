@@ -3,6 +3,7 @@ import { roomSkills, rooms, roomMembers } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { dispatchMessage, type MessageType } from "@/lib/messaging/router";
 import type { Audience } from "@/lib/messaging/audience";
+import type { SystemKind } from "@/db/schema";
 import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import {
@@ -85,7 +86,8 @@ async function emitCommandMessage(
   content: string,
   type: MessageType,
   vis: { audience: Audience; targetUserId?: number; channelPartnerId?: number },
-  diceDetail?: string
+  diceDetail?: string,
+  systemKind?: SystemKind | null
 ) {
   const [m] = await db
     .select({ nickname: roomMembers.nickname })
@@ -101,6 +103,7 @@ async function emitCommandMessage(
     channelPartnerId: vis.channelPartnerId,
     content,
     diceDetail,
+    systemKind,
   });
 }
 
@@ -189,9 +192,11 @@ export async function executeCommand(
 
   // --- .help ---
   if (cmd === "help") {
-    const helpText = t("helpText");
+    // Content is a flat fallback; the client renders the structured table from
+    // `commands.helpTitle` + `commands.helpEntries` i18n keys when system_kind === 'help'.
+    const helpText = t("helpTitle");
     const vis = visibilityFor(ctx, userId, "self");
-    const msg = await emitCommandMessage(roomId, userId, helpText, "system", vis);
+    const msg = await emitCommandMessage(roomId, userId, helpText, "system", vis, undefined, "help");
     return { success: true, isCommand: true, message: msg };
   }
 
@@ -405,9 +410,9 @@ async function handleSetSkill(
     summaryParts.push(`${name} ${item.value}`);
   }
 
-  const summary = summaryParts.join(", ");
+  const summary = summaryParts.join(" · ");
   const vis = visibilityFor(ctx, userId, "self");
-  const msg = await emitCommandMessage(roomId, userId, t("stSuccess", { summary }), "system", vis);
+  const msg = await emitCommandMessage(roomId, userId, t("stSuccess", { summary }), "system", vis, undefined, "st");
 
   return { success: true, isCommand: true, message: msg };
 }
@@ -602,11 +607,9 @@ async function handleSanityCheck(
   const finalNewSan = await syncCharacterStat(roomId, userIdArg, { kind: "resource", key: "san" }, currentSan - clampedDeduct);
   await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
 
-  let warning = "";
-  if (deductVal >= 5) {
-    warning = t("scWarningInsanity");
-  }
-
+  // The insanity warning is now rendered client-side as a separate banner
+  // attached to the sanity card (see ChatMessage.tsx). The `deduction >= 5`
+  // signal travels via diceDetail.sanityCheck.deduction, so no trailing text.
   const content = t("scCheckMessage", {
     roll,
     target: currentSan,
@@ -615,7 +618,7 @@ async function handleSanityCheck(
     deductVal,
     oldSan: currentSan,
     newSan: finalNewSan,
-  }) + warning;
+  });
 
   const detail = JSON.stringify({
     dice: "d100",
