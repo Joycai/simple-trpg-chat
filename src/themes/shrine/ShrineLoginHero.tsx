@@ -27,12 +27,14 @@ export function ShrineLoginHero() {
         <g fill="rgb(var(--theme-primary))">
           {/* 笠木 kasagi — curved top beam, upturned ends, overhangs the pillars */}
           <path d="M2 26 C92 43 388 43 478 26 L478 43 C388 57 92 57 2 43 Z" />
-          {/* 島木 shimaki — straight beam tucked beneath the kasagi */}
-          <rect x="32" y="45" width="416" height="9" rx="2" />
+          {/* 島木 shimaki — straight beam tucked beneath the kasagi, sharing its
+              span so it crowns the pillars rather than floating inside them.
+              The pillars (card borders) sit at viewBox x≈13 / x≈467. */}
+          <rect x="10" y="45" width="460" height="9" rx="2" />
           {/* 額束 gakuzuka — central strut */}
           <rect x="231" y="53" width="18" height="13" />
-          {/* 貫 nuki — tie-beam resting on the card's top edge */}
-          <rect x="48" y="61" width="384" height="11" rx="1.5" />
+          {/* 貫 nuki — tie-beam reaching the pillars, resting on the card's top edge */}
+          <rect x="14" y="61" width="452" height="11" rx="1.5" />
         </g>
         {/* gold crest line tracing the kasagi */}
         <path

@@ -2,7 +2,7 @@
 
 import type { ComponentType } from "react";
 import { THEMES } from "@/themes/types";
-import { ShrineLoginHero } from "@/components/shrine/ShrineLoginHero";
+import { ShrineLoginHero } from "@/themes/shrine/ShrineLoginHero";
 import { useTheme } from "./ThemeProvider";
 
 export type CornerPosition = "tl" | "tr" | "bl" | "br";
