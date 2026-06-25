@@ -682,8 +682,10 @@ export const ChatMessage = memo(function ChatMessage({
         </div>
       );
     }
-    // Kind-tagged pill (st / error / room-event / scene-marker) or the default neutral pill.
-    const meta = systemKind && systemKind !== "help" ? SYSTEM_PILL_META[systemKind] : null;
+    // Kind-tagged pill (st / error / room-event / scene-marker) or the default
+    // neutral pill. `help` is already handled above, so by here `systemKind` is
+    // either one of the four pill kinds or null/undefined.
+    const meta = systemKind ? SYSTEM_PILL_META[systemKind] : null;
     const KindIcon = meta?.icon;
     return (
       <div
