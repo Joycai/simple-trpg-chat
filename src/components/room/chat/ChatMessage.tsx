@@ -368,6 +368,164 @@ const SYSTEM_PILL_META: Record<"st" | "error" | "room-event" | "scene-marker", {
   "scene-marker":  { icon: Icons.Clock,          className: "system-pill-body--info" },
 };
 
+/**
+ * Structured host-log pill for `systemKind === 'inventory-dispatch'`. Reads the
+ * `diceDetail` JSON payload (action + item + recipient + count) and renders an
+ * action-colored icon next to a sentence whose item name is wrapped in a
+ * type-colored chip (item / clue / info / character). Falls back to the plain
+ * `content` text if the payload is missing or malformed.
+ */
+type DispatchAction = "distribute" | "push" | "share" | "update" | "duplicate";
+type DispatchItemType = "clue" | "info" | "character" | "item";
+type DispatchPayload = {
+  inventoryDispatch?: {
+    action?: DispatchAction;
+    item?: { type?: DispatchItemType; title?: string };
+    recipient?: { kind?: "all" | "user"; name?: string } | null;
+    count?: number | null;
+  };
+};
+
+/** Action → leading-icon component. Color tokens are static classes below. */
+const DISPATCH_ACTION_ICON: Record<DispatchAction, typeof Icons.Send> = {
+  distribute: Icons.Send,
+  push: Icons.Navigation,
+  share: Icons.Share2,
+  update: Icons.RefreshCw,
+  duplicate: Icons.AlertTriangle,
+};
+
+/** Item type → chip icon (mirrors src/components/room/inventory/inventory-helpers.ts). */
+const DISPATCH_ITEM_ICON: Record<DispatchItemType, typeof Icons.Box> = {
+  item: Icons.Box,
+  clue: Icons.Search,
+  info: Icons.File,
+  character: Icons.User,
+};
+
+/**
+ * Per-action icon bubble classes — static so Tailwind's JIT can discover them.
+ * Distribute/push share the ai (sending) accent; share goes green; update is a
+ * neutral grey; duplicate uses danger to read as a warning.
+ */
+const DISPATCH_ACTION_ICON_CLASS: Record<DispatchAction, string> = {
+  distribute: "bg-ai/15 text-ai border-ai/30",
+  push: "bg-primary/15 text-primary border-primary/30",
+  share: "bg-success/15 text-success border-success/30",
+  update: "bg-text-muted/15 text-text-muted border-border",
+  duplicate: "bg-danger/15 text-danger border-danger/30",
+};
+
+/** Outer pill background — duplicate gets a soft danger wash so the warning reads at a glance. */
+const DISPATCH_PILL_CLASS: Record<DispatchAction, string> = {
+  distribute: "bg-surface-alt border-border",
+  push: "bg-surface-alt border-border",
+  share: "bg-surface-alt border-border",
+  update: "bg-surface-alt border-border",
+  duplicate: "bg-danger/10 border-danger/40",
+};
+
+/** Per-item-type chip classes — semantic tokens so all themes pick up their own palette. */
+const DISPATCH_CHIP_CLASS: Record<DispatchItemType, string> = {
+  item: "border-success/45 bg-success/10 text-success",
+  clue: "border-primary/45 bg-primary/10 text-primary",
+  info: "border-ai/45 bg-ai/10 text-ai",
+  character: "border-accent/45 bg-accent/10 text-accent",
+};
+
+function DispatchChip({ type, title }: { type: DispatchItemType; title: string }) {
+  const ChipIcon = DISPATCH_ITEM_ICON[type];
+  return (
+    <span
+      className={`dispatch-chip inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${DISPATCH_CHIP_CLASS[type]}`}
+      data-item-type={type}
+    >
+      <ChipIcon className="dispatch-chip-icon w-3 h-3" />
+      <span className="dispatch-chip-title font-medium">{title}</span>
+    </span>
+  );
+}
+
+function DispatchPill({
+  content,
+  diceDetail,
+}: {
+  content: string;
+  diceDetail: string | null | undefined;
+}) {
+  const t = useTranslations("inventoryDispatch");
+
+  let payload: DispatchPayload["inventoryDispatch"] | null = null;
+  if (diceDetail) {
+    try {
+      const parsed = JSON.parse(diceDetail) as DispatchPayload;
+      payload = parsed.inventoryDispatch ?? null;
+    } catch {
+      payload = null;
+    }
+  }
+
+  // Fallback: no payload → render the plain content as a neutral pill so older
+  // messages (or any malformed payload) still display sensibly.
+  if (!payload?.action || !payload.item?.type || !payload.item.title) {
+    return (
+      <div className="system-pill flex justify-center py-2 animate-in fade-in">
+        <span className="system-pill-body inline-flex items-center gap-1.5 text-xs italic px-3 py-1 rounded-full bg-surface-alt text-text-dim">
+          <span className="system-pill-text">{content}</span>
+        </span>
+      </div>
+    );
+  }
+
+  const action = payload.action;
+  const itemType = payload.item.type;
+  const itemTitle = payload.item.title;
+  const recipient = payload.recipient ?? null;
+  const count = payload.count ?? null;
+  const ActionIcon = DISPATCH_ACTION_ICON[action];
+
+  // Pick the message template based on action + recipient shape.
+  const messageKey: string =
+    action === "distribute" ? (recipient?.kind === "all" ? "distributedAll" : "distributedOne")
+    : action === "push" ? (recipient?.kind === "all" ? "cluePushAll" : "cluePushTargeted")
+    : action === "share" ? "shared"
+    : action === "update" ? "updated"
+    : recipient?.kind === "all" ? "alreadyHadAll" : "alreadyHadOne";
+
+  return (
+    <div
+      className="dispatch-pill-wrap flex justify-center py-2 animate-in fade-in"
+      data-action={action}
+    >
+      <div
+        className={`dispatch-pill inline-flex items-center gap-2 pl-1.5 pr-3.5 py-1 rounded-full border text-xs ${DISPATCH_PILL_CLASS[action]} text-text`}
+        data-action={action}
+        data-item-type={itemType}
+      >
+        <span
+          className={`dispatch-pill-icon inline-flex items-center justify-center w-6 h-6 rounded-full border shrink-0 ${DISPATCH_ACTION_ICON_CLASS[action]}`}
+          aria-hidden
+        >
+          <ActionIcon className="w-3.5 h-3.5" />
+        </span>
+        <span className="dispatch-pill-text inline-flex items-center gap-1.5 flex-wrap">
+          {t.rich(messageKey, {
+            strong: (chunks) => <strong className="dispatch-pill-recipient font-semibold text-text">{chunks}</strong>,
+            num: (chunks) => <span className="dispatch-pill-count font-theme-mono font-semibold text-text">{chunks}</span>,
+            chip: () => <DispatchChip type={itemType} title={itemTitle} />,
+            recipient: recipient?.name ?? "",
+            recipients: recipient?.name ?? "",
+            count: count ?? 0,
+          })}
+          {action === "duplicate" && (
+            <span className="dispatch-pill-note text-text-dim"> · {t("notRedistributed")}</span>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** Help card: structured 2-column command reference. Reads `helpEntries` via t.raw. */
 function HelpCard({ visSelfLabel }: { visSelfLabel: string }) {
   const t = useTranslations("commands");
@@ -430,7 +588,7 @@ interface ChatMessageProps {
   content: string;
   type: "text" | "dice" | "system" | "check_request" | "image" | "clue";
   /** Subtype for type='system' messages. Drives the kind-specific pill / help card render. */
-  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | null;
+  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | null;
   diceDetail?: string | null;
   isPrivate: boolean;
   audience?: Audience;
@@ -670,6 +828,10 @@ export const ChatMessage = memo(function ChatMessage({
           <HelpCard visSelfLabel={t("visSelf")} />
         </div>
       );
+    }
+    // Inventory dispatch: structured icon + chip pill driven by `diceDetail`.
+    if (systemKind === "inventory-dispatch") {
+      return <DispatchPill content={content} diceDetail={diceDetail} />;
     }
     // Legacy multi-line messages keep the block-card fallback (no system_kind set).
     const isBlock = !systemKind && content.includes("\n");

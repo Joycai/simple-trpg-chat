@@ -974,6 +974,19 @@
     "sharedReceived": "获得了来自 {sender} 分享的道具：{title}",
     "sharedSent": "已将道具 {title} 分享给 {recipient}"
   },
+  "inventoryDispatch": {
+    "allMembers": "全体成员",
+    "allPlayers": "全体玩家",
+    "distributedAll": "已向 <strong>全体成员</strong> 发放 <chip></chip>",
+    "distributedOne": "已向 <strong>{recipient}</strong> 发放 <chip></chip>",
+    "cluePushAll": "已向 <strong>全体玩家</strong> 推送 <chip></chip>",
+    "cluePushTargeted": "已向 <strong>{recipients}</strong> 推送 <chip></chip>",
+    "updated": "已更新 <chip></chip> · 通知 <num>{count}</num> 名持有者",
+    "shared": "已将 <chip></chip> 分享给 <strong>{recipient}</strong>",
+    "alreadyHadAll": "全体成员已拥有 <chip></chip>",
+    "alreadyHadOne": "目标玩家已拥有 <chip></chip>",
+    "notRedistributed": "未重复发放"
+  },
   "clueActions": {
     "imageLabel": "线索图片",
     "cluePushLog": "已向 {recipients} 发放线索：{title}",

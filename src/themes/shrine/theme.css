@@ -874,6 +874,125 @@
   font-size: 0.82rem;
 }
 
+/* ---- Inventory dispatch pill — host's distribution / share / update log ----
+   Layout: round action-tinted icon · sentence (bold recipient + type chip) ·
+   optional trailing note. Five action variants (distribute / push / share /
+   update / duplicate) drive the leading icon's wash; per-item-type chips
+   borrow the inventory palette (item→苔绿, clue→朱红, info→藏青, character→鎏金).
+   ---- */
+[data-theme="shrine"] .dispatch-pill {
+  font-family: var(--theme-font-display);
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 4px 14px 4px 4px;
+  gap: 10px;
+  background: rgb(var(--theme-surface-alt));
+  border-color: rgb(var(--theme-border));
+  color: rgb(var(--theme-text));
+  font-size: 0.85rem;
+}
+[data-theme="shrine"] .dispatch-pill-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgb(var(--theme-ai));
+  color: rgb(var(--theme-ai-foreground));
+  border: 1px solid rgb(var(--theme-ai-hover));
+  box-shadow: inset 0 1px 0 rgba(255, 243, 214, 0.25),
+              0 1px 2px rgba(60, 36, 14, 0.20);
+}
+[data-theme="shrine"] .dispatch-pill-icon svg {
+  width: 14px;
+  height: 14px;
+}
+[data-theme="shrine"] .dispatch-pill[data-action="distribute"] .dispatch-pill-icon {
+  background: rgb(var(--theme-ai));
+  color: rgb(var(--theme-ai-foreground));
+  border-color: rgb(var(--theme-ai-hover));
+}
+[data-theme="shrine"] .dispatch-pill[data-action="push"] .dispatch-pill-icon {
+  background: rgb(var(--theme-primary));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-primary-hover));
+}
+[data-theme="shrine"] .dispatch-pill[data-action="share"] .dispatch-pill-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-success));
+}
+[data-theme="shrine"] .dispatch-pill[data-action="update"] .dispatch-pill-icon {
+  background: rgb(var(--theme-surface));
+  color: rgb(var(--theme-text-muted));
+  border-color: rgb(var(--theme-border));
+  box-shadow: none;
+}
+[data-theme="shrine"] .dispatch-pill[data-action="duplicate"] {
+  background: rgb(var(--theme-danger) / 0.10);
+  border-color: rgb(var(--theme-danger) / 0.45);
+  color: rgb(var(--theme-danger));
+}
+[data-theme="shrine"] .dispatch-pill[data-action="duplicate"] .dispatch-pill-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-danger));
+}
+[data-theme="shrine"] .dispatch-pill-recipient {
+  font-family: var(--theme-font-display);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .dispatch-pill-count {
+  font-family: var(--theme-font-mono);
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .dispatch-pill-note {
+  color: rgb(var(--theme-text-dim));
+  font-family: var(--theme-font-display);
+}
+[data-theme="shrine"] .dispatch-pill[data-action="duplicate"] .dispatch-pill-note {
+  color: rgb(var(--theme-danger) / 0.85);
+}
+
+/* ---- Type-colored chip (item / clue / info / character) ---- */
+[data-theme="shrine"] .dispatch-chip {
+  font-family: var(--theme-font-display);
+  border-radius: 999px;
+  padding: 1px 9px 1px 7px;
+  gap: 5px;
+  border-width: 1px;
+  background: rgb(var(--theme-bg) / 0.45);
+  letter-spacing: 0.04em;
+  font-size: 0.95em;
+}
+[data-theme="shrine"] .dispatch-chip-icon {
+  width: 12px;
+  height: 12px;
+}
+[data-theme="shrine"] .dispatch-chip-title {
+  font-weight: 500;
+}
+[data-theme="shrine"] .dispatch-chip[data-item-type="item"] {
+  color: rgb(var(--theme-success));
+  border-color: rgb(var(--theme-success) / 0.55);
+  background: rgb(var(--theme-success) / 0.10);
+}
+[data-theme="shrine"] .dispatch-chip[data-item-type="clue"] {
+  color: rgb(var(--theme-primary));
+  border-color: rgb(var(--theme-primary) / 0.55);
+  background: rgb(var(--theme-primary) / 0.10);
+}
+[data-theme="shrine"] .dispatch-chip[data-item-type="info"] {
+  color: rgb(var(--theme-text-muted));
+  border-color: rgb(var(--theme-text-muted) / 0.55);
+  background: rgb(var(--theme-text-muted) / 0.10);
+}
+[data-theme="shrine"] .dispatch-chip[data-item-type="character"] {
+  color: rgb(var(--theme-accent));
+  border-color: rgb(var(--theme-accent) / 0.55);
+  background: rgb(var(--theme-accent) / 0.10);
+}
+
 /* ---- In-text grade chip (success / failure / critical / fumble) ---- */
 [data-theme="shrine"] .dice-result-skill {
   color: rgb(var(--theme-accent));

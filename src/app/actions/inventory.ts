@@ -9,6 +9,7 @@ import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
+import { buildDispatchPayload } from "@/lib/messaging/dispatch-payload";
 
 /**
  * createInventoryItemAction
@@ -143,7 +144,14 @@ export async function updateInventoryItemAction(
         nickname: "SYSTEM",
         type: "system",
         audience: "gm",
+        systemKind: "inventory-dispatch",
         content: t("itemUpdatedLog", { title: updated?.title ?? item.title, count: notifyUserIds.length }),
+        diceDetail: buildDispatchPayload({
+          action: "update",
+          itemType: (updated?.type ?? item.type) as "clue" | "info" | "character" | "item",
+          itemTitle: updated?.title ?? item.title,
+          count: notifyUserIds.length,
+        }),
       })
     );
 
@@ -218,7 +226,15 @@ export async function distributeItemAction(
       : t("alreadyHadOne", { title: item?.title });
     await dispatchMessage({
       roomId, actorUserId: fromUserId, nickname: "SYSTEM",
-      type: "system", audience: "gm", content: kpSummary,
+      type: "system", audience: "gm",
+      systemKind: "inventory-dispatch",
+      content: kpSummary,
+      diceDetail: buildDispatchPayload({
+        action: "duplicate",
+        itemType: item.type as "clue" | "info" | "character" | "item",
+        itemTitle: item.title,
+        recipient: toUserId === "all" ? { kind: "all" } : { kind: "user" },
+      }),
     });
     return;
   }
@@ -260,9 +276,10 @@ export async function distributeItemAction(
   }
 
   // 2. Host-only distribution log.
+  const recipientName = recipients[0]?.name || t("defaultPlayer");
   const kpSummary = toUserId === "all"
     ? t("distributedAll", { title: item?.title })
-    : t("distributedOne", { recipient: recipients[0]?.name || t("defaultPlayer"), title: item?.title });
+    : t("distributedOne", { recipient: recipientName, title: item?.title });
 
   promises.push(
     dispatchMessage({
@@ -271,7 +288,16 @@ export async function distributeItemAction(
       nickname: "SYSTEM",
       type: "system",
       audience: "gm",
+      systemKind: "inventory-dispatch",
       content: kpSummary,
+      diceDetail: buildDispatchPayload({
+        action: "distribute",
+        itemType: item.type as "clue" | "info" | "character" | "item",
+        itemTitle: item.title,
+        recipient: toUserId === "all"
+          ? { kind: "all" }
+          : { kind: "user", name: recipientName },
+      }),
     })
   );
 
@@ -355,7 +381,14 @@ export async function shareItemAction(
     nickname: "SYSTEM",
     type: "system",
     audience: "gm",
+    systemKind: "inventory-dispatch",
     content: t("sharedSent", { title: item?.title, recipient: recipientName }),
+    diceDetail: buildDispatchPayload({
+      action: "share",
+      itemType: item.type as "clue" | "info" | "character" | "item",
+      itemTitle: item.title,
+      recipient: { kind: "user", name: recipientName },
+    }),
   });
 
   revalidatePath(`/rooms/${roomId}`);
@@ -570,7 +603,14 @@ export async function publishClueAction(
         nickname: "Host",
         type: "system",
         audience: "gm",
+        systemKind: "inventory-dispatch",
         content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: item.title }),
+        diceDetail: buildDispatchPayload({
+          action: "push",
+          itemType: "clue",
+          itemTitle: item.title,
+          recipient: { kind: "user", name: recipientNames || t("defaultPlayers") },
+        }),
       });
     }
   }
