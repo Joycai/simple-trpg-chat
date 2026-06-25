@@ -45,6 +45,16 @@ export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
 export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request', 'image'] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
+/**
+ * Sub-classification of `type='system'` messages, used by the chat UI to pick
+ * the right pill style (success / error / room event / scene marker). `null`
+ * keeps the legacy neutral pill — most one-off notices (inventory, clue, host
+ * tooling) don't need a kind and stay null. Source of truth is the database;
+ * UI never sniffs content text to infer a kind.
+ */
+export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help'] as const;
+export type SystemKind = (typeof SYSTEM_KINDS)[number];
+
 export const INVENTORY_ITEM_TYPES = ['clue', 'info', 'character', 'item'] as const;
 export type InventoryItemType = (typeof INVENTORY_ITEM_TYPES)[number];
 
@@ -136,6 +146,9 @@ export const messages = pgTable('messages', {
   nickname: text('nickname').notNull(),
   content: text('content').notNull(),
   type: text('type').notNull().default('text'),
+  // For type='system' only: a subtype tag so the UI can pick an icon/tint per
+  // kind without parsing content. Null = neutral default pill.
+  systemKind: text('system_kind').$type<SystemKind>(),
   diceDetail: text('dice_detail'),
   // Single source of truth for visibility — see src/lib/messaging/audience.ts.
   audience: text('audience').$type<Audience>().notNull().default('everyone'),

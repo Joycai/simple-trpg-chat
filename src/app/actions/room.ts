@@ -242,6 +242,7 @@ export async function sendMessageAction(
         audience: "self", // only the sender sees the interception warning
         channelPartnerId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
         content: t("sensitiveWordsIntercepted"),
+        systemKind: "error",
       });
     }
   }
@@ -259,6 +260,7 @@ export async function sendMessageAction(
           audience: "self", // command errors are shown only to the issuer
           channelPartnerId: isPrivate ? targetUserId : undefined, // stay in the channel it was typed in
           content: t("commandError", { error: result.error || "" }),
+          systemKind: "error",
         });
       }
       return result.message;
@@ -533,7 +535,6 @@ export async function psychologyHiddenRollAction(
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));
   if (targetMembers.length === 0) return { success: false, error: "No valid targets" };
 
-  const tCmd = await getTranslations("commands");
   const tRoom = await getTranslations("roomActions");
 
   for (const member of targetMembers) {
@@ -545,32 +546,55 @@ export async function psychologyHiddenRollAction(
     );
     const roll = rollDie(100);
 
-    // Render via the message content (a system message), not the dice formatter — so we
-    // can show the player's name and, when 心理学 isn't set, just the raw d100 (no
-    // bogus target/success). Crit/fumble still surface through {level}.
-    let resultContent: string;
+    // 1) KP-only dice bubble — structured diceDetail so the UI shows a normal
+    //    check layout (skill / d100 / target / grade chip) with the dashed
+    //    "audience=self" border and an eye icon driven by `psy: true`.
+    let hostCheck: { skillName: string; target: number; roll: number; success: boolean; grade: "success" | "failure" | "critical" | "fumble" } | undefined;
     if (skill) {
       const target = skill.skillValue;
-      let level = roll <= target ? tCmd("success") : tCmd("failure");
-      if (roll <= 5) level = tCmd("critical");
-      else if (roll >= 96) level = tCmd("fumble");
-      resultContent = tRoom("psyResult", { nick: plNick, roll, target, level });
-    } else {
-      resultContent = tRoom("psyResultNoSkill", { nick: plNick, roll });
+      const success = roll <= target;
+      let grade: "success" | "failure" | "critical" | "fumble" = success ? "success" : "failure";
+      if (roll <= 5) grade = "critical";
+      else if (roll >= 96) grade = "fumble";
+      hostCheck = { skillName: "心理学", target, roll, success, grade };
     }
+    const hostDetail = JSON.stringify({
+      notation: "1d100",
+      dice: "1d100",
+      sum: roll,
+      results: [roll],
+      ...(hostCheck ? { check: hostCheck } : {}),
+      psy: { hostNick, targetNick: plNick },
+    });
+    const hostContent = skill
+      ? tRoom("psyHeader", { hostNick, targetNick: plNick })
+      : tRoom("psyHeaderNoSkill", { hostNick, targetNick: plNick });
 
-    // KP-only result — only the KP (the actor) sees the roll outcome.
     await dispatchMessage({
-      roomId, actorUserId: hostId, nickname: "SYSTEM",
-      type: "system", audience: "self", channelPartnerId,
-      content: resultContent,
+      roomId, actorUserId: hostId, nickname: hostNick,
+      type: "dice", audience: "self", channelPartnerId,
+      content: hostContent,
+      diceDetail: hostDetail,
     });
 
-    // Player notification — the targeted player is told a check happened (no result).
+    // 2) Player-side ghost notification — a check_request that's already "done"
+    //    (respondedUserIds prefilled) so the UI shows the暗骰 badge with no
+    //    action button. `ghost: true` routes the client to data-check-kind=gm-private.
+    const playerDetail = JSON.stringify({
+      checkRequest: {
+        skillName: "心理学",
+        diceType: "1d100",
+        hostNick,
+        targetUserIds: [plId],
+        respondedUserIds: [plId],
+        ghost: true,
+      },
+    });
     await dispatchMessage({
-      roomId, actorUserId: hostId, nickname: "SYSTEM",
-      type: "system", audience: "recipient", targetUserId: plId, channelPartnerId,
+      roomId, actorUserId: hostId, nickname: hostNick,
+      type: "check_request", audience: "recipient", targetUserId: plId, channelPartnerId,
       content: tRoom("psyNotify", { hostNick }),
+      diceDetail: playerDetail,
     });
   }
 

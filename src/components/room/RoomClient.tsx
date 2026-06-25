@@ -359,6 +359,7 @@ export function RoomClient({
             id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
             content: tra("commandError", { error: result.error }),
             type: "system" as const, audience: "self" as const,
+            systemKind: "error" as const,
             targetUserId: null, channelUserId: channelPartner ?? null,
             isPrivate: true, diceDetail: null,
             createdAt: new Date().toISOString()
@@ -409,7 +410,9 @@ export function RoomClient({
       const errorMsg = {
         id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
         content: tra("commandError", { error: result.error }),
-        type: "system" as const, audience: "self" as const, isPrivate: true, diceDetail: null,
+        type: "system" as const, audience: "self" as const,
+        systemKind: "error" as const,
+        isPrivate: true, diceDetail: null,
         createdAt: new Date().toISOString(),
       };
       seenIdsRef.current.add(String(errorMsg.id));

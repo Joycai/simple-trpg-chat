@@ -47,6 +47,7 @@ export function ChatArea({
                 nickname={msg.nickname}
                 content={msg.content}
                 type={msg.type as "text" | "dice" | "system" | "clue" | "image" | "check_request"}
+                systemKind={msg.systemKind}
                 diceDetail={msg.diceDetail}
                 isPrivate={msg.isPrivate}
                 audience={msg.audience}

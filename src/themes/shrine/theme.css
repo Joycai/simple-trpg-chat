@@ -466,3 +466,441 @@
 @keyframes shrine-flicker {
   0%,100% { opacity:.9 } 38% { opacity:1 } 54% { opacity:.84 } 72% { opacity:.97 }
 }
+
+/* =====================================================================
+   Messages — shrine override pass 2
+   远古神社：朱红 / 鎏金 / 藏青 / 苔绿 / 朱砂 五色为引；命令回显落于头部，
+   大成功大失败整气泡铺色，理智检定独占 御札 双段卡片，助手指令落成两栏木牌。
+   完全靠 --theme-* token；其他主题不受影响。
+   ===================================================================== */
+
+/* ---- Hide legacy emoji wrappers ---- */
+[data-theme="shrine"] .system-pill-emoji,
+[data-theme="shrine"] .check-request-emoji,
+[data-theme="shrine"] .check-request-progress-emoji {
+  display: none;
+}
+
+/* ---- Command echo (in the header row, next to nickname / time) ---- */
+[data-theme="shrine"] .dice-echo {
+  color: rgb(var(--theme-text-dim));
+  font-family: var(--theme-font-mono);
+  letter-spacing: 0.02em;
+}
+
+/* ---- System pills (.st / error / room-event / scene-marker / neutral) ---- */
+[data-theme="shrine"] .system-pill .system-pill-body {
+  font-family: var(--theme-font-display);
+  font-style: normal;
+  border-radius: 999px;
+  padding: 3px 14px;
+  letter-spacing: 0.05em;
+  border: 1px solid rgb(var(--theme-border));
+  background: rgb(var(--theme-surface-alt));
+  color: rgb(var(--theme-text-muted));
+}
+[data-theme="shrine"] .system-pill .system-pill-icon {
+  width: 14px;
+  height: 14px;
+}
+[data-theme="shrine"] .system-pill[data-kind="st"] .system-pill-body {
+  background: rgb(var(--theme-success) / 0.14);
+  border-color: rgb(var(--theme-success) / 0.55);
+  color: rgb(var(--theme-success));
+}
+[data-theme="shrine"] .system-pill[data-kind="error"] .system-pill-body {
+  background: rgb(var(--theme-danger) / 0.14);
+  border-color: rgb(var(--theme-danger) / 0.55);
+  color: rgb(var(--theme-danger));
+}
+[data-theme="shrine"] .system-pill[data-kind="room-event"] .system-pill-body,
+[data-theme="shrine"] .system-pill[data-kind="scene-marker"] .system-pill-body {
+  background: rgb(var(--theme-surface-alt));
+  border-color: rgb(var(--theme-border));
+  color: rgb(var(--theme-text-muted));
+}
+/* Default (no kind set) keeps the soft neutral pill — same as room-event. */
+
+/* ---- Help card — 御札 木牌 with mincho title + 2-col entry table ---- */
+[data-theme="shrine"] .help-card {
+  background: rgb(var(--theme-surface));
+  border: 1px solid rgb(var(--theme-border));
+  border-left: 4px solid rgb(var(--theme-primary));
+  border-radius: 2px;
+  padding: 10px 18px 14px;
+  max-width: 600px;
+  font-family: var(--theme-font-display);
+  color: rgb(var(--theme-text));
+  box-shadow: 0 1px 2px rgba(60, 36, 14, 0.10),
+              0 4px 12px rgba(60, 36, 14, 0.08);
+}
+[data-theme="shrine"] .help-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgb(var(--theme-border));
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+[data-theme="shrine"] .help-card-icon {
+  color: rgb(var(--theme-primary));
+}
+[data-theme="shrine"] .help-card-title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgb(var(--theme-primary));
+  letter-spacing: 0.08em;
+}
+[data-theme="shrine"] .help-card-self {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgb(var(--theme-text-dim));
+  font-family: var(--theme-font);
+  font-style: normal;
+}
+[data-theme="shrine"] .help-card-list {
+  display: grid;
+  grid-template-columns: minmax(160px, max-content) 1fr;
+  column-gap: 18px;
+  row-gap: 4px;
+  font-size: 0.8rem;
+  margin: 0;
+}
+[data-theme="shrine"] .help-card-row {
+  display: contents;
+}
+[data-theme="shrine"] .help-card-row dt {
+  font-family: var(--theme-font-mono);
+  color: rgb(var(--theme-text));
+  font-weight: 500;
+}
+[data-theme="shrine"] .help-card-row dd {
+  color: rgb(var(--theme-text-muted));
+  margin: 0;
+}
+
+/* ---- Check request (centered pill, 3 kinds: skill / sanity / gm-private) ---- */
+[data-theme="shrine"] .check-request-body {
+  font-family: var(--theme-font-display);
+  border-radius: 999px;
+  padding: 5px 6px 5px 12px;
+  gap: 10px;
+  background: rgb(var(--theme-dice-card-bg));
+  border: 1px solid rgb(var(--theme-dice-card-border));
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .check-request-text {
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .check-request-skill {
+  color: rgb(var(--theme-accent));
+  font-weight: 500;
+}
+[data-theme="shrine"] .check-request-sc-expr {
+  color: rgb(var(--theme-text-dim));
+  font-family: var(--theme-font-mono);
+}
+[data-theme="shrine"] .check-request-progress {
+  color: rgb(var(--theme-text-dim));
+  font-family: var(--theme-font-mono);
+}
+[data-theme="shrine"] .check-request-progress-icon {
+  color: rgb(var(--theme-success));
+}
+[data-theme="shrine"] .check-request[data-state="target-pending"] .check-request-body {
+  border-color: rgb(var(--theme-accent));
+}
+[data-theme="shrine"] .check-request[data-complete="true"] .check-request-body {
+  border-style: dashed;
+}
+/* Leading kind icon */
+[data-theme="shrine"] .check-request-kind-icon {
+  color: rgb(var(--theme-accent));
+}
+[data-theme="shrine"] .check-request[data-check-kind="sanity"] .check-request-kind-icon {
+  color: rgb(var(--theme-danger));
+}
+[data-theme="shrine"] .check-request[data-check-kind="gm-private"] .check-request-kind-icon {
+  color: rgb(var(--theme-ai));
+}
+[data-theme="shrine"] .check-request[data-check-kind="sanity"] .check-request-body {
+  border-color: rgb(var(--theme-danger) / 0.55);
+}
+[data-theme="shrine"] .check-request[data-check-kind="gm-private"] .check-request-body {
+  border-color: rgb(var(--theme-ai) / 0.55);
+}
+/* Trailing action button — gold lantern with a bevel */
+[data-theme="shrine"] .check-request-button {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-accent-foreground));
+  border: 1px solid rgb(var(--theme-accent-hover));
+  width: 26px;
+  height: 26px;
+  animation: none;
+  box-shadow: inset 0 1px 0 rgba(255, 243, 214, 0.4),
+              0 1px 2px rgba(60, 36, 14, 0.25);
+}
+[data-theme="shrine"] .check-request-button:hover {
+  filter: brightness(1.06);
+}
+[data-theme="shrine"] .check-request[data-check-kind="sanity"] .check-request-button {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-danger));
+}
+[data-theme="shrine"] .check-request[data-state="viewer"] .check-request-icon {
+  color: rgb(var(--theme-accent));
+}
+[data-theme="shrine"] .check-request-done {
+  color: rgb(var(--theme-success));
+}
+[data-theme="shrine"] .check-request-ghost-badge {
+  background: rgb(var(--theme-ai) / 0.14);
+  color: rgb(var(--theme-ai));
+  border-color: rgb(var(--theme-ai) / 0.55);
+}
+
+/* ---- Dice bubble — non-sanity (plain roll, check, critical, fumble) ---- */
+[data-theme="shrine"] .chat-bubble-dice {
+  font-family: var(--theme-font-display);
+}
+/* Lift the bright text on tinted backgrounds — value uses theme-text, formula dim */
+[data-theme="shrine"] .chat-bubble-dice .dice-formula {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+  font-weight: 400;
+}
+[data-theme="shrine"] .chat-bubble-dice .dice-value {
+  font-family: var(--theme-font-mono);
+  font-size: 1.6em;
+  font-weight: 500;
+  line-height: 1;
+  color: rgb(var(--theme-text));
+  letter-spacing: 0.02em;
+}
+[data-theme="shrine"] .chat-bubble-dice .dice-target {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+}
+[data-theme="shrine"] .chat-bubble-dice .dice-skill {
+  color: rgb(var(--theme-accent));
+  font-weight: 500;
+  font-family: var(--theme-font-display);
+  font-size: 0.95em;
+  margin-right: 2px;
+}
+[data-theme="shrine"] .chat-bubble-dice .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-accent-foreground));
+  border: 1px solid rgb(var(--theme-accent-hover));
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  box-shadow: inset 0 1px 0 rgba(255, 243, 214, 0.4),
+              0 1px 2px rgba(60, 36, 14, 0.20);
+}
+[data-theme="shrine"] .chat-bubble-dice .dice-icon svg {
+  width: 14px;
+  height: 14px;
+}
+/* Check (skill) — icon stays gold (准心) */
+[data-theme="shrine"] .chat-bubble-dice[data-roll-kind="check"] .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-accent-foreground));
+  border-color: rgb(var(--theme-accent-hover));
+}
+
+/* Hidden roll (audience=self) — dashed bubble + ink-grey icon, no special text colour */
+[data-theme="shrine"] .chat-bubble-dice[data-audience="self"] {
+  border-style: dashed;
+}
+[data-theme="shrine"] .chat-bubble-dice[data-audience="self"] .dice-icon {
+  background: rgb(var(--theme-surface-alt));
+  color: rgb(var(--theme-text-muted));
+  border-color: rgb(var(--theme-border));
+  box-shadow: none;
+}
+/* Psychology hidden roll (host view, data-psy=true) — 藏青 eye over a still-dashed
+   bubble. Skill name + value stay readable; the indigo icon distinguishes psy
+   from plain .rh self rolls. */
+[data-theme="shrine"] .chat-bubble-dice[data-psy="true"] .dice-icon {
+  background: rgb(var(--theme-ai));
+  color: rgb(var(--theme-ai-foreground));
+  border-color: rgb(var(--theme-ai-hover));
+  box-shadow: inset 0 1px 0 rgba(255, 243, 214, 0.25),
+              0 1px 2px rgba(60, 36, 14, 0.20);
+}
+[data-theme="shrine"] .chat-bubble-dice[data-psy="true"] .dice-skill {
+  color: rgb(var(--theme-ai));
+}
+/* Psy header line in the message header row */
+[data-theme="shrine"] .dice-psy-header {
+  font-family: var(--theme-font-display);
+  letter-spacing: 0.03em;
+}
+[data-theme="shrine"] .dice-psy-desc {
+  color: rgb(var(--theme-text-muted));
+}
+
+/* Critical — full soft-green wash + leading ✓ icon + bright value */
+[data-theme="shrine"] .chat-bubble-dice[data-grade="critical"] {
+  background: rgb(var(--theme-success) / 0.16);
+  border-color: rgb(var(--theme-success) / 0.55);
+}
+[data-theme="shrine"] .chat-bubble-dice[data-grade="critical"] .dice-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-success));
+}
+[data-theme="shrine"] .chat-bubble-dice[data-grade="critical"] .dice-value {
+  color: rgb(var(--theme-success));
+}
+
+/* Fumble — full soft-vermilion wash + leading ✗ icon */
+[data-theme="shrine"] .chat-bubble-dice[data-grade="fumble"] {
+  background: rgb(var(--theme-danger) / 0.16);
+  border-color: rgb(var(--theme-danger) / 0.55);
+}
+[data-theme="shrine"] .chat-bubble-dice[data-grade="fumble"] .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-danger));
+}
+[data-theme="shrine"] .chat-bubble-dice[data-grade="fumble"] .dice-value {
+  color: rgb(var(--theme-danger));
+}
+
+/* ---- Sanity card (.sc) — flat embed inside bubble, owns its own paddings ---- */
+[data-theme="shrine"] .chat-bubble-dice[data-roll-kind="sanity"] {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  font-family: var(--theme-font-display);
+}
+[data-theme="shrine"] .sc-card {
+  background: rgb(var(--theme-dice-card-bg));
+  border: 1px solid rgb(var(--theme-dice-card-border));
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 320px;
+}
+[data-theme="shrine"] .sc-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgb(var(--theme-border));
+}
+[data-theme="shrine"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-danger));
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+[data-theme="shrine"] .sc-card-title {
+  flex: 1;
+  color: rgb(var(--theme-text));
+  font-weight: 500;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+[data-theme="shrine"] .sc-card-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .sc-card-summary .dice-formula {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+}
+[data-theme="shrine"] .sc-card-summary .dice-value {
+  font-family: var(--theme-font-mono);
+  font-size: 1.45em;
+  font-weight: 500;
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .sc-card-summary .dice-target {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+}
+[data-theme="shrine"] .sc-card-body {
+  margin: 0;
+  padding: 10px 12px 12px;
+  display: grid;
+  grid-template-columns: minmax(56px, auto) 1fr;
+  column-gap: 18px;
+  row-gap: 6px;
+  font-size: 0.85rem;
+  color: rgb(var(--theme-text));
+}
+[data-theme="shrine"] .sc-card-row {
+  display: contents;
+}
+[data-theme="shrine"] .sc-card-row dt {
+  color: rgb(var(--theme-text-muted));
+  font-family: var(--theme-font-display);
+}
+[data-theme="shrine"] .sc-card-row dd {
+  margin: 0;
+  font-family: var(--theme-font-mono);
+  color: rgb(var(--theme-text));
+}
+/* Insanity附属 — full-width banner below the card, same bubble */
+[data-theme="shrine"] .sc-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgb(var(--theme-danger) / 0.15);
+  border: 1px solid rgb(var(--theme-danger) / 0.55);
+  color: rgb(var(--theme-danger));
+  font-family: var(--theme-font-display);
+  font-size: 0.82rem;
+}
+
+/* ---- In-text grade chip (success / failure / critical / fumble) ---- */
+[data-theme="shrine"] .dice-result-skill {
+  color: rgb(var(--theme-accent));
+  font-weight: 500;
+}
+[data-theme="shrine"] .dice-result-grade-icon {
+  display: none;
+}
+[data-theme="shrine"] .dice-result-grade {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 2px;
+  font-family: var(--theme-font-display);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+[data-theme="shrine"] .dice-result-grade[data-grade="success"],
+[data-theme="shrine"] .dice-result-grade[data-grade="critical"] {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+}
+[data-theme="shrine"] .dice-result-grade[data-grade="failure"] {
+  background: rgb(var(--theme-text-muted));
+  color: rgb(var(--theme-surface));
+}
+[data-theme="shrine"] .dice-result-grade[data-grade="fumble"] {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+}
