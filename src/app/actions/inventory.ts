@@ -9,7 +9,7 @@ import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
-import { buildDispatchPayload } from "@/lib/messaging/dispatch-payload";
+import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 
 /**
  * createInventoryItemAction
@@ -122,6 +122,8 @@ export async function updateInventoryItemAction(
     const promises: Promise<unknown>[] = [];
 
     // Notify each holder that their copy changed (recipient: only that player sees it).
+    const resolvedType = (updated?.type ?? item.type) as "clue" | "info" | "character" | "item";
+    const resolvedTitle = updated?.title ?? item.title;
     for (const tid of notifyUserIds) {
       promises.push(
         dispatchMessage({
@@ -131,7 +133,13 @@ export async function updateInventoryItemAction(
           type: "system",
           audience: "recipient",
           targetUserId: tid,
-          content: t("itemUpdated", { title: updated?.title ?? item.title }),
+          systemKind: "inventory-receipt",
+          content: t("itemUpdated", { title: resolvedTitle }),
+          diceDetail: buildReceiptPayload({
+            action: "updated",
+            itemType: resolvedType,
+            itemTitle: resolvedTitle,
+          }),
         })
       );
     }
@@ -261,6 +269,7 @@ export async function distributeItemAction(
 
   // 1. Receipt to each recipient (recipient: only that player sees it, not the host —
   //    the host gets the distribution log below).
+  const itemType = item.type as "clue" | "info" | "character" | "item";
   for (const tid of targetUserIds) {
     promises.push(
       dispatchMessage({
@@ -270,7 +279,13 @@ export async function distributeItemAction(
         type: "system",
         audience: "recipient",
         targetUserId: tid,
+        systemKind: "inventory-receipt",
         content: t("receivedNew", { title: item?.title }),
+        diceDetail: buildReceiptPayload({
+          action: "received",
+          itemType,
+          itemTitle: item.title,
+        }),
       })
     );
   }
@@ -371,7 +386,14 @@ export async function shareItemAction(
     type: "system",
     audience: "recipient",
     targetUserId: toUserId,
+    systemKind: "inventory-receipt",
     content: t("sharedReceived", { sender: senderName, title: item?.title }),
+    diceDetail: buildReceiptPayload({
+      action: "shared-received",
+      itemType: item.type as "clue" | "info" | "character" | "item",
+      itemTitle: item.title,
+      sender: senderName,
+    }),
   });
 
   // 2. Notify the sharer & host (GM sees what players share).
@@ -578,18 +600,26 @@ export async function publishClueAction(
       await db.insert(inventoryDistributions).values(rows);
     }
 
-    // Directed clue card to each new recipient (host + that player see it).
-    const content = JSON.parse(item.contentJson)?.text || item.contentJson;
+    // Receipt pill to each new recipient (audience: recipient — only that player
+    // sees it; the host learns about the push via the GM dispatch log below).
+    // Targeted clues no longer broadcast the full card inline — the content
+    // lives in the backpack and the pill links to it.
+    const tClueActions = await getTranslations("clueActions");
     for (const uid of newTargetIds) {
       await dispatchMessage({
         roomId,
         actorUserId: hostId,
         nickname: "Host",
-        type: "clue",
-        audience: "directed",
+        type: "system",
+        audience: "recipient",
         targetUserId: uid,
-        content: `🃏 **${item.title}**\n\n${content}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
-        diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: false, visibleTo: newTargetIds }),
+        systemKind: "inventory-receipt",
+        content: tClueActions("clueReceived", { title: item.title }),
+        diceDetail: buildReceiptPayload({
+          action: "received",
+          itemType: "clue",
+          itemTitle: item.title,
+        }),
       });
     }
 

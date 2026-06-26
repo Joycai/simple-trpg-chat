@@ -993,6 +993,103 @@
   background: rgb(var(--theme-accent) / 0.10);
 }
 
+/* ---- Inventory receipt pill — recipient's notification ("you received X") ----
+   Layout: round action icon · sentence with type chip · NEW/更新 badge · 查看背包.
+   Three action variants drive the leading icon tint (received/updated/shared);
+   the chip palette is shared with the dispatch pill so item-type identity reads
+   the same on both sides of the table.
+   ---- */
+[data-theme="shrine"] .receipt-pill {
+  font-family: var(--theme-font-display);
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 4px 6px 4px 4px;
+  gap: 10px;
+  background: rgb(var(--theme-surface-alt));
+  border-color: rgb(var(--theme-border));
+  color: rgb(var(--theme-text));
+  font-size: 0.85rem;
+}
+[data-theme="shrine"] .receipt-pill-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgb(var(--theme-ai));
+  color: rgb(var(--theme-ai-foreground));
+  border: 1px solid rgb(var(--theme-ai-hover));
+  box-shadow: inset 0 1px 0 rgba(255, 243, 214, 0.25),
+              0 1px 2px rgba(60, 36, 14, 0.20);
+}
+[data-theme="shrine"] .receipt-pill-icon svg {
+  width: 14px;
+  height: 14px;
+}
+[data-theme="shrine"] .receipt-pill[data-action="received"] .receipt-pill-icon {
+  background: rgb(var(--theme-ai));
+  color: rgb(var(--theme-ai-foreground));
+  border-color: rgb(var(--theme-ai-hover));
+}
+[data-theme="shrine"] .receipt-pill[data-action="updated"] .receipt-pill-icon {
+  background: rgb(var(--theme-surface));
+  color: rgb(var(--theme-text-muted));
+  border-color: rgb(var(--theme-border));
+  box-shadow: none;
+}
+[data-theme="shrine"] .receipt-pill[data-action="shared-received"] .receipt-pill-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-success));
+}
+[data-theme="shrine"] .receipt-pill-sender {
+  font-family: var(--theme-font-display);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: rgb(var(--theme-text));
+}
+
+/* Badge — NEW reads as primary (vermilion), 更新 as accent (gold). */
+[data-theme="shrine"] .receipt-pill-badge {
+  font-family: var(--theme-font-display);
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.62rem;
+  border-width: 1px;
+  text-transform: uppercase;
+}
+[data-theme="shrine"] .receipt-pill-badge[data-badge="new"] {
+  background: rgb(var(--theme-primary) / 0.14);
+  color: rgb(var(--theme-primary));
+  border-color: rgb(var(--theme-primary) / 0.55);
+}
+[data-theme="shrine"] .receipt-pill-badge[data-badge="updated"] {
+  background: rgb(var(--theme-accent) / 0.14);
+  color: rgb(var(--theme-accent));
+  border-color: rgb(var(--theme-accent) / 0.55);
+}
+
+/* CTA button — links to the backpack. Gold-accented to read as actionable. */
+[data-theme="shrine"] .receipt-pill-cta {
+  font-family: var(--theme-font-display);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgb(var(--theme-accent));
+  border-radius: 999px;
+  padding: 2px 10px 2px 12px;
+  border: 1px solid rgb(var(--theme-accent) / 0.45);
+  background: rgb(var(--theme-accent) / 0.10);
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+[data-theme="shrine"] .receipt-pill-cta:hover {
+  background: rgb(var(--theme-accent) / 0.18);
+  color: rgb(var(--theme-accent));
+  filter: brightness(1.08);
+}
+[data-theme="shrine"] .receipt-pill-cta svg {
+  width: 11px;
+  height: 11px;
+}
+
 /* ---- In-text grade chip (success / failure / critical / fumble) ---- */
 [data-theme="shrine"] .dice-result-skill {
   color: rgb(var(--theme-accent));

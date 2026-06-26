@@ -987,6 +987,15 @@
     "alreadyHadOne": "目标玩家已拥有 <chip></chip>",
     "notRedistributed": "未重复发放"
   },
+  "inventoryReceipt": {
+    "received": "您获得了 <chip></chip>",
+    "receivedClue": "您获得了新线索 <chip></chip>",
+    "updated": "您的道具已被更新 <chip></chip>",
+    "shared": "收到 <strong>{sender}</strong> 分享的 <chip></chip>",
+    "badgeNew": "NEW",
+    "badgeUpdated": "更新",
+    "viewBackpack": "查看背包"
+  },
   "clueActions": {
     "imageLabel": "线索图片",
     "cluePushLog": "已向 {recipients} 发放线索：{title}",

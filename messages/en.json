@@ -987,6 +987,15 @@
     "alreadyHadOne": "Target player already has <chip></chip>",
     "notRedistributed": "not redistributed"
   },
+  "inventoryReceipt": {
+    "received": "You received <chip></chip>",
+    "receivedClue": "You received a new clue <chip></chip>",
+    "updated": "Your item has been updated <chip></chip>",
+    "shared": "Received <chip></chip> shared by <strong>{sender}</strong>",
+    "badgeNew": "NEW",
+    "badgeUpdated": "UPDATED",
+    "viewBackpack": "Open Backpack"
+  },
   "clueActions": {
     "imageLabel": "Clue Image",
     "cluePushLog": "Distributed clue to {recipients}: {title}",

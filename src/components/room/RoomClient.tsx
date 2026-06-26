@@ -568,6 +568,7 @@ export function RoomClient({
           onViewCharacter={handleViewPlayerCard}
           onStartDM={handleTabChange}
           onCheckRequest={handleCheckRequest}
+          onOpenInventory={handleToggleInventory}
           onSendMessage={handleSendMessage}
         />
       </div>

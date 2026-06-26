@@ -56,7 +56,7 @@ export type MessageType = (typeof MESSAGE_TYPES)[number];
  * item + recipient + optional count) so the chat UI can render an icon + chip
  * pill instead of the plain text fallback — see `DispatchPill` in ChatMessage.
  */
-export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help', 'inventory-dispatch'] as const;
+export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help', 'inventory-dispatch', 'inventory-receipt'] as const;
 export type SystemKind = (typeof SYSTEM_KINDS)[number];
 
 export const INVENTORY_ITEM_TYPES = ['clue', 'info', 'character', 'item'] as const;
