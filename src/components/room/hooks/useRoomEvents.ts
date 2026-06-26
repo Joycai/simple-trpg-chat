@@ -83,6 +83,9 @@ export function useRoomEvents({
                 const detail = JSON.parse(m.diceDetail);
                 if (detail?.checkRequest) {
                   detail.checkRequest.respondedUserIds = data.respondedUserIds;
+                  if (Array.isArray(data.proxiedUserIds)) {
+                    detail.checkRequest.proxiedUserIds = data.proxiedUserIds;
+                  }
                   return { ...m, diceDetail: JSON.stringify(detail) };
                 }
               } catch { /* */ }
