@@ -25,13 +25,15 @@ interface ChatAreaProps {
   onViewCharacter: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (tab: "public" | number) => void;
   onCheckRequest: (messageId: number, skillName: string) => void;
+  /** Opens the backpack (inventory panel). Wired to the CTA on receipt pills. */
+  onOpenInventory: () => void;
   onSendMessage: (content: string, type: "text" | "dice" | "image", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
 }
 
 export function ChatArea({
   scrollRef, onScroll, tabMessages, players, userId, isHost, roomId, hostId,
   typingBots, activeTab, showScrollButton, scrollToBottom, dmConversations,
-  mentionTargets, readOnly, onViewCharacter, onStartDM, onCheckRequest, onSendMessage,
+  mentionTargets, readOnly, onViewCharacter, onStartDM, onCheckRequest, onOpenInventory, onSendMessage,
 }: ChatAreaProps) {
   const t = useTranslations("room");
 
@@ -59,6 +61,7 @@ export function ChatArea({
                 onViewCharacter={onViewCharacter}
                 onStartDM={onStartDM}
                 onCheckRequest={onCheckRequest}
+                onOpenInventory={onOpenInventory}
                 messageId={msg.id}
                 isBot={!!playerData?.users?.isBot}
                 roomId={roomId}

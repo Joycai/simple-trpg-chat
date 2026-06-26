@@ -9,6 +9,7 @@ import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
+import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 
 /**
  * createInventoryItemAction
@@ -121,6 +122,8 @@ export async function updateInventoryItemAction(
     const promises: Promise<unknown>[] = [];
 
     // Notify each holder that their copy changed (recipient: only that player sees it).
+    const resolvedType = (updated?.type ?? item.type) as "clue" | "info" | "character" | "item";
+    const resolvedTitle = updated?.title ?? item.title;
     for (const tid of notifyUserIds) {
       promises.push(
         dispatchMessage({
@@ -130,7 +133,13 @@ export async function updateInventoryItemAction(
           type: "system",
           audience: "recipient",
           targetUserId: tid,
-          content: t("itemUpdated", { title: updated?.title ?? item.title }),
+          systemKind: "inventory-receipt",
+          content: t("itemUpdated", { title: resolvedTitle }),
+          diceDetail: buildReceiptPayload({
+            action: "updated",
+            itemType: resolvedType,
+            itemTitle: resolvedTitle,
+          }),
         })
       );
     }
@@ -143,7 +152,14 @@ export async function updateInventoryItemAction(
         nickname: "SYSTEM",
         type: "system",
         audience: "gm",
+        systemKind: "inventory-dispatch",
         content: t("itemUpdatedLog", { title: updated?.title ?? item.title, count: notifyUserIds.length }),
+        diceDetail: buildDispatchPayload({
+          action: "update",
+          itemType: (updated?.type ?? item.type) as "clue" | "info" | "character" | "item",
+          itemTitle: updated?.title ?? item.title,
+          count: notifyUserIds.length,
+        }),
       })
     );
 
@@ -218,7 +234,15 @@ export async function distributeItemAction(
       : t("alreadyHadOne", { title: item?.title });
     await dispatchMessage({
       roomId, actorUserId: fromUserId, nickname: "SYSTEM",
-      type: "system", audience: "gm", content: kpSummary,
+      type: "system", audience: "gm",
+      systemKind: "inventory-dispatch",
+      content: kpSummary,
+      diceDetail: buildDispatchPayload({
+        action: "duplicate",
+        itemType: item.type as "clue" | "info" | "character" | "item",
+        itemTitle: item.title,
+        recipient: toUserId === "all" ? { kind: "all" } : { kind: "user" },
+      }),
     });
     return;
   }
@@ -245,6 +269,7 @@ export async function distributeItemAction(
 
   // 1. Receipt to each recipient (recipient: only that player sees it, not the host —
   //    the host gets the distribution log below).
+  const itemType = item.type as "clue" | "info" | "character" | "item";
   for (const tid of targetUserIds) {
     promises.push(
       dispatchMessage({
@@ -254,15 +279,22 @@ export async function distributeItemAction(
         type: "system",
         audience: "recipient",
         targetUserId: tid,
+        systemKind: "inventory-receipt",
         content: t("receivedNew", { title: item?.title }),
+        diceDetail: buildReceiptPayload({
+          action: "received",
+          itemType,
+          itemTitle: item.title,
+        }),
       })
     );
   }
 
   // 2. Host-only distribution log.
+  const recipientName = recipients[0]?.name || t("defaultPlayer");
   const kpSummary = toUserId === "all"
     ? t("distributedAll", { title: item?.title })
-    : t("distributedOne", { recipient: recipients[0]?.name || t("defaultPlayer"), title: item?.title });
+    : t("distributedOne", { recipient: recipientName, title: item?.title });
 
   promises.push(
     dispatchMessage({
@@ -271,7 +303,16 @@ export async function distributeItemAction(
       nickname: "SYSTEM",
       type: "system",
       audience: "gm",
+      systemKind: "inventory-dispatch",
       content: kpSummary,
+      diceDetail: buildDispatchPayload({
+        action: "distribute",
+        itemType: item.type as "clue" | "info" | "character" | "item",
+        itemTitle: item.title,
+        recipient: toUserId === "all"
+          ? { kind: "all" }
+          : { kind: "user", name: recipientName },
+      }),
     })
   );
 
@@ -345,7 +386,14 @@ export async function shareItemAction(
     type: "system",
     audience: "recipient",
     targetUserId: toUserId,
+    systemKind: "inventory-receipt",
     content: t("sharedReceived", { sender: senderName, title: item?.title }),
+    diceDetail: buildReceiptPayload({
+      action: "shared-received",
+      itemType: item.type as "clue" | "info" | "character" | "item",
+      itemTitle: item.title,
+      sender: senderName,
+    }),
   });
 
   // 2. Notify the sharer & host (GM sees what players share).
@@ -355,7 +403,14 @@ export async function shareItemAction(
     nickname: "SYSTEM",
     type: "system",
     audience: "gm",
+    systemKind: "inventory-dispatch",
     content: t("sharedSent", { title: item?.title, recipient: recipientName }),
+    diceDetail: buildDispatchPayload({
+      action: "share",
+      itemType: item.type as "clue" | "info" | "character" | "item",
+      itemTitle: item.title,
+      recipient: { kind: "user", name: recipientName },
+    }),
   });
 
   revalidatePath(`/rooms/${roomId}`);
@@ -545,18 +600,26 @@ export async function publishClueAction(
       await db.insert(inventoryDistributions).values(rows);
     }
 
-    // Directed clue card to each new recipient (host + that player see it).
-    const content = JSON.parse(item.contentJson)?.text || item.contentJson;
+    // Receipt pill to each new recipient (audience: recipient — only that player
+    // sees it; the host learns about the push via the GM dispatch log below).
+    // Targeted clues no longer broadcast the full card inline — the content
+    // lives in the backpack and the pill links to it.
+    const tClueActions = await getTranslations("clueActions");
     for (const uid of newTargetIds) {
       await dispatchMessage({
         roomId,
         actorUserId: hostId,
         nickname: "Host",
-        type: "clue",
-        audience: "directed",
+        type: "system",
+        audience: "recipient",
         targetUserId: uid,
-        content: `🃏 **${item.title}**\n\n${content}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
-        diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: false, visibleTo: newTargetIds }),
+        systemKind: "inventory-receipt",
+        content: tClueActions("clueReceived", { title: item.title }),
+        diceDetail: buildReceiptPayload({
+          action: "received",
+          itemType: "clue",
+          itemTitle: item.title,
+        }),
       });
     }
 
@@ -570,7 +633,14 @@ export async function publishClueAction(
         nickname: "Host",
         type: "system",
         audience: "gm",
+        systemKind: "inventory-dispatch",
         content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: item.title }),
+        diceDetail: buildDispatchPayload({
+          action: "push",
+          itemType: "clue",
+          itemTitle: item.title,
+          recipient: { kind: "user", name: recipientNames || t("defaultPlayers") },
+        }),
       });
     }
   }

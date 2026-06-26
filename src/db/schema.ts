@@ -51,8 +51,12 @@ export type MessageType = (typeof MESSAGE_TYPES)[number];
  * keeps the legacy neutral pill — most one-off notices (inventory, clue, host
  * tooling) don't need a kind and stay null. Source of truth is the database;
  * UI never sniffs content text to infer a kind.
+ *
+ * `inventory-dispatch` carries a structured payload in `diceDetail` (action +
+ * item + recipient + optional count) so the chat UI can render an icon + chip
+ * pill instead of the plain text fallback — see `DispatchPill` in ChatMessage.
  */
-export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help'] as const;
+export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help', 'inventory-dispatch', 'inventory-receipt'] as const;
 export type SystemKind = (typeof SYSTEM_KINDS)[number];
 
 export const INVENTORY_ITEM_TYPES = ['clue', 'info', 'character', 'item'] as const;

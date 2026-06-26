@@ -974,6 +974,28 @@
     "sharedReceived": "Received item shared by {sender}: {title}",
     "sharedSent": "Shared item {title} with {recipient}"
   },
+  "inventoryDispatch": {
+    "allMembers": "all members",
+    "allPlayers": "all players",
+    "distributedAll": "Distributed <chip></chip> to <strong>all members</strong>",
+    "distributedOne": "Distributed <chip></chip> to <strong>{recipient}</strong>",
+    "cluePushAll": "Pushed <chip></chip> to <strong>all players</strong>",
+    "cluePushTargeted": "Pushed <chip></chip> to <strong>{recipients}</strong>",
+    "updated": "Updated <chip></chip> · notified <num>{count}</num> holder(s)",
+    "shared": "Shared <chip></chip> with <strong>{recipient}</strong>",
+    "alreadyHadAll": "All members already have <chip></chip>",
+    "alreadyHadOne": "Target player already has <chip></chip>",
+    "notRedistributed": "not redistributed"
+  },
+  "inventoryReceipt": {
+    "received": "You received <chip></chip>",
+    "receivedClue": "You received a new clue <chip></chip>",
+    "updated": "Your item has been updated <chip></chip>",
+    "shared": "Received <chip></chip> shared by <strong>{sender}</strong>",
+    "badgeNew": "NEW",
+    "badgeUpdated": "UPDATED",
+    "viewBackpack": "Open Backpack"
+  },
   "clueActions": {
     "imageLabel": "Clue Image",
     "cluePushLog": "Distributed clue to {recipients}: {title}",

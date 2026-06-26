@@ -6,6 +6,7 @@ import { eq, and, or, isNull, inArray } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { dispatchMessage } from "@/lib/messaging/router";
+import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 
@@ -142,20 +143,24 @@ export async function pushClueToChannelAction(
       }),
     });
   } else {
-    // Each recipient gets a directed clue card (host + that player see it inline).
+    // Each recipient gets a notification receipt (audience: recipient — only
+    // that player sees it; the host learns about the push via the GM dispatch
+    // log below). Targeted clues no longer broadcast the full card inline —
+    // the content lives in the backpack and the pill links to it.
     for (const uid of targetUserIds!) {
       lastMsg = await dispatchMessage({
         roomId,
         actorUserId: hostId,
         nickname: "Host",
-        type: "clue",
-        audience: "directed",
+        type: "system",
+        audience: "recipient",
         targetUserId: uid,
-        content: `🃏 **${title}**\n\n${content}${imageUrl ? `\n\n![${t("imageLabel")}](${imageUrl})` : ""}`,
-        diceDetail: JSON.stringify({
-          clueId: clue.id,
-          isPublic: false,
-          visibleTo: targetUserIds,
+        systemKind: "inventory-receipt",
+        content: t("clueReceived", { title }),
+        diceDetail: buildReceiptPayload({
+          action: "received",
+          itemType: "clue",
+          itemTitle: title,
         }),
       });
     }
@@ -172,7 +177,14 @@ export async function pushClueToChannelAction(
       nickname: "Host",
       type: "system",
       audience: "gm",
+      systemKind: "inventory-dispatch",
       content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title }),
+      diceDetail: buildDispatchPayload({
+        action: "push",
+        itemType: "clue",
+        itemTitle: title,
+        recipient: { kind: "user", name: recipientNames || t("defaultPlayers") },
+      }),
     });
   }
 
@@ -312,7 +324,13 @@ export async function revealClueToPlayersAction(
       type: "system",
       audience: "recipient",
       targetUserId: uid,
+      systemKind: "inventory-receipt",
       content: t("clueReceived", { title: clue.title }),
+      diceDetail: buildReceiptPayload({
+        action: "received",
+        itemType: "clue",
+        itemTitle: clue.title,
+      }),
     });
   }
 
@@ -328,7 +346,14 @@ export async function revealClueToPlayersAction(
     nickname: "Host",
     type: "system",
     audience: "gm",
+    systemKind: "inventory-dispatch",
     content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: clue.title }),
+    diceDetail: buildDispatchPayload({
+      action: "push",
+      itemType: "clue",
+      itemTitle: clue.title,
+      recipient: { kind: "user", name: recipientNames || t("defaultPlayers") },
+    }),
   });
 
   revalidatePath(`/rooms/${clue.roomId}`);
