@@ -11,7 +11,7 @@ import { ChatArea } from "@/components/room/chat/ChatArea";
 import { RoomOverlays } from "@/components/room/RoomOverlays";
 import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
-import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction } from "@/app/actions/room";
+import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
@@ -403,8 +403,8 @@ export function RoomClient({
 
   // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
   // (so the caller can open the prompt); otherwise surfaces any error inline.
-  const respondCheck = useCallback(async (messageId: number): Promise<{ needsSkill?: boolean }> => {
-    const result = await respondToCheckRequestAction(room.id, messageId);
+  const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number): Promise<{ needsSkill?: boolean }> => {
+    const result = await respondToCheckRequestAction(room.id, messageId, onBehalfOfUserId ? { onBehalfOfUserId } : undefined);
     if (result.needsSkill) return { needsSkill: true };
     if (!result.success && result.error) {
       const errorMsg = {
@@ -417,8 +417,9 @@ export function RoomClient({
       };
       seenIdsRef.current.add(String(errorMsg.id));
       setMessages(prev => [...prev, errorMsg]);
-    } else if (result.success) {
+    } else if (result.success && !onBehalfOfUserId) {
       // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
+      // (Proxy rolls deduct the proxied player's sanity, not the host's — no self refresh.)
       refreshSelfSheet();
     }
     return {};
@@ -432,6 +433,17 @@ export function RoomClient({
       if (r.needsSkill) setPendingSkillCheck({ messageId, skillName });
     });
   }, [respondCheck]);
+
+  /** Host proxy: roll on behalf of an absent target. Skill prompt never triggers
+   *  (the host can't set another player's skill — the server returns a plain error). */
+  const handleProxyCheckRequest = useCallback((messageId: number, onBehalfOfUserId: number) => {
+    respondCheck(messageId, onBehalfOfUserId);
+  }, [respondCheck]);
+
+  /** Fetch pending targets + each player's resolved skill value for the popover preview. */
+  const loadProxyTargets = useCallback((messageId: number) => {
+    return getProxyCheckTargetsAction(room.id, messageId);
+  }, [room.id]);
 
   // Player confirmed a skill value in the prompt: set it via the .st command (which applies
   // the COC 7th rule adaptation — attributes/resources go to the character sheet, not skills),
@@ -568,6 +580,8 @@ export function RoomClient({
           onViewCharacter={handleViewPlayerCard}
           onStartDM={handleTabChange}
           onCheckRequest={handleCheckRequest}
+          onProxyCheckRequest={isHost ? handleProxyCheckRequest : undefined}
+          onLoadProxyTargets={isHost ? loadProxyTargets : undefined}
           onOpenInventory={handleToggleInventory}
           onSendMessage={handleSendMessage}
         />

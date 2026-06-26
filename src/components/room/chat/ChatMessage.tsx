@@ -743,6 +743,14 @@ interface ChatMessageProps {
   onViewCharacter?: (userId: number, nickname: string) => void;
   onStartDM?: (userId: number) => void;
   onCheckRequest?: (messageId: number, skillName: string, diceType: string) => void;
+  /** Host proxy roll. Present only for the host; when set, the check pill shows the
+   *  seal button alongside the regular viewer icon. */
+  onProxyCheckRequest?: (messageId: number, onBehalfOfUserId: number) => void;
+  /** Loads pending targets + each player's resolved skill value for the popover preview. */
+  onLoadProxyTargets?: (messageId: number) => Promise<{
+    success: boolean; error?: string; skillName?: string; isSanityCheck?: boolean;
+    targets?: Array<{ userId: number; nickname: string; value: number | null }>;
+  }>;
   /** Called when the receipt-pill CTA (`查看背包`) is clicked — opens the inventory drawer. */
   onOpenInventory?: () => void;
   messageId?: number;
@@ -769,6 +777,8 @@ export const ChatMessage = memo(function ChatMessage({
   onViewCharacter,
   onStartDM,
   onCheckRequest,
+  onProxyCheckRequest,
+  onLoadProxyTargets,
   onOpenInventory,
   messageId,
   roomId,
@@ -789,7 +799,11 @@ export const ChatMessage = memo(function ChatMessage({
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const [imgError, setImgError] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [proxyOpen, setProxyOpen] = useState(false);
+  const [proxyTargets, setProxyTargets] = useState<Array<{ userId: number; nickname: string; value: number | null }> | null>(null);
+  const [proxyLoading, setProxyLoading] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
+  const proxyAnchorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -797,6 +811,17 @@ export const ChatMessage = memo(function ChatMessage({
     document.addEventListener("click", handleOutsideClick);
     return () => document.removeEventListener("click", handleOutsideClick);
   }, [showMenu]);
+
+  useEffect(() => {
+    if (!proxyOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (proxyAnchorRef.current && !proxyAnchorRef.current.contains(e.target as Node)) {
+        setProxyOpen(false);
+      }
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [proxyOpen]);
 
   const canView = !!(roomId && hostId && senderId && !isOwn && (
     senderId !== hostId && (isHost ? true : !isBot)
@@ -881,6 +906,7 @@ export const ChatMessage = memo(function ChatMessage({
         skillName?: string;
         diceType?: string;
         respondedUserIds?: number[];
+        proxiedUserIds?: number[];
         sanCheck?: { successExpr?: string; failureExpr?: string };
         ghost?: boolean;
       };
@@ -898,11 +924,21 @@ export const ChatMessage = memo(function ChatMessage({
       ? alreadyResponded ? "target-done" : "target-pending"
       : "viewer";
     const allDone = totalCount > 0 && doneCount >= totalCount;
+    const pendingIds = targetIds.filter((id) => !respondedIds.includes(id));
     // Derive request category for theming. sanity = carries sanCheck or 理智值
     // as skillName; ghost = explicit gm-private announcement; otherwise plain skill.
     const isSanity = !!cr?.sanCheck || cr?.skillName === "理智值";
     const isGhost = !!cr?.ghost;
     const checkKind: "skill" | "sanity" | "gm-private" = isGhost ? "gm-private" : isSanity ? "sanity" : "skill";
+    // Host-side proxy: render a seal button so the host can roll on behalf of an
+    // absent target. Skipped for gm-private (host-side from the start) and when
+    // the host is also a target (their own dice button takes precedence).
+    const canProxy =
+      !!onProxyCheckRequest &&
+      checkKind !== "gm-private" &&
+      checkState !== "target-pending" &&
+      pendingIds.length > 0 &&
+      messageId !== undefined;
     const highlightToken =
       checkKind === "sanity" ? t("sanityCheckLabel")
       // skill + gm-private both pull the skill label straight from the request
@@ -957,8 +993,94 @@ export const ChatMessage = memo(function ChatMessage({
             </button>
           ) : checkState === "target-done" ? (
             <Icons.Check className="check-request-done w-4 h-4 text-success" aria-label={t("checkDone")} />
-          ) : (
+          ) : !canProxy ? (
             <Icons.Dices className="check-request-icon w-4 h-4 text-accent shrink-0" aria-hidden />
+          ) : null}
+          {canProxy && (
+            <div ref={proxyAnchorRef} className="check-request-proxy relative inline-flex">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Single pending target → fire immediately, no popover.
+                  if (pendingIds.length === 1) {
+                    onProxyCheckRequest!(messageId!, pendingIds[0]);
+                    return;
+                  }
+                  // Multi-pending → open the popover and lazy-load targets.
+                  setProxyOpen((open) => !open);
+                  if (!proxyOpen && onLoadProxyTargets) {
+                    setProxyLoading(true);
+                    onLoadProxyTargets(messageId!).then((r) => {
+                      if (r.success && r.targets) setProxyTargets(r.targets);
+                      setProxyLoading(false);
+                    }).catch(() => setProxyLoading(false));
+                  }
+                }}
+                className="check-request-proxy-btn inline-flex items-center justify-center w-7 h-7 rounded-full border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition shrink-0"
+                title={t("proxyRoll")}
+                aria-label={t("proxyRoll")}
+                aria-expanded={proxyOpen}
+                data-state={proxyOpen ? "open" : "closed"}
+              >
+                <Icons.Stamp className="w-3.5 h-3.5" />
+              </button>
+              {proxyOpen && pendingIds.length > 1 && (
+                <div className="check-request-proxy-popover absolute top-full mt-2 left-1/2 -translate-x-1/2 z-30 min-w-[260px] bg-surface border border-border rounded-theme shadow-2xl py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="check-request-proxy-header flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider text-text-muted border-b border-border/60">
+                    <Icons.Stamp className="w-3 h-3" />
+                    <span>{t("proxyRollHeader", { skillName: cr?.skillName ?? "" })}</span>
+                  </div>
+                  {proxyLoading && !proxyTargets ? (
+                    <div className="px-3 py-3 text-xs text-text-dim flex items-center gap-2">
+                      <Icons.Loader2 className="w-3 h-3 animate-spin" />
+                      {t("loading")}
+                    </div>
+                  ) : (
+                    <div className="py-1">
+                      {(proxyTargets ?? pendingIds.map((id) => ({ userId: id, nickname: `#${id}`, value: null as number | null }))).map((target) => {
+                        const missing = target.value == null;
+                        return (
+                          <button
+                            key={target.userId}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Missing skill is allowed — the server falls back to a raw
+                              // d100 attributed to the player (no success/failure grading).
+                              onProxyCheckRequest!(messageId!, target.userId);
+                              setProxyOpen(false);
+                            }}
+                            className="check-request-proxy-row w-full text-left px-3 py-2 flex items-center gap-2.5 text-sm text-text hover:bg-surface-alt transition cursor-pointer"
+                            data-missing={missing ? "true" : undefined}
+                          >
+                            <span
+                              className="check-request-proxy-avatar w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                              style={{
+                                backgroundColor: getRandomColorForUser(target.userId),
+                                color: getContrastColor(getRandomColorForUser(target.userId)),
+                              }}
+                            >
+                              {target.nickname.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="flex-1 truncate">{target.nickname}</span>
+                            <span
+                              className={`check-request-proxy-tag text-[11px] font-theme-mono px-1.5 py-0.5 rounded ${
+                                missing
+                                  ? "bg-warning/15 text-warning border border-warning/30"
+                                  : "bg-surface-alt text-text-dim"
+                              }`}
+                              title={missing ? t("proxyRawRollHint") : undefined}
+                            >
+                              {missing ? t("proxyRawRoll") : `${cr?.skillName ?? ""} · ${target.value}`}
+                            </span>
+                            <Icons.Dices className={`w-3.5 h-3.5 shrink-0 ${missing ? "text-warning" : "text-primary"}`} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1026,13 +1148,17 @@ export const ChatMessage = memo(function ChatMessage({
   // of the bubble: echo into the header line, kind onto a data-attr for theming.
   let diceCommandEcho: string | null = null;
   let diceRollKind: RollKind = "plain";
+  let diceProxyNick: string | null = null;
   if (isDice && diceDetail) {
     try {
-      const d = JSON.parse(diceDetail) as DiceDetailJson;
+      const d = JSON.parse(diceDetail) as DiceDetailJson & { proxiedByNickname?: string };
       if (typeof d.command === "string" && d.command.trim()) {
         diceCommandEcho = d.command.trim();
       }
       diceRollKind = getRollKind(d);
+      if (typeof d.proxiedByNickname === "string" && d.proxiedByNickname) {
+        diceProxyNick = d.proxiedByNickname;
+      }
     } catch {
       /* malformed diceDetail — skip echo */
     }
@@ -1115,6 +1241,15 @@ export const ChatMessage = memo(function ChatMessage({
           {senderId !== undefined && hostId !== undefined && senderId === hostId && (
             <span className="text-[10px] font-bold text-ai bg-ai/15 border border-ai/30 px-1.5 py-0.5 rounded">
               {t("roleHost")}
+            </span>
+          )}
+          {isDice && diceProxyNick && (
+            <span
+              className="dice-proxy-chip inline-flex items-center gap-1 text-[10px] text-primary border border-dashed border-primary/60 bg-primary/[0.06] rounded px-1.5 py-0.5"
+              title={t("proxyRolledByTitle", { hostNick: diceProxyNick })}
+            >
+              <Icons.Stamp className="w-3 h-3" />
+              {t("proxyRolledBy", { hostNick: diceProxyNick })}
             </span>
           )}
           {isDice && diceMeta?.psy ? (

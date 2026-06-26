@@ -25,6 +25,13 @@ interface ChatAreaProps {
   onViewCharacter: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (tab: "public" | number) => void;
   onCheckRequest: (messageId: number, skillName: string) => void;
+  /** Host proxy roll: roll the pending check on behalf of an absent player. */
+  onProxyCheckRequest?: (messageId: number, onBehalfOfUserId: number) => void;
+  /** Load the pending targets + skill values for a check request's proxy popover. */
+  onLoadProxyTargets?: (messageId: number) => Promise<{
+    success: boolean; error?: string; skillName?: string; isSanityCheck?: boolean;
+    targets?: Array<{ userId: number; nickname: string; value: number | null }>;
+  }>;
   /** Opens the backpack (inventory panel). Wired to the CTA on receipt pills. */
   onOpenInventory: () => void;
   onSendMessage: (content: string, type: "text" | "dice" | "image", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
@@ -33,7 +40,7 @@ interface ChatAreaProps {
 export function ChatArea({
   scrollRef, onScroll, tabMessages, players, userId, isHost, roomId, hostId,
   typingBots, activeTab, showScrollButton, scrollToBottom, dmConversations,
-  mentionTargets, readOnly, onViewCharacter, onStartDM, onCheckRequest, onOpenInventory, onSendMessage,
+  mentionTargets, readOnly, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onSendMessage,
 }: ChatAreaProps) {
   const t = useTranslations("room");
 
@@ -61,6 +68,8 @@ export function ChatArea({
                 onViewCharacter={onViewCharacter}
                 onStartDM={onStartDM}
                 onCheckRequest={onCheckRequest}
+                onProxyCheckRequest={onProxyCheckRequest}
+                onLoadProxyTargets={onLoadProxyTargets}
                 onOpenInventory={onOpenInventory}
                 messageId={msg.id}
                 isBot={!!playerData?.users?.isBot}

@@ -663,6 +663,73 @@
   border-color: rgb(var(--theme-ai) / 0.55);
 }
 
+/* ---- 朱印 · Host proxy roll (host-side seal button + 待响应玩家 popover) ---- */
+/* Seal button — cinnabar hanko: stamped plaque with a faint inner bevel. The
+   `data-state="open"` ramp deepens to the saturated 朱红 印泥 ink color so the
+   active state reads against the washi pill. */
+[data-theme="shrine"] .check-request-proxy-btn {
+  background: rgb(var(--theme-primary) / 0.10);
+  color: rgb(var(--theme-primary));
+  border: 1px solid rgb(var(--theme-primary) / 0.55);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 0 rgb(var(--theme-primary-foreground) / 0.18),
+              0 1px 2px rgb(var(--theme-primary) / 0.18);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+[data-theme="shrine"] .check-request-proxy-btn:hover {
+  background: rgb(var(--theme-primary) / 0.20);
+  color: rgb(var(--theme-primary-hover));
+}
+[data-theme="shrine"] .check-request-proxy-btn[data-state="open"] {
+  background: rgb(var(--theme-primary));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-primary-hover));
+}
+
+/* Popover — folded prayer slip. Asymmetric joinery corners + dashed shimenawa
+   divider under the header keep it consistent with shrine's other surfaces. */
+[data-theme="shrine"] .check-request-proxy-popover {
+  background: rgb(var(--theme-surface));
+  border: 1px solid rgb(var(--theme-border));
+  border-radius: var(--theme-radius-tl) var(--theme-radius-tr) var(--theme-radius-br) var(--theme-radius-bl);
+  box-shadow: var(--theme-card-shadow);
+  font-family: var(--theme-font-display);
+}
+[data-theme="shrine"] .check-request-proxy-header {
+  color: rgb(var(--theme-text-muted));
+  border-bottom: 1px dashed rgb(var(--theme-border));
+  letter-spacing: 0.1em;
+  font-family: var(--theme-font-display);
+}
+
+/* Row — washi paper with subtle hover wash. Missing-skill rows tint warning. */
+[data-theme="shrine"] .check-request-proxy-row {
+  border-radius: var(--theme-radius-tl) var(--theme-radius-tr) var(--theme-radius-br) var(--theme-radius-bl);
+}
+[data-theme="shrine"] .check-request-proxy-row:hover {
+  background: rgb(var(--theme-surface-alt));
+}
+[data-theme="shrine"] .check-request-proxy-row[data-missing="true"]:hover {
+  background: rgb(var(--theme-warning) / 0.08);
+}
+[data-theme="shrine"] .check-request-proxy-avatar {
+  font-family: var(--theme-font-display);
+}
+[data-theme="shrine"] .check-request-proxy-tag {
+  font-family: var(--theme-font-mono);
+  border-radius: 2px;
+}
+
+/* ---- Dice bubble — host proxy chip on the header line ---- */
+[data-theme="shrine"] .dice-proxy-chip {
+  background: rgb(var(--theme-primary) / 0.08);
+  color: rgb(var(--theme-primary));
+  border: 1px dashed rgb(var(--theme-primary) / 0.55);
+  border-radius: 2px;
+  font-family: var(--theme-font-display);
+  letter-spacing: 0.06em;
+}
+
 /* ---- Dice bubble — non-sanity (plain roll, check, critical, fumble) ---- */
 [data-theme="shrine"] .chat-bubble-dice {
   font-family: var(--theme-font-display);

@@ -435,12 +435,23 @@ export async function requestSkillCheckAction(
  */
 export async function respondToCheckRequestAction(
   roomId: number,
-  checkRequestId: number
+  checkRequestId: number,
+  opts?: { onBehalfOfUserId?: number }
 ): Promise<{ success: boolean; error?: string; needsSkill?: boolean }> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
-  const userId = parseInt(session.user.id);
-  await checkRoomAccess(roomId, false, { requireWritable: true });
+  const callerId = parseInt(session.user.id);
+
+  const proxyTargetId = opts?.onBehalfOfUserId;
+  const isProxy = typeof proxyTargetId === "number";
+
+  // Proxy is host-only; self-response stays writable-member.
+  if (isProxy) {
+    await checkRoomAccess(roomId, true);
+  } else {
+    await checkRoomAccess(roomId, false, { requireWritable: true });
+  }
+  const rollerId = isProxy ? proxyTargetId : callerId;
 
   const t = await getTranslations("roomActions");
 
@@ -450,44 +461,74 @@ export async function respondToCheckRequestAction(
     return { success: false, error: t("checkRequestNotFound") };
   }
 
-  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } } };
+  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; proxiedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } } };
   try { detail = JSON.parse(msg.diceDetail); } catch { return { success: false, error: t("checkRequestNotFound") }; }
   const cr = detail.checkRequest;
   if (!cr || !cr.skillName) return { success: false, error: t("checkRequestNotFound") };
 
   const targetUserIds = cr.targetUserIds || [];
   const responded = cr.respondedUserIds || [];
-  if (!targetUserIds.includes(userId)) return { success: false, error: t("checkNotTarget") };
-  if (responded.includes(userId)) return { success: false, error: t("checkAlreadyDone") };
+  if (!targetUserIds.includes(rollerId)) return { success: false, error: t("checkNotTarget") };
+  if (responded.includes(rollerId)) return { success: false, error: t("checkAlreadyDone") };
+
+  // For a proxy roll, surface the host's nickname so the dice bubble can show
+  // a "代投 by <host>" chip (filled in by commands.ts via diceDetail).
+  let proxiedBy: { userId: number; nickname: string } | undefined;
+  if (isProxy) {
+    const [hostMember] = await db.select({ nickname: roomMembers.nickname }).from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, callerId)));
+    proxiedBy = { userId: callerId, nickname: hostMember?.nickname || "Host" };
+  }
 
   // Roll in the same channel as the request (public, or the DM with the host).
   const ctxIsPrivate = msg.isPrivate;
   const ctxTargetId = msg.isPrivate ? msg.userId : undefined;
   if (cr.sanCheck) {
     // Sanity check: run the .sc logic (uses 理智值 current value + deducts per result).
-    const result = await executeCommand(roomId, userId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
+    const result = await executeCommand(roomId, rollerId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
     if (!result.success) {
-      return { success: false, error: result.error, needsSkill: result.code === "STAT_NOT_SET" };
+      if (isProxy && result.code === "STAT_NOT_SET") {
+        // Player has no 理智值 yet — fall through to a raw d100 attributed to them,
+        // so the host gets a usable roll result instead of a hard error.
+        await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+      } else {
+        // needsSkill prompts the *self* to set their stat — meaningless for a proxy roll,
+        // so surface as plain error and let the host inform the player out-of-band.
+        return { success: false, error: result.error, needsSkill: !isProxy && result.code === "STAT_NOT_SET" };
+      }
     }
   } else {
     const diceType = cr.diceType || "d100";
     if (diceType === "d100") {
-      const result = await executeCommand(roomId, userId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId });
+      const result = await executeCommand(roomId, rollerId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
       if (!result.success) {
-        // STAT_NOT_SET means the responder hasn't set this skill/attribute/resource yet —
-        // signal the client to open the in-page set-skill prompt rather than surfacing an error.
-        return { success: false, error: result.error, needsSkill: result.code === "STAT_NOT_SET" };
+        if (isProxy && result.code === "STAT_NOT_SET") {
+          // Skill not set on this player — drop the success/failure grading and just
+          // roll a raw d100, attributed to the player + carrying the proxy chip.
+          await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+        } else {
+          return { success: false, error: result.error, needsSkill: !isProxy && result.code === "STAT_NOT_SET" };
+        }
       }
     } else {
       const faces = parseInt(diceType.replace("d", ""));
-      // A check response is a normal roll in the request's channel (never hidden).
-      await rollDiceAction(roomId, faces, 1, false, ctxTargetId);
+      if (isProxy) {
+        // Route through executeCommand so the roll is attributed to the player and
+        // carries the proxy chip; rollDiceAction would attribute to the caller (host).
+        await executeCommand(roomId, rollerId, `.rd${faces}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+      } else {
+        // A check response is a normal roll in the request's channel (never hidden).
+        await rollDiceAction(roomId, faces, 1, false, ctxTargetId);
+      }
     }
   }
 
   // Record the response and broadcast the updated completion state.
-  const newResponded = [...responded, userId];
+  const newResponded = [...responded, rollerId];
   cr.respondedUserIds = newResponded;
+  if (isProxy) {
+    cr.proxiedUserIds = [...(cr.proxiedUserIds ?? []), rollerId];
+  }
   await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, checkRequestId));
   // NOTE: do NOT reuse the message id here. The SSE stream dedups by `id`, and the
   // original check_request message (same id) was already delivered, so an `id`-keyed
@@ -497,12 +538,92 @@ export async function respondToCheckRequestAction(
     type: "check_update",
     checkRequestId,
     respondedUserIds: newResponded,
+    proxiedUserIds: cr.proxiedUserIds,
     audience: msg.audience,
     userId: msg.userId,
     targetUserId: msg.targetUserId,
   });
 
   return { success: true };
+}
+
+/**
+ * Host-side preview for the proxy-roll popover: list every still-pending target
+ * with their nickname and resolved check value (skill > COC attribute > resource),
+ * so the host can see at a glance what they're about to roll against.
+ */
+export async function getProxyCheckTargetsAction(
+  roomId: number,
+  checkRequestId: number
+): Promise<{
+  success: boolean;
+  error?: string;
+  skillName?: string;
+  isSanityCheck?: boolean;
+  targets?: Array<{ userId: number; nickname: string; value: number | null }>;
+}> {
+  await checkRoomAccess(roomId, true);
+
+  const [msg] = await db.select().from(messages)
+    .where(and(eq(messages.id, checkRequestId), eq(messages.roomId, roomId)));
+  if (!msg || msg.type !== "check_request" || !msg.diceDetail) {
+    return { success: false, error: "check_request not found" };
+  }
+  let detail: { checkRequest?: { skillName?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: unknown } };
+  try { detail = JSON.parse(msg.diceDetail); } catch { return { success: false, error: "malformed detail" }; }
+  const cr = detail.checkRequest;
+  if (!cr || !cr.skillName || !cr.targetUserIds?.length) return { success: false, error: "invalid request" };
+
+  const pending = cr.targetUserIds.filter((id: number) => !(cr.respondedUserIds || []).includes(id));
+  if (pending.length === 0) {
+    return { success: true, skillName: cr.skillName, isSanityCheck: !!cr.sanCheck, targets: [] };
+  }
+
+  const members = await db.select({
+    userId: roomMembers.userId,
+    nickname: roomMembers.nickname,
+    characterData: roomMembers.characterData,
+  })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, pending)));
+  const memberByUid = new Map(members.map((m) => [m.userId, m]));
+
+  const skillRows = await db.select().from(roomSkills)
+    .where(and(
+      eq(roomSkills.roomId, roomId),
+      inArray(roomSkills.userId, pending),
+      eq(roomSkills.skillName, cr.skillName),
+    ));
+  const valueByUid = new Map(skillRows.map((r: { userId: number; skillValue: number }) => [r.userId, r.skillValue]));
+
+  // COC 7th fallback (attribute / resource current value) for users without an
+  // explicit room_skills row. Sanity check always reads the player's current 理智值.
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  const coc7th = !!room && roomIsCoc7th(room);
+  const lookupName = cr.sanCheck ? "san" : cr.skillName;
+  const { resolveCocStat } = await import("@/lib/coc-stats");
+  const resolved = coc7th ? resolveCocStat(lookupName) : null;
+
+  const targets = pending.map((uid: number) => {
+    const m = memberByUid.get(uid);
+    let value: number | null = valueByUid.get(uid) ?? null;
+    if (value === null && resolved && m?.characterData) {
+      try {
+        const data = JSON.parse(m.characterData) as { cocAttributes?: Record<string, number>; cocDerived?: Record<string, number> };
+        if (resolved.kind === "attribute") {
+          const v = data.cocAttributes?.[resolved.key];
+          if (typeof v === "number") value = v;
+        } else if (resolved.kind === "resource") {
+          const d = data.cocDerived;
+          const cur = d?.[`${resolved.key}_current`] ?? d?.[resolved.key];
+          if (typeof cur === "number") value = cur;
+        }
+      } catch { /* leave value as null */ }
+    }
+    return { userId: uid, nickname: m?.nickname || `#${uid}`, value };
+  });
+
+  return { success: true, skillName: cr.skillName, isSanityCheck: !!cr.sanCheck, targets };
 }
 
 /** COC 7th rule template active for this room. */

@@ -32,6 +32,25 @@ export interface CommandResult {
 export interface CommandContext {
   isPrivate?: boolean;
   targetUserId?: number;
+  /**
+   * Host-side proxy roll: the command runs as `userId` (the absent player), but
+   * `proxiedBy` carries the host so the resulting dice bubble can render a
+   * "代投 by <host>" chip and stay transparent about who actually clicked.
+   */
+  proxiedBy?: { userId: number; nickname: string };
+}
+
+/** Tag a diceDetail JSON string with proxy attribution. No-op when not proxied. */
+function attachProxy(detailJson: string, proxiedBy?: { userId: number; nickname: string }): string {
+  if (!proxiedBy) return detailJson;
+  try {
+    const obj = JSON.parse(detailJson) as Record<string, unknown>;
+    obj.proxiedByUserId = proxiedBy.userId;
+    obj.proxiedByNickname = proxiedBy.nickname;
+    return JSON.stringify(obj);
+  } catch {
+    return detailJson;
+  }
 }
 
 export interface TermResult {
@@ -237,7 +256,8 @@ async function handleDiceRoll(
     ? visibilityFor(ctx, userId, "self")
     : visibilityFor(ctx, userId, "channel");
 
-  const msg = await emitCommandMessage(roomId, userId, rollMsgContent, "dice", vis, diceDetail);
+  const taggedDetail = attachProxy(diceDetail, ctx?.proxiedBy);
+  const msg = await emitCommandMessage(roomId, userId, rollMsgContent, "dice", vis, taggedDetail);
   return { success: true, isCommand: true, message: msg };
 }
 
@@ -543,7 +563,7 @@ async function performSkillCheck(
     else if (roll >= 96) { successLevel = t("fumble"); icon = "🔴"; grade = "fumble"; }
   }
 
-  const detail = JSON.stringify({
+  const detail = attachProxy(JSON.stringify({
     dice: "d100",
     count: 1,
     results: [roll],
@@ -551,7 +571,7 @@ async function performSkillCheck(
     notation: "1d100",
     command: rawCommand,
     check: { skillName, target, roll, success: roll <= target, grade }
-  });
+  }), ctx?.proxiedBy);
 
   const content = t("checkMessage", { skillName, roll, target, successLevel, icon });
   const vis = visibilityFor(ctx, userId, "channel");
@@ -620,7 +640,7 @@ async function handleSanityCheck(
     newSan: finalNewSan,
   });
 
-  const detail = JSON.stringify({
+  const detail = attachProxy(JSON.stringify({
     dice: "d100",
     count: 1,
     results: [roll],
@@ -643,7 +663,7 @@ async function handleSanityCheck(
       newSanity: finalNewSan,
       isSuccess,
     }
-  });
+  }), ctx?.proxiedBy);
 
   const vis = visibilityFor(ctx, userIdArg, "channel");
   const msg = await emitCommandMessage(roomId, userIdArg, content, "dice", vis, detail);
