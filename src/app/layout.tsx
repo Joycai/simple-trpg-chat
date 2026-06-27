@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { AppProvider } from "@/components/theme/AppProvider";
@@ -8,14 +8,39 @@ import { getCachedSiteTitle, getCachedSiteFavicon } from "@/lib/config";
 import { fontVariables } from "./fonts";
 import "./globals.css";
 
+const SITE_DESCRIPTION =
+  "A lightweight web-based TRPG tool for multi-player chat and dice rolling";
+
+export const viewport: Viewport = {
+  themeColor: "#0D1E28",
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const [siteTitle, siteFavicon] = await Promise.all([
     getCachedSiteTitle(),
     getCachedSiteFavicon(),
   ]);
+  const title = siteTitle || "Simple TRPG Chat";
   return {
-    title: siteTitle,
-    description: "A lightweight web-based TRPG tool for multi-player chat and dice rolling",
+    title,
+    description: SITE_DESCRIPTION,
+    applicationName: title,
+    appleWebApp: {
+      capable: true,
+      title,
+      statusBarStyle: "black-translucent",
+    },
+    openGraph: {
+      type: "website",
+      title,
+      description: SITE_DESCRIPTION,
+      siteName: title,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: SITE_DESCRIPTION,
+    },
     ...(siteFavicon ? { icons: { icon: siteFavicon } } : {}),
   };
 }
