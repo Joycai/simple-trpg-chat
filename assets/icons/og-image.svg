@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1620"></stop>
+      <stop offset="1" stop-color="#060c10"></stop>
+    </linearGradient>
+    <radialGradient id="g1" cx=".08" cy="-.05" r=".55">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity=".22"></stop>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="g2" cx="1" cy="0" r=".5">
+      <stop offset="0" stop-color="#f472b6" stop-opacity=".18"></stop>
+      <stop offset="1" stop-color="#f472b6" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"></stop>
+      <stop offset="1" stop-color="#f472b6"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"></rect>
+  <rect width="1200" height="630" fill="url(#g1)"></rect>
+  <rect width="1200" height="630" fill="url(#g2)"></rect>
+  
+  <g transform="translate(80 175)">
+    <rect width="280" height="280" rx="63" fill="#0d1e28"></rect>
+    <g transform="translate(140 140) rotate(-12)">
+      <rect x="-82" y="-82" width="164" height="164" rx="33" fill="none" stroke="url(#stroke)" stroke-width="7"></rect>
+      <circle cx="-45" cy="-45" r="13" fill="#22d3ee"></circle>
+      <circle cx="45" cy="-45" r="13" fill="#22d3ee"></circle>
+      <circle cx="-45" cy="45" r="13" fill="#22d3ee"></circle>
+      <circle cx="45" cy="45" r="13" fill="#22d3ee"></circle>
+      <circle cx="0" cy="0" r="16" fill="#f472b6"></circle>
+    </g>
+  </g>
+  
+  <g transform="translate(420 215)">
+    <text font-family="&#39;Space Grotesk&#39;, sans-serif" font-weight="700" font-size="28" letter-spacing="6" fill="#22d3ee">SIMPLE-TRPG-CHAT</text>
+    <text y="80" font-family="&#39;Space Grotesk&#39;, sans-serif" font-weight="600" font-size="68" fill="#e8f4f8">在线跑团 · 一处搞定</text>
+    <text y="140" font-family="&#39;Inter&#39;, sans-serif" font-weight="400" font-size="24" fill="#869ea8">骰子、角色卡、理智检定、AI 剧本导入 — 不必再切换工具。</text>
+    <g transform="translate(0 190)">
+      <rect width="200" height="56" rx="12" fill="#22d3ee"></rect>
+      <text x="100" y="36" text-anchor="middle" font-family="&#39;Inter&#39;, sans-serif" font-weight="600" font-size="18" fill="#06181c">立即开始 →</text>
+    </g>
+  </g>
+  <text x="80" y="580" font-family="&#39;JetBrains Mono&#39;, monospace" font-size="16" letter-spacing="2" fill="#546872">SIMPLE-TRPG-CHAT.APP</text>
+</svg>
