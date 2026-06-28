@@ -623,6 +623,10 @@
     "uploadHint": "Click or drag to upload",
     "itemImageLabel": "Item image (optional)",
     "itemUploadHint": "Click or drag to upload item image",
+    "uploadConstraintHint": "JPEG / PNG / GIF / WebP · max 1MB after cropping",
+    "errorImageType": "Unsupported image type — please use JPEG, PNG, GIF, or WebP.",
+    "errorImageTooLarge": "Image is too large — please crop a smaller area (max 1MB).",
+    "imageEnlarge": "Click to enlarge",
     "evidencePhoto": "Evidence photo",
     "create": "Create",
     "contentPlaceholder": "Text Content",
@@ -1096,5 +1100,13 @@
     "errorInvalidFile": "Invalid file type. Please choose an image.",
     "errorFileTooLarge": "File is too large (max 5MB)",
     "errorUploadFailed": "Failed to upload avatar"
+  },
+  "cropper": {
+    "title": "Crop Image",
+    "dragHint": "Drag inside to pan, drag the corner handles to resize.",
+    "confirm": "Crop & Upload",
+    "uploading": "Uploading…",
+    "errorDecode": "Could not read this image. Please try another file.",
+    "errorEncode": "Failed to encode the cropped image."
   }
 }
