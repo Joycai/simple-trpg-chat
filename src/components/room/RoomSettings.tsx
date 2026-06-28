@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, type LucideIcon } from "lucide-react";
+import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, ChevronDown, type LucideIcon } from "lucide-react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
 import { THEME_LIST, THEME_MODES, getThemeName } from "@/themes/types";
 import type { ThemeId, ThemeMode } from "@/themes/types";
@@ -188,19 +188,25 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                   </div>
 
                   {/* Rule template — single source of truth; options enumerate
-                      the rule registry so new rules show up automatically. */}
+                      the rule registry so new rules show up automatically.
+                      `appearance-none` + a Lucide chevron strips the native
+                      browser chrome so the field matches the rest of the
+                      themed inputs in this panel. */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-text-dim font-medium">{t("ruleTemplateLabel")}</label>
-                    <select
-                      name="ruleTemplate"
-                      value={selectedRuleTemplate}
-                      onChange={(e) => setSelectedRuleTemplate(e.target.value)}
-                      className="p-2.5 border border-input-border bg-input-bg rounded-theme outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
-                    >
-                      {listRules().map(rule => (
-                        <option key={rule.id} value={rule.id}>{t(rule.labelKey)}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        name="ruleTemplate"
+                        value={selectedRuleTemplate}
+                        onChange={(e) => setSelectedRuleTemplate(e.target.value)}
+                        className="w-full appearance-none p-2.5 pr-9 border border-input-border bg-input-bg rounded-theme outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm cursor-pointer"
+                      >
+                        {listRules().map(rule => (
+                          <option key={rule.id} value={rule.id} className="bg-input-bg text-text">{t(rule.labelKey)}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                    </div>
                     <p className="text-xs text-text-muted">{t("ruleTemplateHint")}</p>
                   </div>
                 </div>
