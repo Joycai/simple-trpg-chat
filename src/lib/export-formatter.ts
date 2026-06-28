@@ -21,7 +21,6 @@ interface ExportCharacterSnapshot {
 interface ExportRoomData {
   roomName: string;
   ruleTemplate: string;
-  diceRules: string;
   theme: string;
   exportTime: string;
   timeline: ExportTimelineItem[];
@@ -36,7 +35,6 @@ export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?:
   lines.push("");
   lines.push(`## ${t("basicInfo")}`);
   lines.push(`- ${t("ruleTemplate")}：${data.ruleTemplate === "coc7th" ? t("ruleTemplateCoc7th") : t("ruleTemplateBasic")}`);
-  lines.push(`- ${t("diceRules")}：${data.diceRules}`);
   lines.push(`- ${t("exportTime")}：${data.exportTime}`);
   lines.push("");
 

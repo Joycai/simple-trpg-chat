@@ -29,7 +29,6 @@ export function RoomClient({
   currentNickname,
   roomTheme,
   roomThemeMode,
-  roomDiceRules,
   players = [],
   characterData,
   aiEnabled = false,
@@ -605,7 +604,6 @@ export function RoomClient({
         userRole={userRole}
         roomTheme={roomTheme}
         roomThemeMode={roomThemeMode}
-        roomDiceRules={roomDiceRules}
         inventoryRefreshKey={inventoryRefreshKey}
         skillRefreshKey={skillRefreshKey}
         mentionTargets={mentionTargets}

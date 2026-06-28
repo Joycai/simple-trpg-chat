@@ -70,7 +70,7 @@ async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 
  */
 export async function buildAgentContext(
   botUser: { botConfigJson?: string | null },
-  room: { diceRules?: string | null; ruleTemplate?: string | null },
+  room: { ruleTemplate?: string | null },
   roomId: number,
   botUserId: number,
   preParsedConfig?: BotConfig
@@ -599,7 +599,7 @@ export async function runAgent(
               success: true,
               results: rollResults,
               sum,
-              diceRules: rollRule.id,
+              ruleTemplate: rollRule.id,
               ...(evaluation ? { evaluation } : {})
             };
           } else if (functionName === "send_message") {

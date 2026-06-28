@@ -34,7 +34,6 @@ interface ExportCharacterSnapshot {
 interface ExportRoomData {
   roomName: string;
   ruleTemplate: string;
-  diceRules: string;
   theme: string;
   exportTime: string;
   timeline: ExportTimelineItem[];
@@ -136,7 +135,6 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
   return {
     roomName: room.name,
     ruleTemplate: (room as { ruleTemplate?: string }).ruleTemplate || "basic",
-    diceRules: room.diceRules || "basic",
     theme: room.theme || "default",
     exportTime: new Date().toISOString(),
     timeline,

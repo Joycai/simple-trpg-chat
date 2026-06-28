@@ -17,14 +17,13 @@ interface RoomSettingsProps {
   roomName: string;
   currentTheme: ThemeId;
   currentThemeMode: ThemeMode;
-  currentDiceRules?: string;
   currentRuleTemplate?: string;
   onClose: () => void;
 }
 
 type SettingsTab = "theme" | "general";
 
-export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode, currentDiceRules, currentRuleTemplate, onClose }: RoomSettingsProps) {
+export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode, currentRuleTemplate, onClose }: RoomSettingsProps) {
   const t = useTranslations("roomSettings");
   const tm = useTranslations("themeMode");
   const locale = useLocale();
@@ -34,7 +33,6 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
   const [selectedMode, setSelectedMode] = useState<ThemeMode>(currentThemeMode);
-  const [selectedDiceRules, setSelectedDiceRules] = useState<string>(currentDiceRules || "basic");
   const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
 
@@ -47,7 +45,6 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
       const formData = new FormData();
       formData.set("theme", selectedTheme);
       formData.set("themeMode", selectedMode);
-      formData.set("diceRules", selectedDiceRules);
       formData.set("ruleTemplate", selectedRuleTemplate);
 
       await updateRoomSettingsAction(roomId, formData);
@@ -190,25 +187,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                     <p className="text-xs text-text-muted">{t("desc", { roomName })}</p>
                   </div>
 
-                  {/* Dice rules — options enumerate registered rule modules. */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-text-dim font-medium">{t("diceRulesLabel")}</label>
-                    <select
-                      name="diceRules"
-                      value={selectedDiceRules}
-                      onChange={(e) => setSelectedDiceRules(e.target.value)}
-                      className="p-2.5 border border-input-border bg-input-bg rounded-theme outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
-                    >
-                      {listRules().map(rule => (
-                        <option key={rule.id} value={rule.id}>
-                          {rule.id === "basic" ? t("diceRulesBasic") : t(rule.labelKey)}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-text-muted">{t("diceRulesCoc7thHint")}</p>
-                  </div>
-
-                  {/* Rule template — same registry-driven enumeration. */}
+                  {/* Rule template — single source of truth; options enumerate
+                      the rule registry so new rules show up automatically. */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-text-dim font-medium">{t("ruleTemplateLabel")}</label>
                     <select

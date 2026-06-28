@@ -10,7 +10,6 @@ export interface Room {
   frozen?: boolean;
   theme: string;
   themeMode?: string;
-  diceRules?: string;
   ruleTemplate?: string;
   createdAt?: string;
 }
@@ -72,7 +71,6 @@ export interface RoomClientProps {
   currentNickname: string;
   roomTheme?: ThemeId;
   roomThemeMode?: ThemeMode;
-  roomDiceRules?: string;
   players?: PlayerEntry[];
   characterData?: string | null;
   aiEnabled?: boolean;

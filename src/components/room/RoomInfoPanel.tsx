@@ -7,7 +7,7 @@ import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction
 import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
-import { getRule, listRules } from "@/lib/rules";
+import { listRules } from "@/lib/rules";
 
 interface RoomInfoPanelProps {
   room: {
@@ -16,7 +16,6 @@ interface RoomInfoPanelProps {
     hostId: number;
     secretKey: string;
     theme: string;
-    diceRules: string;
     ruleTemplate: string;
     status: string;
     frozen?: boolean;
@@ -47,14 +46,6 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const getRuleTemplateLabel = (val: string) => {
     const rule = listRules().find(r => r.id === val);
     return rule ? ts(rule.labelKey) : val;
-  };
-
-  // `diceRules` is a transitional column (Phase 4 drops it); resolve via the
-  // same registry so any rule name shows correctly regardless of which column
-  // carries it.
-  const getDiceRulesLabel = (val: string) => {
-    const rule = getRule(val);
-    return rule.id === val ? ts(rule.labelKey) : val;
   };
 
   const handleSaveName = async () => {
@@ -166,10 +157,6 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-text-muted">{t("ruleTemplate")}</span>
                 <span className="text-sm font-bold text-text">{getRuleTemplateLabel(room.ruleTemplate)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-text-muted">{t("diceRules")}</span>
-                <span className="text-sm font-bold text-text">{getDiceRulesLabel(room.diceRules)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-text-muted">{t("theme")}</span>

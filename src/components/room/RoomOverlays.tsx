@@ -30,7 +30,6 @@ interface RoomOverlaysProps {
   userRole: string;
   roomTheme?: ThemeId;
   roomThemeMode?: ThemeMode;
-  roomDiceRules?: string;
   inventoryRefreshKey: number;
   skillRefreshKey: number;
   mentionTargets: MentionTarget[];
@@ -86,7 +85,7 @@ interface RoomOverlaysProps {
 export function RoomOverlays(props: RoomOverlaysProps) {
   const {
     room, userId, isHost, nickname, characterData, readOnly, players,
-    aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode, roomDiceRules,
+    aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
     inventoryRefreshKey, skillRefreshKey, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
@@ -191,10 +190,10 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
       )}
       {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentDiceRules={roomDiceRules || "basic"} currentRuleTemplate={room.ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
+        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentRuleTemplate={room.ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
       )}
       {showRoomInfo && (
-        <RoomInfoPanel room={{ ...room, diceRules: room.diceRules ?? "basic", ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
+        <RoomInfoPanel room={{ ...room, ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />
       )}
       {showExport && (
         <OverlayShell onClose={() => setShowExport(false)} panelClassName="max-w-md w-full mx-4">

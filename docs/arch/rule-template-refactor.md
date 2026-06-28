@@ -201,6 +201,12 @@ export interface RuleCapabilities {
 
 **Phase 6 — 清理（独立 PR）**：一个发布周期后删 `dice_rules` 列。
 
+> **执行(已在 PR #126 落地)**:
+> 1. `pnpm tsx src/db/scripts/backfill-rule-template.ts` — 把 `diceRules` 非 basic 值升到 `ruleTemplate`(幂等、可重复跑)
+> 2. `pnpm db:push` — Drizzle 检测到 `dice_rules` 列已从 schema 移除,提示删除时回答 Yes
+> 3. 校验:`SELECT DISTINCT rule_template FROM rooms;` 应只剩 `basic` / `coc7th` 等合法值,无遗漏
+> 同时移除了 `RoomSettings` 的双下拉、`RoomInfoPanel` 的展示行、`DICE_RULES` 常量、`getRuleForRoom` 的 OR 合并,以及所有 plumbing(`Room.diceRules` 字段、`RoomClient`/`RoomOverlays` 的 `roomDiceRules` prop、AI 工具结果里的 `diceRules` 字段)。
+
 ---
 
 ## 六、明确划出本次之外（Tier 2 / 未来）

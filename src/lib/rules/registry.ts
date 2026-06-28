@@ -25,9 +25,9 @@ function register(rule: RuleModule): void {
 }
 
 // --- Built-in registrations -------------------------------------------------
-// NOTE: When adding a rule here, also append its id to
-// `RULE_TEMPLATES` / `DICE_RULES` in `src/db/schema.ts` so that the
-// server-side room-settings validators accept it.
+// NOTE: When adding a rule here, also append its id to `RULE_TEMPLATES`
+// in `src/db/schema.ts` so the server-side room-settings validator
+// accepts it.
 register(basicRule);
 register(coc7thRule);
 // 5e extension point: drop in `rules/dnd5e/index.ts`, then `register(dnd5eRule)`.
@@ -56,20 +56,7 @@ export function listRuleIds(): ReadonlyArray<string> {
   return [...REGISTRY.keys()];
 }
 
-/**
- * Transitional: resolve a rule from a room row that still carries both
- * `ruleTemplate` and `diceRules` columns.
- *
- * Honors the pre-refactor OR-collapse semantics — a non-basic value in
- * either column wins, with `ruleTemplate` taking precedence on conflict.
- * Phase 4 of the refactor backfills `ruleTemplate` from `diceRules` and
- * drops this helper.
- */
-export function getRuleForRoom(room: {
-  ruleTemplate?: string | null;
-  diceRules?: string | null;
-}): RuleModule {
-  if (room.ruleTemplate && room.ruleTemplate !== "basic") return getRule(room.ruleTemplate);
-  if (room.diceRules && room.diceRules !== "basic") return getRule(room.diceRules);
+/** Resolve a rule from a room row by its `ruleTemplate` column. */
+export function getRuleForRoom(room: { ruleTemplate?: string | null }): RuleModule {
   return getRule(room.ruleTemplate);
 }
