@@ -15,6 +15,8 @@ import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
+import { getRuleForRoom } from "@/lib/rules";
+import type { CharacterData } from "@/lib/character-types";
 
 // --- Room Actions ---
 
@@ -596,39 +598,27 @@ export async function getProxyCheckTargetsAction(
     ));
   const valueByUid = new Map(skillRows.map((r: { userId: number; skillValue: number }) => [r.userId, r.skillValue]));
 
-  // COC 7th fallback (attribute / resource current value) for users without an
-  // explicit room_skills row. Sanity check always reads the player's current 理智值.
+  // Rule-specific fallback (attribute / resource current value) for users
+  // without an explicit room_skills row. Sanity check always reads the
+  // player's current 理智值, so the lookup name is forced to "san" then.
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  const coc7th = !!room && roomIsCoc7th(room);
+  const rule = room ? getRuleForRoom(room) : null;
   const lookupName = cr.sanCheck ? "san" : cr.skillName;
-  const { resolveCocStat } = await import("@/lib/coc-stats");
-  const resolved = coc7th ? resolveCocStat(lookupName) : null;
 
   const targets = pending.map((uid: number) => {
     const m = memberByUid.get(uid);
     let value: number | null = valueByUid.get(uid) ?? null;
-    if (value === null && resolved && m?.characterData) {
+    if (value === null && rule && m?.characterData) {
       try {
-        const data = JSON.parse(m.characterData) as { cocAttributes?: Record<string, number>; cocDerived?: Record<string, number> };
-        if (resolved.kind === "attribute") {
-          const v = data.cocAttributes?.[resolved.key];
-          if (typeof v === "number") value = v;
-        } else if (resolved.kind === "resource") {
-          const d = data.cocDerived;
-          const cur = d?.[`${resolved.key}_current`] ?? d?.[resolved.key];
-          if (typeof cur === "number") value = cur;
-        }
+        const sheet = JSON.parse(m.characterData) as CharacterData;
+        const fallback = rule.lookupFallback(lookupName, sheet);
+        if (fallback) value = fallback.value;
       } catch { /* leave value as null */ }
     }
     return { userId: uid, nickname: m?.nickname || `#${uid}`, value };
   });
 
   return { success: true, skillName: cr.skillName, isSanityCheck: !!cr.sanCheck, targets };
-}
-
-/** COC 7th rule template active for this room. */
-function roomIsCoc7th(room: { ruleTemplate: string | null; diceRules: string | null }): boolean {
-  return room.ruleTemplate === "coc7th" || room.diceRules === "coc7th";
 }
 
 /**
@@ -646,7 +636,9 @@ export async function psychologyHiddenRollAction(
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, error: "Room not found" };
-  if (!roomIsCoc7th(room)) return { success: false, error: "Not a COC 7th room" };
+  if (!getRuleForRoom(room).capabilities.hasPsychologyRoll) {
+    return { success: false, error: "Psychology hidden roll not supported by this rule" };
+  }
 
   const [hostMember] = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
@@ -739,7 +731,9 @@ export async function requestSanCheckAction(
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, error: "Room not found" };
-  if (!roomIsCoc7th(room)) return { success: false, error: "Not a COC 7th room" };
+  if (!getRuleForRoom(room).capabilities.hasSanity) {
+    return { success: false, error: "Sanity check not supported by this rule" };
+  }
 
   const sExpr = (successExpr || "").trim();
   const fExpr = (failureExpr || "").trim();

@@ -7,6 +7,7 @@ import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction
 import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { getRule, listRules } from "@/lib/rules";
 
 interface RoomInfoPanelProps {
   room: {
@@ -41,16 +42,19 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const [togglingFreeze, setTogglingFreeze] = useState(false);
   const [error, setError] = useState("");
 
+  // Label lookup driven by the rule registry: any registered rule's
+  // i18n label key is honored, unknown ids fall back to their raw value.
   const getRuleTemplateLabel = (val: string) => {
-    if (val === "basic") return ts("ruleTemplateBasic");
-    if (val === "coc7th") return ts("ruleTemplateCoc7th");
-    return val;
+    const rule = listRules().find(r => r.id === val);
+    return rule ? ts(rule.labelKey) : val;
   };
 
+  // `diceRules` is a transitional column (Phase 4 drops it); resolve via the
+  // same registry so any rule name shows correctly regardless of which column
+  // carries it.
   const getDiceRulesLabel = (val: string) => {
-    if (val === "basic") return ts("diceRulesBasic");
-    if (val === "coc7th") return ts("diceRulesCoc7th");
-    return val;
+    const rule = getRule(val);
+    return rule.id === val ? ts(rule.labelKey) : val;
   };
 
   const handleSaveName = async () => {

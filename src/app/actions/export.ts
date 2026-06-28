@@ -5,6 +5,8 @@ import { messages, roomMembers, rooms } from "@/db/schema";
 import { eq, asc, and, gt } from "drizzle-orm";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
+import { getRuleForRoom } from "@/lib/rules";
+import type { CharacterData } from "@/lib/character-types";
 
 interface ExportTimelineItem {
   time: string;
@@ -113,25 +115,20 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
     }
   }
 
-  // Character snapshots
+  // Character snapshots — defer rule-specific fields (hp/san/attributes/…)
+  // to the room's RuleModule so adding a new ruleset doesn't require touching
+  // the export path.
+  const rule = getRuleForRoom(room);
   const snapshots: ExportCharacterSnapshot[] = [];
   for (const member of members) {
     if (!member.characterData) continue;
     try {
-      const charData = JSON.parse(member.characterData);
+      const charData = JSON.parse(member.characterData) as CharacterData;
       const snapshot: ExportCharacterSnapshot = {
         nickname: member.nickname,
         userId: member.userId,
+        ...rule.exportSnapshot(charData),
       };
-      if (charData.cocDerived) {
-        snapshot.hp = charData.cocDerived.hp;
-        snapshot.hpMax = charData.cocDerived.hpMax;
-        snapshot.san = charData.cocDerived.san;
-        snapshot.mp = charData.cocDerived.mp;
-      }
-      if (charData.cocAttributes) {
-        snapshot.attributes = charData.cocAttributes;
-      }
       snapshots.push(snapshot);
     } catch { /* skip */ }
   }

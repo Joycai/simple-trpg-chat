@@ -8,6 +8,7 @@ import type { ThemeId, ThemeMode } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { listRules } from "@/lib/rules";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
@@ -189,7 +190,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                     <p className="text-xs text-text-muted">{t("desc", { roomName })}</p>
                   </div>
 
-                  {/* Dice rules */}
+                  {/* Dice rules — options enumerate registered rule modules. */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-text-dim font-medium">{t("diceRulesLabel")}</label>
                     <select
@@ -198,13 +199,16 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                       onChange={(e) => setSelectedDiceRules(e.target.value)}
                       className="p-2.5 border border-input-border bg-input-bg rounded-theme outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
                     >
-                      <option value="basic">{t("diceRulesBasic")}</option>
-                      <option value="coc7th">{t("diceRulesCoc7th")}</option>
+                      {listRules().map(rule => (
+                        <option key={rule.id} value={rule.id}>
+                          {rule.id === "basic" ? t("diceRulesBasic") : t(rule.labelKey)}
+                        </option>
+                      ))}
                     </select>
                     <p className="text-xs text-text-muted">{t("diceRulesCoc7thHint")}</p>
                   </div>
 
-                  {/* Rule template */}
+                  {/* Rule template — same registry-driven enumeration. */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-text-dim font-medium">{t("ruleTemplateLabel")}</label>
                     <select
@@ -213,8 +217,9 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                       onChange={(e) => setSelectedRuleTemplate(e.target.value)}
                       className="p-2.5 border border-input-border bg-input-bg rounded-theme outline-none focus:ring-2 focus:ring-primary/50 text-text text-sm"
                     >
-                      <option value="basic">{t("ruleTemplateBasic")}</option>
-                      <option value="coc7th">{t("ruleTemplateCoc7th")}</option>
+                      {listRules().map(rule => (
+                        <option key={rule.id} value={rule.id}>{t(rule.labelKey)}</option>
+                      ))}
                     </select>
                     <p className="text-xs text-text-muted">{t("ruleTemplateHint")}</p>
                   </div>

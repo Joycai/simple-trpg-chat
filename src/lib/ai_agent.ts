@@ -9,6 +9,7 @@ import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { z } from "zod";
 import { computeCocDerived, type CharacterData } from "@/lib/character-types";
+import { getRuleForRoom, listRuleIds } from "@/lib/rules";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({
@@ -61,9 +62,15 @@ async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 
  * buildAgentContext
  * Constructs the LLM context for a specific Bot.
  */
+/**
+ * Build the system + history context array handed to the LLM. The room is
+ * passed in so the active rule module can contribute its prompt fragment
+ * (crit/fumble rules, sheet-shape hints, etc.) instead of this function
+ * branching on rule ids.
+ */
 export async function buildAgentContext(
   botUser: { botConfigJson?: string | null },
-  room: { diceRules?: string | null },
+  room: { diceRules?: string | null; ruleTemplate?: string | null },
   roomId: number,
   botUserId: number,
   preParsedConfig?: BotConfig
@@ -102,15 +109,15 @@ export async function buildAgentContext(
 
   const sortedHistory = [...history].reverse();
 
-  const diceRules = room?.diceRules || "basic";
-  const rulesExplanation = diceRules === "coc7th"
-    ? "Room Dice Rules: COC 7th edition (d100 rolls: 1-5 is Critical Success (大成功), 96-100 is Fumble/Critical Failure (大失败). Lower results are better in skill checks)."
-    : "Room Dice Rules: Basic (No special success/failure grading for raw dice rolls). Note that in CoC/TRPG culture, rolling 100 on d100 is culturally considered a Fumble (大失败), and 1 is a Critical Success (大成功). Please react appropriately to dice roll results.";
+  // The rule module owns its own LLM-facing prompt (crit/fumble rules etc.),
+  // so adding a new ruleset doesn't require touching this builder.
+  const rule = getRuleForRoom(room || {});
+  const rulesExplanation = rule.describeForAI().rulesPrompt;
 
   const context: { role: string; name?: string; content: string; tool_calls?: unknown; tool_call_id?: string }[] = [
     {
       role: "system",
-      content: `${sysPrompt}\n\n[Room Rules]:\n- Dice Rules: ${diceRules}\n- Rule Note: ${rulesExplanation}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
+      content: `${sysPrompt}\n\n[Room Rules]:\n- Rule: ${rule.id}\n- Rule Note: ${rulesExplanation}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
     }
   ];
 
@@ -322,7 +329,9 @@ export async function runAgent(
           properties: {
             ruleTemplate: {
               type: "string",
-              enum: ["basic", "coc7th"],
+              // Enum sourced from the rule registry so any newly registered
+              // rule is advertised to the LLM without a manual edit here.
+              enum: [...listRuleIds()],
               description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card."
             },
             name: { "type": "string", "description": "The character's name" },
@@ -562,18 +571,22 @@ export async function runAgent(
               diceDetail: detail,
             });
 
-            // Get the room rules (pre-fetched room object)
-            const roomDiceRules = room?.diceRules || "basic";
+            // Crit/fumble bounds belong to the rule. The COC module recognizes
+            // them on raw 1d100 rolls; basic adds a "CoC-cultural" hint that
+            // helps the LLM react idiomatically. Other rules contribute no
+            // evaluation here — they'll plug in via a future
+            // `rule.naturalGrade(roll, faces)` hook when needed.
+            const rollRule = getRuleForRoom(room || {});
 
             let evaluation = undefined;
             if (faces === 100 && count === 1) {
-              if (roomDiceRules === "coc7th") {
+              if (rollRule.id === "coc7th") {
                 if (sum <= 5) {
                   evaluation = "Critical Success (大成功)";
                 } else if (sum >= 96) {
                   evaluation = "Fumble (大失败)";
                 }
-              } else {
+              } else if (rollRule.id === "basic") {
                 if (sum === 100) {
                   evaluation = "Fumble (大失败) in CoC rules (though current room uses basic rules)";
                 } else if (sum === 1) {
@@ -586,7 +599,7 @@ export async function runAgent(
               success: true,
               results: rollResults,
               sum,
-              diceRules: roomDiceRules,
+              diceRules: rollRule.id,
               ...(evaluation ? { evaluation } : {})
             };
           } else if (functionName === "send_message") {

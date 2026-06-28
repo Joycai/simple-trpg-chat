@@ -8,6 +8,7 @@ import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
 import Link from "next/link";
+import { listRules } from "@/lib/rules";
 
 /** Shared input/select styling for the create-room modal (rainglass spec). */
 const FIELD_CLS =
@@ -205,8 +206,10 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                       defaultValue="basic"
                       className={FIELD_CLS}
                     >
-                      <option value="basic">{tc("ruleTemplateBasic")}</option>
-                      <option value="coc7th">{tc("ruleTemplateCoc7th")}</option>
+                      {/* Options enumerate registered rule modules so new rules show up automatically. */}
+                      {listRules().map(rule => (
+                        <option key={rule.id} value={rule.id}>{tc(rule.labelKey)}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ import {
   COC_DEFAULT_ATTRIBUTES,
   computeCocDerived,
 } from "@/lib/character-types";
+import { getRule } from "@/lib/rules";
 
 /** Verify that a user is a member of a room. Returns userId on success.
  *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
@@ -42,19 +43,16 @@ async function requireMembership(roomId: number): Promise<number> {
 
 /**
  * Initialize COC 7th character sheet for the current user.
- * Sets default attributes + computed derived values.
+ * Delegates the sheet shape (defaults + derived) to the COC rule module
+ * so the action stays a thin DB writer.
+ *
+ * The action is COC-specific by name — when another rule lands (e.g. 5e)
+ * it'll get its own initializer action that wires up `getRule("dnd5e")`.
  */
 export async function initCocCharacterAction(roomId: number) {
   const userId = await requireMembership(roomId);
 
-  const attrs = { ...COC_DEFAULT_ATTRIBUTES };
-  const derived = computeCocDerived(attrs);
-
-  const characterData: CharacterData = {
-    ruleTemplate: "coc7th",
-    cocAttributes: attrs,
-    cocDerived: derived,
-  };
+  const characterData = getRule("coc7th").initCharacter();
 
   await db.update(roomMembers)
     .set({ characterData: JSON.stringify(characterData) })

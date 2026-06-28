@@ -1,0 +1,75 @@
+/**
+ * Rule-module registry.
+ *
+ * Single source of truth for which rulesets exist. Call sites look up a
+ * module by id via `getRule(...)`; UI dropdowns and DB validation enumerate
+ * via `listRules()`. Adding a new ruleset (e.g. DnD 5e) is a one-line
+ * change here plus the module file — no other code needs to know.
+ *
+ * `getRule` is forgiving: unknown ids, `null`, and `undefined` all resolve
+ * to `basic`, which keeps legacy rooms and stale character JSON working
+ * after schema-level changes land.
+ */
+
+import { basicRule } from "./basic";
+import { coc7thRule } from "./coc7th";
+import type { RuleModule } from "./types";
+
+const REGISTRY = new Map<string, RuleModule>();
+
+function register(rule: RuleModule): void {
+  if (REGISTRY.has(rule.id)) {
+    throw new Error(`Duplicate rule id: ${rule.id}`);
+  }
+  REGISTRY.set(rule.id, rule);
+}
+
+// --- Built-in registrations -------------------------------------------------
+// NOTE: When adding a rule here, also append its id to
+// `RULE_TEMPLATES` / `DICE_RULES` in `src/db/schema.ts` so that the
+// server-side room-settings validators accept it.
+register(basicRule);
+register(coc7thRule);
+// 5e extension point: drop in `rules/dnd5e/index.ts`, then `register(dnd5eRule)`.
+// register(dnd5eRule);
+
+export const DEFAULT_RULE_ID = "basic";
+
+/**
+ * Resolve a rule by id. `null` / `undefined` / unknown ids all fall back
+ * to the default rule rather than throwing — call sites are read paths
+ * (chat commands, character UI, exports) where degrading gracefully is
+ * safer than crashing on legacy data.
+ */
+export function getRule(id: string | null | undefined): RuleModule {
+  if (id == null) return REGISTRY.get(DEFAULT_RULE_ID)!;
+  return REGISTRY.get(id) ?? REGISTRY.get(DEFAULT_RULE_ID)!;
+}
+
+/** All registered rules, in registration order. Drives UI dropdowns. */
+export function listRules(): ReadonlyArray<RuleModule> {
+  return [...REGISTRY.values()];
+}
+
+/** All registered rule ids. Used to seed DB-level `RULE_TEMPLATES` validation. */
+export function listRuleIds(): ReadonlyArray<string> {
+  return [...REGISTRY.keys()];
+}
+
+/**
+ * Transitional: resolve a rule from a room row that still carries both
+ * `ruleTemplate` and `diceRules` columns.
+ *
+ * Honors the pre-refactor OR-collapse semantics — a non-basic value in
+ * either column wins, with `ruleTemplate` taking precedence on conflict.
+ * Phase 4 of the refactor backfills `ruleTemplate` from `diceRules` and
+ * drops this helper.
+ */
+export function getRuleForRoom(room: {
+  ruleTemplate?: string | null;
+  diceRules?: string | null;
+}): RuleModule {
+  if (room.ruleTemplate && room.ruleTemplate !== "basic") return getRule(room.ruleTemplate);
+  if (room.diceRules && room.diceRules !== "basic") return getRule(room.diceRules);
+  return getRule(room.ruleTemplate);
+}
