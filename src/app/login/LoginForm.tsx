@@ -84,7 +84,7 @@ export function LoginForm({ siteTitle, version, icp, icpUrl, noticeReason, notic
       >
         <ThemeLoginHero />
         <div className="flex flex-col items-center text-center gap-3 mb-1">
-          <div className="flex items-center justify-center w-16 h-16 rounded-theme border border-primary/40 bg-primary/10 text-primary shadow-[var(--theme-glow)]">
+          <div className="default-login-icon flex items-center justify-center w-16 h-16 rounded-theme border border-primary/40 bg-primary/10 text-primary shadow-[var(--theme-glow)]">
             <Dice5 className="w-8 h-8" strokeWidth={1.75} />
           </div>
           <div className="space-y-1">

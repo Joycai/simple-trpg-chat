@@ -88,16 +88,18 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Aged vellum and iron-gall ink, wax seals, illuminated fleurons and verdigris map accents — a Western-fantasy manuscript",
     swatch: { bg: "#f4ebd6", border: "#82401e" },
     icon: "🏺",
+    decorations: { loginHero: "parchment" },
   },
   cthulhu: {
     id: "cthulhu",
     name: "克苏鲁的呼唤",
     nameEn: "Call of Cthulhu",
-    description: "深渊墨绿为底，幽灵紫与深渊青荧光双色，长辈印、注视之眼与不可名状的恐惧",
+    description: "因思茅斯雾港深渊黑绿底，达贡教派锈蚀金器与干涸朱砂血红封印，长辈印徽与不可名状的恐惧",
     descriptionEn:
-      "Abyssal black-green with ghost-violet and teal glow, Elder Signs and a watching eye — unnameable dread",
-    swatch: { bg: "#060e10", border: "#4ed6c4" },
+      "Innsmouth foggy-port abyssal black-green with Dagon brass and dried sealing-wax red, an Elder Sign sigil and unnameable dread",
+    swatch: { bg: "#0a1316", border: "#c4a05a" },
     icon: "🦑",
+    decorations: { loginHero: "cthulhu" },
   },
   shrine: {
     id: "shrine",
@@ -119,6 +121,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Cool teal-black night with electric-cyan and neon-magenta reflections, frosted glass panels, raindrops and city glow — a dark-first cyber-city rainy night",
     swatch: { bg: "#060c10", border: "#22d3ee" },
     icon: "🌧️",
+    decorations: { loginHero: "rainglass" },
   },
   aether: {
     id: "aether",
@@ -129,6 +132,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Blue sky, white clouds and golden earth — bright azure with white cloud panels, gilt and verdant earth accents, crystal facets and gilt-filigree command windows — a light-first skybound fantasy adventure",
     swatch: { bg: "#deedfa", border: "#d69e28" },
     icon: "🔮",
+    decorations: { loginHero: "aether" },
   },
 } as const;
 

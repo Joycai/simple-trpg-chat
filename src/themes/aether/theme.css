@@ -1,107 +1,115 @@
-/* ---- Azure Aether — 拟物化苍穹幻境（晴空幻想冒险 · JRPG） ----
-   概念：空之轨迹 / 最终幻想式的世界 —— 蓝天、白云、大地。
-   · LIGHT = 主形态：明亮天蓝（天）+ 洁白云面（云）+ 金辉与草绿大地点缀，
-             水晶切面、飞行石高光、金线花纹指令窗、星芒为母题。
-   · DARK  = 次形态：暖调黄昏 / 星夜苍穹，靛蓝暮色底，鎏金辉光与水晶高光。 */
+/* ---- 苍穹幻境 v2 — 宇宙罗盘（暗夜紫空 · 黄铜铆钉 · 水晶青）----
+   概念：深邃宇宙中的古老罗盘 —— 深紫夜空底，黄铜为主色，水晶青为强调。
+   · DARK  = 主形态：紫黑暗夜底 (#1a1626)，黄铜辉光 (#c9a14a)，水晶青 (#5fd3da)。
+   · LIGHT = 次形态：苍穹罗盘·亮色 —— 羊皮纸底 (#ddcca2)，黄铜铆钉，封蜡红强调。
+   字体：Cinzel (display) · Cormorant Garamond (body) · JetBrains Mono (mono) */
 
-/* ============ LIGHT (baseline) — 蓝天白云大地 ============ */
+/* ============ DARK (baseline) — 暗夜紫空 ============ */
 [data-theme="aether"] {
-  /* === Core palette: bright azure sky + white cloud + golden earth === */
-  --theme-bg: 222 237 250;          /* clear sky blue */
-  --theme-surface: 252 253 255;     /* white cloud */
-  --theme-surface-alt: 235 244 252; /* shaded sky */
-  --theme-border: 198 220 240;      /* hazy horizon line */
-  --theme-text: 30 44 66;           /* deep sky-navy ink */
-  --theme-text-muted: 92 112 140;
-  --theme-text-dim: 150 170 196;
-  --theme-primary: 38 130 214;      /* azure / sky blue */
-  --theme-primary-hover: 28 112 192;
-  --theme-accent: 214 158 40;       /* sunlit earth gold (command-window trim) */
-  --theme-accent-hover: 190 138 26;
-  --theme-accent-foreground: 44 34 12;
-  --theme-danger: 214 69 63;        /* alert crimson */
-  --theme-success: 47 158 99;       /* verdant green — grassy earth */
-  --theme-ai: 17 157 141;           /* orbal teal — AI feature accent */
-  --theme-ai-hover: 13 134 120;
-  --theme-ai-foreground: 255 255 255;
-  --theme-header-bg: 232 242 252;
-  --theme-header-border: 198 220 240;
-  --theme-input-bg: 255 255 255;
-  --theme-input-border: 192 214 236;
-  --theme-dice-card-bg: 236 244 252;
-  --theme-dice-card-border: 198 220 240;
-  --theme-private-border: 214 158 40;  /* a gilt-sealed message */
-  --theme-private-bg: 250 244 226;
-  --theme-scroll-btn: 38 130 214;
-  --theme-warning: 224 132 28;      /* warm sunlit orange-amber */
+  /* === Core palette: deep cosmic purple + brass gold + crystal cyan === */
+  --theme-bg: 26 22 38;              /* deep indigo-purple night */
+  --theme-surface: 39 33 47;         /* elevated panel, warm purple */
+  --theme-surface-alt: 31 26 42;     /* inner block */
+  --theme-border: 58 49 68;          /* subtle amethyst edge */
+  --theme-text: 237 230 214;         /* warm ivory starlight */
+  --theme-text-muted: 168 154 126;   /* aged brass inscription */
+  --theme-text-dim: 124 114 143;     /* distant nebula */
+  --theme-primary: 201 161 74;       /* brass gold */
+  --theme-primary-hover: 216 178 95;
+  --theme-primary-foreground: 42 31 8;
+  --theme-accent: 95 211 218;        /* crystal cyan */
+  --theme-accent-hover: 74 184 191;
+  --theme-accent-foreground: 10 30 31;
+  --theme-danger: 232 104 98;        /* signal crimson */
+  --theme-success: 88 199 154;       /* jade green */
+  --theme-warning: 232 184 74;       /* amber caution */
+  --theme-ai: 167 139 250;           /* violet ether */
+  --theme-ai-hover: 144 112 232;
+  --theme-ai-foreground: 10 8 24;
+  --theme-header-bg: 22 18 32;
+  --theme-header-border: 58 49 68;
+  --theme-input-bg: 31 26 42;
+  --theme-input-border: 58 49 68;
+  --theme-dice-card-bg: 36 30 46;
+  --theme-dice-card-border: 72 62 86;
+  --theme-private-border: 201 161 74;  /* brass-sealed private message */
+  --theme-private-bg: 42 34 18;
+  --theme-scroll-btn: 201 161 74;
 
-  /* === Skill palette — sky / crystal / earth hues === */
-  --theme-skill-0: 38 130 214;   /* azure */
-  --theme-skill-1: 214 158 40;   /* gilt gold */
-  --theme-skill-2: 17 157 141;   /* orbal teal */
-  --theme-skill-3: 47 158 99;    /* verdant green */
-  --theme-skill-4: 150 92 200;   /* amethyst crystal */
-  --theme-skill-5: 214 92 130;   /* rose crystal */
-  --theme-primary-foreground: 255 255 255;
+  /* === Skill palette — brass / crystal / cosmic hues === */
+  --theme-skill-0: 201 161 74;   /* brass gold */
+  --theme-skill-1: 95 211 218;   /* crystal cyan */
+  --theme-skill-2: 88 199 154;   /* jade */
+  --theme-skill-3: 167 139 250;  /* violet ether */
+  --theme-skill-4: 232 184 74;   /* amber */
+  --theme-skill-5: 232 104 168;  /* rose crystal */
 
-  /* === Typography (elegant JRPG-menu serif) === */
-  --theme-radius: 0.6rem;
-  --theme-font: var(--font-crimson), 'Crimson Text', 'Georgia', 'Noto Serif CJK SC', 'Songti SC', serif;
-  --theme-font-display: var(--font-marcellus), var(--font-crimson), 'Noto Serif CJK SC', 'Songti SC', serif;
+  /* === Typography — Cinzel display / Cormorant body / JetBrains mono === */
+  --theme-radius: 0.75rem;
+  --theme-font: var(--font-cormorant), 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+  --theme-font-display: var(--font-cinzel), 'Noto Serif SC', Georgia, serif;
   --theme-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
 
-  /* === Skeuomorphic: gold/azure crystal glow === */
-  --theme-glow: 0 0 8px rgba(214, 158, 40, 0.4),
-               0 0 18px rgba(38, 130, 214, 0.18);
+  /* === Faceted compass corners === */
+  --theme-radius-tl: 0.75rem;
+  --theme-radius-tr: 0.35rem;
+  --theme-radius-br: 0.75rem;
+  --theme-radius-bl: 0.35rem;
 
-  /* === Skeuomorphic: airy elevation + faint gilt rim === */
-  --theme-card-shadow: 0 1px 0 rgba(214, 158, 40, 0.12),
-                       0 6px 16px rgba(40, 90, 150, 0.12),
-                       0 2px 4px rgba(40, 90, 150, 0.08);
+  /* === Brass glow === */
+  --theme-glow: 0 0 10px rgba(201, 161, 74, 0.50),
+               0 0 22px rgba(95, 211, 218, 0.18);
 
-  /* === Skeuomorphic: faint cross-hatch like fine map paper === */
-  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 0 L4 4' stroke='%232682d6' stroke-opacity='0.03' stroke-width='1'/%3E%3C/svg%3E");
+  --theme-card-shadow: 0 1px 0 rgba(201, 161, 74, 0.18),
+                       0 6px 18px rgba(0, 0, 0, 0.55),
+                       0 2px 4px rgba(0, 0, 0, 0.40);
 
-  /* === Signature motif: crystal / floating-stone divider === */
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23d69e28' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%232682d6' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23d69e28'/%3E%3C/svg%3E");
+  /* Faint brass cross-hatch on surfaces */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 0 L4 4' stroke='%23c9a14a' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
 
-  /* === Skeuomorphic: gilt command-window edges === */
-  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='2' y='3' width='196' height='14' rx='2' fill='none' stroke='%23d69e28' stroke-width='1.2'/%3E%3Crect x='5' y='6' width='190' height='8' rx='1' fill='none' stroke='%23d69e28' stroke-width='0.6' stroke-opacity='0.5'/%3E%3C/svg%3E");
-
-  /* === Asymmetric: faceted crystal corners === */
-  --theme-radius-tl: 0.6rem;
-  --theme-radius-tr: 0.3rem;
-  --theme-radius-br: 0.6rem;
-  --theme-radius-bl: 0.3rem;
+  /* Compass-rose divider: brass lines + crystal diamond centre */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23c9a14a' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%235fd3da' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23c9a14a'/%3E%3C/svg%3E");
 }
 
-/* === Bright sky sidebar with a gilt edge === */
+/* Ambient: brass nebula top-left + crystal mist bottom-right on cosmic void */
+[data-theme="aether"] body,
+[data-theme="aether"] .bg-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(62% 48% at 8% -6%, rgba(201, 161, 74, 0.22), transparent 68%),
+    radial-gradient(58% 42% at 100% 100%, rgba(95, 211, 218, 0.14), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 4px 4px;
+}
+
+/* Dark velvet sidebar with brass right edge */
 [data-theme="aether"] .conv-sidebar {
-  background: linear-gradient(180deg, #e6f1fc 0%, #d2e6fa 100%);
-  border-right: 2px solid #c2941e;
+  background: linear-gradient(180deg, #211c2e 0%, #1a1626 100%);
+  border-right: 2px solid rgba(201, 161, 74, 0.55);
 }
 
-/* Gilt command-window tabs */
+/* Compass-style tabs */
 [data-theme="aether"] .conv-tab {
-  background: linear-gradient(90deg, rgba(232, 242, 252, 0.6) 0%, rgba(214, 233, 250, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(39, 33, 47, 0.6) 0%, rgba(31, 26, 42, 0.3) 100%);
   border-left: 3px solid transparent;
-  border-bottom: 1px solid rgba(198, 220, 240, 0.6);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(58, 49, 68, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: all 0.25s ease-in-out;
 }
 [data-theme="aether"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(206, 228, 250, 0.7) 0%, rgba(190, 222, 248, 0.4) 100%);
+  background: linear-gradient(90deg, rgba(50, 43, 60, 0.7) 0%, rgba(39, 33, 47, 0.4) 100%);
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="aether"] .conv-tab.active {
-  background: linear-gradient(90deg, rgba(214, 158, 40, 0.14) 0%, rgba(38, 130, 214, 0.06) 100%);
-  border-left-color: rgb(var(--theme-accent));
-  border-bottom-color: rgba(214, 158, 40, 0.35);
-  box-shadow: 0 2px 6px rgba(40, 90, 150, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.16) 0%, rgb(var(--theme-accent) / 0.06) 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgb(var(--theme-primary) / 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: rgb(var(--theme-primary)) !important;
 }
 
-/* === Signature divider: floating crystal === */
+/* Compass-rose divider */
 [data-theme="aether"] .conv-divider {
   border: 0 !important;
   height: 16px;
@@ -109,50 +117,45 @@
   background-image: var(--theme-divider);
   background-repeat: no-repeat;
   background-position: center;
-  filter: drop-shadow(0 0 3px rgba(214, 158, 40, 0.4));
+  filter: drop-shadow(0 0 3px rgba(201, 161, 74, 0.5));
 }
 
-/* Aether command-window cards (clues, inventory etc.) */
+/* Brass filigree command-window cards */
 [data-theme="aether"] .clue-card,
 [data-theme="aether"] .inventory-card {
-  background-color: #ffffff !important;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.96), rgba(238, 245, 252, 0.96)), var(--theme-surface-texture) !important;
+  background-color: #27212f !important;
+  background-image: linear-gradient(rgba(39, 33, 47, 0.96), rgba(31, 26, 42, 0.96)), var(--theme-surface-texture) !important;
   background-size: auto, 4px 4px !important;
-  border: 1px solid #cdb15a !important;
-  box-shadow: inset 0 0 0 1px rgba(214, 158, 40, 0.18),
-              0 4px 10px rgba(40, 90, 150, 0.12) !important;
+  border: 1px solid rgba(201, 161, 74, 0.40) !important;
+  box-shadow: inset 0 0 0 1px rgba(201, 161, 74, 0.20),
+              0 4px 12px rgba(0, 0, 0, 0.50) !important;
   position: relative;
   overflow: visible;
   transition: all 0.2s ease;
-
-  /* Deep sky-navy ink for crisp contrast on bright paper */
-  --theme-text: 30 44 66;
-  --theme-text-muted: 84 104 132;
-  --theme-text-dim: 134 156 184;
+  --theme-text: 237 230 214;
+  --theme-text-muted: 168 154 126;
+  --theme-text-dim: 124 114 143;
   color: rgb(var(--theme-text)) !important;
 }
-
 [data-theme="aether"] .clue-card:hover,
 [data-theme="aether"] .inventory-card:hover {
-  border-color: rgb(var(--theme-accent)) !important;
-  box-shadow: inset 0 0 0 1px rgba(214, 158, 40, 0.35),
-              0 6px 14px rgba(40, 90, 150, 0.18) !important;
+  border-color: rgba(201, 161, 74, 0.65) !important;
+  box-shadow: inset 0 0 0 1px rgba(201, 161, 74, 0.38),
+              0 6px 16px rgba(0, 0, 0, 0.55) !important;
 }
 
-/* Gold→azure gilt header line across card top (command-window lintel) */
+/* Brass-to-crystal gradient top lintel */
 [data-theme="aether"] .clue-card::before,
 [data-theme="aether"] .inventory-card::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, rgb(var(--theme-accent)), rgb(var(--theme-primary))) !important;
-  box-shadow: 0 0 6px rgba(214, 158, 40, 0.35);
+  background: linear-gradient(90deg, rgb(var(--theme-primary)), rgb(var(--theme-accent))) !important;
+  box-shadow: 0 0 8px rgba(201, 161, 74, 0.45);
 }
 
-/* === Crystal / star-shard chat-bubble decoration === */
+/* Chat bubble star-shard decoration: crystal ◆ for others, brass ◆ for self */
 [data-theme="aether"] .chat-bubble {
   position: relative;
   overflow: visible !important;
@@ -160,158 +163,320 @@
 [data-theme="aether"] .chat-bubble-other::after {
   content: "";
   position: absolute;
-  top: -8px;
-  left: -8px;
-  width: 16px;
-  height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232682d6' fill-opacity='0.85' stroke='%23d69e28' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  top: -8px; left: -8px;
+  width: 16px; height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235fd3da' fill-opacity='0.90' stroke='%23c9a14a' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 0 4px rgba(214, 158, 40, 0.7));
+  filter: drop-shadow(0 0 4px rgba(201, 161, 74, 0.65));
   z-index: 10;
 }
 [data-theme="aether"] .chat-bubble-own::after {
   content: "";
   position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 16px;
-  height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d69e28' fill-opacity='0.9' stroke='%232682d6' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  top: -8px; right: -8px;
+  width: 16px; height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c9a14a' fill-opacity='0.95' stroke='%235fd3da' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 0 4px rgba(38, 130, 214, 0.6));
+  filter: drop-shadow(0 0 4px rgba(95, 211, 218, 0.55));
   z-index: 10;
 }
 
-/* === Skeuomorphic card edge: gilt-filigree command window === */
+/* Brass filigree card edge */
 [data-theme="aether"] .theme-border {
-  box-shadow: inset 0 0 0 1px rgba(214, 158, 40, 0.45),
-              inset 0 0 0 3px rgba(255, 255, 255, 0.6),
-              0 6px 16px rgba(40, 90, 150, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(201, 161, 74, 0.50),
+              inset 0 0 0 3px rgba(255, 255, 255, 0.04),
+              0 6px 18px rgba(0, 0, 0, 0.55);
 }
 
-/* === Lobby filter tabs: golden glow === */
+/* Lobby filter: brass glow indicator */
 [data-theme="aether"] .filter-indicator {
-  background: #d69e28;
-  box-shadow: 0 0 10px rgba(214, 158, 40, 0.55), 0 0 20px rgba(38, 130, 214, 0.2);
+  background: #c9a14a;
+  box-shadow: 0 0 10px rgba(201, 161, 74, 0.65), 0 0 22px rgba(95, 211, 218, 0.22);
 }
 [data-theme="aether"] .filter-tab-active {
-  color: #b8860b;
-  text-shadow: 0 0 8px rgba(214, 158, 40, 0.35);
+  color: #c9a14a;
+  text-shadow: 0 0 8px rgba(201, 161, 74, 0.45);
 }
 
 /* =====================================================================
-   DARK — 暖调黄昏 / 星夜苍穹. Warm indigo dusk firmament, glowing gilt
-   filigree, crystal highlights. Azure brightened so command windows read
-   at night; gold and starlight ink keep the whole night warm.
+   LOGIN CARD — 宇宙罗盘 · Cosmic Compass Rose (DARK)
    ===================================================================== */
-[data-theme="aether"][data-mode="dark"] {
-  --theme-bg: 26 28 48;             /* warm indigo dusk sky */
-  --theme-surface: 40 42 66;        /* high cloud in shadow */
-  --theme-surface-alt: 33 35 56;
-  --theme-border: 60 62 94;         /* dusk horizon line */
-  --theme-text: 236 230 218;        /* warm starlight ivory */
-  --theme-text-muted: 168 162 148;
-  --theme-text-dim: 112 110 100;
-  --theme-primary: 108 168 238;     /* azure, brightened */
-  --theme-primary-hover: 132 186 248;
-  --theme-accent: 232 186 86;       /* gilt gold, glowing */
-  --theme-accent-hover: 244 202 110;
-  --theme-accent-foreground: 28 22 8;
-  --theme-danger: 232 104 98;       /* alert crimson, lifted */
-  --theme-success: 80 188 130;      /* verdant, lifted */
-  --theme-ai: 56 196 178;           /* orbal teal, lifted */
-  --theme-ai-hover: 80 210 194;
-  --theme-ai-foreground: 8 24 22;
-  --theme-header-bg: 32 34 54;
-  --theme-header-border: 60 62 94;
-  --theme-input-bg: 40 42 66;
-  --theme-input-border: 66 68 102;
-  --theme-dice-card-bg: 42 44 70;
-  --theme-dice-card-border: 66 68 102;
-  --theme-private-border: 232 186 86;
-  --theme-private-bg: 46 40 24;     /* gilt-sealed parchment, dark */
-  --theme-scroll-btn: 108 168 238;
-  --theme-warning: 240 176 72;      /* warm dusk amber */
 
-  /* === Skill palette — dusk sky / gilt / crystal === */
-  --theme-skill-0: 108 168 238;  /* azure */
-  --theme-skill-1: 232 186 86;   /* gilt gold */
-  --theme-skill-2: 56 196 178;   /* orbal teal */
-  --theme-skill-3: 80 188 130;   /* verdant */
-  --theme-skill-4: 184 146 236;  /* amethyst */
-  --theme-skill-5: 240 130 168;  /* rose */
-  --theme-primary-foreground: 10 18 34;  /* dark text on bright azure */
+/* Hide the default Dice5 emblem — replaced by the Compass Rose hero below */
+[data-theme="aether"] .default-login-icon { display: none; }
 
-  --theme-card-shadow: 0 1px 0 rgba(232, 186, 86, 0.15),
-                       0 6px 16px rgba(0, 0, 0, 0.5),
-                       0 2px 4px rgba(0, 0, 0, 0.4);
-  --theme-glow: 0 0 8px rgba(232, 186, 86, 0.45),
-               0 0 18px rgba(108, 168, 238, 0.22);
-
-  /* Faint gilt cross-hatch (the azure hatch would vanish on dark) */
-  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 0 L4 4' stroke='%23e8ba56' stroke-opacity='0.04' stroke-width='1'/%3E%3C/svg%3E");
-
-  /* Crystal divider re-cut in brighter azure + gilt */
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23e8ba56' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%236ca8ee' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23e8ba56'/%3E%3C/svg%3E");
+/* Login card chrome — brass corner nails + top filigree line */
+[data-theme="aether"] .login-card {
+  border-color: rgba(201, 161, 74, 0.50) !important;
+  box-shadow:
+    0 0 28px rgba(201, 161, 74, 0.22),
+    0 0 60px rgba(95, 211, 218, 0.08),
+    0 32px 80px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
+  position: relative;
 }
-
-[data-theme="aether"][data-mode="dark"] .conv-sidebar {
-  background: linear-gradient(180deg, #282a42 0%, #1a1c30 100%);
-  border-right: 2px solid #b8902e;
+[data-theme="aether"] .login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 161, 74, 0.85), rgba(95, 211, 218, 0.50), rgba(201, 161, 74, 0.85), transparent);
+  pointer-events: none;
 }
-[data-theme="aether"][data-mode="dark"] .conv-tab {
-  background: linear-gradient(90deg, rgba(40, 42, 66, 0.6) 0%, rgba(33, 35, 56, 0.3) 100%);
-  border-bottom-color: rgba(60, 62, 94, 0.6);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-[data-theme="aether"][data-mode="dark"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(50, 52, 78, 0.7) 0%, rgba(40, 42, 66, 0.4) 100%);
-}
-[data-theme="aether"][data-mode="dark"] .conv-tab.active {
-  background: linear-gradient(90deg, rgb(var(--theme-accent) / 0.16) 0%, rgb(var(--theme-primary) / 0.08) 100%);
-  border-bottom-color: rgb(var(--theme-accent) / 0.35);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+[data-theme="aether"] .login-card::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65));
+  background-repeat: no-repeat;
+  background-size:
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
 }
 
-[data-theme="aether"][data-mode="dark"] .clue-card,
-[data-theme="aether"][data-mode="dark"] .inventory-card {
-  background-color: #282a42 !important;
-  background-image: linear-gradient(rgba(40, 42, 66, 0.95), rgba(33, 35, 56, 0.95)), var(--theme-surface-texture) !important;
-  border: 1px solid #3c3e5e !important;
-  box-shadow: inset 0 0 0 1px rgba(232, 186, 86, 0.22),
-              0 4px 12px rgba(0, 0, 0, 0.45) !important;
-  /* Warm starlight ink for the dark command window */
-  --theme-text: 236 230 218;
-  --theme-text-muted: 168 162 148;
-  --theme-text-dim: 112 110 100;
+/* The Cosmic Compass hero — brass-rimmed badge + flanking gold rules */
+[data-theme="aether"] .aether-login-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  color: rgb(var(--theme-primary));
 }
-[data-theme="aether"][data-mode="dark"] .clue-card:hover,
-[data-theme="aether"][data-mode="dark"] .inventory-card:hover {
-  box-shadow: inset 0 0 0 1px rgba(232, 186, 86, 0.4),
-              0 6px 16px rgba(0, 0, 0, 0.5) !important;
+[data-theme="aether"] .aether-hero-rule {
+  flex: 1;
+  height: 1px;
+}
+[data-theme="aether"] .aether-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(201, 161, 74, 0.6));
+}
+[data-theme="aether"] .aether-hero-rule-right {
+  background: linear-gradient(90deg, rgba(201, 161, 74, 0.6), transparent);
+}
+[data-theme="aether"] .aether-hero-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 161, 74, 0.55);
+  background: radial-gradient(circle, rgba(201, 161, 74, 0.14), transparent 70%);
+  box-shadow:
+    0 0 18px rgba(201, 161, 74, 0.45),
+    0 0 32px rgba(95, 211, 218, 0.18),
+    inset 0 0 12px rgba(201, 161, 74, 0.22);
+  color: rgb(var(--theme-primary));
+}
+[data-theme="aether"] .aether-hero-badge-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(201, 161, 74, 0.4);
+  pointer-events: none;
 }
 
-/* Brighter star-shard so it glints on the night sky */
-[data-theme="aether"][data-mode="dark"] .chat-bubble-other::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236ca8ee' fill-opacity='0.9' stroke='%23e8ba56' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
-}
-[data-theme="aether"][data-mode="dark"] .chat-bubble-own::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e8ba56' fill-opacity='0.95' stroke='%236ca8ee' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+/* =====================================================================
+   LIGHT — 苍穹罗盘·亮色（羊皮纸 + 黄铜铆钉 + 封蜡红强调）
+   Warm parchment base, brass gold primary, sealing-wax red accent.
+   ===================================================================== */
+[data-theme="aether"][data-mode="light"] {
+  --theme-bg: 221 204 162;           /* aged parchment */
+  --theme-surface: 239 228 200;      /* cream vellum */
+  --theme-surface-alt: 232 220 192;  /* shaded parchment */
+  --theme-border: 176 150 104;       /* ink-stained leather edge */
+  --theme-text: 58 47 30;            /* dark sepia ink */
+  --theme-text-muted: 122 106 74;    /* faded ink */
+  --theme-text-dim: 154 138 102;     /* distant script */
+  --theme-primary: 181 133 58;       /* antique brass */
+  --theme-primary-hover: 160 116 50;
+  --theme-primary-foreground: 42 31 8;
+  --theme-accent: 168 69 31;         /* sealing-wax red */
+  --theme-accent-hover: 142 56 25;
+  --theme-accent-foreground: 255 248 245;
+  --theme-danger: 192 57 43;         /* alert crimson */
+  --theme-success: 47 158 99;        /* verdant green */
+  --theme-warning: 196 122 26;       /* amber caution */
+  --theme-ai: 109 99 168;            /* twilight violet */
+  --theme-ai-hover: 92 82 140;
+  --theme-ai-foreground: 255 255 255;
+  --theme-header-bg: 229 214 180;
+  --theme-header-border: 176 150 104;
+  --theme-input-bg: 245 236 212;
+  --theme-input-border: 168 142 96;
+  --theme-dice-card-bg: 235 224 196;
+  --theme-dice-card-border: 168 142 96;
+  --theme-private-border: 181 133 58;
+  --theme-private-bg: 248 238 210;
+  --theme-scroll-btn: 181 133 58;
+
+  /* === Skill palette — parchment hues === */
+  --theme-skill-0: 181 133 58;   /* brass */
+  --theme-skill-1: 168 69 31;    /* sealing-wax red */
+  --theme-skill-2: 47 158 99;    /* green */
+  --theme-skill-3: 109 99 168;   /* violet */
+  --theme-skill-4: 196 122 26;   /* amber */
+  --theme-skill-5: 86 120 172;   /* slate blue */
+
+  --theme-glow: 0 0 10px rgba(181, 133, 58, 0.35),
+               0 0 20px rgba(181, 133, 58, 0.14);
+
+  --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.70),
+                       0 6px 16px rgba(80, 60, 20, 0.14),
+                       0 2px 4px rgba(80, 60, 20, 0.10);
+
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%23b5853a' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
+
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23b5853a' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%23a8451f' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23b5853a'/%3E%3C/svg%3E");
 }
 
-[data-theme="aether"][data-mode="dark"] .theme-border {
-  box-shadow: inset 0 0 0 1px rgba(232, 186, 86, 0.5),
-              inset 0 0 0 3px rgba(255, 255, 255, 0.06),
-              0 6px 16px rgba(0, 0, 0, 0.5);
+[data-theme="aether"][data-mode="light"] body,
+[data-theme="aether"][data-mode="light"] .bg-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(70% 42% at 18% -4%, rgba(255, 236, 180, 0.55), transparent 64%),
+    radial-gradient(60% 42% at 92% 100%, rgba(168, 69, 31, 0.08), transparent 68%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 4px 4px;
 }
 
-[data-theme="aether"][data-mode="dark"] .filter-indicator {
-  background: #e8ba56;
-  box-shadow: 0 0 10px rgba(232, 186, 86, 0.6), 0 0 20px rgba(108, 168, 238, 0.25);
+[data-theme="aether"][data-mode="light"] .conv-sidebar {
+  background: linear-gradient(180deg, rgba(239, 228, 200, 0.85) 0%, rgba(229, 214, 180, 0.80) 100%);
+  backdrop-filter: blur(4px) saturate(1.3);
+  border-right: 2px solid rgba(181, 133, 58, 0.55);
 }
-[data-theme="aether"][data-mode="dark"] .filter-tab-active {
-  color: #e8ba56;
-  text-shadow: 0 0 8px rgba(232, 186, 86, 0.4);
+[data-theme="aether"][data-mode="light"] .conv-tab {
+  background: linear-gradient(90deg, rgba(235, 224, 196, 0.6) 0%, rgba(245, 236, 212, 0.3) 100%);
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid rgba(176, 150, 104, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: all 0.25s ease-in-out;
+}
+[data-theme="aether"][data-mode="light"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(222, 208, 174, 0.7) 0%, rgba(232, 218, 186, 0.4) 100%);
+  color: rgb(var(--theme-text)) !important;
+}
+[data-theme="aether"][data-mode="light"] .conv-tab.active {
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.16) 0%, transparent 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgb(var(--theme-primary) / 0.35);
+  box-shadow: 0 2px 6px rgba(80, 60, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  color: rgb(var(--theme-primary)) !important;
+}
+
+[data-theme="aether"][data-mode="light"] .conv-divider {
+  filter: drop-shadow(0 0 2px rgba(181, 133, 58, 0.40));
+}
+
+[data-theme="aether"][data-mode="light"] .clue-card,
+[data-theme="aether"][data-mode="light"] .inventory-card {
+  background-color: #efe4c8 !important;
+  background-image: linear-gradient(rgba(245, 236, 212, 0.95), rgba(239, 228, 200, 0.95)), var(--theme-surface-texture) !important;
+  background-size: auto, 4px 4px !important;
+  border: 1px solid rgba(181, 133, 58, 0.55) !important;
+  box-shadow: inset 0 0 0 1px rgba(181, 133, 58, 0.22),
+              0 4px 10px rgba(80, 60, 20, 0.14) !important;
+  --theme-text: 58 47 30;
+  --theme-text-muted: 122 106 74;
+  --theme-text-dim: 154 138 102;
+  color: rgb(var(--theme-text)) !important;
+}
+[data-theme="aether"][data-mode="light"] .clue-card:hover,
+[data-theme="aether"][data-mode="light"] .inventory-card:hover {
+  border-color: rgba(181, 133, 58, 0.80) !important;
+  box-shadow: inset 0 0 0 1px rgba(181, 133, 58, 0.38),
+              0 6px 14px rgba(80, 60, 20, 0.18) !important;
+}
+
+/* Light-mode star-shards: brass body + sealing-wax edge */
+[data-theme="aether"][data-mode="light"] .chat-bubble-other::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b5853a' fill-opacity='0.85' stroke='%23a8451f' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 3px rgba(181, 133, 58, 0.50));
+}
+[data-theme="aether"][data-mode="light"] .chat-bubble-own::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a8451f' fill-opacity='0.90' stroke='%23b5853a' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 3px rgba(168, 69, 31, 0.45));
+}
+
+[data-theme="aether"][data-mode="light"] .theme-border {
+  box-shadow: inset 0 0 0 1px rgba(181, 133, 58, 0.50),
+              inset 0 0 0 3px rgba(255, 255, 255, 0.65),
+              0 6px 16px rgba(80, 60, 20, 0.14);
+}
+
+[data-theme="aether"][data-mode="light"] .filter-indicator {
+  background: #b5853a;
+  box-shadow: 0 0 10px rgba(181, 133, 58, 0.55), 0 0 20px rgba(168, 69, 31, 0.20);
+}
+[data-theme="aether"][data-mode="light"] .filter-tab-active {
+  color: #b5853a;
+  text-shadow: 0 0 8px rgba(181, 133, 58, 0.38);
+}
+
+/* =====================================================================
+   LOGIN CARD — 宇宙罗盘 · LIGHT override (parchment + antique brass + sealing-wax red)
+   ===================================================================== */
+
+[data-theme="aether"][data-mode="light"] .login-card {
+  border-color: rgba(181, 133, 58, 0.55) !important;
+  box-shadow:
+    0 0 22px rgba(181, 133, 58, 0.20),
+    0 0 40px rgba(168, 69, 31, 0.08),
+    0 18px 48px rgba(80, 60, 20, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+[data-theme="aether"][data-mode="light"] .login-card::before {
+  background: linear-gradient(90deg, transparent, rgba(181, 133, 58, 0.85), rgba(168, 69, 31, 0.45), rgba(181, 133, 58, 0.85), transparent);
+}
+[data-theme="aether"][data-mode="light"] .login-card::after {
+  background-image:
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65));
+}
+[data-theme="aether"][data-mode="light"] .aether-login-hero {
+  color: rgb(var(--theme-primary));
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(181, 133, 58, 0.6));
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-rule-right {
+  background: linear-gradient(90deg, rgba(181, 133, 58, 0.6), transparent);
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-badge {
+  border-color: rgba(181, 133, 58, 0.55);
+  background: radial-gradient(circle, rgba(181, 133, 58, 0.12), transparent 70%);
+  box-shadow:
+    0 0 14px rgba(181, 133, 58, 0.30),
+    0 0 24px rgba(168, 69, 31, 0.10),
+    inset 0 0 10px rgba(181, 133, 58, 0.18);
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-badge-ring {
+  border-color: rgba(181, 133, 58, 0.4);
 }
