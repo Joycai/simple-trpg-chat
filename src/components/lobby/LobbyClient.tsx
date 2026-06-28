@@ -7,6 +7,7 @@ import { THEME_LIST, getThemeName } from "@/themes/types";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
+import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import Link from "next/link";
 import { listRules } from "@/lib/rules";
 
@@ -185,32 +186,22 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="roomTheme" className="text-xs text-text-muted font-medium">{tc("theme")}</label>
-                    <select
-                      id="roomTheme"
-                      name="theme"
-                      defaultValue="default"
-                      className={FIELD_CLS}
-                    >
+                    <ThemedSelect id="roomTheme" name="theme" defaultValue="default">
                       {THEME_LIST.map((tm) => (
                         <option key={tm.id} value={tm.id}>
                           {tm.icon ? `${tm.icon} ` : ""}{getThemeName(tm.id, locale)}
                         </option>
                       ))}
-                    </select>
+                    </ThemedSelect>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
-                    <select
-                      id="ruleTemplate"
-                      name="ruleTemplate"
-                      defaultValue="basic"
-                      className={FIELD_CLS}
-                    >
-                      {/* Options enumerate registered rule modules so new rules show up automatically. */}
+                    {/* Options enumerate registered rule modules so new rules show up automatically. */}
+                    <ThemedSelect id="ruleTemplate" name="ruleTemplate" defaultValue="basic">
                       {listRules().map(rule => (
                         <option key={rule.id} value={rule.id}>{tc(rule.labelKey)}</option>
                       ))}
-                    </select>
+                    </ThemedSelect>
                   </div>
                 </div>
                 {createError && <Notice variant="error">{createError}</Notice>}

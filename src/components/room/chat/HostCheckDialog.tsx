@@ -5,6 +5,7 @@ import { requestSkillCheckAction, psychologyHiddenRollAction, requestSanCheckAct
 import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { ThemedSelect } from "@/components/shared/ThemedSelect";
 
 interface Player {
   id: number;
@@ -162,15 +163,11 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
               </div>
               <div>
                 <label className="text-sm text-text-muted mb-2 block">{t("diceType")}</label>
-                <div className="relative">
-                  <select value={diceType} onChange={e => setDiceType(e.target.value)}
-                    className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
-                    <option value="d100">d100</option>
-                    <option value="d20">d20</option>
-                    <option value="d10">d10</option>
-                  </select>
-                  <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+                <ThemedSelect value={diceType} onChange={e => setDiceType(e.target.value)}>
+                  <option value="d100">d100</option>
+                  <option value="d20">d20</option>
+                  <option value="d10">d10</option>
+                </ThemedSelect>
               </div>
             </>
           )}
