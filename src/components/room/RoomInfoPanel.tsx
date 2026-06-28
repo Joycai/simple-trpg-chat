@@ -7,6 +7,7 @@ import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction
 import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { listRules } from "@/lib/rules";
 
 interface RoomInfoPanelProps {
   room: {
@@ -15,7 +16,6 @@ interface RoomInfoPanelProps {
     hostId: number;
     secretKey: string;
     theme: string;
-    diceRules: string;
     ruleTemplate: string;
     status: string;
     frozen?: boolean;
@@ -41,16 +41,11 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const [togglingFreeze, setTogglingFreeze] = useState(false);
   const [error, setError] = useState("");
 
+  // Label lookup driven by the rule registry: any registered rule's
+  // i18n label key is honored, unknown ids fall back to their raw value.
   const getRuleTemplateLabel = (val: string) => {
-    if (val === "basic") return ts("ruleTemplateBasic");
-    if (val === "coc7th") return ts("ruleTemplateCoc7th");
-    return val;
-  };
-
-  const getDiceRulesLabel = (val: string) => {
-    if (val === "basic") return ts("diceRulesBasic");
-    if (val === "coc7th") return ts("diceRulesCoc7th");
-    return val;
+    const rule = listRules().find(r => r.id === val);
+    return rule ? ts(rule.labelKey) : val;
   };
 
   const handleSaveName = async () => {
@@ -162,10 +157,6 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-text-muted">{t("ruleTemplate")}</span>
                 <span className="text-sm font-bold text-text">{getRuleTemplateLabel(room.ruleTemplate)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-text-muted">{t("diceRules")}</span>
-                <span className="text-sm font-bold text-text">{getDiceRulesLabel(room.diceRules)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-text-muted">{t("theme")}</span>

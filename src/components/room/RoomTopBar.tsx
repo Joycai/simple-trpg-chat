@@ -6,8 +6,26 @@ import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useClickOutside } from "@/lib/useClickOutside";
 import type { Room } from "@/components/room/types";
+import type { CheckMenuMode } from "@/lib/rules";
 
 type CheckMode = null | "check" | "psychology" | "sancheck";
+
+/**
+ * Static UI mapping for each check-menu mode. The rule's capabilities
+ * say which modes to expose; this map says how each one is rendered.
+ * Adding a new mode means adding a row here AND in the closed VisualGrade
+ * vocabulary in `@/lib/rules/types.ts`.
+ */
+const CHECK_MODE_UI: Record<CheckMenuMode, {
+  Icon: typeof Icons.Target;
+  tone: "primary" | "ai" | "accent";
+  titleKey: string;
+  descKey: string;
+}> = {
+  check:      { Icon: Icons.Target,  tone: "primary", titleKey: "btnCheckNormal", descKey: "btnCheckNormalDesc" },
+  psychology: { Icon: Icons.Eye,     tone: "ai",      titleKey: "btnPsyCheck",    descKey: "btnPsyCheckDesc" },
+  sancheck:   { Icon: Icons.Droplet, tone: "accent",  titleKey: "btnSanCheck",    descKey: "btnSanCheckDesc" },
+};
 
 // Thin vertical rule used to separate logical button groups in the top bar.
 function ToolDivider() {
@@ -19,7 +37,12 @@ interface RoomTopBarProps {
   isHost: boolean;
   nickname: string;
   status: "connecting" | "connected" | "error";
-  roomIsCoc7th: boolean;
+  /**
+   * Check-menu modes exposed by the active rule's capabilities. When > 1, the
+   * TopBar renders a dropdown; when exactly 1, a single direct button. Comes
+   * straight from `rule.capabilities.checkMenuModes`.
+   */
+  checkMenuModes: ReadonlyArray<CheckMenuMode>;
   playerCount: number;
   botCount: number;
   // Sidebar
@@ -65,7 +88,7 @@ export function RoomTopBar({
   isHost,
   nickname,
   status,
-  roomIsCoc7th,
+  checkMenuModes,
   playerCount,
   botCount,
   sidebarCollapsed,
@@ -277,8 +300,10 @@ export function RoomTopBar({
               <span className="inline-flex items-center h-9 px-2.5 rounded-theme border border-accent/50 text-accent text-xs font-bold tracking-wide select-none shrink-0">
                 KP
               </span>
-              {roomIsCoc7th ? (
-                /* COC 7th: a 检定 dropdown holding the three check variants */
+              {checkMenuModes.length > 1 ? (
+                /* Multi-mode rule (e.g. COC): a 检定 dropdown enumerating the
+                   rule's exposed modes. Each row uses the static UI mapping
+                   from CHECK_MODE_UI. */
                 <div className="relative" ref={checkRef}>
                   <button
                     onClick={() => setShowCheckMenu(!showCheckMenu)}
@@ -296,30 +321,29 @@ export function RoomTopBar({
                           {t("checkMenuTitle")}
                         </div>
                         <div className="flex flex-col">
-                          {([
-                            { mode: "check", Icon: Icons.Target, tone: "primary", title: t("btnCheckNormal"), desc: t("btnCheckNormalDesc") },
-                            { mode: "psychology", Icon: Icons.Eye, tone: "ai", title: t("btnPsyCheck"), desc: t("btnPsyCheckDesc") },
-                            { mode: "sancheck", Icon: Icons.Droplet, tone: "accent", title: t("btnSanCheck"), desc: t("btnSanCheckDesc") },
-                          ] as const).map(({ mode, Icon, tone, title, desc }) => (
-                            <button key={mode} onClick={() => setCheckMode(mode)}
-                              className="group w-full text-left flex items-center gap-3 px-2.5 py-2.5 rounded-theme hover:bg-surface-alt transition cursor-pointer">
-                              <span className={`flex items-center justify-center w-10 h-10 rounded-theme shrink-0 ${
-                                tone === "primary" ? "bg-primary/12 text-primary" : tone === "ai" ? "bg-ai/12 text-ai" : "bg-accent/12 text-accent"
-                              }`}>
-                                <Icon className="w-5 h-5" />
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block text-sm font-bold text-text">{title}</span>
-                                <span className="block text-xs text-text-muted truncate">{desc}</span>
-                              </span>
-                            </button>
-                          ))}
+                          {checkMenuModes.map((mode) => {
+                            const { Icon, tone, titleKey, descKey } = CHECK_MODE_UI[mode];
+                            return (
+                              <button key={mode} onClick={() => setCheckMode(mode)}
+                                className="group w-full text-left flex items-center gap-3 px-2.5 py-2.5 rounded-theme hover:bg-surface-alt transition cursor-pointer">
+                                <span className={`flex items-center justify-center w-10 h-10 rounded-theme shrink-0 ${
+                                  tone === "primary" ? "bg-primary/12 text-primary" : tone === "ai" ? "bg-ai/12 text-ai" : "bg-accent/12 text-accent"
+                                }`}>
+                                  <Icon className="w-5 h-5" />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-bold text-text">{t(titleKey)}</span>
+                                  <span className="block text-xs text-text-muted truncate">{t(descKey)}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                   )}
                 </div>
               ) : (
-                /* Non-COC: a single direct 发起检定 button */
+                /* Single-mode rule (basic): a single direct 发起检定 button. */
                 <button
                   onClick={() => setCheckMode(checkMode === "check" ? null : "check")}
                   className={`${iconBtn} ${checkMode === "check" ? iconAccentActive : iconAccentIdle}`}

@@ -4,6 +4,18 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Heart, Eye, Droplet, Plus, Trash2, X, Check } from "lucide-react";
 import type { CocAttributes, computeCocDerived } from "@/lib/character-types";
+import { getRule } from "@/lib/rules";
+
+/**
+ * Icon mapping for rule-declared resource bars. The rule's capabilities only
+ * declare keys + i18n labels (it's a pure module with no React deps); this
+ * client-only map picks the visual.
+ */
+const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string }> = {
+  hp:  { Icon: Heart,   color: "var(--theme-danger)" },
+  san: { Icon: Eye,     color: "var(--theme-ai)" },
+  mp:  { Icon: Droplet, color: "var(--theme-primary)" },
+};
 
 type CocDerived = ReturnType<typeof computeCocDerived>;
 type CustomItem = { name: string; value: number; max?: number };
@@ -35,7 +47,12 @@ export function AttributesTab({
   cocAttrs, onUpdateAttr, customAttrs, onAddCustom, onUpdateCustom, onRemoveCustom,
 }: AttributesTabProps) {
   const t = useTranslations("character");
-  const isCoc = ruleTemplate === "coc7th";
+  // Capability-driven layout: SAN/MP bars and the attribute grid only render
+  // when the active rule advertises them. Future non-COC rules (e.g. DnD 5e
+  // with 6 abilities) plug in by adjusting their `capabilities.attributeKeys`
+  // and `resourceBars` — no edits to this component are needed for them.
+  const cap = getRule(ruleTemplate).capabilities;
+  const hasAttributeGrid = cap.attributeKeys.length > 0;
 
   // A custom item with a `max` renders as a resource bar; without, as a single value.
   const customResources = customAttrs.filter(a => a.max != null);
@@ -47,16 +64,13 @@ export function AttributesTab({
   const [addAttr, setAddAttr] = useState(false);
   const [attrName, setAttrName] = useState(""); const [attrVal, setAttrVal] = useState(10);
 
-  const cocAttrKeys: { key: keyof CocAttributes; tKey: string }[] = [
-    { key: "str", tKey: "str" }, { key: "dex", tKey: "dex" }, { key: "con", tKey: "con" },
-    { key: "int", tKey: "int" }, { key: "pow", tKey: "pow" }, { key: "edu", tKey: "edu" },
-    { key: "siz", tKey: "siz" }, { key: "app", tKey: "app" }, { key: "luck", tKey: "luckAttr" },
-  ];
-
+  // Preset resource bars. HP stays universal (every rule that maintains a
+  // sheet at all has HP); SAN / MP are gated by capability flags so basic and
+  // future non-COC rules drop them automatically.
   const predefined = [
-    { label: t("hp"), icon: <Heart className="w-4 h-4" fill="currentColor" />, color: "var(--theme-danger)", current: currentHp, max: derived.hpMax, onChange: onCurrentHpChange, show: true },
-    { label: t("san"), icon: <Eye className="w-4 h-4" />, color: "var(--theme-ai)", current: currentSan, max: derived.sanMax, onChange: onCurrentSanChange, show: isCoc },
-    { label: t("mp"), icon: <Droplet className="w-4 h-4" />, color: "var(--theme-primary)", current: currentMp, max: derived.mpMax, onChange: onCurrentMpChange, show: isCoc },
+    { label: t("hp"),  iconKey: "hp",  current: currentHp,  max: derived.hpMax,  onChange: onCurrentHpChange,  show: true },
+    { label: t("san"), iconKey: "san", current: currentSan, max: derived.sanMax, onChange: onCurrentSanChange, show: cap.hasSanity },
+    { label: t("mp"),  iconKey: "mp",  current: currentMp,  max: derived.mpMax,  onChange: onCurrentMpChange,  show: cap.hasManaPoints },
   ].filter(r => r.show);
 
   const sectionHeader = (label: string, sub: string, onAdd?: () => void) => (
@@ -94,11 +108,17 @@ export function AttributesTab({
           </div>
         )}
 
-        {predefined.map(r => (
-          <ResourceCard key={r.label} label={r.label} icon={r.icon} color={r.color}
-            current={r.current} max={r.max} editable={canEditResources} maxEditable={false}
-            onCurrent={r.onChange} />
-        ))}
+        {predefined.map(r => {
+          const visual = RESOURCE_ICON[r.iconKey];
+          const Icon = visual?.Icon;
+          return (
+            <ResourceCard key={r.label} label={r.label}
+              icon={Icon ? <Icon className="w-4 h-4" fill={r.iconKey === "hp" ? "currentColor" : undefined} /> : undefined}
+              color={visual?.color ?? "var(--theme-primary)"}
+              current={r.current} max={r.max} editable={canEditResources} maxEditable={false}
+              onCurrent={r.onChange} />
+          );
+        })}
         {customResources.map(r => (
           <ResourceCard key={r.name} label={r.name} color="var(--theme-accent)"
             current={r.value} max={r.max ?? 0} editable={!readOnly} maxEditable={!readOnly}
@@ -109,7 +129,7 @@ export function AttributesTab({
       </div>
 
       {/* ===== Attributes (single values) ===== */}
-      {isCoc && (
+      {hasAttributeGrid && (
         <div className="flex flex-col gap-3">
           {sectionHeader(t("attributesLabel"), t("singleValue"), () => setAddAttr(v => !v))}
 
@@ -125,9 +145,13 @@ export function AttributesTab({
           )}
 
           <div className="grid grid-cols-3 gap-3">
-            {cocAttrKeys.map(({ key, tKey }) => (
-              <AttrCard key={key} label={t(tKey)} value={cocAttrs[key]} readOnly={readOnly}
-                onChange={v => onUpdateAttr(key, v)} />
+            {/* Preset attribute grid is rule-driven. The lookup into cocAttrs
+                is safe because today only the COC rule populates attributeKeys;
+                rules with a different attribute bag (e.g. DnD 5e abilities)
+                will need their own typed accessor in a future iteration. */}
+            {cap.attributeKeys.map(({ key, labelKey }) => (
+              <AttrCard key={key} label={t(labelKey)} value={cocAttrs[key as keyof CocAttributes]} readOnly={readOnly}
+                onChange={v => onUpdateAttr(key as keyof CocAttributes, v)} />
             ))}
             {customSingles.map(a => (
               <AttrCard key={a.name} label={a.name} value={a.value} readOnly={readOnly}
@@ -138,7 +162,7 @@ export function AttributesTab({
         </div>
       )}
 
-      {!isCoc && (
+      {!hasAttributeGrid && (
         <p className="text-xs text-text-dim text-center py-2">{t("generalD100Hint")}</p>
       )}
     </div>

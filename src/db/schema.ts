@@ -36,9 +36,14 @@ export type Theme = (typeof THEMES)[number];
 // theme_mode columns and the THEMES/Theme enum used for room validation.
 export { THEME_MODES, type ThemeMode } from '@/themes/types';
 
-export const DICE_RULES = ['basic', 'coc7th'] as const;
-export type DiceRules = (typeof DICE_RULES)[number];
-
+/**
+ * Whitelist of rule-id values accepted on `rooms.rule_template`.
+ *
+ * IMPORTANT: must stay in lockstep with the rule registry in
+ * `@/lib/rules/registry.ts`. When adding a new rule (e.g. `dnd5e`),
+ * register it in the registry AND append it here so the schema-level
+ * validators in `src/app/actions/room.ts` accept it.
+ */
 export const RULE_TEMPLATES = ['basic', 'coc7th'] as const;
 export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
 
@@ -96,7 +101,6 @@ export const rooms = pgTable('rooms', {
   secretKey: text('secret_key').notNull(),
   theme: text('theme').notNull().default('default'),
   themeMode: text('theme_mode').notNull().default('auto'),
-  diceRules: text('dice_rules').notNull().default('basic'),
   ruleTemplate: text('rule_template').notNull().default('basic'),
   status: text('status').notNull().default('active'),
   frozen: boolean('frozen').notNull().default(false),

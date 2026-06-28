@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { type CharacterData } from "@/lib/character-types";
 import { useTranslations } from "next-intl";
+import { getRule } from "@/lib/rules";
 
 interface ResourceStatusTooltipProps {
   loading: boolean;
@@ -20,11 +21,12 @@ export function ResourceStatusTooltip({
 
   if (!coords) return null;
 
-  const ruleTemplate = charData?.ruleTemplate || "basic";
-
-  // Check if character has set resource status
+  const ruleCap = getRule(charData?.ruleTemplate).capabilities;
+  // A rule with structured resources (e.g. COC's hasSanity) renders its preset
+  // bars when the sheet has derived data; otherwise we fall back to whatever
+  // the player put in customAttributes.
   const hasStatus = !loading && !!charData && (
-    (charData.ruleTemplate === "coc7th" && !!charData.cocDerived) ||
+    (ruleCap.hasSanity && !!charData.cocDerived) ||
     (charData.customAttributes && charData.customAttributes.length > 0)
   );
 
@@ -51,8 +53,11 @@ export function ResourceStatusTooltip({
             {nickname}
           </div>
 
-          {/* COC 7th Specific Resources */}
-          {ruleTemplate === "coc7th" && charData.cocDerived && (
+          {/* Rule-preset resources (HP / SAN / MP / Luck). Only rules whose
+              capabilities advertise SAN render this COC-flavored block; future
+              non-COC rules with their own preset bars will need their own
+              renderer here. */}
+          {ruleCap.hasSanity && charData.cocDerived && (
             <div className="flex flex-col gap-2">
               {/* HP */}
               <div>

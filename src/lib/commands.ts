@@ -12,6 +12,7 @@ import {
   type CocResourceKey,
 } from "@/lib/coc-stats";
 import { COC_DEFAULT_ATTRIBUTES, COC_MAX_SANITY, computeCocDerived, type CharacterData, type CocDerived } from "@/lib/character-types";
+import { getRuleForRoom, type RuleModule, type VisualGrade } from "@/lib/rules";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -68,9 +69,17 @@ export interface TermResult {
 /** Known commands, used for "did you mean …?" suggestions on typos. */
 const KNOWN_COMMANDS = ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"];
 
-/** True when the room runs the COC 7th rule template (either column may carry it). */
-function isCoc7th(room: { diceRules: string | null; ruleTemplate: string | null }): boolean {
-  return room.ruleTemplate === "coc7th" || room.diceRules === "coc7th";
+/** Map a rule's visual grade to the player-facing label + icon. */
+function gradeDisplay(
+  grade: VisualGrade,
+  t: (key: string, opts?: Record<string, string | number | Date>) => string
+): { successLevel: string; icon: string } {
+  switch (grade) {
+    case "critical": return { successLevel: t("critical"), icon: "🟢" };
+    case "fumble":   return { successLevel: t("fumble"),   icon: "🔴" };
+    case "success":  return { successLevel: t("success"),  icon: "✅" };
+    case "failure":  return { successLevel: t("failure"),  icon: "❌" };
+  }
 }
 
 /**
@@ -392,32 +401,33 @@ async function handleSetSkill(
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
-  const coc7th = isCoc7th(room);
+  const rule = getRuleForRoom(room);
 
   const summaryParts: string[] = [];
 
   for (const item of parsed) {
-    const resolved = resolveCocStat(item.name);
+    const route = rule.routeStat(item.name);
 
-    if (coc7th && resolved.kind === "attribute") {
-      // Spec: COC attributes are set on the character sheet, not as skills.
-      await syncCharacterStat(roomId, userId, { kind: "attribute", key: resolved.key }, item.value);
-      await cleanupSkillRows(roomId, userId, item.name, resolved.canonical);
-      summaryParts.push(`${resolved.canonical} ${item.value}`);
+    if (route.kind === "attribute") {
+      // Spec: rule routes this name to a character-sheet attribute.
+      await syncCharacterStat(roomId, userId, { kind: "attribute", key: route.key as CocAttributeKey }, item.value);
+      await cleanupSkillRows(roomId, userId, item.name, route.canonical);
+      summaryParts.push(`${route.canonical} ${item.value}`);
       continue;
     }
 
-    if (coc7th && resolved.kind === "resource") {
+    if (route.kind === "resource") {
       // Spec: resources set the current value only (max is unaffected).
-      const stored = await syncCharacterStat(roomId, userId, { kind: "resource", key: resolved.key }, item.value);
-      await cleanupSkillRows(roomId, userId, item.name, resolved.canonical);
-      summaryParts.push(`${resolved.canonical} ${stored}`);
+      const stored = await syncCharacterStat(roomId, userId, { kind: "resource", key: route.key as CocResourceKey }, item.value);
+      await cleanupSkillRows(roomId, userId, item.name, route.canonical);
+      summaryParts.push(`${route.canonical} ${stored}`);
       continue;
     }
 
-    // Plain skill (or non-COC room). Normalize known stat aliases to a canonical
-    // display name (e.g. san → 理智值) so the skill list stays tidy.
-    const name = resolved.kind === "skill" ? item.name : resolved.canonical;
+    // route.kind === "skill" — generic room_skills write. `canonical` may
+    // still be a normalized form (e.g. COC's `san → 理智值`) when the rule
+    // recognizes the alias but chose to treat it as a skill.
+    const name = route.canonical || item.name;
     await db.insert(roomSkills).values({
       roomId,
       userId,
@@ -467,7 +477,7 @@ async function handleRollCheck(
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
-  const coc7th = isCoc7th(room);
+  const rule = getRuleForRoom(room);
 
   // Optional trailing value: "侦查90" / "侦查 90" → name="侦查", value=90
   const m = trimmedArgs.match(/^(.+?)\s*([0-9]+)$/);
@@ -481,17 +491,17 @@ async function handleRollCheck(
     }
     // One-off check at the supplied value (spec: ignore stored values, do not persist).
     const displayName = displayStatName(skillName);
-    return await performSkillCheck(roomId, userId, displayName, value, coc7th, t, ctx, rawCommand);
+    return await performSkillCheck(roomId, userId, displayName, value, rule, t, ctx, rawCommand);
   }
 
   // No value → look up the stored target.
   const skillName = trimmedArgs;
-  const target = await lookupCheckTarget(roomId, userId, skillName, coc7th);
+  const target = await lookupCheckTarget(roomId, userId, skillName, rule);
   if (target === null) {
     return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }), code: "STAT_NOT_SET" };
   }
 
-  return await performSkillCheck(roomId, userId, target.name, target.value, coc7th, t, ctx, rawCommand);
+  return await performSkillCheck(roomId, userId, target.name, target.value, rule, t, ctx, rawCommand);
 }
 
 /** Canonicalize a stat name for display (san → 理智值, str → 力量, …). */
@@ -502,13 +512,15 @@ function displayStatName(name: string): string {
 
 /**
  * Resolve a check target by name, honoring "skill takes priority over attribute".
- * Order: room_skills (exact name) → COC attribute → COC resource (current value).
+ * Order: room_skills (exact name) → rule-specific fallback (e.g. COC sheet
+ * attribute or resource current value). Basic rules return null on miss,
+ * yielding STAT_NOT_SET upstream.
  */
 async function lookupCheckTarget(
   roomId: number,
   userId: number,
   skillName: string,
-  coc7th: boolean
+  rule: RuleModule
 ): Promise<{ name: string; value: number } | null> {
   const [skill] = await db.select().from(roomSkills).where(
     and(
@@ -519,61 +531,48 @@ async function lookupCheckTarget(
   );
   if (skill) return { name: skillName, value: skill.skillValue };
 
-  if (!coc7th) return null;
-
-  const resolved = resolveCocStat(skillName);
-  if (resolved.kind === "skill") return null;
-
-  const data = await getCharacterData(roomId, userId);
-  if (!data) return null;
-
-  if (resolved.kind === "attribute") {
-    const v = data.cocAttributes?.[resolved.key];
-    if (typeof v === "number") return { name: resolved.canonical, value: v };
-    return null;
-  }
-
-  // resource → current value
-  const d = data.cocDerived;
-  const cur = d?.[`${resolved.key}_current`] ?? d?.[resolved.key];
-  if (typeof cur === "number") return { name: resolved.canonical, value: cur };
-  return null;
+  // Skill row missing — defer to the rule's fallback strategy.
+  const sheet = await getCharacterData(roomId, userId);
+  return rule.lookupFallback(skillName, sheet);
 }
 
-/** Roll a d100 skill check against a target value, format the result, and broadcast it. */
+/**
+ * Roll a skill check via the active rule module, format the result, and
+ * broadcast it. The rule fully owns dice mechanics (which die, comparison
+ * direction, crit/fumble grading); this function only does the i18n + chat
+ * plumbing.
+ */
 async function performSkillCheck(
   roomId: number,
   userId: number,
   skillName: string,
   target: number,
-  coc7th: boolean,
+  rule: RuleModule,
   t: (key: string, opts?: Record<string, string | number | Date>) => string,
   ctx: CommandContext | undefined,
   rawCommand: string
 ): Promise<CommandResult> {
-  const roll = rollDie(100);
+  // The current rule modules (basic / coc7th) don't consult the sheet during
+  // resolveCheck. We pass null to avoid an extra DB read; rules that need
+  // sheet-derived modifiers (e.g. future DnD 5e) will receive the loaded
+  // sheet here.
+  const result = rule.resolveCheck({ skillName, target, sheet: null });
+  const { successLevel, icon } = gradeDisplay(result.grade, t);
 
-  let successLevel = roll <= target ? t("success") : t("failure");
-  let icon = roll <= target ? "✅" : "❌";
-  let grade: "success" | "failure" | "critical" | "fumble" = roll <= target ? "success" : "failure";
+  const detail = attachProxy(
+    JSON.stringify({ ...result.detail, command: rawCommand }),
+    ctx?.proxiedBy
+  );
 
-  // Apply COC 7th crit/fumble rules if enabled
-  if (coc7th) {
-    if (roll <= 5) { successLevel = t("critical"); icon = "🟢"; grade = "critical"; }
-    else if (roll >= 96) { successLevel = t("fumble"); icon = "🔴"; grade = "fumble"; }
-  }
-
-  const detail = attachProxy(JSON.stringify({
-    dice: "d100",
-    count: 1,
-    results: [roll],
-    sum: roll,
-    notation: "1d100",
-    command: rawCommand,
-    check: { skillName, target, roll, success: roll <= target, grade }
-  }), ctx?.proxiedBy);
-
-  const content = t("checkMessage", { skillName, roll, target, successLevel, icon });
+  // For d100 rules `total` is the raw roll; for future d20-style rules it'd be
+  // roll+mods — the chat string template (`checkMessage`) reads it either way.
+  const content = t("checkMessage", {
+    skillName: result.skillName,
+    roll: result.total,
+    target: result.target,
+    successLevel,
+    icon,
+  });
   const vis = visibilityFor(ctx, userId, "channel");
   const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
   return { success: true, isCommand: true, message: msg };
@@ -590,7 +589,9 @@ async function handleSanityCheck(
 ): Promise<CommandResult> {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
-  if (!isCoc7th(room)) {
+  if (!getRuleForRoom(room).capabilities.supportedCommands.includes("sc")) {
+    // Gate via capabilities so future rules can enable/disable `.sc` without
+    // touching the engine. Error key stays as-is for i18n continuity.
     return { success: false, isCommand: true, error: t("scNotCoc7th") };
   }
 

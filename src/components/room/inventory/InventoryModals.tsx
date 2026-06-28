@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Portal } from "./InventorySkeletons";
 import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
+import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import {
   formatContent, typeIcon, typeColorClass, typeActiveClass,
@@ -222,15 +223,15 @@ export function CreateEditModal({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("quantityLabel")}</label>
-                  <select value={quantity} onChange={e => onMetaChange({ ...meta, quantity: Number(e.target.value) })} className={`${fieldCls} cursor-pointer`}>
+                  <ThemedSelect value={quantity} onChange={e => onMetaChange({ ...meta, quantity: Number(e.target.value) })}>
                     {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  </ThemedSelect>
                 </div>
                 <div>
                   <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("holderLabel")}</label>
-                  <select value={holder} onChange={e => setHolder(e.target.value)} className={`${fieldCls} cursor-pointer`}>
+                  <ThemedSelect value={holder} onChange={e => setHolder(e.target.value)}>
                     <option value="">{t("holderPlaceholder")}</option>
-                  </select>
+                  </ThemedSelect>
                 </div>
               </div>
             )}

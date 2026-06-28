@@ -185,12 +185,12 @@ describe("Commands - parseAndRollExpression", () => {
 });
 
 describe("Commands - executeCommand (.sc)", () => {
-  it("should fail with scNotCoc7th when neither rule column is coc7th", async () => {
+  it("should fail with scNotCoc7th when ruleTemplate is basic", async () => {
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "basic", diceRules: "basic" }];
+            return [{ id: 1, ruleTemplate: "basic" }];
           }
           return [];
         })
@@ -203,32 +203,12 @@ describe("Commands - executeCommand (.sc)", () => {
     expect(result.error).toBe("scNotCoc7th");
   });
 
-  it("should treat diceRules=coc7th as a COC room (unified gating)", async () => {
-    mockSelect.mockReturnValue({
-      from: vi.fn((table) => ({
-        where: vi.fn(() => {
-          if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "basic", diceRules: "coc7th" }];
-          }
-          if (table === roomMembers) {
-            return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocDerived: { san: 50, sanMax: 99 } }) }];
-          }
-          return [];
-        })
-      }))
-    });
-
-    const result = await executeCommand(1, 1, ".sc 0/1d6");
-    expect(result.success).toBe(true);
-    expect(result.isCommand).toBe(true);
-  });
-
   it("should succeed and roll check if room.ruleTemplate is coc7th", async () => {
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "basic" }];
+            return [{ id: 1, ruleTemplate: "coc7th" }];
           }
           if (table === roomSkills) {
             return [{ roomId: 1, userId: 1, skillName: "理智值", skillValue: 50 }];
@@ -261,7 +241,7 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+            return [{ id: 1, ruleTemplate: "coc7th" }];
           }
           return []; // roomSkills empty → skill not set
         })
@@ -283,7 +263,7 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+            return [{ id: 1, ruleTemplate: "coc7th" }];
           }
           return [];
         })
@@ -311,7 +291,7 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+            return [{ id: 1, ruleTemplate: "coc7th" }];
           }
           if (table === roomMembers) {
             return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocAttributes: { con: 70 } }) }];
@@ -367,7 +347,7 @@ describe("Commands - .st COC routing", () => {
       from: vi.fn((table) => ({
         where: vi.fn(() => {
           if (table === rooms) {
-            return [{ id: 1, ruleTemplate: "coc7th", diceRules: "coc7th" }];
+            return [{ id: 1, ruleTemplate: "coc7th" }];
           }
           if (table === roomMembers) {
             return [{ characterData: JSON.stringify({ ruleTemplate: "coc7th", cocAttributes: { pow: 60 }, cocDerived: { sanMax: 60 } }) }];

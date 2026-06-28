@@ -152,7 +152,6 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         characterData={currentMember?.characterData || null}
         roomTheme={(room.theme as ThemeId) || "default"}
         roomThemeMode={(room.themeMode as ThemeMode) || "auto"}
-        roomDiceRules={(room as { diceRules?: string }).diceRules || "basic"}
         aiEnabled={aiEnabled}
         validProviderIds={validProviderIds}
         userName={user.name || user.username}

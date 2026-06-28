@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
+import { getRuleForRoom } from "@/lib/rules";
 
 export function RoomClient({
   room,
@@ -28,7 +29,6 @@ export function RoomClient({
   currentNickname,
   roomTheme,
   roomThemeMode,
-  roomDiceRules,
   players = [],
   characterData,
   aiEnabled = false,
@@ -200,7 +200,10 @@ export function RoomClient({
     return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   }, [unreadCounts]);
 
-  const roomIsCoc7th = room.ruleTemplate === "coc7th" || room.diceRules === "coc7th";
+  // Capabilities drive every rule-specific UI gate (TopBar check menu,
+  // tooltips, host-only buttons). Looked up once per render so child props
+  // stay stable.
+  const ruleCapabilities = getRuleForRoom(room).capabilities;
 
   const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
@@ -471,7 +474,7 @@ export function RoomClient({
         isHost={isHost}
         nickname={nickname}
         status={status}
-        roomIsCoc7th={roomIsCoc7th}
+        checkMenuModes={ruleCapabilities.checkMenuModes}
         playerCount={playerCount}
         botCount={botCount}
         sidebarCollapsed={sidebarCollapsed}
@@ -601,7 +604,6 @@ export function RoomClient({
         userRole={userRole}
         roomTheme={roomTheme}
         roomThemeMode={roomThemeMode}
-        roomDiceRules={roomDiceRules}
         inventoryRefreshKey={inventoryRefreshKey}
         skillRefreshKey={skillRefreshKey}
         mentionTargets={mentionTargets}
