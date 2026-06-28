@@ -6,6 +6,8 @@ import { Portal } from "./InventorySkeletons";
 import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
+import { ImageCropper } from "@/components/shared/ImageCropper";
+import { ImagePreview } from "@/components/shared/ImagePreview";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import {
   formatContent, typeIcon, typeColorClass, typeActiveClass,
@@ -14,6 +16,20 @@ import {
 } from "./inventory-helpers";
 
 const TYPE_KEYS = ["clue", "info", "character", "item"] as const;
+
+/** Mirrors `CHAT_IMAGE_MAX_BYTES` in src/lib/uploads.ts (server enforces the same cap). */
+const CHAT_IMAGE_MAX_BYTES = 1024 * 1024;
+const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/** Convert a base64 data URL into a File ready for multipart upload. */
+function dataUrlToFile(url: string, filename: string): File {
+  const [meta, b64] = url.split(",", 2);
+  const mime = meta.match(/data:([^;]+)/)?.[1] || "image/jpeg";
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], filename, { type: mime });
+}
 
 /* === CREATE / EDIT MODAL === */
 interface CreateEditModalProps {
@@ -40,6 +56,9 @@ export function CreateEditModal({
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  /** Source file the user picked, handed to the cropper. Null = cropper closed. */
+  const [cropSource, setCropSource] = useState<File | null>(null);
   const typeTabLabel = (tp: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tp] || tp);
 
   // Type-specific metadata is persisted (lifted to the parent). The 初始持有人 select
@@ -52,15 +71,51 @@ export function CreateEditModal({
   const pillCls = (active: boolean, activeCls: string) =>
     `px-3.5 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${active ? activeCls : "border-border bg-surface-alt/40 text-text-muted hover:text-text hover:border-primary/30"}`;
 
-  const handleUpload = async (file: File | undefined) => {
-    if (!file || !file.type.startsWith("image/")) return;
+  /* Open the cropper instead of uploading directly: it always re-encodes as JPEG
+     and caps the output bytes, which both eliminates the silent oversized-image
+     failure and gives the host control over framing. */
+  const handlePick = (file: File | undefined) => {
+    setUploadError(null);
+    if (!file) return;
+    if (!ALLOWED_IMAGE_MIMES.has(file.type)) {
+      setUploadError(t("errorImageType"));
+      return;
+    }
+    setCropSource(file);
+  };
+
+  /* Receives the cropper's base64 dataURL → uploads it → surfaces server errors. */
+  const handleCroppedUpload = async (dataUrl: string) => {
     setUploading(true);
+    setUploadError(null);
     try {
-      const fd = new FormData(); fd.append("file", file);
+      const cropped = dataUrlToFile(dataUrl, `inventory-${Date.now()}.jpg`);
+      if (cropped.size > CHAT_IMAGE_MAX_BYTES) {
+        setUploadError(t("errorImageTooLarge"));
+        return;
+      }
+      const fd = new FormData();
+      fd.append("file", cropped);
       const res = await fetch(`/api/rooms/${roomId}/images`, { method: "POST", body: fd });
-      if (res.ok) { const { url } = await res.json(); onImageChange(url); }
-    } catch { /* ignore */ }
-    setUploading(false);
+      if (!res.ok) {
+        let msg = tCommon("error");
+        try {
+          const body = await res.json();
+          if (body?.error) msg = body.error;
+        } catch { /* ignore */ }
+        if (res.status === 413) msg = t("errorImageTooLarge");
+        else if (res.status === 415) msg = t("errorImageType");
+        setUploadError(msg);
+        return;
+      }
+      const { url } = await res.json();
+      onImageChange(url);
+      setCropSource(null);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : tCommon("error"));
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -212,8 +267,16 @@ export function CreateEditModal({
                   <label className="flex items-center justify-center gap-2 py-6 rounded-theme border border-dashed border-border text-text-muted hover:border-primary/40 hover:text-text transition cursor-pointer">
                     {uploading ? <Icons.Loader2 className="w-5 h-5 animate-spin" /> : (itemType === "character" ? <Icons.User className="w-5 h-5" /> : <Icons.Image className="w-5 h-5" />)}
                     <span className="text-sm">{uploading ? tCommon("loading") : (itemType === "character" ? t("avatarUploadHint") : itemType === "item" ? t("itemUploadHint") : t("uploadHint"))}</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={e => { handleUpload(e.target.files?.[0]); e.target.value = ""; }} />
+                    <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden"
+                      onChange={e => { handlePick(e.target.files?.[0]); e.target.value = ""; }} />
                   </label>
+                )}
+                <p className="mt-1.5 text-[11px] text-text-dim">{t("uploadConstraintHint")}</p>
+                {uploadError && (
+                  <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-theme border border-danger/40 bg-danger/10 text-xs text-danger">
+                    <Icons.AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{uploadError}</span>
+                  </div>
                 )}
               </div>
             )}
@@ -245,6 +308,15 @@ export function CreateEditModal({
           </div>
         </div>
       </div>
+      {/* Character avatars crop square; clue/item photos stay free-form. */}
+      {cropSource && (
+        <ImageCropper
+          file={cropSource}
+          aspectRatio={itemType === "character" ? 1 : undefined}
+          onCancel={() => setCropSource(null)}
+          onConfirm={handleCroppedUpload}
+        />
+      )}
     </Portal>
   );
 }
@@ -353,6 +425,7 @@ export function DetailModal({
 }: DetailModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const typeLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
   const TypeIcon = typeIcon[detailItem.type];
   const type = detailItem.type;
@@ -413,7 +486,10 @@ export function DetailModal({
           {type === "character" ? (
             <div className="flex items-start gap-3 mb-4">
               {detailItem.imageUrl ? (
-                <img src={detailItem.imageUrl} alt={detailItem.title} className="w-14 h-14 rounded-theme object-cover border border-accent/40 shrink-0" />
+                <button type="button" onClick={() => setPreviewOpen(true)} aria-label={t("imageEnlarge")}
+                  className="shrink-0 rounded-theme overflow-hidden border border-accent/40 cursor-zoom-in hover:brightness-110 transition">
+                  <img src={detailItem.imageUrl} alt={detailItem.title} className="w-14 h-14 object-cover block" />
+                </button>
               ) : (
                 <div className="w-14 h-14 rounded-theme flex items-center justify-center bg-accent/15 border border-accent/40 text-accent font-bold text-2xl shrink-0 font-theme-display">{detailItem.title.charAt(0)}</div>
               )}
@@ -429,7 +505,13 @@ export function DetailModal({
           {/* Evidence / item image — clue + item only */}
           {showImage && (
             detailItem.imageUrl ? (
-              <img src={detailItem.imageUrl} alt={detailItem.title} className="w-full max-h-72 object-cover rounded-theme border border-border mb-4" />
+              <button type="button" onClick={() => setPreviewOpen(true)} aria-label={t("imageEnlarge")}
+                className="block w-full mb-4 rounded-theme overflow-hidden border border-border cursor-zoom-in hover:brightness-105 transition group relative">
+                <img src={detailItem.imageUrl} alt={detailItem.title} className="w-full max-h-72 object-cover block" />
+                <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                  <Icons.Search className="w-3.5 h-3.5" />
+                </span>
+              </button>
             ) : (
               <div className="rounded-theme border border-border bg-surface-alt flex items-center justify-center h-44 mb-4"
                 style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 14px, transparent 14px 28px)" }}>
@@ -522,6 +604,9 @@ export function DetailModal({
           )}
         </div>
       </div>
+      {previewOpen && detailItem.imageUrl && (
+        <ImagePreview src={detailItem.imageUrl} alt={detailItem.title} onClose={() => setPreviewOpen(false)} />
+      )}
     </Portal>
   );
 }
