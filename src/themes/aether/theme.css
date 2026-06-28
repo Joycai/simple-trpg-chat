@@ -201,6 +201,102 @@
 }
 
 /* =====================================================================
+   LOGIN CARD — 宇宙罗盘 · Cosmic Compass Rose (DARK)
+   ===================================================================== */
+
+/* Hide the default Dice5 emblem — replaced by the Compass Rose hero below */
+[data-theme="aether"] .default-login-icon { display: none; }
+
+/* Login card chrome — brass corner nails + top filigree line */
+[data-theme="aether"] .login-card {
+  border-color: rgba(201, 161, 74, 0.50) !important;
+  box-shadow:
+    0 0 28px rgba(201, 161, 74, 0.22),
+    0 0 60px rgba(95, 211, 218, 0.08),
+    0 32px 80px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
+  position: relative;
+}
+[data-theme="aether"] .login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 161, 74, 0.85), rgba(95, 211, 218, 0.50), rgba(201, 161, 74, 0.85), transparent);
+  pointer-events: none;
+}
+[data-theme="aether"] .login-card::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
+    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65));
+  background-repeat: no-repeat;
+  background-size:
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+}
+
+/* The Cosmic Compass hero — brass-rimmed badge + flanking gold rules */
+[data-theme="aether"] .aether-login-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  color: rgb(var(--theme-primary));
+}
+[data-theme="aether"] .aether-hero-rule {
+  flex: 1;
+  height: 1px;
+}
+[data-theme="aether"] .aether-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(201, 161, 74, 0.6));
+}
+[data-theme="aether"] .aether-hero-rule-right {
+  background: linear-gradient(90deg, rgba(201, 161, 74, 0.6), transparent);
+}
+[data-theme="aether"] .aether-hero-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 161, 74, 0.55);
+  background: radial-gradient(circle, rgba(201, 161, 74, 0.14), transparent 70%);
+  box-shadow:
+    0 0 18px rgba(201, 161, 74, 0.45),
+    0 0 32px rgba(95, 211, 218, 0.18),
+    inset 0 0 12px rgba(201, 161, 74, 0.22);
+  color: rgb(var(--theme-primary));
+}
+[data-theme="aether"] .aether-hero-badge-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(201, 161, 74, 0.4);
+  pointer-events: none;
+}
+
+/* =====================================================================
    LIGHT — 苍穹罗盘·亮色（羊皮纸 + 黄铜铆钉 + 封蜡红强调）
    Warm parchment base, brass gold primary, sealing-wax red accent.
    ===================================================================== */
@@ -336,4 +432,51 @@
 [data-theme="aether"][data-mode="light"] .filter-tab-active {
   color: #b5853a;
   text-shadow: 0 0 8px rgba(181, 133, 58, 0.38);
+}
+
+/* =====================================================================
+   LOGIN CARD — 宇宙罗盘 · LIGHT override (parchment + antique brass + sealing-wax red)
+   ===================================================================== */
+
+[data-theme="aether"][data-mode="light"] .login-card {
+  border-color: rgba(181, 133, 58, 0.55) !important;
+  box-shadow:
+    0 0 22px rgba(181, 133, 58, 0.20),
+    0 0 40px rgba(168, 69, 31, 0.08),
+    0 18px 48px rgba(80, 60, 20, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+[data-theme="aether"][data-mode="light"] .login-card::before {
+  background: linear-gradient(90deg, transparent, rgba(181, 133, 58, 0.85), rgba(168, 69, 31, 0.45), rgba(181, 133, 58, 0.85), transparent);
+}
+[data-theme="aether"][data-mode="light"] .login-card::after {
+  background-image:
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
+    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65));
+}
+[data-theme="aether"][data-mode="light"] .aether-login-hero {
+  color: rgb(var(--theme-primary));
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(181, 133, 58, 0.6));
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-rule-right {
+  background: linear-gradient(90deg, rgba(181, 133, 58, 0.6), transparent);
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-badge {
+  border-color: rgba(181, 133, 58, 0.55);
+  background: radial-gradient(circle, rgba(181, 133, 58, 0.12), transparent 70%);
+  box-shadow:
+    0 0 14px rgba(181, 133, 58, 0.30),
+    0 0 24px rgba(168, 69, 31, 0.10),
+    inset 0 0 10px rgba(181, 133, 58, 0.18);
+}
+[data-theme="aether"][data-mode="light"] .aether-hero-badge-ring {
+  border-color: rgba(181, 133, 58, 0.4);
 }

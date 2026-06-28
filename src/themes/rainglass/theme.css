@@ -198,6 +198,101 @@
   backdrop-filter: blur(2px) saturate(1.3);
 }
 
+/* =====================================================================
+   LOGIN CARD — 水珠涟漪 · Drop & Impact Ripples (LIGHT baseline)
+   ===================================================================== */
+
+/* Hide the default Dice5 emblem — replaced by the Drop hero below */
+[data-theme="rainglass"] .default-login-icon { display: none; }
+
+/* Login card chrome — frosted glass + deep teal edge */
+[data-theme="rainglass"] .login-card {
+  border-color: rgba(8, 145, 178, 0.40) !important;
+  box-shadow:
+    0 0 22px rgba(8, 145, 178, 0.18),
+    0 18px 48px rgba(40, 55, 66, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  position: relative;
+}
+[data-theme="rainglass"] .login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(8, 145, 178, 0.85), transparent);
+  pointer-events: none;
+}
+[data-theme="rainglass"] .login-card::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
+    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65));
+  background-repeat: no-repeat;
+  background-size:
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+}
+
+/* The Drop & Ripples hero — cyan-rimmed badge + flanking glass rules */
+[data-theme="rainglass"] .rainglass-login-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  color: rgb(var(--theme-primary));
+}
+[data-theme="rainglass"] .rainglass-hero-rule {
+  flex: 1;
+  height: 1px;
+}
+[data-theme="rainglass"] .rainglass-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(8, 145, 178, 0.6));
+}
+[data-theme="rainglass"] .rainglass-hero-rule-right {
+  background: linear-gradient(90deg, rgba(8, 145, 178, 0.6), transparent);
+}
+[data-theme="rainglass"] .rainglass-hero-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid rgba(8, 145, 178, 0.55);
+  background: radial-gradient(circle, rgba(8, 145, 178, 0.14), transparent 70%);
+  backdrop-filter: blur(3px) saturate(1.3);
+  box-shadow:
+    0 0 18px rgba(8, 145, 178, 0.35),
+    inset 0 0 12px rgba(8, 145, 178, 0.18);
+  color: rgb(var(--theme-primary));
+}
+[data-theme="rainglass"] .rainglass-hero-badge-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(8, 145, 178, 0.4);
+  pointer-events: none;
+}
+
 /* ============ DARK — neon rainy night (the hero) ============ */
 [data-theme="rainglass"][data-mode="dark"] {
   --theme-bg: 6 12 16;              /* deepest cool teal-black sky */
@@ -349,4 +444,52 @@
 [data-theme="rainglass"][data-mode="dark"] .overlay-drawer {
   background-color: rgb(var(--theme-surface) / 0.94) !important;
   backdrop-filter: blur(2px) saturate(1.4);
+}
+
+/* =====================================================================
+   LOGIN CARD — 水珠涟漪 · DARK override (electric cyan over teal-black sky)
+   ===================================================================== */
+
+[data-theme="rainglass"][data-mode="dark"] .login-card {
+  border-color: rgba(34, 211, 238, 0.40) !important;
+  box-shadow:
+    0 0 28px rgba(34, 211, 238, 0.22),
+    0 0 60px rgba(34, 211, 238, 0.08),
+    0 32px 80px rgba(2, 8, 12, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+[data-theme="rainglass"][data-mode="dark"] .login-card::before {
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.85), transparent);
+}
+[data-theme="rainglass"][data-mode="dark"] .login-card::after {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
+    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7));
+}
+[data-theme="rainglass"][data-mode="dark"] .rainglass-login-hero {
+  color: rgb(var(--theme-primary));
+}
+[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.6));
+}
+[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-rule-right {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.6), transparent);
+}
+[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-badge {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.16), transparent 70%);
+  backdrop-filter: blur(4px) saturate(1.5);
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.50),
+    0 0 32px rgba(34, 211, 238, 0.15),
+    inset 0 0 12px rgba(34, 211, 238, 0.22);
+}
+[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-badge-ring {
+  border-color: rgba(34, 211, 238, 0.4);
 }

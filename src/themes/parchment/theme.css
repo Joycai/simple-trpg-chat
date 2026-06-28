@@ -219,6 +219,100 @@
 }
 
 /* =====================================================================
+   LOGIN CARD — 盘剑龙印 · Adventurer's Dragon Seal (DARK)
+   ===================================================================== */
+
+/* Hide the default Dice5 emblem — replaced by the Dragon-Sword hero below */
+[data-theme="parchment"] .default-login-icon { display: none; }
+
+/* Login card chrome — brass corner nails + top gold filigree line */
+[data-theme="parchment"] .login-card {
+  border-color: rgba(202, 161, 90, 0.45) !important;
+  box-shadow:
+    0 0 28px rgba(202, 161, 90, 0.18),
+    0 32px 80px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
+  position: relative;
+}
+[data-theme="parchment"] .login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(202, 161, 90, 0.85), transparent);
+  pointer-events: none;
+}
+[data-theme="parchment"] .login-card::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
+    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6));
+  background-repeat: no-repeat;
+  background-size:
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px,
+    6px 1px, 1px 6px;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+}
+
+/* The Dragon-Sword hero — brass-rimmed badge + flanking gold rules */
+[data-theme="parchment"] .parchment-login-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  color: rgb(var(--theme-primary));
+}
+[data-theme="parchment"] .parchment-hero-rule {
+  flex: 1;
+  height: 1px;
+}
+[data-theme="parchment"] .parchment-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(202, 161, 90, 0.6));
+}
+[data-theme="parchment"] .parchment-hero-rule-right {
+  background: linear-gradient(90deg, rgba(202, 161, 90, 0.6), transparent);
+}
+[data-theme="parchment"] .parchment-hero-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid rgba(202, 161, 90, 0.55);
+  background: radial-gradient(circle, rgba(202, 161, 90, 0.14), transparent 70%);
+  box-shadow:
+    0 0 18px rgba(202, 161, 90, 0.45),
+    inset 0 0 12px rgba(202, 161, 90, 0.22);
+  color: rgb(var(--theme-primary));
+}
+[data-theme="parchment"] .parchment-hero-badge-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(202, 161, 90, 0.4);
+  pointer-events: none;
+}
+
+/* =====================================================================
    LIGHT — 日光下的米黄羊皮卷。新鲜泛黄底，墨褐字，火漆朱砂红强调；
    封蜡 / 花饰 / 边角织纹回到深沉的铁胆墨色调。
    ===================================================================== */
@@ -347,4 +441,49 @@
   color: rgb(var(--theme-primary));
   border-bottom-color: rgb(var(--theme-primary));
   background: rgb(var(--theme-primary) / 0.1);
+}
+
+/* =====================================================================
+   LOGIN CARD — 盘剑龙印 · LIGHT override (daylight aged tan + iron-gall)
+   ===================================================================== */
+
+[data-theme="parchment"][data-mode="light"] .login-card {
+  border-color: rgba(140, 90, 35, 0.45) !important;
+  box-shadow:
+    0 0 22px rgba(140, 90, 35, 0.18),
+    0 18px 48px rgba(80, 50, 20, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+[data-theme="parchment"][data-mode="light"] .login-card::before {
+  background: linear-gradient(90deg, transparent, rgba(140, 90, 35, 0.7), transparent);
+}
+[data-theme="parchment"][data-mode="light"] .login-card::after {
+  background-image:
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
+    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55));
+}
+[data-theme="parchment"][data-mode="light"] .parchment-login-hero {
+  color: rgb(var(--theme-primary));
+}
+[data-theme="parchment"][data-mode="light"] .parchment-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(140, 90, 35, 0.6));
+}
+[data-theme="parchment"][data-mode="light"] .parchment-hero-rule-right {
+  background: linear-gradient(90deg, rgba(140, 90, 35, 0.6), transparent);
+}
+[data-theme="parchment"][data-mode="light"] .parchment-hero-badge {
+  border-color: rgba(140, 90, 35, 0.55);
+  background: radial-gradient(circle, rgba(140, 90, 35, 0.12), transparent 70%);
+  box-shadow:
+    0 0 14px rgba(140, 90, 35, 0.30),
+    inset 0 0 10px rgba(140, 90, 35, 0.18);
+}
+[data-theme="parchment"][data-mode="light"] .parchment-hero-badge-ring {
+  border-color: rgba(140, 90, 35, 0.4);
 }

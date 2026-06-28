@@ -88,6 +88,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Aged vellum and iron-gall ink, wax seals, illuminated fleurons and verdigris map accents — a Western-fantasy manuscript",
     swatch: { bg: "#f4ebd6", border: "#82401e" },
     icon: "🏺",
+    decorations: { loginHero: "parchment" },
   },
   cthulhu: {
     id: "cthulhu",
@@ -120,6 +121,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Cool teal-black night with electric-cyan and neon-magenta reflections, frosted glass panels, raindrops and city glow — a dark-first cyber-city rainy night",
     swatch: { bg: "#060c10", border: "#22d3ee" },
     icon: "🌧️",
+    decorations: { loginHero: "rainglass" },
   },
   aether: {
     id: "aether",
@@ -130,6 +132,7 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
       "Blue sky, white clouds and golden earth — bright azure with white cloud panels, gilt and verdant earth accents, crystal facets and gilt-filigree command windows — a light-first skybound fantasy adventure",
     swatch: { bg: "#deedfa", border: "#d69e28" },
     icon: "🔮",
+    decorations: { loginHero: "aether" },
   },
 } as const;
 
