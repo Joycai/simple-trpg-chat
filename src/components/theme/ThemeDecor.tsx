@@ -3,6 +3,7 @@
 import type { ComponentType } from "react";
 import { THEMES } from "@/themes/types";
 import { ShrineLoginHero } from "@/themes/shrine/ShrineLoginHero";
+import { CthulhuLoginHero } from "@/themes/cthulhu/CthulhuLoginHero";
 import { useTheme } from "./ThemeProvider";
 
 export type CornerPosition = "tl" | "tr" | "bl" | "br";
@@ -70,6 +71,7 @@ export function ThemeCornerDecors() {
  */
 const LOGIN_HERO_REGISTRY: Partial<Record<string, ComponentType>> = {
   shrine: ShrineLoginHero,
+  cthulhu: CthulhuLoginHero,
 };
 
 /**

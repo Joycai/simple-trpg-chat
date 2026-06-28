@@ -21,6 +21,8 @@ import {
   Noto_Serif_SC,
   Courier_Prime,
   Marcellus,
+  Lora,
+  Special_Elite,
 } from "next/font/google";
 
 // --- Default (modern web) ---
@@ -64,6 +66,23 @@ const courierPrime = Courier_Prime({
   subsets: ["latin"],
   weight: ["400", "700"],
   variable: "--font-courier-prime",
+  display: "swap",
+  preload: false,
+});
+
+const lora = Lora({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-lora",
+  display: "swap",
+  preload: false,
+});
+
+const specialElite = Special_Elite({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-special-elite",
   display: "swap",
   preload: false,
 });
@@ -115,4 +134,6 @@ export const fontVariables = [
   shippori.variable,
   notoSerifSC.variable,
   marcellus.variable,
+  lora.variable,
+  specialElite.variable,
 ].join(" ");

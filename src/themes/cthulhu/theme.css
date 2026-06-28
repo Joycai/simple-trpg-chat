@@ -1,87 +1,108 @@
-/* ---- Call of Cthulhu — 拟物化深渊证物柜（未知恐惧 · 哥特恐怖） ----
-   概念：不可名状的未知恐惧与哥特式恐怖。长辈印(Elder Sign)、注视之眼、
-   触手为母题，非欧零圆角为骨架。
-   · DARK  = 深渊墨绿为底，幽灵紫与深渊青荧光双色（原设计）。
-   · LIGHT = 日间档案 / 田野调查笔记：苍白档案纸、墨色正文，紫与青收敛为
-             深墨色强调；零圆角的冰冷骨架保持不变。 */
+/* ---- 克苏鲁的呼唤 · 因思茅斯之影 — Call of Cthulhu: Shadow over Innsmouth ----
+   概念：因思茅斯雾港 · 达贡密会教堂 · 干血红蜡封 · 长老印徽 · 不可名状之恐惧。
+   · DARK  = 主形态：因思茅斯雾港 · 深渊黑绿底 (#0a1316)，
+               玛什家族锈蚀金器 (#c4a05a) + 干涸朱砂血红 (#9e4536)，磷光紫支配者气息。
+   · LIGHT = 次形态：褪色日光 · 旧档案泛黄信纸 (#d5cdb3)，墨色字与同色相功能色。 */
 
-/* ============ LIGHT (baseline) — daylight investigation archive ============ */
+/* ============ DARK (baseline) — Innsmouth fog-port abyssal locker ============ */
 [data-theme="cthulhu"] {
-  --theme-bg: 232 234 230;          /* pale archival paper (cool grey-green) */
-  --theme-surface: 244 245 242;
-  --theme-surface-alt: 224 227 222;
-  --theme-border: 196 200 192;
-  --theme-text: 28 34 36;           /* cold near-black ink */
-  --theme-text-muted: 92 102 104;
-  --theme-text-dim: 138 148 148;
-  --theme-primary: 124 78 200;      /* ghost violet, deepened for light ground */
-  --theme-primary-hover: 104 62 176;
-  --theme-accent: 22 144 128;       /* abyssal teal, deepened to viridian ink */
-  --theme-accent-hover: 16 122 108;
-  --theme-accent-foreground: 244 245 242;
-  --theme-danger: 192 42 42;
-  --theme-success: 36 140 100;
-  --theme-ai: 168 64 140;           /* fungal orchid, deepened */
-  --theme-ai-hover: 148 52 122;
-  --theme-ai-foreground: 244 245 242;
-  --theme-header-bg: 236 238 233;
-  --theme-header-border: 196 200 192;
-  --theme-input-bg: 244 245 242;
-  --theme-input-border: 190 196 188;
-  --theme-dice-card-bg: 236 234 240;
-  --theme-dice-card-border: 202 196 214;
-  --theme-private-border: 124 78 200;
-  --theme-private-bg: 238 234 244;
-  --theme-scroll-btn: 124 78 200;
-  --theme-warning: 184 122 24;      /* sickly amber */
+  --theme-bg: 10 19 22;             /* 深渊黑绿 deepest abyss */
+  --theme-surface: 16 28 32;
+  --theme-surface-alt: 12 23 27;
+  --theme-border: 40 56 61;
+  --theme-text: 221 226 206;        /* 雾港冷光 cold pallid fog-light */
+  --theme-text-muted: 138 150 141;
+  --theme-text-dim: 90 104 100;
+  --theme-primary: 196 160 90;      /* 玛什家族锈蚀金器 / 达贡教派金徽 */
+  --theme-primary-hover: 176 140 70;
+  --theme-primary-foreground: 10 19 22;
+  --theme-accent: 158 69 54;        /* 干涸血红 · 古旧朱砂封印 */
+  --theme-accent-hover: 178 84 66;
+  --theme-accent-foreground: 245 236 216;
+  --theme-danger: 194 85 72;        /* 腐败的内脏红 */
+  --theme-success: 107 148 118;     /* 海藻绿 · 咸湿苔痕 */
+  --theme-warning: 218 168 78;
+  --theme-ai: 138 123 184;          /* 磷光紫 · 旧日支配者气息 */
+  --theme-ai-hover: 158 143 204;
+  --theme-ai-foreground: 10 19 22;
+  --theme-header-bg: 12 23 27;
+  --theme-header-border: 40 56 61;
+  --theme-input-bg: 16 28 32;
+  --theme-input-border: 56 76 82;
+  --theme-dice-card-bg: 16 28 32;
+  --theme-dice-card-border: 56 76 82;
+  --theme-private-border: 158 69 54;
+  --theme-private-bg: 38 22 18;     /* dried blood ground */
+  --theme-scroll-btn: 196 160 90;
 
-  /* === Skill palette — eldritch inks (deepened for pale archive paper) === */
-  --theme-skill-0: 124 78 200;   /* ghost violet */
-  --theme-skill-1: 22 144 128;   /* abyssal teal */
-  --theme-skill-2: 168 64 140;   /* fungal orchid */
-  --theme-skill-3: 36 140 100;   /* viridian green */
-  --theme-skill-4: 40 96 168;    /* deep cold blue */
-  --theme-skill-5: 176 92 36;    /* rust amber */
-  --theme-primary-foreground: 244 245 242;
+  /* === Skill palette — same hue family, no rainbow === */
+  --theme-skill-0: 196 160 90;   /* brass gold (Dagon) */
+  --theme-skill-1: 107 148 118;  /* seaweed green */
+  --theme-skill-2: 138 123 184;  /* phosphor purple */
+  --theme-skill-3: 158 69 54;    /* dried blood red */
+  --theme-skill-4: 96 156 240;   /* cold deep blue */
+  --theme-skill-5: 214 150 70;   /* eldritch amber */
 
-  /* === Shared identity: clinical sans body + gothic display serif, zero corners === */
-  --theme-radius: 0;
-  --theme-font: var(--font-inter), 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
-  --theme-font-display: var(--font-cormorant), var(--font-inter), 'Noto Serif CJK SC', 'Songti SC', serif;
+  /* === Typography — Cormorant Garamond display / Lora body / JetBrains mono === */
+  --theme-radius: 0.6rem;
+  --theme-font: var(--font-lora), 'Lora', var(--font-cormorant), 'Cormorant Garamond', 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --theme-font-display: var(--font-cormorant), 'Cormorant Garamond', 'Noto Serif SC', 'Songti SC', serif;
   --theme-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'Fira Code', monospace;
-  --theme-radius-tl: 0;
-  --theme-radius-tr: 0;
-  --theme-radius-br: 0;
-  --theme-radius-bl: 0;
 
-  /* Light decoration vars */
-  --theme-glow: 0 0 0 3px rgba(124, 78, 200, 0.18);
-  --theme-card-shadow: 0 2px 0 rgba(60, 70, 72, 0.10),
-                       0 4px 10px rgba(40, 50, 52, 0.10);
-  --theme-surface-texture: none;
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23169080' stroke-width='1' opacity='0.65'%3E%3Cpath d='M8 8 H46'/%3E%3Cpath d='M74 8 H112'/%3E%3C/g%3E%3Cpath d='M50 8 Q60 2 70 8 Q60 14 50 8 Z' fill='none' stroke='%23169080' stroke-width='1.2'/%3E%3Ccircle cx='60' cy='8' r='2.2' fill='%23169080'/%3E%3C/svg%3E");
+  /* Subtle asymmetric corners — driftwood panel */
+  --theme-radius-tl: 0.65rem;
+  --theme-radius-tr: 0.5rem;
+  --theme-radius-br: 0.65rem;
+  --theme-radius-bl: 0.5rem;
+
+  /* === Skeuomorphic: rust-spotted brass texture === */
+  --theme-surface-texture: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAKklEQVR4nGMQUlD5D8KSQhpgmgFExL26ogGTYIAxtjT9VwYLwJRCVcoBAAcFGCLHv0d1AAAAAElFTkSuQmCC);
+
+  /* Cold sharp shadow — industrial port locker */
+  --theme-card-shadow: 0 1px 0 rgba(196, 160, 90, 0.08) inset,
+                       0 2px 0 rgba(0, 0, 0, 0.4),
+                       0 6px 18px rgba(0, 0, 0, 0.55);
+  --theme-glow: 0 0 0 3px rgba(196, 160, 90, 0.28),
+                0 0 18px rgba(196, 160, 90, 0.32);
+
+  /* === Watching-eye divider — re-inked in brass === */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23c4a05a' stroke-width='1' opacity='0.55'%3E%3Cpath d='M8 8 H46'/%3E%3Cpath d='M74 8 H112'/%3E%3C/g%3E%3Cpath d='M50 8 Q60 2 70 8 Q60 14 50 8 Z' fill='none' stroke='%23c4a05a' stroke-width='1.2'/%3E%3Ccircle cx='60' cy='8' r='2.2' fill='%23c4a05a'/%3E%3C/svg%3E");
 }
 
+/* === Ambient: distant lighthouse glow top-left + blood-red dusk top-right +
+                Devil Reef phosphor bottom === */
+[data-theme="cthulhu"] body,
+[data-theme="cthulhu"] .bg-bg {
+  background-image:
+    radial-gradient(50% 40% at 12% -2%, rgba(196, 160, 90, 0.18), transparent 70%),
+    radial-gradient(50% 40% at 92% 3%, rgba(158, 69, 54, 0.10), transparent 70%),
+    radial-gradient(80% 50% at 50% 115%, rgba(138, 123, 184, 0.09), transparent 70%);
+}
+
+/* === Foggy-port sidebar === */
 [data-theme="cthulhu"] .conv-sidebar {
-  background: linear-gradient(180deg, #eef0ec 0%, #e0e3dd 100%);
-  border-right: 2px solid #c4c8c0;
+  background: linear-gradient(180deg, #0e1d24 0%, #081218 100%);
+  border-right: 2px solid rgba(196, 160, 90, 0.5);
 }
 [data-theme="cthulhu"] .conv-tab {
-  background: linear-gradient(90deg, rgba(224, 227, 222, 0.5) 0%, rgba(236, 238, 233, 0.25) 100%);
+  background: linear-gradient(90deg, rgba(12, 22, 26, 0.45) 0%, rgba(8, 14, 16, 0.25) 100%);
   border-left: 3px solid transparent;
-  border-bottom: 1px solid rgba(196, 200, 192, 0.6);
+  border-bottom: 1px solid rgba(40, 56, 61, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.03);
   transition: all 0.25s ease-in-out;
 }
 [data-theme="cthulhu"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(212, 216, 208, 0.7) 0%, rgba(224, 227, 222, 0.4) 100%);
+  background: linear-gradient(90deg, rgba(24, 38, 44, 0.6) 0%, rgba(12, 22, 26, 0.35) 100%);
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="cthulhu"] .conv-tab.active {
-  background: linear-gradient(90deg, rgb(var(--theme-accent) / 0.12) 0%, transparent 100%);
-  border-left-color: rgb(var(--theme-accent));
-  border-bottom-color: rgb(var(--theme-accent) / 0.3);
-  color: rgb(var(--theme-accent)) !important;
+  background: linear-gradient(90deg, rgba(196, 160, 90, 0.18) 0%, rgba(12, 22, 26, 0.15) 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgba(196, 160, 90, 0.35);
+  box-shadow: 0 0 12px rgba(196, 160, 90, 0.25), inset 0 1px 0 rgba(255, 240, 200, 0.05);
+  color: rgb(var(--theme-primary)) !important;
 }
+
 [data-theme="cthulhu"] .conv-divider {
   border: 0 !important;
   height: 16px;
@@ -89,23 +110,34 @@
   background-image: var(--theme-divider);
   background-repeat: no-repeat;
   background-position: center;
-  filter: drop-shadow(0 0 1px rgba(22, 144, 128, 0.4));
+  filter: drop-shadow(0 0 3px rgba(196, 160, 90, 0.45));
 }
+
+/* Cards — clue / inventory, deep abyssal surface with rust spots */
 [data-theme="cthulhu"] .clue-card,
 [data-theme="cthulhu"] .inventory-card {
-  background-color: #f4f5f2 !important;
-  border: 1px solid #c4c8c0 !important;
-  box-shadow: inset 0 0 0 1px rgba(124, 78, 200, 0.06),
-              1px 2px 4px rgba(40, 50, 52, 0.10) !important;
+  background-color: #101c20 !important;
+  background-image: linear-gradient(rgba(16, 28, 32, 0.95), rgba(16, 28, 32, 0.95)),
+                    var(--theme-surface-texture) !important;
+  background-size: auto, 8px 8px !important;
+  border: 1px solid #28383d !important;
+  box-shadow: inset 0 1px 0 rgba(196, 160, 90, 0.06),
+              inset 0 0 16px rgba(0, 0, 0, 0.5),
+              1px 2px 4px rgba(0, 0, 0, 0.4) !important;
   position: relative;
   overflow: visible;
   transition: all 0.2s ease;
+  --theme-text: 221 226 206;
+  --theme-text-muted: 138 150 141;
+  --theme-text-dim: 90 104 100;
+  color: rgb(var(--theme-text)) !important;
 }
 [data-theme="cthulhu"] .clue-card:hover,
 [data-theme="cthulhu"] .inventory-card:hover {
-  border-color: rgb(var(--theme-accent)) !important;
-  box-shadow: inset 0 0 0 1px rgba(22, 144, 128, 0.12),
-              0 4px 10px rgba(40, 50, 52, 0.14) !important;
+  border-color: rgb(var(--theme-primary)) !important;
+  box-shadow: inset 0 1px 0 rgba(196, 160, 90, 0.06),
+              inset 0 0 16px rgba(0, 0, 0, 0.5),
+              0 0 14px rgba(196, 160, 90, 0.28) !important;
 }
 [data-theme="cthulhu"] .clue-card::before,
 [data-theme="cthulhu"] .inventory-card::before {
@@ -115,8 +147,11 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, rgb(var(--theme-accent)), rgb(var(--theme-primary))) !important;
+  background: linear-gradient(90deg, rgb(var(--theme-primary)), rgb(var(--theme-accent))) !important;
+  box-shadow: 0 0 8px rgba(196, 160, 90, 0.35);
 }
+
+/* === Chat bubble ornament — Elder Sign in brass === */
 [data-theme="cthulhu"] .chat-bubble {
   position: relative;
   overflow: visible !important;
@@ -128,138 +163,288 @@
   top: -8px;
   width: 16px;
   height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23169080' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M12 3 L14.2 8.9 L20.6 9.2 L15.6 13.2 L17.3 19.3 L12 15.8 L6.7 19.3 L8.4 13.2 L3.4 9.2 L9.8 8.9 Z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c4a05a' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M12 3 L14.2 8.9 L20.6 9.2 L15.6 13.2 L17.3 19.3 L12 15.8 L6.7 19.3 L8.4 13.2 L3.4 9.2 L9.8 8.9 Z'/%3E%3Cpath d='M12 11.5 V14.5' stroke-width='1.9'/%3E%3Ccircle cx='12' cy='11.5' r='0.8' fill='%23c4a05a'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(196, 160, 90, 0.65));
   z-index: 10;
 }
 [data-theme="cthulhu"] .chat-bubble-other::after { left: -8px; }
 [data-theme="cthulhu"] .chat-bubble-own::after { right: -8px; }
+
 [data-theme="cthulhu"] .theme-border {
-  --theme-radius-tl: 0;
-  --theme-radius-tr: 0;
-  --theme-radius-br: 0;
-  --theme-radius-bl: 0;
-  box-shadow: 0 0 8px rgba(124, 78, 200, 0.18),
-              0 4px 10px rgba(40, 50, 52, 0.10);
+  box-shadow: 0 0 12px rgba(196, 160, 90, 0.30),
+              0 0 30px rgba(196, 160, 90, 0.12),
+              inset 0 1px 0 rgba(196, 160, 90, 0.06);
 }
+
 [data-theme="cthulhu"] .filter-indicator {
-  background: #7c4ec8;
-  box-shadow: 0 0 8px rgba(124, 78, 200, 0.35);
+  background: #c4a05a;
+  box-shadow: 0 0 12px rgba(196, 160, 90, 0.55), 0 0 24px rgba(176, 140, 70, 0.25);
 }
 [data-theme="cthulhu"] .filter-tab-active {
-  color: #7c4ec8;
+  color: #d8b96f;
+  text-shadow: 0 0 10px rgba(196, 160, 90, 0.45);
 }
 
-/* ============ DARK — abyssal evidence locker (the original design) ============ */
-[data-theme="cthulhu"][data-mode="dark"] {
-  --theme-bg: 6 14 16;              /* deepest abyss */
-  --theme-surface: 16 28 32;
-  --theme-surface-alt: 10 20 23;
-  --theme-border: 38 56 60;
-  --theme-text: 198 214 216;       /* cold pallid light */
-  --theme-text-muted: 110 134 140;
-  --theme-text-dim: 70 92 98;
-  --theme-primary: 168 122 246;    /* ghost violet (eldritch) */
-  --theme-primary-hover: 150 100 235;
-  --theme-accent: 78 214 196;      /* abyssal teal (fluorescent) */
-  --theme-accent-hover: 56 190 172;
-  --theme-accent-foreground: 6 14 16;
-  --theme-danger: 230 56 56;       /* blood red */
-  --theme-success: 52 200 150;
-  --theme-ai: 213 99 178;          /* fungal orchid — AI feature accent */
-  --theme-ai-hover: 196 84 162;
-  --theme-ai-foreground: 6 14 16;
-  --theme-header-bg: 10 20 23;
-  --theme-header-border: 38 56 60;
-  --theme-input-bg: 16 28 32;
-  --theme-input-border: 48 68 74;
-  --theme-dice-card-bg: 16 28 32;
-  --theme-dice-card-border: 38 56 60;
-  --theme-private-border: 168 122 246;
-  --theme-private-bg: 24 18 38;     /* deep violet-black */
-  --theme-scroll-btn: 168 122 246;
-  --theme-warning: 230 170 70;      /* sickly amber-gold */
+/* =====================================================================
+   LOGIN CARD — Innsmouth Port 通行登记
+   ===================================================================== */
 
-  /* === Skill palette — eldritch fluorescents === */
-  --theme-skill-0: 168 122 246;  /* ghost violet */
-  --theme-skill-1: 78 214 196;   /* abyssal teal */
-  --theme-skill-2: 213 99 178;   /* fungal orchid */
-  --theme-skill-3: 52 200 150;   /* viridian green */
-  --theme-skill-4: 96 156 240;   /* cold blue */
-  --theme-skill-5: 214 150 70;   /* eldritch amber */
-  --theme-primary-foreground: 6 14 16;  /* dark text on light violet */
+/* Hide the default Dice5 emblem — replaced by the Elder Sign hero below */
+[data-theme="cthulhu"] .default-login-icon { display: none; }
 
-  /* === Skeuomorphic: fluorescent glow (breathing pulse) === */
-  --theme-glow: 0 0 8px rgba(168, 122, 246, 0.4),
-               0 0 20px rgba(168, 122, 246, 0.15);
-  /* === Skeuomorphic: cold sharp shadow (industrial) === */
-  --theme-card-shadow: 0 2px 0 rgba(0, 0, 0, 0.35),
-                       0 4px 10px rgba(0, 0, 0, 0.5);
-  /* === Skeuomorphic: rust-spotted metal texture (CSS-only) === */
-  --theme-surface-texture: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAKklEQVR4nGMQUlD5D8KSQhpgmgFExL26ogGTYIAxtjT9VwYLwJRCVcoBAAcFGCLHv0d1AAAAAElFTkSuQmCC);
-  /* === Signature motif: the watching eye divider (the unknown observes) === */
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%234ed6c4' stroke-width='1' opacity='0.55'%3E%3Cpath d='M8 8 H46'/%3E%3Cpath d='M74 8 H112'/%3E%3C/g%3E%3Cpath d='M50 8 Q60 2 70 8 Q60 14 50 8 Z' fill='none' stroke='%234ed6c4' stroke-width='1.2'/%3E%3Ccircle cx='60' cy='8' r='2.2' fill='%234ed6c4'/%3E%3C/svg%3E");
+/* Login card chrome — brass corner nails + top gold rule */
+[data-theme="cthulhu"] .login-card {
+  border-color: rgba(196, 160, 90, 0.45) !important;
+  box-shadow:
+    0 0 28px rgba(196, 160, 90, 0.22),
+    0 32px 80px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
+  position: relative;
+}
+/* top gold filigree line */
+[data-theme="cthulhu"] .login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(196, 160, 90, 0.85), transparent);
+  pointer-events: none;
+}
+/* four corner brass nails */
+[data-theme="cthulhu"] .login-card::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  background-image:
+    /* tl */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    /* tr */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    /* bl */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    /* br */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
+    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6));
+  background-repeat: no-repeat;
+  background-size:
+    6px 1px, 1px 6px,  /* tl */
+    6px 1px, 1px 6px,  /* tr */
+    6px 1px, 1px 6px,  /* bl */
+    6px 1px, 1px 6px;  /* br */
+  background-position:
+    left top,   left top,           /* tl */
+    right top,  right top,          /* tr */
+    left bottom, left bottom,       /* bl */
+    right bottom, right bottom;     /* br */
 }
 
-[data-theme="cthulhu"][data-mode="dark"] .conv-sidebar {
-  background: linear-gradient(180deg, #081218 0%, #0e1d24 100%);
-  border-right: 2px solid #26383c;
+/* The Elder Sign hero — brass-rimmed badge + flanking gold rules */
+[data-theme="cthulhu"] .cthulhu-login-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  color: rgb(var(--theme-primary));
 }
-[data-theme="cthulhu"][data-mode="dark"] .conv-tab {
-  background: linear-gradient(90deg, rgba(12, 22, 26, 0.45) 0%, rgba(8, 14, 16, 0.25) 100%);
-  border-bottom: 1px solid rgba(38, 56, 60, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+[data-theme="cthulhu"] .cthulhu-hero-rule {
+  flex: 1;
+  height: 1px;
 }
-[data-theme="cthulhu"][data-mode="dark"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(24, 38, 44, 0.6) 0%, rgba(12, 22, 26, 0.35) 100%);
+[data-theme="cthulhu"] .cthulhu-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(196, 160, 90, 0.6));
 }
-[data-theme="cthulhu"][data-mode="dark"] .conv-tab.active {
-  background: linear-gradient(90deg, rgba(78, 214, 196, 0.15) 0%, rgba(12, 22, 26, 0.15) 100%);
-  border-bottom-color: rgba(78, 214, 196, 0.3);
-  box-shadow: 0 0 12px rgba(78, 214, 196, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+[data-theme="cthulhu"] .cthulhu-hero-rule-right {
+  background: linear-gradient(90deg, rgba(196, 160, 90, 0.6), transparent);
 }
-[data-theme="cthulhu"][data-mode="dark"] .conv-divider {
-  filter: drop-shadow(0 0 3px rgba(78, 214, 196, 0.5));
+[data-theme="cthulhu"] .cthulhu-hero-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid rgba(196, 160, 90, 0.55);
+  background: radial-gradient(circle, rgba(196, 160, 90, 0.14), transparent 70%);
+  box-shadow:
+    0 0 18px rgba(196, 160, 90, 0.45),
+    inset 0 0 12px rgba(196, 160, 90, 0.22);
+  color: rgb(var(--theme-primary));
 }
-[data-theme="cthulhu"][data-mode="dark"] .clue-card,
-[data-theme="cthulhu"][data-mode="dark"] .inventory-card {
-  background-color: #101c20 !important;
-  background-image: linear-gradient(rgba(16, 28, 32, 0.95), rgba(16, 28, 32, 0.95)), var(--theme-surface-texture) !important;
-  background-size: 8px 8px !important;
-  border: 1px solid #26383c !important;
-  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.45),
-              1px 2px 4px rgba(0, 0, 0, 0.35) !important;
-  --theme-text: 210 230 235;
-  --theme-text-muted: 125 155 165;
-  --theme-text-dim: 80 110 120;
-  color: rgb(var(--theme-text)) !important;
+[data-theme="cthulhu"] .cthulhu-hero-badge-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(196, 160, 90, 0.4);
+  pointer-events: none;
 }
-[data-theme="cthulhu"][data-mode="dark"] .clue-card:hover,
-[data-theme="cthulhu"][data-mode="dark"] .inventory-card:hover {
-  border-color: rgb(var(--theme-accent)) !important;
-  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.45),
-              0 0 12px rgba(78, 214, 196, 0.25) !important;
+
+/* =====================================================================
+   LIGHT — 褪色日光下的旧档案 / 泛黄信纸。同色相收敛，骨架不变。
+   ===================================================================== */
+[data-theme="cthulhu"][data-mode="light"] {
+  --theme-bg: 213 205 179;           /* faded archive paper */
+  --theme-surface: 226 217 192;
+  --theme-surface-alt: 205 196 169;
+  --theme-border: 163 152 121;
+  --theme-text: 28 26 19;            /* cold ink */
+  --theme-text-muted: 86 78 60;
+  --theme-text-dim: 125 116 92;
+  --theme-primary: 125 94 26;        /* deep brass on cream */
+  --theme-primary-hover: 99 73 19;
+  --theme-primary-foreground: 245 236 210;
+  --theme-accent: 122 44 31;         /* dried sealing-wax red */
+  --theme-accent-hover: 102 36 25;
+  --theme-accent-foreground: 245 236 210;
+  --theme-danger: 160 57 43;
+  --theme-success: 68 107 79;
+  --theme-warning: 168 110 24;
+  --theme-ai: 94 75 148;             /* deepened phosphor purple */
+  --theme-ai-hover: 78 60 124;
+  --theme-ai-foreground: 245 236 210;
+  --theme-header-bg: 220 211 184;
+  --theme-header-border: 163 152 121;
+  --theme-input-bg: 232 222 196;
+  --theme-input-border: 170 156 124;
+  --theme-dice-card-bg: 232 222 196;
+  --theme-dice-card-border: 170 156 124;
+  --theme-private-border: 122 44 31;
+  --theme-private-bg: 232 216 196;
+  --theme-scroll-btn: 125 94 26;
+
+  --theme-skill-0: 125 94 26;
+  --theme-skill-1: 68 107 79;
+  --theme-skill-2: 94 75 148;
+  --theme-skill-3: 122 44 31;
+  --theme-skill-4: 40 96 168;
+  --theme-skill-5: 150 100 30;
+
+  --theme-card-shadow: 0 2px 0 rgba(80, 60, 30, 0.10),
+                       0 4px 10px rgba(80, 60, 30, 0.12);
+  --theme-glow: 0 0 0 3px rgba(125, 94, 26, 0.22),
+                0 0 14px rgba(125, 94, 26, 0.18);
+  --theme-surface-texture: none;
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%237d5e1a' stroke-width='1' opacity='0.65'%3E%3Cpath d='M8 8 H46'/%3E%3Cpath d='M74 8 H112'/%3E%3C/g%3E%3Cpath d='M50 8 Q60 2 70 8 Q60 14 50 8 Z' fill='none' stroke='%237d5e1a' stroke-width='1.2'/%3E%3Ccircle cx='60' cy='8' r='2.2' fill='%237d5e1a'/%3E%3C/svg%3E");
 }
-[data-theme="cthulhu"][data-mode="dark"] .clue-card::before,
-[data-theme="cthulhu"][data-mode="dark"] .inventory-card::before {
-  box-shadow: 0 0 8px rgba(78, 214, 196, 0.35);
+
+/* Daylight ambient — sun on the archive */
+[data-theme="cthulhu"][data-mode="light"] body,
+[data-theme="cthulhu"][data-mode="light"] .bg-bg {
+  background-image:
+    radial-gradient(50% 40% at 12% -2%, rgba(125, 94, 26, 0.10), transparent 70%),
+    radial-gradient(50% 40% at 92% 3%, rgba(122, 44, 31, 0.07), transparent 70%),
+    radial-gradient(80% 50% at 50% 115%, rgba(94, 75, 148, 0.06), transparent 70%);
 }
-[data-theme="cthulhu"][data-mode="dark"] .chat-bubble-other::after,
-[data-theme="cthulhu"][data-mode="dark"] .chat-bubble-own::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ed6c4' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M12 3 L14.2 8.9 L20.6 9.2 L15.6 13.2 L17.3 19.3 L12 15.8 L6.7 19.3 L8.4 13.2 L3.4 9.2 L9.8 8.9 Z'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 4px rgba(78, 214, 196, 0.8));
+
+[data-theme="cthulhu"][data-mode="light"] .conv-sidebar {
+  background: linear-gradient(180deg, #e2d9c0 0%, #cdc4a9 100%);
+  border-right: 2px solid #a39879;
 }
-[data-theme="cthulhu"][data-mode="dark"] .theme-border {
-  box-shadow: 0 0 12px rgba(168, 122, 246, 0.35),
-              0 0 30px rgba(168, 122, 246, 0.15),
-              0 0 60px rgba(168, 122, 246, 0.06);
+[data-theme="cthulhu"][data-mode="light"] .conv-tab {
+  background: linear-gradient(90deg, rgba(213, 205, 179, 0.45) 0%, rgba(226, 217, 192, 0.25) 100%);
+  border-bottom: 1px solid rgba(163, 152, 121, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
-[data-theme="cthulhu"][data-mode="dark"] .filter-indicator {
-  background: #a87af6;
-  box-shadow: 0 0 12px rgba(168, 122, 246, 0.55), 0 0 24px rgba(120, 90, 235, 0.25);
+[data-theme="cthulhu"][data-mode="light"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(196, 188, 162, 0.6) 0%, rgba(213, 205, 179, 0.35) 100%);
 }
-[data-theme="cthulhu"][data-mode="dark"] .filter-tab-active {
-  color: #c4aef9;
-  text-shadow: 0 0 10px rgba(168, 122, 246, 0.45);
+[data-theme="cthulhu"][data-mode="light"] .conv-tab.active {
+  background: linear-gradient(90deg, rgba(125, 94, 26, 0.16) 0%, transparent 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgba(125, 94, 26, 0.32);
+  box-shadow: 0 2px 4px rgba(80, 60, 30, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: rgb(var(--theme-primary)) !important;
+}
+[data-theme="cthulhu"][data-mode="light"] .conv-divider {
+  filter: drop-shadow(0 0 1px rgba(125, 94, 26, 0.4));
+}
+
+[data-theme="cthulhu"][data-mode="light"] .clue-card,
+[data-theme="cthulhu"][data-mode="light"] .inventory-card {
+  background-color: #e8dec4 !important;
+  background-image: none !important;
+  border: 1px solid #a39879 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+              inset 0 0 0 1px rgba(125, 94, 26, 0.06),
+              1px 2px 4px rgba(80, 60, 30, 0.12) !important;
+  --theme-text: 28 26 19;
+  --theme-text-muted: 86 78 60;
+  --theme-text-dim: 125 116 92;
+}
+[data-theme="cthulhu"][data-mode="light"] .clue-card:hover,
+[data-theme="cthulhu"][data-mode="light"] .inventory-card:hover {
+  border-color: rgb(var(--theme-primary)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+              inset 0 0 0 1px rgba(125, 94, 26, 0.12),
+              0 4px 10px rgba(80, 60, 30, 0.16) !important;
+}
+[data-theme="cthulhu"][data-mode="light"] .clue-card::before,
+[data-theme="cthulhu"][data-mode="light"] .inventory-card::before {
+  box-shadow: none;
+}
+
+[data-theme="cthulhu"][data-mode="light"] .chat-bubble-other::after,
+[data-theme="cthulhu"][data-mode="light"] .chat-bubble-own::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237d5e1a' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M12 3 L14.2 8.9 L20.6 9.2 L15.6 13.2 L17.3 19.3 L12 15.8 L6.7 19.3 L8.4 13.2 L3.4 9.2 L9.8 8.9 Z'/%3E%3Cpath d='M12 11.5 V14.5' stroke-width='1.9'/%3E%3Ccircle cx='12' cy='11.5' r='0.8' fill='%237d5e1a'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 1px 2px rgba(80, 60, 30, 0.4));
+}
+
+[data-theme="cthulhu"][data-mode="light"] .theme-border {
+  box-shadow: 0 0 8px rgba(125, 94, 26, 0.18),
+              0 4px 10px rgba(80, 60, 30, 0.10);
+}
+
+[data-theme="cthulhu"][data-mode="light"] .filter-indicator {
+  background: #7d5e1a;
+  box-shadow: 0 0 8px rgba(125, 94, 26, 0.35);
+}
+[data-theme="cthulhu"][data-mode="light"] .filter-tab-active {
+  color: #7d5e1a;
+  text-shadow: none;
+}
+
+/* Light-mode login chrome — pale brass + faded archive */
+[data-theme="cthulhu"][data-mode="light"] .login-card {
+  border-color: rgba(125, 94, 26, 0.45) !important;
+  box-shadow:
+    0 0 22px rgba(125, 94, 26, 0.18),
+    0 18px 48px rgba(80, 60, 30, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+[data-theme="cthulhu"][data-mode="light"] .login-card::before {
+  background: linear-gradient(90deg, transparent, rgba(125, 94, 26, 0.7), transparent);
+}
+[data-theme="cthulhu"][data-mode="light"] .login-card::after {
+  background-image:
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
+    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55));
+}
+[data-theme="cthulhu"][data-mode="light"] .cthulhu-login-hero {
+  color: rgb(var(--theme-primary));
+}
+[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-rule-left {
+  background: linear-gradient(90deg, transparent, rgba(125, 94, 26, 0.6));
+}
+[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-rule-right {
+  background: linear-gradient(90deg, rgba(125, 94, 26, 0.6), transparent);
+}
+[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-badge {
+  border-color: rgba(125, 94, 26, 0.55);
+  background: radial-gradient(circle, rgba(125, 94, 26, 0.12), transparent 70%);
+  box-shadow:
+    0 0 14px rgba(125, 94, 26, 0.30),
+    inset 0 0 10px rgba(125, 94, 26, 0.18);
+}
+[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-badge-ring {
+  border-color: rgba(125, 94, 26, 0.4);
 }

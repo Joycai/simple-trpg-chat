@@ -1,94 +1,108 @@
-/* ---- Aged Parchment — 拟物化羊皮卷（DND 西幻手稿） ----
-   概念：DND 等西方奇幻背景。古旧羊皮卷 / 牛皮纸质感，铁胆墨水、
-   封蜡、铜绿地图墨、泥金手稿花饰、皮革装帧为母题。 */
+/* ---- 古旧羊皮卷 — Aged Parchment（烛光下的羊皮手稿 / DND 西幻）----
+   DARK  = 主形态：深褐烛影羊皮 (#1a130b)，墨金 (#caa15a)，火漆红 (#c44a38)。
+   LIGHT = 次形态：日光米黄羊皮 (#e6d3a5)，墨褐 (#8c5a23)，朱砂红 (#9a2818)。 */
+
+/* ============ DARK (baseline) — 烛光下的深色羊皮 ============ */
 [data-theme="parchment"] {
-  /* === Core palette: aged vellum + sepia ink === */
-  --theme-bg: 244 235 214;          /* aged tan vellum */
-  --theme-surface: 252 246 230;     /* fresh parchment */
-  --theme-surface-alt: 234 218 186; /* darker leaf */
-  --theme-border: 178 148 108;      /* sepia line */
-  --theme-text: 58 40 22;           /* iron-gall ink (warm sepia-black) */
-  --theme-text-muted: 128 102 70;
-  --theme-text-dim: 162 136 102;
-  --theme-primary: 130 64 30;       /* burnt sienna leather */
-  --theme-primary-hover: 100 48 20;
-  --theme-accent: 60 112 98;        /* verdigris (cartographer's ink / copper patina) */
-  --theme-accent-hover: 46 90 78;
-  --theme-accent-foreground: 252 246 230;
-  --theme-danger: 166 42 38;        /* heraldic red */
-  --theme-success: 94 110 52;       /* olive / sage */
-  --theme-ai: 74 86 146;            /* cartographer's indigo ink — AI feature accent */
-  --theme-ai-hover: 58 70 126;
-  --theme-ai-foreground: 252 246 230;
-  --theme-header-bg: 236 220 188;
-  --theme-header-border: 178 148 108;
-  --theme-input-bg: 252 246 230;
-  --theme-input-border: 184 154 112;
-  --theme-dice-card-bg: 240 226 196;
-  --theme-dice-card-border: 184 154 112;
-  --theme-private-border: 158 50 42;   /* sealing-wax red (a sealed letter) */
-  --theme-private-bg: 246 232 214;
-  --theme-scroll-btn: 130 64 30;
-  --theme-warning: 168 110 24;      /* ochre warning ink */
+  --theme-bg: 26 19 11;              /* dark leather */
+  --theme-surface: 37 26 15;         /* candlelit vellum */
+  --theme-surface-alt: 31 21 9;
+  --theme-border: 74 54 36;          /* dim sepia line */
+  --theme-text: 234 216 176;         /* warm candlelit ink */
+  --theme-text-muted: 179 154 114;
+  --theme-text-dim: 122 100 70;
+  --theme-primary: 202 161 90;       /*墨金 / ink gold */
+  --theme-primary-hover: 176 136 70;
+  --theme-primary-foreground: 26 19 11;
+  --theme-accent: 196 74 56;         /* 火漆印红 / sealing-wax red */
+  --theme-accent-hover: 216 92 70;
+  --theme-accent-foreground: 26 19 11;
+  --theme-danger: 168 51 35;
+  --theme-success: 138 160 90;       /* 铜绿 / verdigris-olive */
+  --theme-warning: 218 168 78;
+  --theme-ai: 126 145 184;           /* 制图师靛蓝 / cartographer indigo */
+  --theme-ai-hover: 148 167 206;
+  --theme-ai-foreground: 26 19 11;
+  --theme-header-bg: 31 21 9;
+  --theme-header-border: 74 54 36;
+  --theme-input-bg: 37 26 15;
+  --theme-input-border: 88 66 44;
+  --theme-dice-card-bg: 46 33 19;
+  --theme-dice-card-border: 88 66 44;
+  --theme-private-border: 196 74 56; /* 封蜡 / wax seal */
+  --theme-private-bg: 56 34 22;
+  --theme-scroll-btn: 202 161 90;
 
-  /* === Skill palette — traditional manuscript inks (deepened for cream paper) === */
-  --theme-skill-0: 130 64 30;    /* burnt sienna */
-  --theme-skill-1: 60 112 98;    /* verdigris */
-  --theme-skill-2: 74 86 146;    /* indigo ink */
-  --theme-skill-3: 158 50 42;    /* sealing-wax red */
-  --theme-skill-4: 110 78 140;   /* amethyst ink */
-  --theme-skill-5: 150 100 30;   /* gold ochre */
-  --theme-primary-foreground: 252 246 230;  /* cream, softer than pure white */
+  /* === Skill palette — illuminated-manuscript inks, candlelit === */
+  --theme-skill-0: 202 161 90;   /* ink gold */
+  --theme-skill-1: 138 160 90;   /* verdigris */
+  --theme-skill-2: 126 145 184;  /* indigo ink */
+  --theme-skill-3: 196 74 56;    /* sealing-wax red */
+  --theme-skill-4: 176 138 206;  /* amethyst ink */
+  --theme-skill-5: 206 168 96;   /* gold ochre */
 
-  /* === Typography (literary serif + inscriptional display) === */
-  --theme-radius: 0.25rem;
-  --theme-font: var(--font-crimson), 'Crimson Text', 'Georgia', 'Noto Serif CJK SC', 'Songti SC', 'SimSun', serif;
-  --theme-font-display: var(--font-cinzel), var(--font-crimson), 'Noto Serif CJK SC', 'Songti SC', serif;
-  --theme-font-mono: var(--font-courier-prime), 'Courier Prime', 'Courier New', monospace;
+  /* === Typography — Cinzel 罗马碑铭 / Lora 衬线正文 / Special Elite 打字机 === */
+  --theme-radius: 0.375rem;
+  --theme-font: var(--font-lora), 'Lora', var(--font-crimson), 'Crimson Text', 'Noto Serif SC', 'Songti SC', Georgia, serif;
+  --theme-font-display: var(--font-cinzel), 'Cinzel', 'Noto Serif SC', 'Songti SC', serif;
+  --theme-font-mono: var(--font-special-elite), 'Special Elite', var(--font-courier-prime), 'Courier Prime', monospace;
 
   /* === Skeuomorphic: torn-paper asymmetric corners === */
-  --theme-radius-tl: 2px;
+  --theme-radius-tl: 3px;
   --theme-radius-tr: 6px;
-  --theme-radius-br: 3px;
-  --theme-radius-bl: 5px;
+  --theme-radius-br: 4px;
+  --theme-radius-bl: 8px;
 
-  /* === Skeuomorphic: paper grain texture (CSS-only, no SVG filter) === */
-  --theme-surface-texture: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAM0lEQVR4nGP4+uzE/0s7p/0H0SdW9fxnADFA+PCCJjDNcOfwgv8wwUtbJkJUnFjRDhcEADnKNqA0DJi0AAAAAElFTkSuQmCC);
+  /* === Aged-paper grain texture (subtle noise) === */
+  --theme-surface-texture: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.25  0 0 0 0 0.12  0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 
-  /* === Skeuomorphic: warm angled-paper shadow === */
-  --theme-card-shadow: 1px 2px 4px rgba(90, 55, 25, 0.12),
-                       3px 4px 8px rgba(90, 55, 25, 0.06);
+  /* === Skeuomorphic: warm candle-shadow card === */
+  --theme-card-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.08),
+                       1px 2px 4px rgba(0, 0, 0, 0.42),
+                       3px 4px 9px rgba(0, 0, 0, 0.32);
+  --theme-glow: 0 0 0 3px rgba(202, 161, 90, 0.28),
+                0 0 18px rgba(202, 161, 90, 0.18);
 
-  /* === Signature motif: illuminated-manuscript fleuron divider === */
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%238a6a44' stroke-width='1'%3E%3Cpath d='M10 8 H46'/%3E%3Cpath d='M74 8 H110'/%3E%3C/g%3E%3Cpath d='M60 2 L65 8 L60 14 L55 8 Z' fill='%238a6a44'/%3E%3Ccircle cx='48' cy='8' r='1.4' fill='%238a6a44'/%3E%3Ccircle cx='72' cy='8' r='1.4' fill='%238a6a44'/%3E%3C/svg%3E");
+  /* === Signature motif: illuminated-manuscript fleuron divider (墨金) === */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23caa15a' stroke-width='1'%3E%3Cpath d='M10 8 H46'/%3E%3Cpath d='M74 8 H110'/%3E%3C/g%3E%3Cpath d='M60 2 L65 8 L60 14 L55 8 Z' fill='%23caa15a'/%3E%3Ccircle cx='48' cy='8' r='1.4' fill='%23caa15a'/%3E%3Ccircle cx='72' cy='8' r='1.4' fill='%23caa15a'/%3E%3C/svg%3E");
 
   /* === Skeuomorphic: irregular edge mask (torn paper border) === */
-  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,8 Q5,2 10,9 T20,7 T30,10 T40,6 T50,9 T60,7 T70,10 T80,6 T90,9 T100,7 T110,10 T120,6 T130,9 T140,7 T150,10 T160,6 T170,9 T180,7 T190,10 T200,7' fill='none' stroke='%23b48c64' stroke-width='1.5'/%3E%3C/svg%3E");
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,8 Q5,2 10,9 T20,7 T30,10 T40,6 T50,9 T60,7 T70,10 T80,6 T90,9 T100,7 T110,10 T120,6 T130,9 T140,7 T150,10 T160,6 T170,9 T180,7 T190,10 T200,7' fill='none' stroke='%23caa15a' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 
-/* === 皮革装帧: aged leather sidebar === */
+/* === Ambient: candlelight halo top-left + wax-glow bottom-right + grain === */
+[data-theme="parchment"] body,
+[data-theme="parchment"] .bg-bg {
+  background-image:
+    radial-gradient(70% 60% at 12% 0%, rgba(202, 161, 90, 0.16), transparent 70%),
+    radial-gradient(65% 55% at 100% 100%, rgba(196, 74, 56, 0.10), transparent 70%),
+    radial-gradient(120% 90% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.35) 100%),
+    var(--theme-surface-texture);
+}
+
+/* === 皮革装帧: aged leather sidebar (dark) === */
 [data-theme="parchment"] .conv-sidebar {
-  background: linear-gradient(180deg, #ece0c2 0%, #ddc8a0 100%);
-  border-right: 2px solid #bfa07e;
+  background: linear-gradient(180deg, #2a2018 0%, #1c1410 100%);
+  border-right: 2px solid rgba(202, 161, 90, 0.45);
 }
 
-/* Old leather bag panel tab styles */
+/* === Old leather bag panel tabs === */
 [data-theme="parchment"] .conv-tab {
-  background: linear-gradient(90deg, rgba(228, 208, 174, 0.45) 0%, rgba(214, 192, 156, 0.25) 100%);
+  background: linear-gradient(90deg, rgba(52, 42, 30, 0.5) 0%, rgba(40, 32, 23, 0.3) 100%);
   border-left: 3px solid transparent;
-  border-bottom: 1px solid rgba(178, 148, 108, 0.35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(74, 54, 36, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.04);
   transition: all 0.25s ease-in-out;
 }
 [data-theme="parchment"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(208, 182, 144, 0.6) 0%, rgba(192, 166, 124, 0.35) 100%);
+  background: linear-gradient(90deg, rgba(66, 54, 38, 0.6) 0%, rgba(50, 40, 28, 0.35) 100%);
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="parchment"] .conv-tab.active {
-  background: linear-gradient(90deg, rgba(130, 64, 30, 0.15) 0%, rgba(130, 64, 30, 0.04) 100%);
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.18) 0%, rgb(var(--theme-primary) / 0.05) 100%);
   border-left-color: rgb(var(--theme-primary));
-  border-bottom-color: rgba(130, 64, 30, 0.25);
-  box-shadow: 0 2px 4px rgba(90, 55, 25, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-bottom-color: rgb(var(--theme-primary) / 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 240, 200, 0.05);
   color: rgb(var(--theme-primary)) !important;
 }
 
@@ -100,38 +114,38 @@
   background-image: var(--theme-divider);
   background-repeat: no-repeat;
   background-position: center;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
-/* Parchment fine paper cards (clues, inventory etc.) */
+/* === Parchment cards (clues, inventory) — candlelit deep vellum === */
 [data-theme="parchment"] .clue-card,
 [data-theme="parchment"] .inventory-card {
-  background-color: #f4e6c6 !important;
-  /* Multi-layered background: semi-transparent solid color on top to soften the underlying texture, maximizing text readability */
-  background-image: linear-gradient(rgba(244, 230, 198, 0.95), rgba(244, 230, 198, 0.95)), var(--theme-surface-texture) !important;
-  background-size: 8px 8px !important;
-  border: 1px solid #b2946c !important;
-  box-shadow: inset 0 0 16px rgba(90, 55, 25, 0.12),
-              1px 2px 4px rgba(90, 55, 25, 0.15) !important;
+  background-color: #2a2018 !important;
+  background-image: linear-gradient(rgba(42, 32, 24, 0.94), rgba(42, 32, 24, 0.94)),
+                    var(--theme-surface-texture) !important;
+  background-size: auto, 320px 320px !important;
+  border: 1px solid #4a3a2a !important;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.04),
+              inset 0 0 20px rgba(0, 0, 0, 0.45),
+              1px 2px 4px rgba(0, 0, 0, 0.35) !important;
   position: relative;
   overflow: visible;
   transition: all 0.2s ease;
 
-  /* Ink color overrides for readability on light paper background */
-  --theme-text: 58 40 22;
-  --theme-text-muted: 100 75 50;
-  --theme-text-dim: 130 100 75;
+  --theme-text: 234 216 176;
+  --theme-text-muted: 179 154 114;
+  --theme-text-dim: 122 100 70;
   color: rgb(var(--theme-text)) !important;
 }
-
 [data-theme="parchment"] .clue-card:hover,
 [data-theme="parchment"] .inventory-card:hover {
   border-color: rgb(var(--theme-primary)) !important;
-  box-shadow: inset 0 0 16px rgba(90, 55, 25, 0.12),
-              0 4px 8px rgba(90, 55, 25, 0.2) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.04),
+              inset 0 0 20px rgba(0, 0, 0, 0.45),
+              0 4px 12px rgba(0, 0, 0, 0.45) !important;
 }
 
-/* Illuminated ink rule across card top (fades at the ends like a quill stroke) */
+/* Illuminated ink rule across card top (墨金 quill stroke) */
 [data-theme="parchment"] .clue-card::before,
 [data-theme="parchment"] .inventory-card::before {
   content: "";
@@ -155,10 +169,10 @@
   left: -8px;
   width: 16px;
   height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239e2b22'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c44a38'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
   z-index: 10;
 }
 [data-theme="parchment"] .chat-bubble-own::after {
@@ -168,25 +182,26 @@
   right: -8px;
   width: 16px;
   height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239e2b22'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c44a38'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
   z-index: 10;
 }
 
-/* === Skeuomorphic card edge: torn paper — extreme asymmetric corners + ink inner shadow === */
+/* === Skeuomorphic card edge: torn paper + ink inner shadow === */
 [data-theme="parchment"] .theme-border {
   --theme-radius-tl: 12px;
   --theme-radius-tr: 4px;
   --theme-radius-br: 8px;
   --theme-radius-bl: 3px;
-  box-shadow: inset 0 0 30px rgba(139, 90, 43, 0.12),
-              inset 0 0 8px rgba(139, 90, 43, 0.06),
-              2px 3px 6px rgba(90, 55, 25, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.06),
+              inset 0 0 30px rgba(0, 0, 0, 0.38),
+              inset 0 0 8px rgba(0, 0, 0, 0.22),
+              2px 3px 6px rgba(0, 0, 0, 0.4);
 }
 
-/* === Lobby filter tabs: inscriptional serif text + static underline === */
+/* === Lobby filter tabs: inscriptional serif + static underline === */
 [data-theme="parchment"] .filter-indicator {
   display: none;
 }
@@ -197,117 +212,139 @@
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 [data-theme="parchment"] .filter-tab-active {
-  color: #82401e;
-  border-bottom-color: #82401e;
-  background: rgba(130, 64, 30, 0.1);
+  color: rgb(var(--theme-primary));
+  border-bottom-color: rgb(var(--theme-primary));
+  background: rgb(var(--theme-primary) / 0.12);
   text-shadow: none;
 }
 
 /* =====================================================================
-   DARK — candle-lit aged dark leather. Brown-black ground, warm
-   parchment-light ink, ember + verdigris accents; wax seal & fleuron
-   turned to brighter ink so the manuscript reads in the dark.
+   LIGHT — 日光下的米黄羊皮卷。新鲜泛黄底，墨褐字，火漆朱砂红强调；
+   封蜡 / 花饰 / 边角织纹回到深沉的铁胆墨色调。
    ===================================================================== */
-[data-theme="parchment"][data-mode="dark"] {
-  --theme-bg: 28 22 16;             /* dark leather */
-  --theme-surface: 40 32 23;        /* worn vellum in shadow */
-  --theme-surface-alt: 52 42 30;
-  --theme-border: 78 62 44;         /* dim sepia line */
-  --theme-text: 230 214 184;        /* candlelit parchment */
-  --theme-text-muted: 176 154 120;
-  --theme-text-dim: 128 110 84;
-  --theme-primary: 200 128 80;      /* ember-lit burnt sienna */
-  --theme-primary-hover: 216 146 98;
-  --theme-accent: 112 178 158;      /* verdigris, brighter */
-  --theme-accent-hover: 132 196 176;
-  --theme-accent-foreground: 22 30 27;
-  --theme-danger: 224 110 102;      /* heraldic red, lifted */
-  --theme-success: 154 172 104;     /* olive / sage, lifted */
-  --theme-ai: 142 154 214;          /* indigo ink, lifted */
-  --theme-ai-hover: 160 172 226;
-  --theme-ai-foreground: 16 18 30;
-  --theme-header-bg: 34 27 20;
-  --theme-header-border: 78 62 44;
-  --theme-input-bg: 40 32 23;
-  --theme-input-border: 88 70 50;
-  --theme-dice-card-bg: 46 37 27;
-  --theme-dice-card-border: 88 70 50;
-  --theme-private-border: 198 96 84; /* sealing-wax red, lifted */
-  --theme-private-bg: 46 33 27;
-  --theme-scroll-btn: 200 128 80;
-  --theme-warning: 224 168 78;      /* warm candlelit amber */
+[data-theme="parchment"][data-mode="light"] {
+  --theme-bg: 230 211 165;           /* aged tan vellum */
+  --theme-surface: 241 227 185;      /* fresh parchment */
+  --theme-surface-alt: 232 214 160;
+  --theme-border: 184 148 101;       /* sepia line */
+  --theme-text: 58 38 20;            /* iron-gall ink */
+  --theme-text-muted: 111 81 50;
+  --theme-text-dim: 154 126 88;
+  --theme-primary: 140 90 35;        /* 墨褐 / burnt sienna leather */
+  --theme-primary-hover: 111 68 25;
+  --theme-primary-foreground: 245 234 208;
+  --theme-accent: 154 40 24;         /* 朱砂封蜡 / sealing-wax red */
+  --theme-accent-hover: 130 32 18;
+  --theme-accent-foreground: 245 234 208;
+  --theme-danger: 122 31 21;
+  --theme-success: 82 102 58;        /* olive / sage */
+  --theme-warning: 168 110 24;
+  --theme-ai: 62 86 124;             /* 制图师靛蓝 / cartographer indigo */
+  --theme-ai-hover: 46 70 108;
+  --theme-ai-foreground: 245 234 208;
+  --theme-header-bg: 232 214 160;
+  --theme-header-border: 184 148 101;
+  --theme-input-bg: 241 227 185;
+  --theme-input-border: 184 148 101;
+  --theme-dice-card-bg: 240 226 196;
+  --theme-dice-card-border: 184 148 101;
+  --theme-private-border: 154 40 24;
+  --theme-private-bg: 246 232 214;
+  --theme-scroll-btn: 140 90 35;
 
-  /* === Skill palette — manuscript inks, candlelit / lifted === */
-  --theme-skill-0: 200 128 80;   /* ember sienna */
-  --theme-skill-1: 112 178 158;  /* verdigris */
-  --theme-skill-2: 142 154 214;  /* indigo ink */
-  --theme-skill-3: 198 96 84;    /* sealing-wax red */
-  --theme-skill-4: 176 138 206;  /* amethyst */
-  --theme-skill-5: 206 168 96;   /* gold ochre */
-  --theme-primary-foreground: 28 20 12;  /* dark text on ember button */
+  --theme-skill-0: 140 90 35;    /* burnt sienna */
+  --theme-skill-1: 82 102 58;    /* sage / verdigris */
+  --theme-skill-2: 62 86 124;    /* indigo ink */
+  --theme-skill-3: 154 40 24;    /* sealing-wax red */
+  --theme-skill-4: 110 78 140;   /* amethyst ink */
+  --theme-skill-5: 150 100 30;   /* gold ochre */
 
-  --theme-card-shadow: 1px 2px 4px rgba(0, 0, 0, 0.42),
-                       3px 4px 9px rgba(0, 0, 0, 0.3);
-  --theme-glow: 0 0 0 3px rgba(200, 128, 80, 0.25);
+  --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+                       1px 2px 4px rgba(80, 50, 20, 0.14),
+                       3px 4px 8px rgba(80, 50, 20, 0.08);
+  --theme-glow: 0 0 0 3px rgba(140, 90, 35, 0.22),
+                0 0 14px rgba(140, 90, 35, 0.18);
 
-  /* No light paper speckle on a dark ground */
-  --theme-surface-texture: none;
+  /* Daytime parchment grain (lighter sepia noise) */
+  --theme-surface-texture: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0.45  0 0 0 0 0.32  0 0 0 0 0.16  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 
-  /* Fleuron divider re-inked in warm gold so it shows on dark */
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23b8986a' stroke-width='1'%3E%3Cpath d='M10 8 H46'/%3E%3Cpath d='M74 8 H110'/%3E%3C/g%3E%3Cpath d='M60 2 L65 8 L60 14 L55 8 Z' fill='%23b8986a'/%3E%3Ccircle cx='48' cy='8' r='1.4' fill='%23b8986a'/%3E%3Ccircle cx='72' cy='8' r='1.4' fill='%23b8986a'/%3E%3C/svg%3E");
+  /* Fleuron re-inked in dark sepia for legibility on cream */
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%238a6a44' stroke-width='1'%3E%3Cpath d='M10 8 H46'/%3E%3Cpath d='M74 8 H110'/%3E%3C/g%3E%3Cpath d='M60 2 L65 8 L60 14 L55 8 Z' fill='%238a6a44'/%3E%3Ccircle cx='48' cy='8' r='1.4' fill='%238a6a44'/%3E%3Ccircle cx='72' cy='8' r='1.4' fill='%238a6a44'/%3E%3C/svg%3E");
+  --theme-border-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,8 Q5,2 10,9 T20,7 T30,10 T40,6 T50,9 T60,7 T70,10 T80,6 T90,9 T100,7 T110,10 T120,6 T130,9 T140,7 T150,10 T160,6 T170,9 T180,7 T190,10 T200,7' fill='none' stroke='%23b48c64' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 
-[data-theme="parchment"][data-mode="dark"] .conv-sidebar {
-  background: linear-gradient(180deg, #2a2018 0%, #1c1410 100%);
-  border-right: 2px solid #4a3a2a;
-}
-[data-theme="parchment"][data-mode="dark"] .conv-tab {
-  background: linear-gradient(90deg, rgba(52, 42, 30, 0.5) 0%, rgba(40, 32, 23, 0.3) 100%);
-  border-bottom-color: rgba(78, 62, 44, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-[data-theme="parchment"][data-mode="dark"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(66, 54, 38, 0.6) 0%, rgba(50, 40, 28, 0.35) 100%);
-}
-[data-theme="parchment"][data-mode="dark"] .conv-tab.active {
-  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.18) 0%, rgb(var(--theme-primary) / 0.05) 100%);
-  border-bottom-color: rgb(var(--theme-primary) / 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+/* Daylight ambient — sun on parchment, faded wax-red bottom-right, edge vignette */
+[data-theme="parchment"][data-mode="light"] body,
+[data-theme="parchment"][data-mode="light"] .bg-bg {
+  background-image:
+    radial-gradient(70% 60% at 12% 0%, rgba(140, 90, 35, 0.10), transparent 70%),
+    radial-gradient(65% 55% at 100% 100%, rgba(154, 40, 24, 0.08), transparent 70%),
+    radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(120, 80, 30, 0.18) 100%),
+    var(--theme-surface-texture);
 }
 
-[data-theme="parchment"][data-mode="dark"] .clue-card,
-[data-theme="parchment"][data-mode="dark"] .inventory-card {
-  background-color: #2a2018 !important;
-  background-image: linear-gradient(rgba(42, 32, 24, 0.96), rgba(42, 32, 24, 0.96)) !important;
-  border: 1px solid #4a3a2a !important;
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.4),
-              1px 2px 4px rgba(0, 0, 0, 0.3) !important;
-  /* Light ink for the dark card face */
-  --theme-text: 230 214 184;
-  --theme-text-muted: 176 154 120;
-  --theme-text-dim: 128 110 84;
-}
-[data-theme="parchment"][data-mode="dark"] .clue-card:hover,
-[data-theme="parchment"][data-mode="dark"] .inventory-card:hover {
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.4),
-              0 4px 8px rgba(0, 0, 0, 0.4) !important;
+/* Daylight leather sidebar */
+[data-theme="parchment"][data-mode="light"] .conv-sidebar {
+  background: linear-gradient(180deg, #ece0c2 0%, #ddc8a0 100%);
+  border-right: 2px solid #bfa07e;
 }
 
-/* Wax seal re-melted to a brighter red so it reads on dark leather */
-[data-theme="parchment"][data-mode="dark"] .chat-bubble-other::after,
-[data-theme="parchment"][data-mode="dark"] .chat-bubble-own::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23c0524a'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+[data-theme="parchment"][data-mode="light"] .conv-tab {
+  background: linear-gradient(90deg, rgba(228, 208, 174, 0.45) 0%, rgba(214, 192, 156, 0.25) 100%);
+  border-bottom-color: rgba(184, 148, 101, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+[data-theme="parchment"][data-mode="light"] .conv-tab:hover {
+  background: linear-gradient(90deg, rgba(208, 182, 144, 0.6) 0%, rgba(192, 166, 124, 0.35) 100%);
+}
+[data-theme="parchment"][data-mode="light"] .conv-tab.active {
+  background: linear-gradient(90deg, rgba(140, 90, 35, 0.16) 0%, rgba(140, 90, 35, 0.04) 100%);
+  border-left-color: rgb(var(--theme-primary));
+  border-bottom-color: rgba(140, 90, 35, 0.28);
+  box-shadow: 0 2px 4px rgba(80, 50, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: rgb(var(--theme-primary)) !important;
 }
 
-[data-theme="parchment"][data-mode="dark"] .theme-border {
-  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35),
-              inset 0 0 8px rgba(0, 0, 0, 0.25),
-              2px 3px 6px rgba(0, 0, 0, 0.35);
+/* Daylight cards — bright vellum with iron-gall ink */
+[data-theme="parchment"][data-mode="light"] .clue-card,
+[data-theme="parchment"][data-mode="light"] .inventory-card {
+  background-color: #f4e6c6 !important;
+  background-image: linear-gradient(rgba(244, 230, 198, 0.95), rgba(244, 230, 198, 0.95)),
+                    var(--theme-surface-texture) !important;
+  background-size: auto, 320px 320px !important;
+  border: 1px solid #b8946c !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
+              inset 0 0 16px rgba(90, 55, 25, 0.10),
+              1px 2px 4px rgba(90, 55, 25, 0.15) !important;
+
+  --theme-text: 58 38 20;
+  --theme-text-muted: 100 75 50;
+  --theme-text-dim: 130 100 75;
+}
+[data-theme="parchment"][data-mode="light"] .clue-card:hover,
+[data-theme="parchment"][data-mode="light"] .inventory-card:hover {
+  border-color: rgb(var(--theme-primary)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
+              inset 0 0 16px rgba(90, 55, 25, 0.10),
+              0 4px 8px rgba(90, 55, 25, 0.2) !important;
 }
 
-[data-theme="parchment"][data-mode="dark"] .filter-tab-active {
-  color: #c88050;
-  border-bottom-color: #c88050;
-  background: rgb(var(--theme-primary) / 0.12);
+/* Daytime wax seal (deep朱砂) */
+[data-theme="parchment"][data-mode="light"] .chat-bubble-other::after,
+[data-theme="parchment"][data-mode="light"] .chat-bubble-own::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239a2818'%3E%3Cpath d='M12 2c-1.3 0-2.6.5-3.5 1.4-.8.8-1.9 1-2.9.6-1-.4-2.2.1-2.8 1.1-.5.9-1.5 1.4-2.5 1.2-1.1-.2-2 .6-2.2 1.7-.2 1 .3 2 1 2.7.7.7 1 1.8.6 2.8-.4 1 .1 2.2 1.1 2.8.9.5 1.4 1.5 1.2 2.5-.2 1.1.6 2 1.7 2.2 1 .2 2-.3 2.7-1 .7-.7 1.8-1 2.8-.6 1 .4 2.2-.1 2.8-1.1.5-.9 1.5-1.4 2.5-1.2 1.1.2 2-.6 2.2-1.7.2-1-.3-2-1-2.7-.7-.7-1-1.8-.6-2.8.4-1-.1-2.2-1-2.8-.9-.5-1.4-1.5-1.2-2.5.2-1.1-.6-2-1.7-2.2-1-.2-2 .3-2.7 1-.7.7-1.8 1-2.8.6zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 1px 2px rgba(80, 30, 20, 0.45));
+}
+
+[data-theme="parchment"][data-mode="light"] .theme-border {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+              inset 0 0 30px rgba(139, 90, 43, 0.12),
+              inset 0 0 8px rgba(139, 90, 43, 0.06),
+              2px 3px 6px rgba(90, 55, 25, 0.15);
+}
+
+[data-theme="parchment"][data-mode="light"] .filter-tab-active {
+  color: rgb(var(--theme-primary));
+  border-bottom-color: rgb(var(--theme-primary));
+  background: rgb(var(--theme-primary) / 0.1);
 }
