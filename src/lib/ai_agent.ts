@@ -7,6 +7,7 @@ import { broadcastToRoom, emitToUser } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
+import { executeCommand } from "@/lib/commands";
 import { z } from "zod";
 import { computeCocDerived, type CharacterData } from "@/lib/character-types";
 import { getRuleForRoom, listRuleIds } from "@/lib/rules";
@@ -18,7 +19,7 @@ const BotConfigSchema = z.object({
   historicalSummary: z.string().optional().default(""),
   model: z.string().optional().default("gpt-4o"),
   activation: z.string().optional().default("mention"),
-  enableTools: z.array(z.string()).optional().default(["send_message", "roll_dice"]),
+  enableTools: z.array(z.string()).optional().default(["roll_dice", "respond_check"]),
   lastSummarizedMsgId: z.number().optional().default(0),
   providerId: z.number().optional(),
 });
@@ -216,7 +217,7 @@ export async function runAgent(
   const endpoint = aiConfig.apiEndpoint;
 
   const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
-  const enabledTools: string[] = botCfg.enableTools || ["roll_dice"];
+  const enabledTools: string[] = botCfg.enableTools || ["roll_dice", "respond_check"];
 
 
   const allTools = [
@@ -233,6 +234,20 @@ export async function runAgent(
             isPrivate: { type: "boolean" }
           },
           required: ["faces", "count"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "respond_check",
+        description: "Respond to a skill/attribute/sanity check that the host has requested FROM YOU. This rolls the check properly against your own character sheet (success/failure grading, SAN loss, etc.) and marks you as 'responded' on the host's request — exactly like a player clicking the host's check message. Use this instead of roll_dice whenever the host asks you to make a check. If you have no value set for the requested skill/stat, set it first via set_character_card, then respond.",
+        parameters: {
+          type: "object",
+          properties: {
+            checkRequestId: { type: "integer", description: "Optional message id of a specific pending check request. Omit to respond to the most recent check still awaiting you." }
+          },
+          required: []
         }
       }
     },
@@ -589,6 +604,93 @@ export async function runAgent(
               ruleTemplate: rollRule.id,
               ...(evaluation ? { evaluation } : {})
             };
+          } else if (functionName === "respond_check") {
+            // Find the pending check_request(s) the host issued to this bot.
+            // Mirrors respondToCheckRequestAction (room.ts) but runs without a
+            // session, attributing the roll to the bot.
+            const candidates = await db.select({
+              id: messages.id,
+              diceDetail: messages.diceDetail,
+              isPrivate: messages.isPrivate,
+              audience: messages.audience,
+              userId: messages.userId,
+              targetUserId: messages.targetUserId,
+            }).from(messages)
+              .where(and(
+                eq(messages.roomId, roomId),
+                eq(messages.type, "check_request"),
+                // Only checks visible to the bot: public, or a DM it's part of.
+                sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+              ))
+              .orderBy(desc(messages.createdAt))
+              .limit(20);
+
+            let chosen: {
+              row: typeof candidates[number];
+              cr: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } };
+            } | null = null;
+            for (const row of candidates) {
+              if (args.checkRequestId && row.id !== args.checkRequestId) continue;
+              let cr;
+              try { cr = JSON.parse(row.diceDetail || "{}").checkRequest; } catch { continue; }
+              if (!cr || !cr.skillName) continue;
+              const targets: number[] = cr.targetUserIds || [];
+              const responded: number[] = cr.respondedUserIds || [];
+              if (targets.includes(botUserId) && !responded.includes(botUserId)) {
+                chosen = { row, cr };
+                break;
+              }
+            }
+
+            if (!chosen) {
+              result = { success: false, error: "No pending check request is awaiting your response." };
+            } else {
+              const { row, cr } = chosen;
+              // Roll in the same channel the request was issued in.
+              const ctxIsPrivate = row.isPrivate;
+              const ctxTargetId = row.isPrivate ? row.userId : undefined;
+              const ctx = { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId };
+
+              let cmdResult;
+              if (cr.sanCheck) {
+                cmdResult = await executeCommand(roomId, botUserId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, ctx);
+              } else if ((cr.diceType || "d100") === "d100") {
+                cmdResult = await executeCommand(roomId, botUserId, `.rc ${cr.skillName}`, ctx);
+              } else {
+                const faces = parseInt((cr.diceType || "d100").replace("d", ""));
+                cmdResult = await executeCommand(roomId, botUserId, `.rd${faces}`, ctx);
+              }
+
+              if (!cmdResult.success) {
+                // STAT_NOT_SET: the bot has no value for this skill/stat yet.
+                result = {
+                  success: false,
+                  error: cmdResult.error,
+                  needsSkill: cmdResult.code === "STAT_NOT_SET",
+                  hint: cmdResult.code === "STAT_NOT_SET"
+                    ? `Set "${cr.skillName}" via set_character_card, then call respond_check again.`
+                    : undefined,
+                };
+              } else {
+                // Record the response and broadcast the completion update so the
+                // host's check bubble marks the bot as done (same as a click).
+                const detail = JSON.parse(row.diceDetail || "{}");
+                const responded: number[] = detail.checkRequest.respondedUserIds || [];
+                const newResponded = [...responded, botUserId];
+                detail.checkRequest.respondedUserIds = newResponded;
+                await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, row.id));
+                broadcastToRoom(roomId, {
+                  type: "check_update",
+                  checkRequestId: row.id,
+                  respondedUserIds: newResponded,
+                  proxiedUserIds: detail.checkRequest.proxiedUserIds,
+                  audience: row.audience,
+                  userId: row.userId,
+                  targetUserId: row.targetUserId,
+                });
+                result = { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck };
+              }
+            }
           } else if (functionName === "send_image") {
             const imageUrl = String(args.imageUrl || "").trim();
             // Internal images are pinned to THIS room so other members can
