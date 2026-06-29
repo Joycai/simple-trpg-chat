@@ -21,7 +21,7 @@ export interface Message {
   targetUserId?: number | null;
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system" | "clue" | "check_request" | "image";
+  type: "text" | "dice" | "system" | "clue" | "check_request" | "image" | "sticker";
   systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | null;
   diceDetail: string | null;
   audience: Audience;

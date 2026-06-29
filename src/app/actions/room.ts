@@ -13,6 +13,7 @@ import { executeCommand } from "@/lib/commands";
 import { rollDice, rollDie } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
+import { isValidStickerRef } from "@/lib/stickers";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { getRuleForRoom } from "@/lib/rules";
@@ -204,7 +205,7 @@ function chatAudience(isPrivate: boolean, targetUserId?: number | null): Audienc
 export async function sendMessageAction(
   roomId: number,
   content: string,
-  type: "text" | "dice" | "system" | "image" = "text",
+  type: "text" | "dice" | "system" | "image" | "sticker" = "text",
   diceDetail?: string,
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
@@ -222,6 +223,15 @@ export async function sendMessageAction(
   if (type === "image") {
     if (!/^\/api\/rooms\/\d+\/images\/[A-Za-z0-9._-]+$/.test(trimmedContent)) {
       throw new Error("Invalid image reference");
+    }
+    content = trimmedContent; // store the normalized path
+  }
+
+  // Sticker messages carry a server path to a curated sticker. Reject anything
+  // that isn't a sticker present in the on-disk manifest.
+  if (type === "sticker") {
+    if (!isValidStickerRef(trimmedContent)) {
+      throw new Error("Invalid sticker reference");
     }
     content = trimmedContent; // store the normalized path
   }
