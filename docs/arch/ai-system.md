@@ -10,16 +10,18 @@ Runs an OpenAI-compatible tool-use loop triggered when a message is sent in a ro
 
 ### Supported Tools (8)
 
+Free-text replies are **not** a tool — they are broadcast directly from the model's message content (R3), so a bot can always talk even with zero tools enabled. Which tools a bot may call is configured per bot (`botConfigJson.enableTools`); default is `["roll_dice"]`.
+
 | Tool | Description |
 | ---- | ----------- |
 | `roll_dice` | Roll dice (1–20 dice, 1–1000 faces); optional privacy flag |
-| `send_message` | Send a message to the room — **currently disabled** (filtered out at runtime) |
+| `send_image` | Show an image — an internal `/api/rooms/<thisRoom>/images/…` path or a public `https://` URL (http and other rooms' paths rejected) |
 | `inspect_item` | Read an inventory item's details (validates ownership) |
 | `search_history` | Search chat history by keyword (up to 20 results) |
 | `my_inventory` | List all items in the bot's inventory |
 | `my_clues` | List all clue cards revealed to the bot |
 | `my_character` | Read the bot's character sheet (attributes, HP/SAN/MP, skills) |
-| `set_character_card` | Write/update the bot's character sheet |
+| `set_character_card` | Write/update the bot's character sheet (COC attrs clamped 0–99, skills 0–999) |
 
 ## AI Providers
 

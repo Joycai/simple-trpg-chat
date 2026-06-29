@@ -47,7 +47,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const [systemPrompt, setSystemPrompt] = useState("");
   const [model, setModel] = useState("");
   const [activation, setActivation] = useState("@mention");
-  const [enableTools, setEnableTools] = useState<string[]>(["send_message", "roll_dice"]);
+  const [enableTools, setEnableTools] = useState<string[]>(["roll_dice"]);
   const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
   const [botColor, setBotColor] = useState<string>("#f43f5e");
   const [providers, setProviders] = useState<{ id: number; name: string; model: string; isShared: boolean }[]>([]);
@@ -151,7 +151,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     setSystemPrompt(bot.config.systemPrompt || "");
     setModel(bot.config.model || "gpt-4o-mini");
     setActivation(bot.config.activation || "@mention");
-    setEnableTools(bot.config.enableTools || ["send_message", "roll_dice"]);
+    setEnableTools(bot.config.enableTools || ["roll_dice"]);
     // Restore the saved provider only if it still exists in the available list.
     // A stale id (e.g. the shared provider was deleted/recreated by an admin) would
     // leave the <select> showing the first option while state keeps the dead id —
@@ -180,8 +180,8 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const labelCls = "text-sm text-text-muted mb-1.5 block";
 
   const TOOLS = [
-    { key: "send_message", label: "toolSendMessage" },
     { key: "roll_dice", label: "toolRollDice" },
+    { key: "send_image", label: "toolSendImage" },
     { key: "inspect_item", label: "toolInspectItem" },
     { key: "my_inventory", label: "toolMyInventory" },
     { key: "my_clues", label: "toolMyClues" },

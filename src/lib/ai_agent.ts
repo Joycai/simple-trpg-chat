@@ -216,7 +216,7 @@ export async function runAgent(
   const endpoint = aiConfig.apiEndpoint;
 
   const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
-  const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
+  const enabledTools: string[] = botCfg.enableTools || ["roll_dice"];
 
 
   const allTools = [
@@ -239,27 +239,12 @@ export async function runAgent(
     {
       type: "function",
       function: {
-        name: "send_message",
-        description: "Send a message to the chat room",
-        parameters: {
-          type: "object",
-          properties: {
-            content: { type: "string" },
-            isPrivate: { type: "boolean" }
-          },
-          required: ["content"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
         name: "send_image",
-        description: "Show an image in the chat. Provide an image URL — either an internal room image path (e.g. /api/rooms/123/images/...) or a public https:// image URL. Use this to illustrate a scene, handout, or object.",
+        description: `Show an image in the chat. Provide an image URL — either an internal room image path (e.g. /api/rooms/${roomId}/images/...) or a public https:// image URL. Use this to illustrate a scene, handout, or object.`,
         parameters: {
           type: "object",
           properties: {
-            imageUrl: { type: "string", description: "Internal room image path or a public http(s) image URL" },
+            imageUrl: { type: "string", description: "An internal room image path for this room, or a public https:// image URL" },
             isPrivate: { type: "boolean" }
           },
           required: ["imageUrl"]
@@ -383,8 +368,10 @@ export async function runAgent(
       }
     }
   ];
-  // Filter to only enabled tools for this bot, temporarily disabling "send_message" tool
-  const tools = allTools.filter(t => enabledTools.includes(t.function.name) && t.function.name !== "send_message");
+  // Filter to only the tools enabled for this bot. Note: free-text replies are
+  // broadcast directly from the model's message content (R3), so there is no
+  // "send_message" tool — a bot can always talk without one being enabled.
+  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [...context];
   let iterations = 0;
@@ -602,23 +589,16 @@ export async function runAgent(
               ruleTemplate: rollRule.id,
               ...(evaluation ? { evaluation } : {})
             };
-          } else if (functionName === "send_message") {
-            await dispatchMessage({
-              roomId,
-              actorUserId: botUserId,
-              nickname: botNickname,
-              type: "text",
-              audience: args.isPrivate ? "dm" : "everyone",
-              targetUserId: args.isPrivate ? targetUserId : null,
-              content: args.content,
-            });
-            result = { success: true };
           } else if (functionName === "send_image") {
             const imageUrl = String(args.imageUrl || "").trim();
-            const isInternal = /^\/api\/rooms\/\d+\/images\/[A-Za-z0-9._-]+$/.test(imageUrl);
-            const isHttp = /^https?:\/\/\S+$/i.test(imageUrl) && imageUrl.length <= 2048;
-            if (!isInternal && !isHttp) {
-              result = { success: false, error: "Invalid image URL. Use an internal room image path or a public http(s) URL." };
+            // Internal images are pinned to THIS room so other members can
+            // actually load them (the image route authorizes by the room id in
+            // the path). External links are restricted to https:// to avoid
+            // mixed-content breakage and to keep the surface narrow.
+            const isInternal = new RegExp(`^/api/rooms/${roomId}/images/[A-Za-z0-9._-]+$`).test(imageUrl);
+            const isHttps = /^https:\/\/\S+$/i.test(imageUrl) && imageUrl.length <= 2048;
+            if (!isInternal && !isHttps) {
+              result = { success: false, error: "Invalid image URL. Use an internal image path for this room, or a public https:// URL." };
             } else {
               await dispatchMessage({
                 roomId,
@@ -776,12 +756,21 @@ export async function runAgent(
               ...(args.customAttributes !== undefined ? { customAttributes: args.customAttributes } : {}),
             };
 
+            // The model is not trusted to stay within bounds — clamp numeric
+            // inputs so it can't write negative or absurd stats into the sheet.
+            const clampInt = (v: unknown, min: number, max: number, fallback: number) => {
+              const n = Math.round(Number(v));
+              return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+            };
+
             if (merged.ruleTemplate === "coc7th") {
-              if (args.cocAttributes) {
-                merged.cocAttributes = {
-                  ...(merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 }),
-                  ...args.cocAttributes
-                };
+              if (args.cocAttributes && typeof args.cocAttributes === "object") {
+                const base = merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 };
+                const clamped: Record<string, number> = {};
+                for (const [k, v] of Object.entries(args.cocAttributes as Record<string, unknown>)) {
+                  clamped[k] = clampInt(v, 0, 99, 50);
+                }
+                merged.cocAttributes = { ...base, ...clamped };
               }
               if (merged.cocAttributes) {
                 merged.cocDerived = computeCocDerived(merged.cocAttributes);
@@ -798,14 +787,15 @@ export async function runAgent(
             if (args.skills && Array.isArray(args.skills)) {
               for (const skill of args.skills) {
                 if (typeof skill.name === "string" && typeof skill.value === "number") {
+                  const skillValue = clampInt(skill.value, 0, 999, 0);
                   await db.insert(roomSkills).values({
                     roomId,
                     userId: botUserId,
-                    skillName: skill.name,
-                    skillValue: skill.value,
+                    skillName: skill.name.slice(0, 64),
+                    skillValue,
                   }).onConflictDoUpdate({
                     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-                    set: { skillValue: skill.value, updatedAt: sqlNow() },
+                    set: { skillValue, updatedAt: sqlNow() },
                   });
                 }
               }
