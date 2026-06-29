@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { DiceRoller } from "@/components/room/chat/DiceRoller";
+import { StickerPicker } from "@/components/room/chat/StickerPicker";
 import { Icons } from "@/components/shared/icons";
 import { useTranslations } from "next-intl";
 
@@ -14,7 +15,7 @@ interface MentionTarget {
 }
 
 interface ChatInputProps {
-  onSendMessage: (content: string, type: "text" | "dice" | "image", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
+  onSendMessage: (content: string, type: "text" | "dice" | "image" | "sticker", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
   roomId: number;
   mentions?: MentionTarget[];
   isPrivateLocked?: boolean;
@@ -42,6 +43,9 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   // Image upload states
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Sticker picker
+  const [showStickers, setShowStickers] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -211,6 +215,29 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     }
   };
 
+  const handleStickerPick = (url: string) => {
+    setUploadError(null);
+
+    // Resolve the private target the same way handleSend / handleImageSelect do.
+    let finalTargetId = privateTargetId;
+    if (!isPrivateLocked && isPrivate && !finalTargetId && mentions.length > 0) {
+      finalTargetId = mentions[0].id;
+    }
+    if (!isPrivateLocked && isPrivate && !finalTargetId) {
+      setUploadError(t("selectMember"));
+      return;
+    }
+
+    onSendMessage(url, "sticker", undefined, isPrivate, finalTargetId || undefined);
+    setShowStickers(false);
+
+    if (!isPrivateLocked) {
+      setIsPrivate(false);
+      setPrivateTargetId(null);
+    }
+    inputRef.current?.focus();
+  };
+
   if (readOnly) {
     return (
       <div className="flex items-center justify-center gap-2 bg-input-bg border border-input-border rounded-theme p-3 text-text-muted text-sm select-none">
@@ -351,6 +378,22 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           onChange={handleImageSelect}
           className="hidden"
         />
+
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setShowStickers((v) => !v)}
+            className={`flex items-center justify-center w-9 h-9 rounded-theme transition ${
+              showStickers ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
+            }`}
+            title={t("btnStickerTooltip")}
+            aria-label={t("btnStickerTooltip")}
+          >
+            <Icons.Smile className="w-[18px] h-[18px]" />
+          </button>
+          {showStickers && (
+            <StickerPicker onPick={handleStickerPick} onClose={() => setShowStickers(false)} />
+          )}
+        </div>
 
         <button
           onClick={() => setShowDice(!showDice)}

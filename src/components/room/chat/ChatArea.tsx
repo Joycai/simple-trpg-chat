@@ -34,7 +34,7 @@ interface ChatAreaProps {
   }>;
   /** Opens the backpack (inventory panel). Wired to the CTA on receipt pills. */
   onOpenInventory: () => void;
-  onSendMessage: (content: string, type: "text" | "dice" | "image", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
+  onSendMessage: (content: string, type: "text" | "dice" | "image" | "sticker", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
 }
 
 export function ChatArea({

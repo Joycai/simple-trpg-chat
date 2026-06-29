@@ -328,7 +328,7 @@ export function RoomClient({
 
   const handleSendMessage = useCallback(async (
     content: string,
-    type: "text" | "dice" | "image",
+    type: "text" | "dice" | "image" | "sticker",
     diceDetail?: string,
     isPrivate?: boolean,
     targetUserId?: number

@@ -728,7 +728,7 @@ function setCacheEntry(key: string, value: { data: CharacterData | null; promise
 interface ChatMessageProps {
   nickname: string;
   content: string;
-  type: "text" | "dice" | "system" | "check_request" | "image" | "clue";
+  type: "text" | "dice" | "system" | "check_request" | "image" | "sticker" | "clue";
   /** Subtype for type='system' messages. Drives the kind-specific pill / help card render. */
   systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | null;
   diceDetail?: string | null;
@@ -1143,6 +1143,7 @@ export const ChatMessage = memo(function ChatMessage({
 
   const isDice = type === "dice";
   const isImage = type === "image";
+  const isSticker = type === "sticker";
   const diceMeta = isDice ? parseDiceMeta(diceDetail) : null;
   // Extract command echo + roll kind from diceDetail so they can be lifted out
   // of the bubble: echo into the header line, kind onto a data-attr for theming.
@@ -1315,12 +1316,14 @@ export const ChatMessage = memo(function ChatMessage({
 
         <div
           className={`chat-bubble ${isOwn ? "chat-bubble-own" : "chat-bubble-other"} ${
-            isDice ? "chat-bubble-dice" : isPrivate ? "chat-bubble-private" : isImage ? "chat-bubble-image" : "chat-bubble-text"
-          } rounded-theme shadow-sm break-words transition-colors ${isImage ? "p-1" : "px-3 py-2"} ${
+            isDice ? "chat-bubble-dice" : isPrivate ? "chat-bubble-private" : isSticker ? "chat-bubble-sticker" : isImage ? "chat-bubble-image" : "chat-bubble-text"
+          } break-words transition-colors ${isSticker ? "" : "rounded-theme shadow-sm"} ${isSticker ? "p-0" : isImage ? "p-1" : "px-3 py-2"} ${
             isDice
               ? "bg-dice-card-bg border border-dice-card-border text-text"
               : isPrivate
               ? "bg-private-bg border border-private-border text-text"
+              : isSticker
+              ? ""
               : isImage
               ? "bg-surface border border-border text-text"
               : isOwn
@@ -1347,6 +1350,22 @@ export const ChatMessage = memo(function ChatMessage({
                   <DiceResultDisplay diceDetail={diceDetail || content} fallback={content} t={t} />
                 </span>
               </div>
+            )
+          ) : isSticker ? (
+            imgError ? (
+              <div className="flex items-center gap-2 px-3 py-2 text-xs text-text-dim italic">
+                <Icons.Smile className="w-4 h-4 not-italic" />
+                <span>{t("stickerUnavailable")}</span>
+              </div>
+            ) : (
+              <img
+                src={content}
+                alt={t("stickerAlt")}
+                loading="lazy"
+                onError={() => setImgError(true)}
+                className="max-h-32 max-w-full w-auto object-contain select-none"
+                draggable={false}
+              />
             )
           ) : isImage ? (
             imgError ? (

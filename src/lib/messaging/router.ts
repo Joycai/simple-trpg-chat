@@ -15,7 +15,7 @@ import { broadcastToRoom } from "@/lib/events";
 import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import type { Audience } from "@/lib/messaging/audience";
 
-export type MessageType = "text" | "dice" | "system" | "clue" | "image" | "check_request";
+export type MessageType = "text" | "dice" | "system" | "clue" | "image" | "sticker" | "check_request";
 
 export interface DispatchParams {
   roomId: number;
