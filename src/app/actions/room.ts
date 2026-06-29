@@ -424,7 +424,7 @@ export async function requestSkillCheckAction(
     diceDetail: detail,
   });
 
-  // Trigger any bot targets so they can respond (if their roll_dice tool is enabled).
+  // Trigger any bot targets so they can respond (if their respond_check tool is enabled).
   const botTargets = await db.select({ id: users.id }).from(users)
     .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
   for (const bot of botTargets) {
@@ -780,6 +780,15 @@ export async function requestSanCheckAction(
     content,
     diceDetail: detail,
   });
+
+  // Trigger any bot targets so they can respond (if their respond_check tool is enabled).
+  const botTargets = await db.select({ id: users.id }).from(users)
+    .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
+  for (const bot of botTargets) {
+    import("@/lib/ai_agent")
+      .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate }))
+      .catch((err) => console.error("[requestSanityCheckAction] Failed to trigger bot:", err));
+  }
 
   return msg;
 }

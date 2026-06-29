@@ -44,7 +44,7 @@ export async function createBotAction(
         systemPrompt: data.systemPrompt,
         model: data.model,
         activation: data.activation,
-        enableTools: data.enableTools || ["send_message", "roll_dice"],
+        enableTools: data.enableTools || ["roll_dice", "respond_check"],
         providerId: data.providerId,
         historicalSummary: "",
         lastSummarizedMsgId: 0

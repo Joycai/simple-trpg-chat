@@ -7,6 +7,7 @@ import { broadcastToRoom, emitToUser } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
+import { executeCommand } from "@/lib/commands";
 import { z } from "zod";
 import { computeCocDerived, type CharacterData } from "@/lib/character-types";
 import { getRuleForRoom, listRuleIds } from "@/lib/rules";
@@ -18,7 +19,7 @@ const BotConfigSchema = z.object({
   historicalSummary: z.string().optional().default(""),
   model: z.string().optional().default("gpt-4o"),
   activation: z.string().optional().default("mention"),
-  enableTools: z.array(z.string()).optional().default(["send_message", "roll_dice"]),
+  enableTools: z.array(z.string()).optional().default(["roll_dice", "respond_check"]),
   lastSummarizedMsgId: z.number().optional().default(0),
   providerId: z.number().optional(),
 });
@@ -216,7 +217,7 @@ export async function runAgent(
   const endpoint = aiConfig.apiEndpoint;
 
   const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
-  const enabledTools: string[] = botCfg.enableTools || ["send_message", "roll_dice"];
+  const enabledTools: string[] = botCfg.enableTools || ["roll_dice", "respond_check"];
 
 
   const allTools = [
@@ -239,15 +240,14 @@ export async function runAgent(
     {
       type: "function",
       function: {
-        name: "send_message",
-        description: "Send a message to the chat room",
+        name: "respond_check",
+        description: "Respond to a skill/attribute/sanity check that the host has requested FROM YOU. This rolls the check properly against your own character sheet (success/failure grading, SAN loss, etc.) and marks you as 'responded' on the host's request — exactly like a player clicking the host's check message. Use this instead of roll_dice whenever the host asks you to make a check. If you have no value set for the requested skill/stat, set it first via set_character_card, then respond.",
         parameters: {
           type: "object",
           properties: {
-            content: { type: "string" },
-            isPrivate: { type: "boolean" }
+            checkRequestId: { type: "integer", description: "Optional message id of a specific pending check request. Omit to respond to the most recent check still awaiting you." }
           },
-          required: ["content"]
+          required: []
         }
       }
     },
@@ -255,11 +255,11 @@ export async function runAgent(
       type: "function",
       function: {
         name: "send_image",
-        description: "Show an image in the chat. Provide an image URL — either an internal room image path (e.g. /api/rooms/123/images/...) or a public https:// image URL. Use this to illustrate a scene, handout, or object.",
+        description: `Show an image in the chat. Provide an image URL — either an internal room image path (e.g. /api/rooms/${roomId}/images/...) or a public https:// image URL. Use this to illustrate a scene, handout, or object.`,
         parameters: {
           type: "object",
           properties: {
-            imageUrl: { type: "string", description: "Internal room image path or a public http(s) image URL" },
+            imageUrl: { type: "string", description: "An internal room image path for this room, or a public https:// image URL" },
             isPrivate: { type: "boolean" }
           },
           required: ["imageUrl"]
@@ -383,8 +383,10 @@ export async function runAgent(
       }
     }
   ];
-  // Filter to only enabled tools for this bot, temporarily disabling "send_message" tool
-  const tools = allTools.filter(t => enabledTools.includes(t.function.name) && t.function.name !== "send_message");
+  // Filter to only the tools enabled for this bot. Note: free-text replies are
+  // broadcast directly from the model's message content (R3), so there is no
+  // "send_message" tool — a bot can always talk without one being enabled.
+  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [...context];
   let iterations = 0;
@@ -602,23 +604,103 @@ export async function runAgent(
               ruleTemplate: rollRule.id,
               ...(evaluation ? { evaluation } : {})
             };
-          } else if (functionName === "send_message") {
-            await dispatchMessage({
-              roomId,
-              actorUserId: botUserId,
-              nickname: botNickname,
-              type: "text",
-              audience: args.isPrivate ? "dm" : "everyone",
-              targetUserId: args.isPrivate ? targetUserId : null,
-              content: args.content,
-            });
-            result = { success: true };
+          } else if (functionName === "respond_check") {
+            // Find the pending check_request(s) the host issued to this bot.
+            // Mirrors respondToCheckRequestAction (room.ts) but runs without a
+            // session, attributing the roll to the bot.
+            const candidates = await db.select({
+              id: messages.id,
+              diceDetail: messages.diceDetail,
+              isPrivate: messages.isPrivate,
+              audience: messages.audience,
+              userId: messages.userId,
+              targetUserId: messages.targetUserId,
+            }).from(messages)
+              .where(and(
+                eq(messages.roomId, roomId),
+                eq(messages.type, "check_request"),
+                // Only checks visible to the bot: public, or a DM it's part of.
+                sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+              ))
+              .orderBy(desc(messages.createdAt))
+              .limit(20);
+
+            let chosen: {
+              row: typeof candidates[number];
+              cr: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } };
+            } | null = null;
+            for (const row of candidates) {
+              if (args.checkRequestId && row.id !== args.checkRequestId) continue;
+              let cr;
+              try { cr = JSON.parse(row.diceDetail || "{}").checkRequest; } catch { continue; }
+              if (!cr || !cr.skillName) continue;
+              const targets: number[] = cr.targetUserIds || [];
+              const responded: number[] = cr.respondedUserIds || [];
+              if (targets.includes(botUserId) && !responded.includes(botUserId)) {
+                chosen = { row, cr };
+                break;
+              }
+            }
+
+            if (!chosen) {
+              result = { success: false, error: "No pending check request is awaiting your response." };
+            } else {
+              const { row, cr } = chosen;
+              // Roll in the same channel the request was issued in.
+              const ctxIsPrivate = row.isPrivate;
+              const ctxTargetId = row.isPrivate ? row.userId : undefined;
+              const ctx = { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId };
+
+              let cmdResult;
+              if (cr.sanCheck) {
+                cmdResult = await executeCommand(roomId, botUserId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, ctx);
+              } else if ((cr.diceType || "d100") === "d100") {
+                cmdResult = await executeCommand(roomId, botUserId, `.rc ${cr.skillName}`, ctx);
+              } else {
+                const faces = parseInt((cr.diceType || "d100").replace("d", ""));
+                cmdResult = await executeCommand(roomId, botUserId, `.rd${faces}`, ctx);
+              }
+
+              if (!cmdResult.success) {
+                // STAT_NOT_SET: the bot has no value for this skill/stat yet.
+                result = {
+                  success: false,
+                  error: cmdResult.error,
+                  needsSkill: cmdResult.code === "STAT_NOT_SET",
+                  hint: cmdResult.code === "STAT_NOT_SET"
+                    ? `Set "${cr.skillName}" via set_character_card, then call respond_check again.`
+                    : undefined,
+                };
+              } else {
+                // Record the response and broadcast the completion update so the
+                // host's check bubble marks the bot as done (same as a click).
+                const detail = JSON.parse(row.diceDetail || "{}");
+                const responded: number[] = detail.checkRequest.respondedUserIds || [];
+                const newResponded = [...responded, botUserId];
+                detail.checkRequest.respondedUserIds = newResponded;
+                await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, row.id));
+                broadcastToRoom(roomId, {
+                  type: "check_update",
+                  checkRequestId: row.id,
+                  respondedUserIds: newResponded,
+                  proxiedUserIds: detail.checkRequest.proxiedUserIds,
+                  audience: row.audience,
+                  userId: row.userId,
+                  targetUserId: row.targetUserId,
+                });
+                result = { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck };
+              }
+            }
           } else if (functionName === "send_image") {
             const imageUrl = String(args.imageUrl || "").trim();
-            const isInternal = /^\/api\/rooms\/\d+\/images\/[A-Za-z0-9._-]+$/.test(imageUrl);
-            const isHttp = /^https?:\/\/\S+$/i.test(imageUrl) && imageUrl.length <= 2048;
-            if (!isInternal && !isHttp) {
-              result = { success: false, error: "Invalid image URL. Use an internal room image path or a public http(s) URL." };
+            // Internal images are pinned to THIS room so other members can
+            // actually load them (the image route authorizes by the room id in
+            // the path). External links are restricted to https:// to avoid
+            // mixed-content breakage and to keep the surface narrow.
+            const isInternal = new RegExp(`^/api/rooms/${roomId}/images/[A-Za-z0-9._-]+$`).test(imageUrl);
+            const isHttps = /^https:\/\/\S+$/i.test(imageUrl) && imageUrl.length <= 2048;
+            if (!isInternal && !isHttps) {
+              result = { success: false, error: "Invalid image URL. Use an internal image path for this room, or a public https:// URL." };
             } else {
               await dispatchMessage({
                 roomId,
@@ -776,12 +858,21 @@ export async function runAgent(
               ...(args.customAttributes !== undefined ? { customAttributes: args.customAttributes } : {}),
             };
 
+            // The model is not trusted to stay within bounds — clamp numeric
+            // inputs so it can't write negative or absurd stats into the sheet.
+            const clampInt = (v: unknown, min: number, max: number, fallback: number) => {
+              const n = Math.round(Number(v));
+              return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+            };
+
             if (merged.ruleTemplate === "coc7th") {
-              if (args.cocAttributes) {
-                merged.cocAttributes = {
-                  ...(merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 }),
-                  ...args.cocAttributes
-                };
+              if (args.cocAttributes && typeof args.cocAttributes === "object") {
+                const base = merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 };
+                const clamped: Record<string, number> = {};
+                for (const [k, v] of Object.entries(args.cocAttributes as Record<string, unknown>)) {
+                  clamped[k] = clampInt(v, 0, 99, 50);
+                }
+                merged.cocAttributes = { ...base, ...clamped };
               }
               if (merged.cocAttributes) {
                 merged.cocDerived = computeCocDerived(merged.cocAttributes);
@@ -798,14 +889,15 @@ export async function runAgent(
             if (args.skills && Array.isArray(args.skills)) {
               for (const skill of args.skills) {
                 if (typeof skill.name === "string" && typeof skill.value === "number") {
+                  const skillValue = clampInt(skill.value, 0, 999, 0);
                   await db.insert(roomSkills).values({
                     roomId,
                     userId: botUserId,
-                    skillName: skill.name,
-                    skillValue: skill.value,
+                    skillName: skill.name.slice(0, 64),
+                    skillValue,
                   }).onConflictDoUpdate({
                     target: [roomSkills.roomId, roomSkills.userId, roomSkills.skillName],
-                    set: { skillValue: skill.value, updatedAt: sqlNow() },
+                    set: { skillValue, updatedAt: sqlNow() },
                   });
                 }
               }
