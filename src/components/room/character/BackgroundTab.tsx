@@ -10,10 +10,17 @@ interface BackgroundTabProps {
   age: number | "";
   onAgeChange: (v: number | "") => void;
   readOnly: boolean;
+  /** When true, render role/level inputs above the occupation row (d20 only). */
+  showRoleLevel?: boolean;
+  role?: string;
+  onRoleChange?: (v: string) => void;
+  level?: number | "";
+  onLevelChange?: (v: number | "") => void;
 }
 
 export function BackgroundTab({
   bio, onBioChange, occupation, onOccupationChange, age, onAgeChange, readOnly,
+  showRoleLevel = false, role = "", onRoleChange, level = "", onLevelChange,
 }: BackgroundTabProps) {
   const t = useTranslations("character");
 
@@ -21,6 +28,23 @@ export function BackgroundTab({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* d20-only: role + level (free-text/free-number, no class system) */}
+      {showRoleLevel && (
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("role")}</label>
+            <input value={role} onChange={e => onRoleChange?.(e.target.value)}
+              readOnly={readOnly} placeholder={t("rolePlaceholder")} className={fieldCls} />
+          </div>
+          <div className="w-24">
+            <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("level")}</label>
+            <input type="number" min={0} max={99} value={level}
+              onChange={e => onLevelChange?.(e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value) || 0))}
+              readOnly={readOnly} placeholder={t("levelPlaceholder")} className={`${fieldCls} text-center font-mono`} />
+          </div>
+        </div>
+      )}
+
       {/* Occupation + age */}
       <div className="flex gap-3">
         <div className="flex-1">

@@ -6,12 +6,7 @@ import type { Audience } from "@/lib/messaging/audience";
 import type { SystemKind } from "@/db/schema";
 import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
-import {
-  resolveCocStat,
-  type CocAttributeKey,
-  type CocResourceKey,
-} from "@/lib/coc-stats";
-import { COC_DEFAULT_ATTRIBUTES, COC_MAX_SANITY, computeCocDerived, type CharacterData, type CocDerived } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character-types";
 import { getRuleForRoom, type RuleModule, type VisualGrade } from "@/lib/rules";
 
 /** Command Execution Result */
@@ -243,7 +238,9 @@ async function handleDiceRoll(
 ): Promise<CommandResult> {
   let args = rawArgs;
   if (!args.trim()) {
-    args = "1d100";
+    // No args → use the rule's default die (COC/basic = 1d100, dnd5e = 1d20).
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+    args = getRuleForRoom(room || {}).capabilities.defaultRollExpression;
   } else if (/^\d+(?![dD])/.test(args.trim())) {
     args = "1d" + args.trim();
   }
@@ -271,18 +268,18 @@ async function handleDiceRoll(
 }
 
 /**
- * Sync a COC 7th attribute or resource into room_members.character_data.
- * - attribute: set cocAttributes[key] and recompute derived (preserving current
- *   resource adjustments, re-clamped to new maxes).
- * - resource: set the *current* value (both the base field read by exports and the
- *   `${key}_current` field read by the character panel), capped at its max.
- * Returns the value actually stored (resources are clamped). No-op (returns the
- * input) when the member has no coc7th character sheet.
+ * Persist a `.st` attribute or resource write into room_members.character_data
+ * by delegating to the active rule module's `applyStatWrite`. The engine no
+ * longer knows about COC/d20-specific sheet shapes — each rule handles its
+ * own clamping, derivation, and field layout.
+ *
+ * Returns the value actually stored (rules may clamp resources). When the
+ * member has no parsed sheet, returns the input value unchanged.
  */
 export async function syncCharacterStat(
   roomId: number,
   userId: number,
-  resolution: { kind: "attribute"; key: CocAttributeKey } | { kind: "resource"; key: CocResourceKey },
+  resolution: { kind: "attribute"; key: string } | { kind: "resource"; key: string },
   value: number
 ): Promise<number> {
   const [member] = await db
@@ -299,52 +296,22 @@ export async function syncCharacterStat(
     console.error("Failed to parse character data", e);
     return value;
   }
-  if (!data || data.ruleTemplate !== "coc7th") return value;
+  if (!data) return value;
 
-  let finalValue = value;
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return value;
+  const rule = getRuleForRoom(room);
 
-  if (resolution.kind === "attribute") {
-    if (!data.cocAttributes) data.cocAttributes = { ...COC_DEFAULT_ATTRIBUTES };
-    data.cocAttributes[resolution.key] = value;
+  const route =
+    resolution.kind === "attribute"
+      ? ({ kind: "attribute", key: resolution.key, canonical: resolution.key } as const)
+      : ({ kind: "resource", key: resolution.key, canonical: resolution.key } as const);
 
-    const prev: Partial<CocDerived> = data.cocDerived || {};
-    const recomputed = computeCocDerived(data.cocAttributes!);
-    // Preserve player-set current values across a single-attribute change.
-    const clampOpt = (v: unknown, max: number) =>
-      typeof v === "number" ? Math.min(Math.max(0, v), max) : undefined;
-    const hpCur = clampOpt(prev.hp_current, recomputed.hpMax);
-    const sanCur = clampOpt(prev.san_current ?? prev.san, recomputed.sanMax);
-    const mpCur = clampOpt(prev.mp_current, recomputed.mpMax);
-    if (hpCur !== undefined) recomputed.hp_current = hpCur;
-    if (sanCur !== undefined) { recomputed.san_current = sanCur; recomputed.san = sanCur; }
-    if (mpCur !== undefined) recomputed.mp_current = mpCur;
-    data.cocDerived = recomputed;
-  } else {
-    if (!data.cocDerived) {
-      data.cocDerived = computeCocDerived(data.cocAttributes || COC_DEFAULT_ATTRIBUTES);
-    }
-    const d = data.cocDerived as CocDerived & Record<string, number | undefined>;
-    const maxKey = `${resolution.key}Max`;
-    let max: number;
-    if (resolution.key === "san") {
-      // COC 7th: Sanity is always capped at 99, never by POW. Also correct any
-      // stale stored sanMax (older characters had it derived from POW).
-      max = COC_MAX_SANITY;
-      d[maxKey] = max;
-    } else if (typeof d[maxKey] === "number") {
-      max = d[maxKey];
-    } else {
-      max = value; // no cap info available — accept as-is
-      d[maxKey] = max;
-    }
-    finalValue = Math.min(Math.max(0, value), max);
-    d[resolution.key] = finalValue;            // base field (read by export.ts)
-    d[`${resolution.key}_current`] = finalValue; // current field (read by CharacterPanel)
-  }
+  const { sheet, finalValue } = rule.applyStatWrite(data, route, value);
 
   await db
     .update(roomMembers)
-    .set({ characterData: JSON.stringify(data) })
+    .set({ characterData: JSON.stringify(sheet) })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
   return finalValue;
@@ -410,7 +377,7 @@ async function handleSetSkill(
 
     if (route.kind === "attribute") {
       // Spec: rule routes this name to a character-sheet attribute.
-      await syncCharacterStat(roomId, userId, { kind: "attribute", key: route.key as CocAttributeKey }, item.value);
+      await syncCharacterStat(roomId, userId, { kind: "attribute", key: route.key }, item.value);
       await cleanupSkillRows(roomId, userId, item.name, route.canonical);
       summaryParts.push(`${route.canonical} ${item.value}`);
       continue;
@@ -418,7 +385,7 @@ async function handleSetSkill(
 
     if (route.kind === "resource") {
       // Spec: resources set the current value only (max is unaffected).
-      const stored = await syncCharacterStat(roomId, userId, { kind: "resource", key: route.key as CocResourceKey }, item.value);
+      const stored = await syncCharacterStat(roomId, userId, { kind: "resource", key: route.key }, item.value);
       await cleanupSkillRows(roomId, userId, item.name, route.canonical);
       summaryParts.push(`${route.canonical} ${stored}`);
       continue;
@@ -460,9 +427,11 @@ async function cleanupSkillRows(roomId: number, userId: number, rawName: string,
 }
 
 /**
- * .rc / .ra: Roll Check (d100 vs target). Identical variants per spec.
- * - `.rc 侦查90` → one-off check against 90, ignoring stored values (not persisted).
- * - `.rc 侦查`  → check against the stored skill; falls back to a COC attribute/resource.
+ * .rc / .ra: Roll Check. Parsing is delegated to the active rule module so
+ * each ruleset owns its own syntax:
+ *  - COC/basic: `<name>[\s*<int>]` (legacy regex; trailing int = threshold).
+ *  - DnD 5e:    `<name>[<±mod-formula>][ <DC>]` (modifier may embed dice;
+ *               the space before DC is required).
  */
 async function handleRollCheck(
   roomId: number,
@@ -479,35 +448,61 @@ async function handleRollCheck(
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
   const rule = getRuleForRoom(room);
 
-  // Optional trailing value: "侦查90" / "侦查 90" → name="侦查", value=90
-  const m = trimmedArgs.match(/^(.+?)\s*([0-9]+)$/);
+  const parsed = rule.parseRcArgs(trimmedArgs);
+  if (!parsed) {
+    // Pick the rule-flavored usage error when available, else the legacy one.
+    const usageKey = rule.id === "dnd5e" ? "d20RcUsage" : "rcUsageError";
+    return { success: false, isCommand: true, error: t(usageKey) };
+  }
 
-  if (m) {
-    let skillName = m[1].trim();
-    const value = parseInt(m[2], 10);
-    if (skillName.length > 50) skillName = skillName.slice(0, 50);
-    if (value < 0 || value > 999) {
-      return { success: false, isCommand: true, error: t("rcUsageError") };
+  // Evaluate the modifier formula (rolling any embedded dice) if the rule
+  // surfaced one. Result is passed as raw number + display string so the
+  // rule's resolveCheck can splice into chat output without re-parsing.
+  let modifierValue: number | undefined;
+  let modifierDisplay: string | undefined;
+  if (parsed.modifierExpression) {
+    const evalRes = parseAndRollExpression(parsed.modifierExpression, t);
+    if (!evalRes.success) {
+      return { success: false, isCommand: true, error: evalRes.error };
     }
-    // One-off check at the supplied value (spec: ignore stored values, do not persist).
-    const displayName = displayStatName(skillName);
-    return await performSkillCheck(roomId, userId, displayName, value, rule, t, ctx, rawCommand);
+    modifierValue = evalRes.totalSum;
+    // Render like "+1+1d6([3])=+4" — keep the leading sign explicit so the
+    // chat bubble reads as a clear adjustment.
+    const signedTotal = modifierValue >= 0 ? `+${modifierValue}` : `${modifierValue}`;
+    modifierDisplay = `${parsed.modifierExpression.startsWith("-") ? "" : "+"}${evalRes.display.replace(/^\+/, "")}=${signedTotal}`;
   }
 
-  // No value → look up the stored target.
-  const skillName = trimmedArgs;
-  const target = await lookupCheckTarget(roomId, userId, skillName, rule);
-  if (target === null) {
-    return { success: false, isCommand: true, error: t("rcSkillNotSet", { skillName }), code: "STAT_NOT_SET" };
+  // Always load the sheet — rules may inspect it during resolveCheck.
+  const sheet = await getCharacterData(roomId, userId);
+
+  // Look up storedValue from room_skills / rule fallback ONLY when no explicit
+  // target was supplied. (For explicit-target paths, the spec says ignore
+  // stored values.)
+  let stored: { name: string; value: number } | null = null;
+  if (parsed.explicitTarget === undefined) {
+    stored = await lookupCheckTarget(roomId, userId, parsed.skillName, rule);
+    if (stored === null && rule.capabilities.requiresStoredTarget) {
+      return {
+        success: false,
+        isCommand: true,
+        error: t("rcSkillNotSet", { skillName: parsed.skillName }),
+        code: "STAT_NOT_SET",
+      };
+    }
   }
 
-  return await performSkillCheck(roomId, userId, target.name, target.value, rule, t, ctx, rawCommand);
-}
+  const displayName = stored?.name ?? rule.canonicalStatName(parsed.skillName);
+  // `target` keeps its legacy "the value to display" role: explicit > stored
+  // > 0 (rule may overwrite via its own default, e.g. d20 DC=10).
+  const target = parsed.explicitTarget ?? stored?.value ?? 0;
 
-/** Canonicalize a stat name for display (san → 理智值, str → 力量, …). */
-function displayStatName(name: string): string {
-  const resolved = resolveCocStat(name);
-  return resolved.kind === "skill" ? name : resolved.canonical;
+  return await performSkillCheck(roomId, userId, displayName, target, rule, t, ctx, rawCommand, {
+    explicitTarget: parsed.explicitTarget,
+    storedValue: stored?.value,
+    modifierValue,
+    modifierDisplay,
+    sheet,
+  });
 }
 
 /**
@@ -536,6 +531,14 @@ async function lookupCheckTarget(
   return rule.lookupFallback(skillName, sheet);
 }
 
+interface PerformCheckExtras {
+  explicitTarget?: number;
+  storedValue?: number;
+  modifierValue?: number;
+  modifierDisplay?: string;
+  sheet: CharacterData | null;
+}
+
 /**
  * Roll a skill check via the active rule module, format the result, and
  * broadcast it. The rule fully owns dice mechanics (which die, comparison
@@ -550,13 +553,18 @@ async function performSkillCheck(
   rule: RuleModule,
   t: (key: string, opts?: Record<string, string | number | Date>) => string,
   ctx: CommandContext | undefined,
-  rawCommand: string
+  rawCommand: string,
+  extras?: PerformCheckExtras
 ): Promise<CommandResult> {
-  // The current rule modules (basic / coc7th) don't consult the sheet during
-  // resolveCheck. We pass null to avoid an extra DB read; rules that need
-  // sheet-derived modifiers (e.g. future DnD 5e) will receive the loaded
-  // sheet here.
-  const result = rule.resolveCheck({ skillName, target, sheet: null });
+  const result = rule.resolveCheck({
+    skillName,
+    target,
+    explicitTarget: extras?.explicitTarget,
+    storedValue: extras?.storedValue,
+    modifierValue: extras?.modifierValue,
+    modifierDisplay: extras?.modifierDisplay,
+    sheet: extras?.sheet ?? null,
+  });
   const { successLevel, icon } = gradeDisplay(result.grade, t);
 
   const detail = attachProxy(
@@ -564,15 +572,26 @@ async function performSkillCheck(
     ctx?.proxiedBy
   );
 
-  // For d100 rules `total` is the raw roll; for future d20-style rules it'd be
-  // roll+mods — the chat string template (`checkMessage`) reads it either way.
-  const content = t("checkMessage", {
-    skillName: result.skillName,
-    roll: result.total,
-    target: result.target,
-    successLevel,
-    icon,
-  });
+  // Pick chat template per rule. d20 renders "d20+3=18 vs DC 15"; others use
+  // the legacy d100 form. Rules without their own template fall back to it.
+  const useD20Template = result.detail && typeof result.detail === "object"
+    && (result.detail as Record<string, unknown>).dice === "d20";
+  const content = useD20Template
+    ? t("d20CheckMessage", {
+        skillName: result.skillName,
+        roll: result.total,
+        target: result.target,
+        modifierDisplay: extras?.modifierDisplay ? ` (${extras.modifierDisplay})` : "",
+        successLevel,
+        icon,
+      })
+    : t("checkMessage", {
+        skillName: result.skillName,
+        roll: result.total,
+        target: result.target,
+        successLevel,
+        icon,
+      });
   const vis = visibilityFor(ctx, userId, "channel");
   const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
   return { success: true, isCommand: true, message: msg };

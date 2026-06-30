@@ -74,7 +74,9 @@
     "ruleTemplate": "规则模版",
     "ruleTemplateCoc7th": "🐙 COC 7th",
     "ruleTemplateBasic": "🎲 通用 d100",
-    "ruleTemplateHint": "COC 7th 将自动初始化 8 属性 + 衍生值"
+    "ruleTemplateDnd5e": "🐉 DnD 5e (d20)",
+    "ruleTemplateHint": "COC 7th 将自动初始化 8 属性 + 衍生值",
+    "ruleTemplateDnd5eHint": "DnD 5e 将以 d20 + 调整值对比 DC 判定（属性自由设置）"
   },
   "room": {
     "notFound": "房间不存在",
@@ -606,7 +608,15 @@
     "int": "智力 INT",
     "pow": "意志 POW",
     "edu": "教育 EDU",
-    "luckAttr": "幸运 LUCK"
+    "luckAttr": "幸运 LUCK",
+    "wis": "感知 WIS",
+    "cha": "魅力 CHA",
+    "pb": "熟练 PB",
+    "ac": "护甲 AC",
+    "role": "角色",
+    "level": "等级",
+    "rolePlaceholder": "如：战士、法师",
+    "levelPlaceholder": "等级"
   },
   "inventory": {
     "title": "道具栏",
@@ -956,6 +966,7 @@
     "stUsageError": "格式错误。正确用法：.st 侦查 50",
     "stSuccess": "技能已更新：{summary}",
     "rcUsageError": "用法：.rc 侦查",
+    "d20RcUsage": "用法：.rc <名称>[<+/-调整值>] [DC]。例如 .rc str+3 15、.rc athletics+1+1d6 12。调整值与 DC 之间空格不可省略。",
     "raUsageError": "用法：.ra 侦查 或 .ra 侦查 60",
     "roomNotFound": "未找到房间",
     "rcSkillNotSet": "技能 '{skillName}' 未设置。请先使用 .st 设置。",
@@ -964,6 +975,7 @@
     "critical": "大成功！",
     "fumble": "大失败！",
     "checkMessage": "{skillName} 检定：d100={roll} / {target} → {successLevel}",
+    "d20CheckMessage": "{skillName} 检定：d20{modifierDisplay}={roll} vs DC {target} → {icon} {successLevel}",
     "scUsageError": "用法：.sc [成功扣除]/[失败扣除] (例如 .sc0/1 或 .sc1d6/1d10)",
     "scNoSanity": "未设置理智值。请先使用 .st 理智值 [数值] 设置您的理智值。",
     "scNotCoc7th": "理智检定（.sc）指令仅在 COC7th 规则房间中可用。",
@@ -1036,6 +1048,7 @@
     "ruleTemplateLabel": "规则模板",
     "ruleTemplateBasic": "通用 d100",
     "ruleTemplateCoc7th": "COC 7th",
+    "ruleTemplateDnd5e": "DnD 5e (d20)",
     "ruleTemplateHint": "决定角色卡初始化属性结构",
     "saveSuccess": "设置保存成功",
     "saveFailed": "保存失败",
@@ -1089,6 +1102,7 @@
     "ruleTemplate": "规则模版",
     "ruleTemplateCoc7th": "COC 7th",
     "ruleTemplateBasic": "通用 d100",
+    "ruleTemplateDnd5e": "DnD 5e (d20)",
     "exportTime": "导出时间",
     "publicTimeline": "📜 公频时间线",
     "systemPrefix": "📢 系统：",

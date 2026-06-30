@@ -31,6 +31,9 @@ const capabilities: RuleCapabilities = {
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
   resourceBars: [],
   attributeKeys: [],
+  defaultRollExpression: "1d100",
+  requiresStoredTarget: true,
+  hasRoleLevel: false,
 };
 
 export const basicRule: RuleModule = {
@@ -88,6 +91,32 @@ export const basicRule: RuleModule = {
         check: { skillName, target, roll, success: passed, grade },
       },
     };
+  },
+
+  /**
+   * Replicates the legacy engine regex `/^(.+?)\s*([0-9]+)$/` byte-for-byte:
+   * trailing integer is the target, with optional whitespace separator. Used
+   * by both basic and COC for COC-compat command parsing.
+   */
+  parseRcArgs(args) {
+    const trimmed = args.trim();
+    if (!trimmed) return null;
+    const m = trimmed.match(/^(.+?)\s*([0-9]+)$/);
+    if (m) {
+      let skillName = m[1].trim();
+      const value = parseInt(m[2], 10);
+      if (skillName.length > 50) skillName = skillName.slice(0, 50);
+      if (!skillName || value < 0 || value > 999) return null;
+      return { skillName, explicitTarget: value };
+    }
+    return { skillName: trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed };
+  },
+
+  // Basic has no structured sheet — `.st` writes never reach attribute/
+  // resource branches in practice (routeStat always returns "skill"). If a
+  // future call site reaches here, return the input unchanged.
+  applyStatWrite(sheet, _route, value) {
+    return { sheet, finalValue: value };
   },
 
   exportSnapshot(): Record<string, unknown> {

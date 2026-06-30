@@ -36,12 +36,38 @@ export interface CheckRequest {
   /**
    * Numeric target. Semantics depend on the rule:
    *  - COC d100: skill threshold (lower roll = success).
-   *  - DnD 5e d20 (future): DC (higher roll = success).
+   *  - DnD 5e d20: DC (higher total = success).
    * The engine has already resolved this from room_skills or the rule's
    * `lookupFallback`, or read it from the player's explicit `.rc <n> <v>`.
+   * For d20 with no explicit DC and no lookup, defaults to 0 (rule fills DC).
    */
   target: number;
-  /** Character sheet of the rolling user (already loaded, may be null). */
+  /**
+   * Explicit target value typed by the player (`.rc <name> <X>`).
+   * Set only when the player supplied it; unset when the engine looked it up.
+   * COC modules ignore this; d20 uses it as DC (defaulting to 10 when absent).
+   */
+  explicitTarget?: number;
+  /**
+   * Value returned by `room_skills` row OR `rule.lookupFallback`.
+   * COC uses this as the threshold; d20 ignores (modifier comes from
+   * the player-supplied formula instead).
+   */
+  storedValue?: number;
+  /**
+   * Pre-evaluated modifier from the player's `.rc <name>+<formula>` expression.
+   * The engine rolls any embedded dice (e.g. `+1+1d6`) via
+   * `parseAndRollExpression` before calling the rule; the rule just sums.
+   * COC ignores; d20 adds to the d20 roll.
+   */
+  modifierValue?: number;
+  /**
+   * Human-readable rendering of the modifier expression, including individual
+   * die rolls when the formula contained dice. E.g. `"+1+1d6([3])=+4"`.
+   * Rules persist this in the check `detail` for chat-bubble display.
+   */
+  modifierDisplay?: string;
+  /** Character sheet of the rolling user (always loaded by the engine now). */
   sheet: CharacterData | null;
 }
 
@@ -112,6 +138,23 @@ export interface RuleCapabilities {
   resourceBars: ReadonlyArray<ResourceBarSpec>;
   /** Predefined attribute grid rendered in the character sheet. */
   attributeKeys: ReadonlyArray<AttributeKeySpec>;
+  /**
+   * `.rd`/`.r` default dice expression when player supplies no args.
+   * COC/basic: `"1d100"`; DnD 5e: `"1d20"`.
+   */
+  defaultRollExpression: string;
+  /**
+   * When true (COC/basic), engine errors with STAT_NOT_SET on `.rc <name>`
+   * if neither `room_skills` nor `lookupFallback` yields a value.
+   * When false (d20), engine proceeds with `target=0`/`storedValue=undefined`
+   * and lets the rule decide a default (d20 uses DC=10).
+   */
+  requiresStoredTarget: boolean;
+  /**
+   * When true, the character panel exposes free-text `role` and numeric
+   * `level` fields above the attribute grid. d20 sets true; COC/basic false.
+   */
+  hasRoleLevel: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +214,42 @@ export interface RuleModule {
 
   /** Roll, compare, grade — the rule fully owns the dice mechanic. */
   resolveCheck(req: CheckRequest): CheckResult;
+
+  // ----- `.rc` argument parsing --------------------------------------------
+
+  /**
+   * Parse a `.rc <args>` argument string into a normalized shape.
+   * Returning `null` signals a usage error (engine emits the rule's usage
+   * message). Each rule owns its own syntax:
+   *   - COC/basic: `<name>[\s*<integer>]` (trailing number is threshold;
+   *     space is optional, matching legacy behavior).
+   *   - d20: `<name>[<+/-mod-formula>][\s+<DC>]` (modifier expression may
+   *     embed dice; the space before DC is required).
+   */
+  parseRcArgs(args: string): null | {
+    skillName: string;
+    explicitTarget?: number;
+    /** Modifier formula string the engine must evaluate (e.g. `"+1+1d6"`). */
+    modifierExpression?: string;
+  };
+
+  // ----- `.st` attribute/resource write -----------------------------------
+
+  /**
+   * Apply a `.st` write to the sheet for an attribute or resource route.
+   * Returns the mutated sheet (rules may also return the same reference)
+   * and the final stored value (resources are clamped to their maxes).
+   * Rules WITHOUT structured sheets (basic) return the input unchanged.
+   *
+   * The engine never inspects the sheet for rule-specific keys — this
+   * method is the single dispatch point. COC's implementation hosts the
+   * attribute/resource branches that used to live inline in the engine.
+   */
+  applyStatWrite(
+    sheet: CharacterData,
+    route: Extract<StatRoute, { kind: "attribute" } | { kind: "resource" }>,
+    value: number,
+  ): { sheet: CharacterData; finalValue: number };
 
   // ----- Export / AI integration -------------------------------------------
 

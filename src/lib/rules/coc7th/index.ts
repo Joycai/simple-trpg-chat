@@ -68,6 +68,9 @@ const capabilities: RuleCapabilities = {
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"],
   resourceBars: COC_RESOURCE_BARS,
   attributeKeys: COC_ATTRIBUTE_KEYS,
+  defaultRollExpression: "1d100",
+  requiresStoredTarget: true,
+  hasRoleLevel: false,
 };
 
 export const coc7thRule: RuleModule = {
@@ -168,6 +171,85 @@ export const coc7thRule: RuleModule = {
     };
   },
 
+  /**
+   * Replicates the legacy engine regex `/^(.+?)\s*([0-9]+)$/` byte-for-byte:
+   * trailing integer is the target threshold, with optional whitespace
+   * separator. Honoring `.rc 侦查50` (no space) is mandatory for back-compat.
+   */
+  parseRcArgs(args) {
+    const trimmed = args.trim();
+    if (!trimmed) return null;
+    const m = trimmed.match(/^(.+?)\s*([0-9]+)$/);
+    if (m) {
+      let skillName = m[1].trim();
+      const value = parseInt(m[2], 10);
+      if (skillName.length > 50) skillName = skillName.slice(0, 50);
+      if (!skillName || value < 0 || value > 999) return null;
+      return { skillName, explicitTarget: value };
+    }
+    return { skillName: trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed };
+  },
+
+  /**
+   * Hosts the attribute/resource write logic that used to live inline in
+   * `syncCharacterStat` (commands.ts:306-343). Byte-for-byte compatible:
+   *  - attribute: write `cocAttributes[key]`, recompute derived while
+   *    preserving player-set current resource values (clamped to new maxes).
+   *  - resource: clamp to `${key}Max` (SAN cap forced to 99 per COC 7th),
+   *    write both base field (read by export.ts) and `${key}_current`
+   *    (read by CharacterPanel).
+   */
+  applyStatWrite(sheet, route, value) {
+    const data = { ...sheet };
+    let finalValue = value;
+
+    if (route.kind === "attribute") {
+      const key = route.key as keyof CocAttributes;
+      const attrs = { ...(data.cocAttributes ?? COC_DEFAULT_ATTRIBUTES) };
+      attrs[key] = value;
+      data.cocAttributes = attrs;
+
+      const prev: Partial<CocDerived> = data.cocDerived || {};
+      const recomputed = computeCocDerived(attrs);
+      const clampOpt = (v: unknown, max: number) =>
+        typeof v === "number" ? Math.min(Math.max(0, v), max) : undefined;
+      const hpCur = clampOpt(prev.hp_current, recomputed.hpMax);
+      const sanCur = clampOpt(prev.san_current ?? prev.san, recomputed.sanMax);
+      const mpCur = clampOpt(prev.mp_current, recomputed.mpMax);
+      if (hpCur !== undefined) recomputed.hp_current = hpCur;
+      if (sanCur !== undefined) {
+        recomputed.san_current = sanCur;
+        recomputed.san = sanCur;
+      }
+      if (mpCur !== undefined) recomputed.mp_current = mpCur;
+      data.cocDerived = recomputed;
+      return { sheet: data, finalValue };
+    }
+
+    // resource
+    const resKey = route.key;
+    const derived: CocDerived = data.cocDerived
+      ? { ...data.cocDerived }
+      : computeCocDerived(data.cocAttributes ?? COC_DEFAULT_ATTRIBUTES);
+    const d = derived as CocDerived & Record<string, number | undefined>;
+    const maxKey = `${resKey}Max`;
+    let max: number;
+    if (resKey === "san") {
+      max = COC_MAX_SANITY;
+      d[maxKey] = max;
+    } else if (typeof d[maxKey] === "number") {
+      max = d[maxKey] as number;
+    } else {
+      max = value;
+      d[maxKey] = max;
+    }
+    finalValue = Math.min(Math.max(0, value), max);
+    d[resKey] = finalValue;
+    d[`${resKey}_current`] = finalValue;
+    data.cocDerived = derived;
+    return { sheet: data, finalValue };
+  },
+
   exportSnapshot(sheet: CharacterData): Record<string, unknown> {
     // Shape mirrors the legacy export.ts COC block.
     const out: Record<string, unknown> = {};
@@ -196,6 +278,17 @@ export const coc7thRule: RuleModule = {
           description:
             "COC 7th attributes (required/used only if ruleTemplate is 'coc7th'). " +
             "Values should typically be between 15 and 99.",
+          properties: {
+            str: { type: "integer", description: "Strength" },
+            con: { type: "integer", description: "Constitution" },
+            siz: { type: "integer", description: "Size" },
+            dex: { type: "integer", description: "Dexterity" },
+            app: { type: "integer", description: "Appearance" },
+            int: { type: "integer", description: "Intelligence" },
+            pow: { type: "integer", description: "Power" },
+            edu: { type: "integer", description: "Education" },
+            luck: { type: "integer", description: "Luck" },
+          },
         },
       },
     };

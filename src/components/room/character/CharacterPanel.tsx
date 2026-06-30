@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction } from "@/app/actions/room";
-import { initCocCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
+import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CocAttributes } from "@/lib/character-types";
-import { COC_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
+import type { CocAttributes, D20Attributes, D20Sheet } from "@/lib/character-types";
+import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
 import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
@@ -16,6 +16,7 @@ import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
+import { getRule } from "@/lib/rules";
 
 interface CharacterPanelProps {
   roomId: number;
@@ -78,37 +79,54 @@ export function CharacterPanel({
   const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
-  // Character data
+  // Character data — parsed once, then individual fields are pulled into local
+  // state below so edits can be optimistic before save.
   const charData = parseCharData(characterData) as {
     ruleTemplate?: string;
     cocAttributes?: CocAttributes;
+    cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number; hp?: number; san?: number; mp?: number; hpMax?: number; sanMax?: number; mpMax?: number };
+    d20Attributes?: D20Attributes;
+    d20Sheet?: D20Sheet;
     bio?: string;
     occupation?: string;
     age?: number;
     customAttributes?: { name: string; value: number; max?: number }[];
-    cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
   };
   const hasExistingData = !!characterData && !!charData.ruleTemplate;
   const ruleTemplate = charData.ruleTemplate || roomRuleTemplate || "basic";
+  const ruleCap = getRule(ruleTemplate).capabilities;
   const [initDone, setInitDone] = useState(hasExistingData);
 
-  const [cocAttrs, setCocAttrs] = useState<CocAttributes>(charData.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
-  const derived = computeCocDerived(cocAttrs);
+  // Attributes — generic Record keyed by capability `attributeKeys[*].key`.
+  // For COC: pulled from cocAttributes; for d20: from d20Attributes.
+  const [attributeValues, setAttributeValues] = useState<Record<string, number>>(() =>
+    buildAttributeValues(ruleTemplate, charData.cocAttributes, charData.d20Attributes)
+  );
 
-  // Auto-init COC 7th character on first open
+  // d20-specific role / level (gated by `cap.hasRoleLevel`).
+  const [d20Role, setD20Role] = useState<string>(charData.d20Sheet?.role ?? "");
+  const [d20Level, setD20Level] = useState<number | "">(charData.d20Sheet?.level ?? "");
+
+  // Auto-init character on first open (rule-driven; was COC-only before).
   useEffect(() => {
     if (readOnly) return;
     if (initDone) return;
-    if (roomRuleTemplate === "coc7th") {
-      initCocCharacterAction(roomId).then((data) => {
-        setCocAttrs(data.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES });
-        setInitDone(true);
-        router.refresh();
-      }).catch(() => {});
-    } else {
+    if (roomRuleTemplate === "basic" || !roomRuleTemplate) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitDone(true);
+      return;
     }
+    initCharacterAction(roomId).then((data) => {
+      setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes));
+      if (data.d20Sheet) {
+        setD20Role(data.d20Sheet.role ?? "");
+        setD20Level(data.d20Sheet.level ?? "");
+      }
+      setInitDone(true);
+      router.refresh();
+    }).catch(() => {});
+    // intentionally omits `router` and `ruleTemplate` from deps — initial-mount-only effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomRuleTemplate, roomId, initDone, readOnly]);
   const [bio, setBio] = useState(charData.bio || "");
   const [occupation, setOccupation] = useState(charData.occupation || "");
@@ -117,10 +135,32 @@ export function CharacterPanel({
   // Custom attributes / resources (a custom item with `max` set renders as a resource bar)
   const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
 
-  // Resource current values
-  const [currentHp, setCurrentHp] = useState(charData.cocDerived?.hp_current ?? derived.hp);
-  const [currentSan, setCurrentSan] = useState(charData.cocDerived?.san_current ?? derived.san);
-  const [currentMp, setCurrentMp] = useState(charData.cocDerived?.mp_current ?? derived.mp);
+  // For COC, derived (hpMax/sanMax/mpMax) is computed from attributes; for
+  // d20 it's free-set on d20Sheet. We rebuild on every render so attribute
+  // edits in the panel immediately move the bar denominators.
+  const cocDerived = ruleTemplate === "coc7th"
+    ? computeCocDerived(attributeValuesAsCocAttrs(attributeValues))
+    : null;
+  const resourceMaxes: Record<string, number> =
+    ruleTemplate === "dnd5e"
+      ? { hp: charData.d20Sheet?.hpMax ?? 10 }
+      : cocDerived
+        ? { hp: cocDerived.hpMax, san: cocDerived.sanMax, mp: cocDerived.mpMax }
+        : {};
+
+  // Resource current values — generic Record keyed by resource key.
+  const [currentResources, setCurrentResources] = useState<Record<string, number>>(() => {
+    const out: Record<string, number> = {};
+    if (ruleTemplate === "dnd5e") {
+      out.hp = charData.d20Sheet?.hp_current ?? charData.d20Sheet?.hpMax ?? 10;
+      return out;
+    }
+    const d = computeCocDerived(attributeValuesAsCocAttrs(attributeValues));
+    out.hp = charData.cocDerived?.hp_current ?? d.hp;
+    out.san = charData.cocDerived?.san_current ?? d.san;
+    out.mp = charData.cocDerived?.mp_current ?? d.mp;
+    return out;
+  });
 
   // Skills
   const [skills, setSkills] = useState<SkillItem[]>([]);
@@ -143,27 +183,39 @@ export function CharacterPanel({
   useEffect(() => {
     if (!characterData) return;
     const cd = parseCharData(characterData) as {
+      ruleTemplate?: string;
       cocAttributes?: CocAttributes;
+      d20Attributes?: D20Attributes;
+      d20Sheet?: D20Sheet;
       bio?: string;
       occupation?: string;
       age?: number;
       customAttributes?: { name: string; value: number; max?: number }[];
-      cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number };
+      cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number; hp?: number; san?: number; mp?: number };
     };
     if (!cd) return;
-    const attrs = cd.cocAttributes || { ...COC_DEFAULT_ATTRIBUTES };
-    const d = computeCocDerived(attrs);
+    const rt = cd.ruleTemplate || ruleTemplate;
+    const attrs = buildAttributeValues(rt, cd.cocAttributes, cd.d20Attributes);
     /* eslint-disable react-hooks/set-state-in-effect */
-    setCocAttrs(attrs);
+    setAttributeValues(attrs);
     setBio(cd.bio || "");
     setOccupation(cd.occupation || "");
     setAge(cd.age ?? "");
     setCustomAttrs(cd.customAttributes || []);
-    setCurrentHp(cd.cocDerived?.hp_current ?? d.hp);
-    setCurrentSan(cd.cocDerived?.san_current ?? d.san);
-    setCurrentMp(cd.cocDerived?.mp_current ?? d.mp);
+    if (rt === "dnd5e") {
+      setD20Role(cd.d20Sheet?.role ?? "");
+      setD20Level(cd.d20Sheet?.level ?? "");
+      setCurrentResources({ hp: cd.d20Sheet?.hp_current ?? cd.d20Sheet?.hpMax ?? 10 });
+    } else {
+      const d = computeCocDerived(attributeValuesAsCocAttrs(attrs));
+      setCurrentResources({
+        hp: cd.cocDerived?.hp_current ?? d.hp,
+        san: cd.cocDerived?.san_current ?? d.san,
+        mp: cd.cocDerived?.mp_current ?? d.mp,
+      });
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [characterData]);
+  }, [characterData, ruleTemplate]);
 
   const saveNickname = async () => {
     if (nickname.trim() && nickname !== currentNickname) {
@@ -183,19 +235,39 @@ export function CharacterPanel({
     }
   };
 
-  // Footer "保存" — persists attributes + bio (and resources for COC) in one go.
+  // Footer "保存" — persists attributes + bio + per-rule sheet in one go.
   const handleSaveAll = async () => {
     setSaveStatus("saving");
     try {
-      await saveCharacterDataAction(roomId, {
-        ruleTemplate, cocAttributes: cocAttrs, bio,
+      const basePayload = {
+        ruleTemplate, bio,
         occupation: occupation.trim() || undefined,
         age: age === "" ? undefined : Number(age),
-      });
+      };
       if (ruleTemplate === "coc7th") {
-        await updateResourcesAction(roomId, targetUserId || userId, {
-          hp_current: currentHp, san_current: currentSan, mp_current: currentMp,
+        await saveCharacterDataAction(roomId, {
+          ...basePayload,
+          cocAttributes: attributeValuesAsCocAttrs(attributeValues),
         });
+        await updateResourcesAction(roomId, targetUserId || userId, {
+          hp_current: currentResources.hp ?? 0,
+          san_current: currentResources.san ?? 0,
+          mp_current: currentResources.mp ?? 0,
+        });
+      } else if (ruleTemplate === "dnd5e") {
+        await saveCharacterDataAction(roomId, {
+          ...basePayload,
+          d20Attributes: attributeValuesAsD20Attrs(attributeValues),
+          d20Sheet: {
+            role: d20Role.trim() || undefined,
+            level: d20Level === "" ? undefined : Number(d20Level),
+            hpMax: resourceMaxes.hp,
+            hp_current: currentResources.hp ?? 0,
+          },
+        });
+      } else {
+        // basic — no rule-specific shape; save just the generic fields.
+        await saveCharacterDataAction(roomId, basePayload);
       }
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
@@ -211,9 +283,22 @@ export function CharacterPanel({
   const handleExport = () => {
     const lines = [`${t("title")} · ${nickname}`, ""];
     if (ruleTemplate === "coc7th") {
-      lines.push(`${t("hp")}: ${currentHp}/${derived.hpMax}`, `${t("san")}: ${currentSan}/${derived.sanMax}`, `${t("mp")}: ${currentMp}/${derived.mpMax}`, "");
+      lines.push(
+        `${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`,
+        `${t("san")}: ${currentResources.san ?? 0}/${resourceMaxes.san ?? 0}`,
+        `${t("mp")}: ${currentResources.mp ?? 0}/${resourceMaxes.mp ?? 0}`,
+        ""
+      );
       lines.push(t("baseAttributes") + ":");
-      (Object.keys(cocAttrs) as (keyof CocAttributes)[]).forEach((k) => lines.push(`  ${k.toUpperCase()}: ${cocAttrs[k]}`));
+      ruleCap.attributeKeys.forEach(({ key }) =>
+        lines.push(`  ${key.toUpperCase()}: ${attributeValues[key] ?? 0}`));
+    } else if (ruleTemplate === "dnd5e") {
+      if (d20Role) lines.push(`${t("role")}: ${d20Role}`);
+      if (d20Level !== "") lines.push(`${t("level")}: ${d20Level}`);
+      lines.push(`${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`, "");
+      lines.push(t("baseAttributes") + ":");
+      ruleCap.attributeKeys.forEach(({ key }) =>
+        lines.push(`  ${key.toUpperCase()}: ${attributeValues[key] ?? 0}`));
     }
     if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
     if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
@@ -226,8 +311,21 @@ export function CharacterPanel({
     URL.revokeObjectURL(url);
   };
 
-  const updateAttr = (key: keyof CocAttributes, value: number) => {
-    setCocAttrs(prev => ({ ...prev, [key]: value }));
+  const updateAttr = (key: string, value: number) => {
+    setAttributeValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleResourceChange = (key: string, value: number) => {
+    setCurrentResources(prev => ({ ...prev, [key]: value }));
+  };
+
+  // d20: max is editable on the HP bar (no auto-derivation). Wire it into
+  // resourceMaxes via a local override state so the AttributesTab can refresh
+  // immediately without a server round-trip.
+  const [resourceMaxOverrides, setResourceMaxOverrides] = useState<Record<string, number>>({});
+  const effectiveResourceMaxes = { ...resourceMaxes, ...resourceMaxOverrides };
+  const handleResourceMaxChange = (key: string, value: number) => {
+    setResourceMaxOverrides(prev => ({ ...prev, [key]: value }));
   };
 
   const addSkill = async () => {
@@ -416,14 +514,12 @@ export function CharacterPanel({
               ruleTemplate={ruleTemplate}
               readOnly={readOnly}
               canEditResources={canEditResources}
-              derived={derived}
-              currentHp={currentHp}
-              onCurrentHpChange={setCurrentHp}
-              currentSan={currentSan}
-              onCurrentSanChange={setCurrentSan}
-              currentMp={currentMp}
-              onCurrentMpChange={setCurrentMp}
-              cocAttrs={cocAttrs}
+              currentResources={currentResources}
+              resourceMaxes={effectiveResourceMaxes}
+              onResourceChange={handleResourceChange}
+              resourceMaxEditable={ruleTemplate === "dnd5e" && !readOnly}
+              onResourceMaxChange={handleResourceMaxChange}
+              attributeValues={attributeValues}
               onUpdateAttr={updateAttr}
               customAttrs={customAttrs}
               onAddCustom={addCustom}
@@ -454,6 +550,11 @@ export function CharacterPanel({
               age={age}
               onAgeChange={setAge}
               readOnly={readOnly}
+              showRoleLevel={ruleCap.hasRoleLevel}
+              role={d20Role}
+              onRoleChange={setD20Role}
+              level={d20Level}
+              onLevelChange={setD20Level}
             />
           )}
         </div>
@@ -490,4 +591,45 @@ export function CharacterPanel({
 
 function parseCharData(json?: string | null): Record<string, unknown> {
   try { return json ? JSON.parse(json) : {}; } catch { return {}; }
+}
+
+/**
+ * Build the generic `attributeValues: Record<string, number>` record fed to
+ * AttributesTab from rule-specific attribute bags. COC → cocAttributes;
+ * d20 → d20Attributes; basic → empty.
+ */
+function buildAttributeValues(
+  ruleTemplate: string,
+  coc: CocAttributes | undefined,
+  d20: D20Attributes | undefined,
+): Record<string, number> {
+  if (ruleTemplate === "coc7th") {
+    const src = coc || COC_DEFAULT_ATTRIBUTES;
+    return { ...src };
+  }
+  if (ruleTemplate === "dnd5e") {
+    const src = d20 || D20_DEFAULT_ATTRIBUTES;
+    return { ...src };
+  }
+  return {};
+}
+
+/** Read back a COC attributes object from the generic record (only valid keys). */
+function attributeValuesAsCocAttrs(values: Record<string, number>): CocAttributes {
+  const keys: (keyof CocAttributes)[] = ["str","con","siz","dex","app","int","pow","edu","luck"];
+  const out = { ...COC_DEFAULT_ATTRIBUTES };
+  keys.forEach(k => {
+    if (typeof values[k] === "number") out[k] = values[k];
+  });
+  return out;
+}
+
+/** Read back a D20 attributes object from the generic record. */
+function attributeValuesAsD20Attrs(values: Record<string, number>): D20Attributes {
+  const keys: (keyof D20Attributes)[] = ["str","dex","con","int","wis","cha","pb","ac"];
+  const out = { ...D20_DEFAULT_ATTRIBUTES };
+  keys.forEach(k => {
+    if (typeof values[k] === "number") out[k] = values[k];
+  });
+  return out;
 }
