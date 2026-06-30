@@ -16,13 +16,23 @@ Free-text replies are **not** a tool — they are broadcast directly from the mo
 | ---- | ----------- |
 | `roll_dice` | Roll dice (1–20 dice, 1–1000 faces); optional privacy flag |
 | `respond_check` | Respond to a host-issued skill/sanity check targeting the bot — rolls `.rc`/`.sc` against its own sheet, records `respondedUserIds`, broadcasts `check_update` (same as a player clicking the check message) |
-| `send_image` | Show an image — an internal `/api/rooms/<thisRoom>/images/…` path or a public `https://` URL (http and other rooms' paths rejected) |
+| `send_image` | Show an image — an internal `/api/rooms/<thisRoom>/images/…` path or a public `https://` URL (http and other rooms' paths rejected) — see [`send_image` trust model](#send_image-trust-model) |
 | `inspect_item` | Read an inventory item's details (validates ownership) |
 | `search_history` | Search chat history by keyword (up to 20 results) |
 | `my_inventory` | List all items in the bot's inventory |
 | `my_clues` | List all clue cards revealed to the bot |
 | `my_character` | Read the bot's character sheet (attributes, HP/SAN/MP, skills) |
 | `set_character_card` | Write/update the bot's character sheet (COC attrs clamped 0–99, skills 0–999) |
+
+### `send_image` trust model
+
+Any `https://` URL is accepted — the server does **not** fetch the image, so there is no SSRF risk. The URL is broadcast as-is and rendered in players' browsers via `<img src>`.
+
+This is intentionally broad so a host can let their bot illustrate a scene with any public image, but it does mean a bot can technically:
+- broadcast tracking-pixel URLs or arbitrary marketing imagery,
+- link to images the host has not vetted (NSFW, low-quality, etc).
+
+A bot can only do this if the host enabled `send_image` in its `enableTools` array. Hosts who treat their bot as semi-trusted (e.g. an external preset) should leave `send_image` disabled and rely on `inspect_item` + text replies for visual references.
 
 ## AI Providers
 

@@ -925,7 +925,6 @@ export async function executeCommandAction(
   // Ensure they are a member of the room
   await checkRoomAccess(roomId, false, { requireWritable: true });
 
-  const { executeCommand } = await import("@/lib/commands");
   return await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
 }
 
