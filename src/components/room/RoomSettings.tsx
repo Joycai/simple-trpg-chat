@@ -8,8 +8,7 @@ import type { ThemeId, ThemeMode } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { ThemedSelect } from "@/components/shared/ThemedSelect";
-import { listRules } from "@/lib/rules";
+import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
@@ -192,15 +191,12 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                       new rules show up automatically. */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-text-dim font-medium">{t("ruleTemplateLabel")}</label>
-                    <ThemedSelect
+                    <RuleTemplateSelect
                       name="ruleTemplate"
                       value={selectedRuleTemplate}
-                      onChange={(e) => setSelectedRuleTemplate(e.target.value)}
-                    >
-                      {listRules().map(rule => (
-                        <option key={rule.id} value={rule.id}>{t(rule.labelKey)}</option>
-                      ))}
-                    </ThemedSelect>
+                      onChange={setSelectedRuleTemplate}
+                      t={t}
+                    />
                     <p className="text-xs text-text-muted">{t("ruleTemplateHint")}</p>
                   </div>
                 </div>

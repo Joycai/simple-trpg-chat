@@ -7,6 +7,8 @@ import { getAllProviders, createProvider, updateProvider, deleteProvider } from 
 import { testAiConnection } from "@/app/actions/ai";
 import { useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { PresetProviderSelect } from "@/components/shared/PresetProviderSelect";
+import { CUSTOM_PRESET_ID, getPreset } from "@/lib/provider-presets";
 
 export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
@@ -23,35 +25,22 @@ export function AdminProviderManager() {
   const [msg, setMsg] = useState("");
   const [testing, setTesting] = useState(false);
   const [showKey, setShowKey] = useState(false);
-  const [preset, setPreset] = useState("custom");
+  const [preset, setPreset] = useState(CUSTOM_PRESET_ID);
   const [tokenRateInput, setTokenRateInput] = useState("0");
   const [tokenRateCached, setTokenRateCached] = useState("0");
   const [tokenRateOutput, setTokenRateOutput] = useState("0");
 
   const handlePresetChange = (val: string) => {
     setPreset(val);
-    if (val === "openai") {
-      setName("OpenAI");
-      setEndpoint("https://api.openai.com/v1");
-      setModel("gpt-4o");
-      setTokenRateInput("0.15");
-      setTokenRateCached("0.075");
-      setTokenRateOutput("0.60");
-    } else if (val === "deepseek-flash") {
-      setName("DeepSeek");
-      setEndpoint("https://api.deepseek.com");
-      setModel("deepseek-v4-flash");
-      setTokenRateInput("0.015");
-      setTokenRateCached("0.005");
-      setTokenRateOutput("0.06");
-    } else if (val === "deepseek-pro") {
-      setName("DeepSeek");
-      setEndpoint("https://api.deepseek.com");
-      setModel("deepseek-v4-pro");
-      setTokenRateInput("0.15");
-      setTokenRateCached("0.075");
-      setTokenRateOutput("0.60");
-    } else if (val === "custom") {
+    const p = getPreset(val);
+    if (p) {
+      setName(p.name);
+      setEndpoint(p.endpoint);
+      setModel(p.model);
+      setTokenRateInput(String(p.tokenRateInput ?? 0));
+      setTokenRateCached(String(p.tokenRateCached ?? 0));
+      setTokenRateOutput(String(p.tokenRateOutput ?? 0));
+    } else {
       setName("");
       setEndpoint("");
       setModel("");
@@ -96,7 +85,7 @@ export function AdminProviderManager() {
 
   const openCreate = () => {
     setEditId(null); setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false);
-    setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0"); setPreset("custom"); setMsg("");
+    setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0"); setPreset(CUSTOM_PRESET_ID); setMsg("");
     setShowForm(true);
   };
 
@@ -149,7 +138,7 @@ export function AdminProviderManager() {
                   setTokenRateCached(String(p.tokenRateCached ?? 0));
                   setTokenRateOutput(String(p.tokenRateOutput ?? 0));
                   setKey("");
-                  setPreset("custom");
+                  setPreset(CUSTOM_PRESET_ID);
                   setMsg("");
                   setShowForm(true);
                 }}
@@ -184,16 +173,7 @@ export function AdminProviderManager() {
               {/* Quick preset */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-text-dim font-medium">{tp("labelPreset")}</label>
-                <select
-                  value={preset}
-                  onChange={e => handlePresetChange(e.target.value)}
-                  className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary"
-                >
-                  <option value="custom">{tp("presetCustom")}</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="deepseek-flash">DeepSeek (deepseek-v4-flash)</option>
-                  <option value="deepseek-pro">DeepSeek (deepseek-v4-pro)</option>
-                </select>
+                <PresetProviderSelect value={preset} onChange={handlePresetChange} t={tp} />
               </div>
 
               {/* Name + Model */}
