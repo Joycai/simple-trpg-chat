@@ -40,6 +40,24 @@ function parseBotConfig(jsonStr: string | null | undefined): BotConfig {
 }
 
 /**
+ * Cap a single tool result before it's appended to the LLM context. Repeated
+ * `search_history` / `my_inventory` / etc. calls can otherwise accumulate
+ * megabytes inside `currentContext` across iterations and blow past the
+ * model's window. 4 KB per result keeps the loop bounded while still leaving
+ * room for a reasonable structured response (200+ chars per record times
+ * ~10 records).
+ *
+ * Truncated payloads end with an explicit `…[truncated]` marker so the model
+ * can decide whether to narrow its next query rather than silently consuming
+ * a cut JSON.
+ */
+const TOOL_RESULT_MAX_BYTES = 4 * 1024;
+function capToolContent(content: string): string {
+  if (content.length <= TOOL_RESULT_MAX_BYTES) return content;
+  return content.slice(0, TOOL_RESULT_MAX_BYTES) + "…[truncated]";
+}
+
+/**
  * Fetch helper with exponential backoff (R9) — only retries when retrying
  * could actually help:
  *  - 2xx → done.
@@ -987,7 +1005,11 @@ export async function runAgent(
           result = { error: e instanceof Error ? e.message : String(e) };
         }
 
-        toolCallResults.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
+        toolCallResults.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: capToolContent(JSON.stringify(result)),
+        });
       }
 
       currentContext.push(...toolCallResults);
