@@ -375,7 +375,11 @@ export function RoomClient({
       return;
     }
     try {
-      if (type === "dice" && diceDetail) {
+      if (type === "dice") {
+        // Dice always go through rollDiceAction so the server is the source of
+        // truth for the result. Skip silently if the caller didn't include the
+        // detail we need — that's a programming bug, not a chat message.
+        if (!diceDetail) return;
         const detail = JSON.parse(diceDetail);
         const faces = parseInt(detail.dice.replace("d", ""));
         // `isPrivate` here is the dice panel's 🔒 secret toggle → a hidden (self-only)
@@ -383,7 +387,7 @@ export function RoomClient({
         const hidden = !!isPrivate;
         await rollDiceAction(room.id, faces, detail.count, hidden, channelPartner);
       } else {
-        await sendMessageAction(room.id, content, type, diceDetail, finalIsPrivate, finalTargetId);
+        await sendMessageAction(room.id, content, type, finalIsPrivate, finalTargetId);
       }
       if (isSheetMutationCmd) refreshSelfSheet();
     } catch (e) { console.error(e); }
