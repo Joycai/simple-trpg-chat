@@ -205,12 +205,25 @@ function chatAudience(isPrivate: boolean, targetUserId?: number | null): Audienc
 export async function sendMessageAction(
   roomId: number,
   content: string,
-  type: "text" | "dice" | "system" | "image" | "sticker" = "text",
-  diceDetail?: string,
+  type: "text" | "image" | "sticker" = "text",
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
 ) {
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+
+  // Server Actions accept whatever JSON the client sends — TypeScript's union
+  // is just a hint. Clients may only post text/image/sticker through this
+  // entrypoint:
+  //  - `dice` rolls are produced by rollDiceAction / commands.ts (server is
+  //    the source of truth for the result); accepting a client-supplied
+  //    diceDetail would let any room member forge a "critical success" bubble.
+  //  - `system` notices are emitted internally via dispatchMessage; accepting
+  //    them here would let a client inject fake error/info banners that look
+  //    like server notifications to other players.
+  // Anything else is a typo or attack — bail before we look at content.
+  if (type !== "text" && type !== "image" && type !== "sticker") {
+    throw new Error("Invalid message type");
+  }
 
   const trimmedContent = content.trim();
   if (type === "text" && (!trimmedContent || trimmedContent.length > 10000)) {
@@ -282,6 +295,10 @@ export async function sendMessageAction(
 
   if (!member) throw new Error("Not a member");
 
+  // Text/image/sticker never carry diceDetail — only the internal dice paths
+  // (rollDiceAction, commands.ts) attach one. Hard-null it so a client can't
+  // smuggle a fake check payload onto a text message that would still flip
+  // ChatMessage into the dice-bubble renderer.
   const newMessage = await dispatchMessage({
     roomId,
     actorUserId: userId,
@@ -290,7 +307,7 @@ export async function sendMessageAction(
     audience: chatAudience(isPrivate, targetUserId),
     targetUserId,
     content,
-    diceDetail: diceDetail || null,
+    diceDetail: null,
   });
 
   // --- AI Bot Activation Check ---
