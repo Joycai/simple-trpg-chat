@@ -14,6 +14,7 @@ import { rollDice, rollDie } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { isValidStickerRef } from "@/lib/stickers";
+import { parseAvatarDataUrl } from "@/lib/avatars";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { getRuleForRoom } from "@/lib/rules";
@@ -1046,14 +1047,16 @@ export async function uploadAvatarAction(
   // Validate membership + reject when the room is frozen (read-only for non-hosts)
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
-  // Validate the image data
-  if (!imageData.startsWith("data:image/")) {
-    throw new Error("Invalid image data");
-  }
-
-  // Enforce size limit (~350KB base64)
-  if (imageData.length > 500000) {
-    throw new Error("Image is too large");
+  // Strict whitelist: only JPEG data URLs, capped size, real JPEG magic + dims ≤ 512.
+  // AvatarCropper always emits 512x512 JPEG; anything else is rejected so SVG/
+  // mislabelled payloads can't reach the DB or downstream <img> renders.
+  const parsed = parseAvatarDataUrl(imageData);
+  if (!parsed.ok) {
+    const msg =
+      parsed.error === "too_large" ? "Image is too large" :
+      parsed.error === "bad_dimensions" ? "Avatar must be 512x512 or smaller" :
+      "Invalid image data";
+    throw new Error(msg);
   }
 
   // Update the avatar in the database
