@@ -39,22 +39,51 @@ function parseBotConfig(jsonStr: string | null | undefined): BotConfig {
   }
 }
 
-// Fetch helper with exponential backoff and retries (R9)
+/**
+ * Fetch helper with exponential backoff (R9) — only retries when retrying
+ * could actually help:
+ *  - 2xx → done.
+ *  - 4xx (except 429) → client error (bad key, malformed request, etc).
+ *    Retrying just burns the shared-provider quota and re-bills the host,
+ *    so we return the response as-is and let the caller surface it.
+ *  - 429 → honor `Retry-After` if present, else use the backoff schedule.
+ *  - 5xx / network errors → retry up to `maxRetries`.
+ *
+ * Delay is doubled each attempt and capped at MAX_DELAY_MS so a long
+ * `Retry-After` can't park a worker for minutes.
+ */
+const MAX_BACKOFF_DELAY_MS = 16_000;
 async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 3, initialDelay = 1000): Promise<Response> {
   let delay = initialDelay;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
-      if (response.ok || attempt === maxRetries) {
+      if (response.ok) return response;
+
+      const isClientError = response.status >= 400 && response.status < 500 && response.status !== 429;
+      if (isClientError) {
+        // No point retrying — let the caller decode the body and report.
         return response;
       }
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        if (retryAfter) {
+          const seconds = Number(retryAfter);
+          if (Number.isFinite(seconds) && seconds > 0) {
+            delay = Math.min(seconds * 1000, MAX_BACKOFF_DELAY_MS);
+          }
+        }
+      }
+
+      if (attempt === maxRetries) return response;
       console.warn(`[AI API] Attempt ${attempt} failed with status ${response.status}. Retrying in ${delay}ms...`);
     } catch (error) {
       if (attempt === maxRetries) throw error;
       console.warn(`[AI API] Attempt ${attempt} encountered error: ${error}. Retrying in ${delay}ms...`);
     }
     await new Promise(resolve => setTimeout(resolve, delay));
-    delay *= 2;
+    delay = Math.min(delay * 2, MAX_BACKOFF_DELAY_MS);
   }
   throw new Error("Failed after maximum retries");
 }
@@ -740,38 +769,44 @@ export async function runAgent(
               }
             }
           } else if (functionName === "search_history") {
-            const query = args.query as string;
+            // Defend against runaway LLM inputs: an oversize query would expand
+            // into a huge LIKE pattern and tank the messages-table scan. The
+            // model has no legitimate reason to send >100 chars.
+            const query = typeof args.query === "string" ? args.query.trim() : "";
+            if (!query || query.length > 100) {
+              result = { error: "query must be a non-empty string up to 100 characters" };
+            } else {
+              const safeQuery = query.replace(/[%_\\]/g, '\\$&');
 
-            const safeQuery = query.replace(/[%_\\]/g, '\\$&');
-
-            const limit = Math.min(args.limit || 10, 20);
-            // Use SQL LIKE for keyword search on message content
-            const results = await db.select({
-              id: messages.id,
-              nickname: messages.nickname,
-              content: messages.content,
-              type: messages.type,
-              createdAt: messages.createdAt,
-            }).from(messages)
-              .where(
-                and(
-                  eq(messages.roomId, roomId),
-                  sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
-                  sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\\'`
+              const limit = Math.min(args.limit || 10, 20);
+              // Use SQL LIKE for keyword search on message content
+              const results = await db.select({
+                id: messages.id,
+                nickname: messages.nickname,
+                content: messages.content,
+                type: messages.type,
+                createdAt: messages.createdAt,
+              }).from(messages)
+                .where(
+                  and(
+                    eq(messages.roomId, roomId),
+                    sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                    sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\\'`
+                  )
                 )
-              )
-              .orderBy(desc(messages.createdAt))
-              .limit(limit);
-            result = {
-              query,
-              count: results.length,
-              results: results.map(r => ({
-                nickname: r.nickname,
-                content: r.content.slice(0, 300), // Truncate long messages
-                type: r.type,
-                time: r.createdAt,
-              }))
-            };
+                .orderBy(desc(messages.createdAt))
+                .limit(limit);
+              result = {
+                query,
+                count: results.length,
+                results: results.map(r => ({
+                  nickname: r.nickname,
+                  content: r.content.slice(0, 300), // Truncate long messages
+                  type: r.type,
+                  time: r.createdAt,
+                }))
+              };
+            }
           } else if (functionName === "my_inventory") {
             const dists = await db.query.inventoryDistributions.findMany({
               where: and(
@@ -849,6 +884,20 @@ export async function runAgent(
               ? JSON.parse(memberInfo.characterData)
               : { ruleTemplate: args.ruleTemplate || "basic" };
 
+            // Resolve the rule early so we can use its declared attribute
+            // whitelist below — keys not listed by the rule are dropped (the
+            // model occasionally invents non-canonical names like "strength"
+            // or "STR" that would otherwise persist as garbage on the sheet).
+            const sheetRule = getRuleForRoom(room || { ruleTemplate: args.ruleTemplate as string | undefined });
+            const allowedAttrKeys = new Set(sheetRule.capabilities.attributeKeys.map(k => k.key));
+
+            // Cap customAttributes — the schema is `{name, value, max?}[]` and
+            // the model has no legitimate reason to emit dozens of them. Pre-
+            // capping here keeps the persisted JSON small.
+            const trimmedCustom = Array.isArray(args.customAttributes)
+              ? args.customAttributes.slice(0, 30)
+              : undefined;
+
             const merged: CharacterData = {
               ...existing,
               ...(args.ruleTemplate ? { ruleTemplate: args.ruleTemplate } : {}),
@@ -856,7 +905,7 @@ export async function runAgent(
               ...(args.age !== undefined ? { age: args.age } : {}),
               ...(args.occupation !== undefined ? { occupation: args.occupation } : {}),
               ...(args.bio !== undefined ? { bio: args.bio } : {}),
-              ...(args.customAttributes !== undefined ? { customAttributes: args.customAttributes } : {}),
+              ...(trimmedCustom !== undefined ? { customAttributes: trimmedCustom } : {}),
             };
 
             // The model is not trusted to stay within bounds — clamp numeric
@@ -871,6 +920,7 @@ export async function runAgent(
                 const base = merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 };
                 const clamped: Record<string, number> = {};
                 for (const [k, v] of Object.entries(args.cocAttributes as Record<string, unknown>)) {
+                  if (!allowedAttrKeys.has(k)) continue;
                   clamped[k] = clampInt(v, 0, 99, 50);
                 }
                 merged.cocAttributes = { ...base, ...clamped };
@@ -880,6 +930,7 @@ export async function runAgent(
                 const base = merged.d20Attributes || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, pb: 2, ac: 10 };
                 const clamped: Record<string, number> = {};
                 for (const [k, v] of Object.entries(args.d20Attributes as Record<string, unknown>)) {
+                  if (!allowedAttrKeys.has(k)) continue;
                   // Abilities + AC reasonable up to 30; pb usually 2–6 but
                   // accept up to 10 for homebrew. Lower bound 0 in all cases.
                   clamped[k] = clampInt(v, 0, 30, 10);
@@ -900,7 +951,6 @@ export async function runAgent(
             // Always run derivation through the rule so future computed
             // fields (e.g. COC cocDerived recomputation, d20 HP clamp) stay
             // consistent regardless of which keys the model touched.
-            const sheetRule = getRuleForRoom(room || { ruleTemplate: merged.ruleTemplate });
             Object.assign(merged, sheetRule.computeDerived(merged));
 
             await db.update(roomMembers)
@@ -911,7 +961,11 @@ export async function runAgent(
               ));
 
             if (args.skills && Array.isArray(args.skills)) {
-              for (const skill of args.skills) {
+              // Cap the skills list — a hallucinating model could otherwise emit
+              // thousands of entries and block the tool loop on sequential
+              // INSERTs. 50 covers any realistic character sheet.
+              const skillsToWrite = args.skills.slice(0, 50);
+              for (const skill of skillsToWrite) {
                 if (typeof skill.name === "string" && typeof skill.value === "number") {
                   const skillValue = clampInt(skill.value, 0, 999, 0);
                   await db.insert(roomSkills).values({
