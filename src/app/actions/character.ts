@@ -9,11 +9,12 @@ import { broadcastToRoom } from "@/lib/events";
 import {
   type CharacterData,
   type CocAttributes,
+  type D20Sheet,
   type CustomAttribute,
   COC_DEFAULT_ATTRIBUTES,
   computeCocDerived,
 } from "@/lib/character-types";
-import { getRule } from "@/lib/rules";
+import { getRule, getRuleForRoom } from "@/lib/rules";
 
 /** Verify that a user is a member of a room. Returns userId on success.
  *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
@@ -42,17 +43,16 @@ async function requireMembership(roomId: number): Promise<number> {
 }
 
 /**
- * Initialize COC 7th character sheet for the current user.
- * Delegates the sheet shape (defaults + derived) to the COC rule module
- * so the action stays a thin DB writer.
- *
- * The action is COC-specific by name — when another rule lands (e.g. 5e)
- * it'll get its own initializer action that wires up `getRule("dnd5e")`.
+ * Initialize a fresh character sheet for the current user, shaped by the
+ * room's active rule (COC: 9 attrs + derived; d20: 8 attrs + HP; basic: {}).
+ * Delegates entirely to `rule.initCharacter()` — the action just persists.
  */
-export async function initCocCharacterAction(roomId: number) {
+export async function initCharacterAction(roomId: number) {
   const userId = await requireMembership(roomId);
 
-  const characterData = getRule("coc7th").initCharacter();
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  const rule = getRuleForRoom(room || {});
+  const characterData = rule.initCharacter();
 
   await db.update(roomMembers)
     .set({ characterData: JSON.stringify(characterData) })
@@ -63,6 +63,15 @@ export async function initCocCharacterAction(roomId: number) {
 
   revalidatePath(`/rooms/${roomId}`);
   return characterData;
+}
+
+/**
+ * Back-compat shim — CharacterPanel previously called this directly. New code
+ * should call `initCharacterAction` instead; this exists so any in-flight
+ * code paths still resolve. Internally delegates to the rule-driven version.
+ */
+export async function initCocCharacterAction(roomId: number) {
+  return initCharacterAction(roomId);
 }
 
 /**
@@ -87,16 +96,12 @@ export async function saveCharacterDataAction(
     ? JSON.parse(member.characterData)
     : { ruleTemplate: "basic" };
 
-  const merged: CharacterData = { ...existing, ...data };
+  let merged: CharacterData = { ...existing, ...data };
 
-  // Recompute derived values if COC attributes changed
-  if (merged.ruleTemplate === "coc7th" && merged.cocAttributes) {
-    const prevSan = existing.cocDerived?.san;
-    merged.cocDerived = computeCocDerived(merged.cocAttributes);
-    if (prevSan !== undefined) {
-      merged.cocDerived.san = Math.min(prevSan, merged.cocDerived.sanMax);
-    }
-  }
+  // Recompute derived values through the rule module — COC re-derives hp/san/
+  // mp + preserves player-set currents; d20 clamps hp_current to hpMax; basic
+  // is identity. Removes the need for a rule-id branch here.
+  merged = getRule(merged.ruleTemplate).computeDerived(merged);
 
   await db.update(roomMembers)
     .set({ characterData: JSON.stringify(merged) })
@@ -260,6 +265,8 @@ export async function updateResourcesAction(
     hp_current?: number;
     san_current?: number;
     mp_current?: number;
+    // d20-only fields — applied to d20Sheet when the active rule is dnd5e.
+    hpMax?: number;
   }
 ) {
   const session = await auth();
@@ -308,19 +315,39 @@ export async function updateResourcesAction(
     ? JSON.parse(targetMember.characterData)
     : { ruleTemplate: "basic" };
 
-  // Update resource current values
-  if (!charData.cocDerived) {
-    charData.cocDerived = { hp: 0, hpMax: 0, san: 0, sanMax: 0, mp: 0, mpMax: 0, mov: 0, db: "0", build: 0, luck: 0 };
-  }
+  let broadcastHp: number | undefined;
+  let broadcastHpMax: number | undefined;
 
-  if (resources.hp_current !== undefined) {
-    charData.cocDerived.hp_current = Math.max(0, Math.min(resources.hp_current, charData.cocDerived.hpMax));
-  }
-  if (resources.san_current !== undefined) {
-    charData.cocDerived.san_current = Math.max(0, Math.min(resources.san_current, charData.cocDerived.sanMax));
-  }
-  if (resources.mp_current !== undefined) {
-    charData.cocDerived.mp_current = Math.max(0, Math.min(resources.mp_current, charData.cocDerived.mpMax));
+  if (charData.ruleTemplate === "dnd5e") {
+    // d20: HP lives on d20Sheet (current + max are both editable here).
+    const meta: D20Sheet = { ...(charData.d20Sheet ?? {}) };
+    if (resources.hpMax !== undefined) {
+      meta.hpMax = Math.max(0, resources.hpMax);
+    }
+    if (resources.hp_current !== undefined) {
+      const cap = typeof meta.hpMax === "number" ? meta.hpMax : resources.hp_current;
+      meta.hp_current = Math.max(0, Math.min(resources.hp_current, cap));
+      if (typeof meta.hpMax !== "number") meta.hpMax = meta.hp_current;
+    }
+    charData.d20Sheet = meta;
+    broadcastHp = meta.hp_current;
+    broadcastHpMax = meta.hpMax;
+  } else {
+    // COC / basic: HP/SAN/MP on cocDerived.
+    if (!charData.cocDerived) {
+      charData.cocDerived = { hp: 0, hpMax: 0, san: 0, sanMax: 0, mp: 0, mpMax: 0, mov: 0, db: "0", build: 0, luck: 0 };
+    }
+    if (resources.hp_current !== undefined) {
+      charData.cocDerived.hp_current = Math.max(0, Math.min(resources.hp_current, charData.cocDerived.hpMax));
+    }
+    if (resources.san_current !== undefined) {
+      charData.cocDerived.san_current = Math.max(0, Math.min(resources.san_current, charData.cocDerived.sanMax));
+    }
+    if (resources.mp_current !== undefined) {
+      charData.cocDerived.mp_current = Math.max(0, Math.min(resources.mp_current, charData.cocDerived.mpMax));
+    }
+    broadcastHp = charData.cocDerived.hp_current ?? charData.cocDerived.hp;
+    broadcastHpMax = charData.cocDerived.hpMax;
   }
 
   await db.update(roomMembers)
@@ -333,8 +360,8 @@ export async function updateResourcesAction(
   broadcastToRoom(roomId, {
     type: "character_updated",
     userId: targetUserId,
-    hp_current: charData.cocDerived.hp_current ?? charData.cocDerived.hp,
-    hpMax: charData.cocDerived.hpMax,
+    hp_current: broadcastHp,
+    hpMax: broadcastHpMax,
   });
 
   revalidatePath(`/rooms/${roomId}`);

@@ -9,8 +9,8 @@ import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { executeCommand } from "@/lib/commands";
 import { z } from "zod";
-import { computeCocDerived, type CharacterData } from "@/lib/character-types";
-import { getRuleForRoom, listRuleIds } from "@/lib/rules";
+import type { CharacterData } from "@/lib/character-types";
+import { getRuleForRoom, listRules, listRuleIds } from "@/lib/rules";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({
@@ -332,27 +332,19 @@ export async function runAgent(
               // Enum sourced from the rule registry so any newly registered
               // rule is advertised to the LLM without a manual edit here.
               enum: [...listRuleIds()],
-              description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card."
+              description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card, 'dnd5e' is for DnD 5e (d20)."
             },
             name: { "type": "string", "description": "The character's name" },
             age: { "type": "integer", "description": "The character's age" },
             occupation: { "type": "string", "description": "The character's occupation" },
             bio: { "type": "string", "description": "The character's biography or backstory" },
-            cocAttributes: {
-              type: "object",
-              description: "COC 7th attributes (required/used only if ruleTemplate is 'coc7th'). Values should typically be between 15 and 99.",
-              properties: {
-                str: { "type": "integer", "description": "Strength" },
-                con: { "type": "integer", "description": "Constitution" },
-                siz: { "type": "integer", "description": "Size" },
-                dex: { "type": "integer", "description": "Dexterity" },
-                app: { "type": "integer", "description": "Appearance" },
-                int: { "type": "integer", "description": "Intelligence" },
-                pow: { "type": "integer", "description": "Power" },
-                edu: { "type": "integer", "description": "Education" },
-                luck: { "type": "integer", "description": "Luck" }
-              }
-            },
+            // Per-rule sheet fields, merged from every registered rule's
+            // describeForAI() output. Adding a new rule auto-advertises its
+            // sheet structure here — no manual edit needed.
+            ...Object.assign(
+              {},
+              ...listRules().map(r => r.describeForAI().sheetToolSchemaFields)
+            ),
             customAttributes: {
               type: "array",
               description: "Generic custom attributes/stats for non-COC systems or extensions.",
@@ -874,10 +866,33 @@ export async function runAgent(
                 }
                 merged.cocAttributes = { ...base, ...clamped };
               }
-              if (merged.cocAttributes) {
-                merged.cocDerived = computeCocDerived(merged.cocAttributes);
+            } else if (merged.ruleTemplate === "dnd5e") {
+              if (args.d20Attributes && typeof args.d20Attributes === "object") {
+                const base = merged.d20Attributes || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, pb: 2, ac: 10 };
+                const clamped: Record<string, number> = {};
+                for (const [k, v] of Object.entries(args.d20Attributes as Record<string, unknown>)) {
+                  // Abilities + AC reasonable up to 30; pb usually 2–6 but
+                  // accept up to 10 for homebrew. Lower bound 0 in all cases.
+                  clamped[k] = clampInt(v, 0, 30, 10);
+                }
+                merged.d20Attributes = { ...base, ...clamped };
+              }
+              if (args.d20Sheet && typeof args.d20Sheet === "object") {
+                const incoming = args.d20Sheet as Record<string, unknown>;
+                const meta = { ...(merged.d20Sheet ?? {}) };
+                if (typeof incoming.role === "string") meta.role = incoming.role.slice(0, 64);
+                if (incoming.level !== undefined) meta.level = clampInt(incoming.level, 1, 30, 1);
+                if (incoming.hpMax !== undefined) meta.hpMax = clampInt(incoming.hpMax, 0, 999, 10);
+                if (incoming.hp_current !== undefined) meta.hp_current = clampInt(incoming.hp_current, 0, 999, 0);
+                merged.d20Sheet = meta;
               }
             }
+
+            // Always run derivation through the rule so future computed
+            // fields (e.g. COC cocDerived recomputation, d20 HP clamp) stay
+            // consistent regardless of which keys the model touched.
+            const sheetRule = getRuleForRoom(room || { ruleTemplate: merged.ruleTemplate });
+            Object.assign(merged, sheetRule.computeDerived(merged));
 
             await db.update(roomMembers)
               .set({ characterData: JSON.stringify(merged) })

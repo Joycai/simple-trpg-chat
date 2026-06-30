@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Heart, Eye, Droplet, Plus, Trash2, X, Check } from "lucide-react";
-import type { CocAttributes, computeCocDerived } from "@/lib/character-types";
 import { getRule } from "@/lib/rules";
 
 /**
  * Icon mapping for rule-declared resource bars. The rule's capabilities only
  * declare keys + i18n labels (it's a pure module with no React deps); this
- * client-only map picks the visual.
+ * client-only map picks the visual. Unknown keys fall back to the primary
+ * color + no icon, so new rules don't require a code change to render.
  */
 const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string }> = {
   hp:  { Icon: Heart,   color: "var(--theme-danger)" },
@@ -17,22 +17,25 @@ const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string }> = {
   mp:  { Icon: Droplet, color: "var(--theme-primary)" },
 };
 
-type CocDerived = ReturnType<typeof computeCocDerived>;
 type CustomItem = { name: string; value: number; max?: number };
 
 interface AttributesTabProps {
   ruleTemplate: string;
   readOnly: boolean;
   canEditResources: boolean;
-  derived: CocDerived;
-  currentHp: number;
-  onCurrentHpChange: (v: number) => void;
-  currentSan: number;
-  onCurrentSanChange: (v: number) => void;
-  currentMp: number;
-  onCurrentMpChange: (v: number) => void;
-  cocAttrs: CocAttributes;
-  onUpdateAttr: (key: keyof CocAttributes, value: number) => void;
+  /** Current value per resource key (e.g. {hp:25, san:60}). */
+  currentResources: Record<string, number>;
+  /** Max value per resource key — drives the bar denominator. */
+  resourceMaxes: Record<string, number>;
+  /** Updater for a single resource current value. */
+  onResourceChange: (key: string, value: number) => void;
+  /** Attribute values keyed by `capabilities.attributeKeys[*].key`. */
+  attributeValues: Record<string, number>;
+  /** Whether the resource bar's max input is editable (d20: yes; COC: no — max is derived). */
+  resourceMaxEditable?: boolean;
+  /** Updater for a single resource max value. Only used when resourceMaxEditable=true. */
+  onResourceMaxChange?: (key: string, value: number) => void;
+  onUpdateAttr: (key: string, value: number) => void;
   customAttrs: CustomItem[];
   onAddCustom: (attr: CustomItem) => void;
   onUpdateCustom: (name: string, patch: { value?: number; max?: number }) => void;
@@ -42,15 +45,16 @@ interface AttributesTabProps {
 const num = (v: string) => Math.max(0, parseInt(v) || 0);
 
 export function AttributesTab({
-  ruleTemplate, readOnly, canEditResources, derived,
-  currentHp, onCurrentHpChange, currentSan, onCurrentSanChange, currentMp, onCurrentMpChange,
-  cocAttrs, onUpdateAttr, customAttrs, onAddCustom, onUpdateCustom, onRemoveCustom,
+  ruleTemplate, readOnly, canEditResources,
+  currentResources, resourceMaxes, onResourceChange,
+  resourceMaxEditable = false, onResourceMaxChange,
+  attributeValues, onUpdateAttr,
+  customAttrs, onAddCustom, onUpdateCustom, onRemoveCustom,
 }: AttributesTabProps) {
   const t = useTranslations("character");
-  // Capability-driven layout: SAN/MP bars and the attribute grid only render
-  // when the active rule advertises them. Future non-COC rules (e.g. DnD 5e
-  // with 6 abilities) plug in by adjusting their `capabilities.attributeKeys`
-  // and `resourceBars` — no edits to this component are needed for them.
+  // Capability-driven layout: resource bars + attribute grid both come from
+  // the active rule. Each rule advertises which slots to render, and we just
+  // look up the displayed value by the key the rule chose.
   const cap = getRule(ruleTemplate).capabilities;
   const hasAttributeGrid = cap.attributeKeys.length > 0;
 
@@ -64,14 +68,15 @@ export function AttributesTab({
   const [addAttr, setAddAttr] = useState(false);
   const [attrName, setAttrName] = useState(""); const [attrVal, setAttrVal] = useState(10);
 
-  // Preset resource bars. HP stays universal (every rule that maintains a
-  // sheet at all has HP); SAN / MP are gated by capability flags so basic and
-  // future non-COC rules drop them automatically.
-  const predefined = [
-    { label: t("hp"),  iconKey: "hp",  current: currentHp,  max: derived.hpMax,  onChange: onCurrentHpChange,  show: true },
-    { label: t("san"), iconKey: "san", current: currentSan, max: derived.sanMax, onChange: onCurrentSanChange, show: cap.hasSanity },
-    { label: t("mp"),  iconKey: "mp",  current: currentMp,  max: derived.mpMax,  onChange: onCurrentMpChange,  show: cap.hasManaPoints },
-  ].filter(r => r.show);
+  // Preset resource bars — rendered in the order the rule declared.
+  const predefined = cap.resourceBars.map(spec => ({
+    labelKey: spec.labelKey,
+    iconKey: spec.key,
+    current: currentResources[spec.key] ?? 0,
+    max: resourceMaxes[spec.key] ?? 0,
+    onChange: (v: number) => onResourceChange(spec.key, v),
+    onMax: onResourceMaxChange ? (v: number) => onResourceMaxChange(spec.key, v) : undefined,
+  }));
 
   const sectionHeader = (label: string, sub: string, onAdd?: () => void) => (
     <div className="flex items-center justify-between">
@@ -112,11 +117,13 @@ export function AttributesTab({
           const visual = RESOURCE_ICON[r.iconKey];
           const Icon = visual?.Icon;
           return (
-            <ResourceCard key={r.label} label={r.label}
+            <ResourceCard key={r.iconKey} label={t(r.labelKey)}
               icon={Icon ? <Icon className="w-4 h-4" fill={r.iconKey === "hp" ? "currentColor" : undefined} /> : undefined}
               color={visual?.color ?? "var(--theme-primary)"}
-              current={r.current} max={r.max} editable={canEditResources} maxEditable={false}
-              onCurrent={r.onChange} />
+              current={r.current} max={r.max} editable={canEditResources}
+              maxEditable={resourceMaxEditable && !!r.onMax}
+              onCurrent={r.onChange}
+              onMax={r.onMax} />
           );
         })}
         {customResources.map(r => (
@@ -145,13 +152,13 @@ export function AttributesTab({
           )}
 
           <div className="grid grid-cols-3 gap-3">
-            {/* Preset attribute grid is rule-driven. The lookup into cocAttrs
-                is safe because today only the COC rule populates attributeKeys;
-                rules with a different attribute bag (e.g. DnD 5e abilities)
-                will need their own typed accessor in a future iteration. */}
+            {/* Preset attribute grid is rule-driven. Each rule's capabilities
+                declares the keys + labels; we look up the value from the
+                generic `attributeValues` record (COC populates from
+                cocAttributes; d20 from d20Attributes). */}
             {cap.attributeKeys.map(({ key, labelKey }) => (
-              <AttrCard key={key} label={t(labelKey)} value={cocAttrs[key as keyof CocAttributes]} readOnly={readOnly}
-                onChange={v => onUpdateAttr(key as keyof CocAttributes, v)} />
+              <AttrCard key={key} label={t(labelKey)} value={attributeValues[key] ?? 0} readOnly={readOnly}
+                onChange={v => onUpdateAttr(key, v)} />
             ))}
             {customSingles.map(a => (
               <AttrCard key={a.name} label={a.name} value={a.value} readOnly={readOnly}

@@ -74,7 +74,9 @@
     "ruleTemplate": "Rule Template",
     "ruleTemplateCoc7th": "🐙 COC 7th",
     "ruleTemplateBasic": "🎲 Generic d100",
-    "ruleTemplateHint": "COC 7th will automatically initialize 8 attributes + derived stats"
+    "ruleTemplateDnd5e": "🐉 DnD 5e (d20)",
+    "ruleTemplateHint": "COC 7th will automatically initialize 8 attributes + derived stats",
+    "ruleTemplateDnd5eHint": "DnD 5e rolls d20 + modifier vs DC (all attributes are free-set)"
   },
   "room": {
     "notFound": "Room not found",
@@ -606,7 +608,15 @@
     "int": "Intelligence INT",
     "pow": "Power POW",
     "edu": "Education EDU",
-    "luckAttr": "Luck LUCK"
+    "luckAttr": "Luck LUCK",
+    "wis": "Wisdom WIS",
+    "cha": "Charisma CHA",
+    "pb": "Proficiency PB",
+    "ac": "Armor Class AC",
+    "role": "Role",
+    "level": "Level",
+    "rolePlaceholder": "e.g. Fighter, Wizard",
+    "levelPlaceholder": "Level"
   },
   "inventory": {
     "title": "Inventory",
@@ -956,6 +966,7 @@
     "stUsageError": "Format error. Correct usage: .st Spot 50",
     "stSuccess": "Skills updated: {summary}",
     "rcUsageError": "Usage: .rc Spot",
+    "d20RcUsage": "Usage: .rc <name>[<+/-modifier>] [DC]. Examples: .rc str+3 15, .rc athletics+1+1d6 12. The space before DC is required.",
     "raUsageError": "Usage: .ra Spot  or  .ra Spot 60",
     "roomNotFound": "Room not found",
     "rcSkillNotSet": "Skill '{skillName}' not set. Please use .st first.",
@@ -964,6 +975,7 @@
     "critical": "Critical Success!",
     "fumble": "Fumble!",
     "checkMessage": "{skillName} check: d100={roll} / {target} → {successLevel}",
+    "d20CheckMessage": "{skillName}: d20{modifierDisplay}={roll} vs DC {target} → {icon} {successLevel}",
     "scUsageError": "Usage: .sc [success_deduction]/[failure_deduction] (e.g. .sc0/1 or .sc1d6/1d10)",
     "scNoSanity": "Sanity value not set. Please use .st sanity [value] first.",
     "scNotCoc7th": "Sanity Check (.sc) is only supported in COC 7th rooms.",
@@ -1036,6 +1048,7 @@
     "ruleTemplateLabel": "Rule Template",
     "ruleTemplateBasic": "Generic d100",
     "ruleTemplateCoc7th": "COC 7th",
+    "ruleTemplateDnd5e": "DnD 5e (d20)",
     "ruleTemplateHint": "Determines the initialization attribute structure for character cards",
     "saveSuccess": "Settings saved successfully",
     "saveFailed": "Failed to save settings",
@@ -1089,6 +1102,7 @@
     "ruleTemplate": "Rule Template",
     "ruleTemplateCoc7th": "COC 7th",
     "ruleTemplateBasic": "Generic d100",
+    "ruleTemplateDnd5e": "DnD 5e (d20)",
     "exportTime": "Export Time",
     "publicTimeline": "📜 Public Timeline",
     "systemPrefix": "📢 System: ",

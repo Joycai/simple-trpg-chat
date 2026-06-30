@@ -13,6 +13,7 @@
 
 import { basicRule } from "./basic";
 import { coc7thRule } from "./coc7th";
+import { dnd5eRule } from "./dnd5e";
 import type { RuleModule } from "./types";
 
 const REGISTRY = new Map<string, RuleModule>();
@@ -30,8 +31,7 @@ function register(rule: RuleModule): void {
 // accepts it.
 register(basicRule);
 register(coc7thRule);
-// 5e extension point: drop in `rules/dnd5e/index.ts`, then `register(dnd5eRule)`.
-// register(dnd5eRule);
+register(dnd5eRule);
 
 export const DEFAULT_RULE_ID = "basic";
 

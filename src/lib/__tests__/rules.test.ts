@@ -8,8 +8,13 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 import { rollDie } from "@/lib/utils";
-import { basicRule, coc7thRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
-import { COC_DEFAULT_ATTRIBUTES, computeCocDerived, type CharacterData } from "@/lib/character-types";
+import { basicRule, coc7thRule, dnd5eRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
+import {
+  COC_DEFAULT_ATTRIBUTES,
+  D20_DEFAULT_ATTRIBUTES,
+  computeCocDerived,
+  type CharacterData,
+} from "@/lib/character-types";
 
 const mockRollDie = rollDie as unknown as ReturnType<typeof vi.fn>;
 
@@ -25,19 +30,21 @@ describe("rules/registry", () => {
   it("resolves known ids to their modules", () => {
     expect(getRule("basic")).toBe(basicRule);
     expect(getRule("coc7th")).toBe(coc7thRule);
+    expect(getRule("dnd5e")).toBe(dnd5eRule);
   });
 
   it("falls back to default on null/undefined/unknown ids", () => {
     expect(getRule(null).id).toBe(DEFAULT_RULE_ID);
     expect(getRule(undefined).id).toBe(DEFAULT_RULE_ID);
-    expect(getRule("dnd5e").id).toBe(DEFAULT_RULE_ID); // future id, not registered yet
+    expect(getRule("nonexistent").id).toBe(DEFAULT_RULE_ID);
     expect(DEFAULT_RULE_ID).toBe("basic");
   });
 
-  it("listRules / listRuleIds enumerate both built-ins", () => {
+  it("listRules / listRuleIds enumerate every built-in", () => {
     const ids = listRuleIds();
     expect(ids).toContain("basic");
     expect(ids).toContain("coc7th");
+    expect(ids).toContain("dnd5e");
     expect(listRules().length).toBe(ids.length);
   });
 });
@@ -342,5 +349,315 @@ describe("exportSnapshot", () => {
 
   it("basic returns an empty snapshot (no rule-specific fields to surface)", () => {
     expect(basicRule.exportSnapshot({ ruleTemplate: "basic" })).toEqual({});
+  });
+});
+
+// ===========================================================================
+// DnD 5e (d20) — capabilities, parseRcArgs, resolveCheck, routeStat,
+// applyStatWrite, exportSnapshot.
+// ===========================================================================
+
+describe("dnd5eRule/capabilities", () => {
+  it("declares 8 attribute keys, HP-only resource, no SAN/MP/psychology", () => {
+    const c = dnd5eRule.capabilities;
+    expect(c.hasSanity).toBe(false);
+    expect(c.hasPsychologyRoll).toBe(false);
+    expect(c.hasManaPoints).toBe(false);
+    expect(c.checkMenuModes).toEqual(["check"]);
+    expect(c.supportedCommands).not.toContain("sc");
+    expect(c.resourceBars.map(r => r.key)).toEqual(["hp"]);
+    expect(c.attributeKeys.map(a => a.key)).toEqual([
+      "str", "dex", "con", "int", "wis", "cha", "pb", "ac",
+    ]);
+    expect(c.defaultRollExpression).toBe("1d20");
+    expect(c.requiresStoredTarget).toBe(false);
+    expect(c.hasRoleLevel).toBe(true);
+  });
+});
+
+describe("dnd5eRule.parseRcArgs", () => {
+  // Plan §3.4 table.
+  it.each([
+    ["str",                 { skillName: "str" }],
+    ["str+3",               { skillName: "str", modifierExpression: "+3" }],
+    ["str 15",              { skillName: "str", explicitTarget: 15 }],
+    ["str+3 15",            { skillName: "str", modifierExpression: "+3", explicitTarget: 15 }],
+    ["力量-2 12",           { skillName: "力量", modifierExpression: "-2", explicitTarget: 12 }],
+    ["athletics+1+1d6 12",  { skillName: "athletics", modifierExpression: "+1+1d6", explicitTarget: 12 }],
+    ["athletics+1+1d6",     { skillName: "athletics", modifierExpression: "+1+1d6" }],
+    ["athletics 12",        { skillName: "athletics", explicitTarget: 12 }],
+    // Space before DC is required — "str15" without space is name only.
+    ["str15",               { skillName: "str15" }],
+  ])("parses %o", (input, expected) => {
+    const result = dnd5eRule.parseRcArgs(input);
+    // Strip undefined keys for stable comparison.
+    const clean = Object.fromEntries(Object.entries(result!).filter(([, v]) => v !== undefined));
+    expect(clean).toEqual(expected);
+  });
+
+  it("returns null for empty input", () => {
+    expect(dnd5eRule.parseRcArgs("")).toBeNull();
+    expect(dnd5eRule.parseRcArgs("   ")).toBeNull();
+  });
+});
+
+describe("dnd5eRule.resolveCheck", () => {
+  it("default DC=10 with no explicit target and no modifier", () => {
+    mockRollDie.mockReturnValueOnce(11);
+    const r = dnd5eRule.resolveCheck({ skillName: "str", target: 0, sheet: null });
+    expect(r.target).toBe(10);
+    expect(r.rolls).toEqual([11]);
+    expect(r.total).toBe(11);
+    expect(r.passed).toBe(true);
+    expect(r.grade).toBe("success");
+    expect(r.notation).toBe("1d20");
+  });
+
+  it("modifier added to roll; total ≥ DC → success at boundary", () => {
+    mockRollDie.mockReturnValueOnce(12);
+    const r = dnd5eRule.resolveCheck({
+      skillName: "str", target: 0, sheet: null,
+      explicitTarget: 15, modifierValue: 3, modifierDisplay: "+3",
+    });
+    expect(r.total).toBe(15);
+    expect(r.target).toBe(15);
+    expect(r.passed).toBe(true);
+    expect(r.grade).toBe("success");
+    expect(r.notation).toBe("1d20+3");
+  });
+
+  it("nat 20 → grade=critical regardless of DC", () => {
+    mockRollDie.mockReturnValueOnce(20);
+    const r = dnd5eRule.resolveCheck({
+      skillName: "str", target: 0, sheet: null,
+      explicitTarget: 99, modifierValue: 0,
+    });
+    expect(r.grade).toBe("critical");
+    // total < DC, so passed=false even when grade=critical (visual marker only).
+    expect(r.passed).toBe(false);
+  });
+
+  it("nat 1 → grade=fumble regardless of bonuses", () => {
+    mockRollDie.mockReturnValueOnce(1);
+    const r = dnd5eRule.resolveCheck({
+      skillName: "str", target: 0, sheet: null,
+      explicitTarget: 5, modifierValue: 10,
+    });
+    expect(r.grade).toBe("fumble");
+    // d20=1 + 10 = 11 ≥ 5 → passed=true. Grade is purely visual.
+    expect(r.passed).toBe(true);
+  });
+
+  it("negative modifier renders without double sign in notation", () => {
+    mockRollDie.mockReturnValueOnce(10);
+    const r = dnd5eRule.resolveCheck({
+      skillName: "force", target: 0, sheet: null,
+      explicitTarget: 10, modifierValue: -2,
+    });
+    expect(r.notation).toBe("1d20-2");
+    expect(r.total).toBe(8);
+  });
+
+  it("detail carries raw d20 face + modifier for future UI", () => {
+    mockRollDie.mockReturnValueOnce(14);
+    const r = dnd5eRule.resolveCheck({
+      skillName: "perception", target: 0, sheet: null,
+      explicitTarget: 12, modifierValue: 4, modifierDisplay: "+4",
+    });
+    const check = (r.detail as { check: Record<string, unknown> }).check;
+    expect(check.raw).toBe(14);
+    expect(check.modifier).toBe(4);
+    expect(check.modifierExpression).toBe("+4");
+    expect((r.detail as Record<string, unknown>).dice).toBe("d20");
+  });
+});
+
+describe("dnd5eRule.routeStat", () => {
+  it.each([
+    ["str", "attribute", "str"],
+    ["DEX", "attribute", "dex"],
+    ["力量", "attribute", "str"],
+    ["wisdom", "attribute", "wis"],
+    ["cha", "attribute", "cha"],
+    ["pb", "attribute", "pb"],
+    ["熟练", "attribute", "pb"],
+    ["ac", "attribute", "ac"],
+    ["HP", "resource", "hp"],
+    ["生命", "resource", "hp"],
+    ["athletics", "skill", undefined],
+    ["sneak attack damage", "skill", undefined],
+  ])("routes %s to %s", (name, kind, key) => {
+    const r = dnd5eRule.routeStat(name);
+    expect(r.kind).toBe(kind);
+    if (kind !== "skill") {
+      expect((r as { key: string }).key).toBe(key);
+    }
+  });
+});
+
+describe("dnd5eRule.lookupFallback", () => {
+  it("always returns null (modifier sourcing is explicit in .rc formula)", () => {
+    expect(dnd5eRule.lookupFallback("str", null)).toBeNull();
+    expect(dnd5eRule.lookupFallback("str", {
+      ruleTemplate: "dnd5e",
+      d20Attributes: { ...D20_DEFAULT_ATTRIBUTES, str: 16 },
+    })).toBeNull();
+  });
+});
+
+describe("dnd5eRule.computeDerived", () => {
+  it("identity for non-d20 sheets", () => {
+    const coc: CharacterData = { ruleTemplate: "coc7th" };
+    expect(dnd5eRule.computeDerived(coc)).toBe(coc);
+  });
+
+  it("clamps hp_current to hpMax", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "dnd5e",
+      d20Sheet: { hpMax: 20, hp_current: 999 },
+    };
+    const out = dnd5eRule.computeDerived(sheet);
+    expect(out.d20Sheet?.hp_current).toBe(20);
+  });
+
+  it("does NOT auto-compute pb / ac / ability mods (v1: free-set)", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "dnd5e",
+      d20Attributes: { ...D20_DEFAULT_ATTRIBUTES, str: 18, dex: 16 },
+    };
+    const out = dnd5eRule.computeDerived(sheet);
+    // No mods/derived map gets injected — attributes are returned untouched.
+    expect(out.d20Attributes).toEqual({ ...D20_DEFAULT_ATTRIBUTES, str: 18, dex: 16 });
+  });
+});
+
+describe("dnd5eRule.applyStatWrite", () => {
+  it("attribute write lands in d20Attributes[key]", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "dnd5e",
+      d20Attributes: { ...D20_DEFAULT_ATTRIBUTES },
+    };
+    const { sheet: out, finalValue } = dnd5eRule.applyStatWrite(
+      sheet, { kind: "attribute", key: "str", canonical: "力量" }, 16
+    );
+    expect(out.d20Attributes?.str).toBe(16);
+    expect(finalValue).toBe(16);
+  });
+
+  it("HP write clamps to hpMax", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "dnd5e",
+      d20Sheet: { hpMax: 12 },
+    };
+    const { sheet: out, finalValue } = dnd5eRule.applyStatWrite(
+      sheet, { kind: "resource", key: "hp", canonical: "生命值" }, 50
+    );
+    expect(out.d20Sheet?.hp_current).toBe(12);
+    expect(finalValue).toBe(12);
+  });
+
+  it("HP write without hpMax sets both current AND max", () => {
+    const sheet: CharacterData = { ruleTemplate: "dnd5e" };
+    const { sheet: out, finalValue } = dnd5eRule.applyStatWrite(
+      sheet, { kind: "resource", key: "hp", canonical: "生命值" }, 25
+    );
+    expect(out.d20Sheet?.hp_current).toBe(25);
+    expect(out.d20Sheet?.hpMax).toBe(25);
+    expect(finalValue).toBe(25);
+  });
+});
+
+describe("dnd5eRule.exportSnapshot", () => {
+  it("includes role/level/hp/attributes when present", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "dnd5e",
+      d20Attributes: { ...D20_DEFAULT_ATTRIBUTES, str: 14 },
+      d20Sheet: { role: "战士", level: 3, hp_current: 22, hpMax: 28 },
+    };
+    expect(dnd5eRule.exportSnapshot(sheet)).toEqual({
+      role: "战士",
+      level: 3,
+      hp: 22,
+      hpMax: 28,
+      attributes: { ...D20_DEFAULT_ATTRIBUTES, str: 14 },
+    });
+  });
+});
+
+// ===========================================================================
+// Isolation invariant — COC/basic must remain byte-for-byte compatible
+// with pre-d20 behavior. These tests directly assert that the new
+// CheckRequest noise fields and the new methods do not perturb COC.
+// ===========================================================================
+
+describe("rules/isolation — COC/basic must not regress", () => {
+  it("COC keeps defaultRollExpression=1d100, requiresStoredTarget=true", () => {
+    expect(coc7thRule.capabilities.defaultRollExpression).toBe("1d100");
+    expect(coc7thRule.capabilities.requiresStoredTarget).toBe(true);
+    expect(coc7thRule.capabilities.hasRoleLevel).toBe(false);
+  });
+
+  it("basic keeps defaultRollExpression=1d100, requiresStoredTarget=true", () => {
+    expect(basicRule.capabilities.defaultRollExpression).toBe("1d100");
+    expect(basicRule.capabilities.requiresStoredTarget).toBe(true);
+    expect(basicRule.capabilities.hasRoleLevel).toBe(false);
+  });
+
+  it("COC parseRcArgs matches legacy regex (no-space trailing int OK)", () => {
+    // Mirrors `.rc 侦查50` (no space) which the old engine accepted.
+    expect(coc7thRule.parseRcArgs("侦查50")).toEqual({ skillName: "侦查", explicitTarget: 50 });
+    expect(coc7thRule.parseRcArgs("力量 60")).toEqual({ skillName: "力量", explicitTarget: 60 });
+    expect(coc7thRule.parseRcArgs("侦查")).toEqual({ skillName: "侦查" });
+    expect(coc7thRule.parseRcArgs("")).toBeNull();
+  });
+
+  it("basic parseRcArgs matches the same legacy regex", () => {
+    expect(basicRule.parseRcArgs("Spot50")).toEqual({ skillName: "Spot", explicitTarget: 50 });
+    expect(basicRule.parseRcArgs("Spot 60")).toEqual({ skillName: "Spot", explicitTarget: 60 });
+    expect(basicRule.parseRcArgs("Spot")).toEqual({ skillName: "Spot" });
+  });
+
+  it("COC resolveCheck ignores d20-only noise fields (modifierValue/explicitTarget)", () => {
+    mockRollDie.mockReturnValueOnce(45);
+    const baseline = coc7thRule.resolveCheck({ skillName: "侦查", target: 60, sheet: null });
+    mockRollDie.mockReturnValueOnce(45);
+    const withNoise = coc7thRule.resolveCheck({
+      skillName: "侦查", target: 60, sheet: null,
+      // All the d20 noise fields:
+      explicitTarget: 999, storedValue: 42,
+      modifierValue: 999, modifierDisplay: "+999",
+    });
+    expect(withNoise).toEqual(baseline);
+  });
+
+  it("COC applyStatWrite (attribute) matches the legacy syncCharacterStat shape", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "coc7th",
+      cocAttributes: { ...COC_DEFAULT_ATTRIBUTES, con: 60, siz: 60 },
+      cocDerived: computeCocDerived({ ...COC_DEFAULT_ATTRIBUTES, con: 60, siz: 60 }),
+    };
+    const { sheet: out, finalValue } = coc7thRule.applyStatWrite(
+      sheet, { kind: "attribute", key: "str", canonical: "力量" }, 70
+    );
+    expect(out.cocAttributes?.str).toBe(70);
+    // hpMax = (con+siz)/10 = 12; HP_current unchanged because not previously set.
+    expect(out.cocDerived?.hpMax).toBe(12);
+    expect(finalValue).toBe(70);
+  });
+
+  it("COC applyStatWrite (resource san) caps at 99 and writes both base+current", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "coc7th",
+      cocAttributes: { ...COC_DEFAULT_ATTRIBUTES },
+      cocDerived: computeCocDerived(COC_DEFAULT_ATTRIBUTES),
+    };
+    const { sheet: out, finalValue } = coc7thRule.applyStatWrite(
+      sheet, { kind: "resource", key: "san", canonical: "理智值" }, 200
+    );
+    expect(finalValue).toBe(99);
+    const d = out.cocDerived as unknown as Record<string, number | undefined>;
+    expect(d.san).toBe(99);
+    expect(d.san_current).toBe(99);
+    expect(d.sanMax).toBe(99);
   });
 });
