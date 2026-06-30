@@ -8,8 +8,9 @@ import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
+import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import Link from "next/link";
-import { listRules } from "@/lib/rules";
+import { DEFAULT_RULE_ID } from "@/lib/rules";
 
 /** Shared input/select styling for the create-room modal (rainglass spec). */
 const FIELD_CLS =
@@ -43,6 +44,7 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
   const [createError, setCreateError] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copyMsg, setCopyMsg] = useState("");
+  const [createRuleTemplate, setCreateRuleTemplate] = useState<string>(DEFAULT_RULE_ID);
   const keyInputRef = useRef<HTMLInputElement>(null);
 
   const copyKey = (key: string) => {
@@ -197,11 +199,13 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="ruleTemplate" className="text-xs text-text-muted font-medium">{tc("ruleTemplate")}</label>
                     {/* Options enumerate registered rule modules so new rules show up automatically. */}
-                    <ThemedSelect id="ruleTemplate" name="ruleTemplate" defaultValue="basic">
-                      {listRules().map(rule => (
-                        <option key={rule.id} value={rule.id}>{tc(rule.labelKey)}</option>
-                      ))}
-                    </ThemedSelect>
+                    <RuleTemplateSelect
+                      id="ruleTemplate"
+                      name="ruleTemplate"
+                      value={createRuleTemplate}
+                      onChange={setCreateRuleTemplate}
+                      t={tc}
+                    />
                   </div>
                 </div>
                 {createError && <Notice variant="error">{createError}</Notice>}

@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { Bot, Plus, Trash2, Pencil } from "lucide-react";
 import { getMyProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
+import { PresetProviderSelect } from "@/components/shared/PresetProviderSelect";
+import { CUSTOM_PRESET_ID, getPreset } from "@/lib/provider-presets";
 
 export function AiProvidersTab() {
   const t = useTranslations("admin");
@@ -23,7 +25,7 @@ export function AiProvidersTab() {
   const [provMsg, setProvMsg] = useState("");
   const [provSuccess, setProvSuccess] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [preset, setPreset] = useState("custom");
+  const [preset, setPreset] = useState(CUSTOM_PRESET_ID);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -39,19 +41,12 @@ export function AiProvidersTab() {
 
   const handlePresetChange = (val: string) => {
     setPreset(val);
-    if (val === "openai") {
-      setProvName("OpenAI");
-      setProvEndpoint("https://api.openai.com/v1");
-      setProvModel("gpt-4o");
-    } else if (val === "deepseek-flash") {
-      setProvName("DeepSeek");
-      setProvEndpoint("https://api.deepseek.com");
-      setProvModel("deepseek-v4-flash");
-    } else if (val === "deepseek-pro") {
-      setProvName("DeepSeek");
-      setProvEndpoint("https://api.deepseek.com");
-      setProvModel("deepseek-v4-pro");
-    } else if (val === "custom") {
+    const p = getPreset(val);
+    if (p) {
+      setProvName(p.name);
+      setProvEndpoint(p.endpoint);
+      setProvModel(p.model);
+    } else {
       setProvName("");
       setProvEndpoint("");
       setProvModel("");
@@ -147,7 +142,7 @@ export function AiProvidersTab() {
                       setProvEndpoint(p.apiEndpoint);
                       setProvModel(p.model);
                       setProvKey("");
-                      setPreset("custom");
+                      setPreset(CUSTOM_PRESET_ID);
                       setProvMsg("");
                       setProvSuccess(false);
                       setShowAddProvider(true);
@@ -176,7 +171,7 @@ export function AiProvidersTab() {
               setProvEndpoint("");
               setProvKey("");
               setProvModel("gpt-4o");
-              setPreset("custom");
+              setPreset(CUSTOM_PRESET_ID);
               setProvMsg("");
               setProvSuccess(false);
               setShowAddProvider(true);
@@ -192,16 +187,7 @@ export function AiProvidersTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-text-muted">{tp("presetLabel")}</label>
-                <select
-                  value={preset}
-                  onChange={e => handlePresetChange(e.target.value)}
-                  className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
-                >
-                  <option value="custom">{tp("presetCustom")}</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="deepseek-flash">DeepSeek (deepseek-v4-flash)</option>
-                  <option value="deepseek-pro">DeepSeek (deepseek-v4-pro)</option>
-                </select>
+                <PresetProviderSelect value={preset} onChange={handlePresetChange} t={tp} />
               </div>
 
               <div className="space-y-1">
