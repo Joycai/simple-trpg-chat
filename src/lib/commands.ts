@@ -370,24 +370,59 @@ async function handleSetSkill(
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
   const rule = getRuleForRoom(room);
 
+  // Route every parsed item once so we can decide whether the sheet needs to
+  // be loaded at all, and whether more than one item targets it (e.g.
+  // `.st STR 80 DEX 70 HP 12` — three sheet writes that used to each do
+  // SELECT room + SELECT roomMembers + UPDATE roomMembers).
+  const routes = parsed.map(item => ({ item, route: rule.routeStat(item.name) }));
+  const needsSheet = routes.some(r => r.route.kind === "attribute" || r.route.kind === "resource");
+
+  // Load the bot/player's sheet once; rule.applyStatWrite mutates it purely
+  // in memory below and we persist a single time at the end.
+  let sheet: CharacterData | null = null;
+  if (needsSheet) {
+    const [member] = await db
+      .select({ characterData: roomMembers.characterData })
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+    if (member?.characterData) {
+      try {
+        sheet = JSON.parse(member.characterData) as CharacterData;
+      } catch (e) {
+        console.error("Failed to parse character data", e);
+        sheet = null;
+      }
+    }
+  }
+
   const summaryParts: string[] = [];
+  let sheetDirty = false;
 
-  for (const item of parsed) {
-    const route = rule.routeStat(item.name);
-
+  for (const { item, route } of routes) {
     if (route.kind === "attribute") {
-      // Spec: rule routes this name to a character-sheet attribute.
-      await syncCharacterStat(roomId, userId, { kind: "attribute", key: route.key }, item.value);
+      if (sheet) {
+        const { sheet: next } = rule.applyStatWrite(sheet, route, item.value);
+        sheet = next;
+        sheetDirty = true;
+      }
       await cleanupSkillRows(roomId, userId, item.name, route.canonical);
       summaryParts.push(`${route.canonical} ${item.value}`);
       continue;
     }
 
     if (route.kind === "resource") {
-      // Spec: resources set the current value only (max is unaffected).
-      const stored = await syncCharacterStat(roomId, userId, { kind: "resource", key: route.key }, item.value);
+      // Spec: resources set the current value only (max is unaffected). The
+      // rule may clamp (e.g. d20 HP to hpMax); we use the clamped value in
+      // the user-facing summary.
+      let displayValue = item.value;
+      if (sheet) {
+        const { sheet: next, finalValue } = rule.applyStatWrite(sheet, route, item.value);
+        sheet = next;
+        displayValue = finalValue;
+        sheetDirty = true;
+      }
       await cleanupSkillRows(roomId, userId, item.name, route.canonical);
-      summaryParts.push(`${route.canonical} ${stored}`);
+      summaryParts.push(`${route.canonical} ${displayValue}`);
       continue;
     }
 
@@ -405,6 +440,13 @@ async function handleSetSkill(
       set: { skillValue: item.value, updatedAt: sqlNow() },
     });
     summaryParts.push(`${name} ${item.value}`);
+  }
+
+  // Single write for any sheet mutations in this batch.
+  if (sheetDirty && sheet) {
+    await db.update(roomMembers)
+      .set({ characterData: JSON.stringify(sheet) })
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
   }
 
   const summary = summaryParts.join(" · ");
