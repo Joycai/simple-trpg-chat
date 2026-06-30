@@ -135,7 +135,16 @@ export async function buildAgentContext(
   return { context, model: config.model || "gpt-4o" };
 }
 
-const agentCooldowns = new Map<number, number>();
+// Cooldown map is process-wide intentionally — in production Next.js spawns
+// multiple workers and a module-level Map would let a bot fire `workers ×`
+// times per cooldown window. Pinning to globalThis collapses them onto one
+// shared map. (Same pattern as the SSE EventEmitter — see CLAUDE.md.)
+declare global {
+  var __agentCooldowns: Map<number, number> | undefined;
+}
+const agentCooldowns: Map<number, number> = globalThis.__agentCooldowns ?? new Map<number, number>();
+globalThis.__agentCooldowns = agentCooldowns;
+
 const AGENT_COOLDOWN_MS = 3000;
 
 /**
