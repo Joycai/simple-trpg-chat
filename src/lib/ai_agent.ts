@@ -666,21 +666,35 @@ export async function runAgent(
               } else {
                 // Record the response and broadcast the completion update so the
                 // host's check bubble marks the bot as done (same as a click).
-                const detail = JSON.parse(row.diceDetail || "{}");
-                const responded: number[] = detail.checkRequest.respondedUserIds || [];
-                const newResponded = [...responded, botUserId];
-                detail.checkRequest.respondedUserIds = newResponded;
-                await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, row.id));
-                broadcastToRoom(roomId, {
-                  type: "check_update",
-                  checkRequestId: row.id,
-                  respondedUserIds: newResponded,
-                  proxiedUserIds: detail.checkRequest.proxiedUserIds,
-                  audience: row.audience,
-                  userId: row.userId,
-                  targetUserId: row.targetUserId,
-                });
-                result = { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck };
+                // Re-parse the row defensively — the original parse happened in
+                // the candidates scan above, but the row could have been rewritten
+                // by another responder between then and now; without this guard a
+                // malformed payload throws a TypeError that the outer catch turns
+                // into an opaque error message in the tool result.
+                let detail: { checkRequest?: { respondedUserIds?: number[]; proxiedUserIds?: number[] } } | null = null;
+                try {
+                  detail = JSON.parse(row.diceDetail || "{}");
+                } catch {
+                  detail = null;
+                }
+                if (!detail?.checkRequest) {
+                  result = { success: false, error: "Check request payload malformed; refresh and try again." };
+                } else {
+                  const responded: number[] = detail.checkRequest.respondedUserIds || [];
+                  const newResponded = [...responded, botUserId];
+                  detail.checkRequest.respondedUserIds = newResponded;
+                  await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, row.id));
+                  broadcastToRoom(roomId, {
+                    type: "check_update",
+                    checkRequestId: row.id,
+                    respondedUserIds: newResponded,
+                    proxiedUserIds: detail.checkRequest.proxiedUserIds,
+                    audience: row.audience,
+                    userId: row.userId,
+                    targetUserId: row.targetUserId,
+                  });
+                  result = { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck };
+                }
               }
             }
           } else if (functionName === "send_image") {

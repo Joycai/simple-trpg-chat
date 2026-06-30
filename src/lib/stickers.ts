@@ -120,12 +120,23 @@ function buildManifest(): StickerPack[] {
   return packs;
 }
 
-/** Cached manifest; scanned once per process (rescan requires a restart). */
+/** Cached manifest; scanned once per process. Admins can force a re-scan via
+ *  `invalidateStickerManifest()` (exposed through the admin sticker action)
+ *  when they drop new files into the sticker directory without restarting. */
 export function getStickerManifest(): StickerPack[] {
   if (!globalThis.__stickerManifest) {
     globalThis.__stickerManifest = buildManifest();
   }
   return globalThis.__stickerManifest;
+}
+
+/**
+ * Drop the cached manifest so the next `getStickerManifest()` call rescans
+ * disk. Called from the admin sticker-refresh action so a host doesn't need
+ * to restart the server after adding or replacing pack files.
+ */
+export function invalidateStickerManifest(): void {
+  globalThis.__stickerManifest = undefined;
 }
 
 /**
