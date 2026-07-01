@@ -6,6 +6,7 @@ import { Shield, History, X, Bot, BarChart3, Coins } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { setUserLocale } from "@/app/actions/locale";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 import { SecurityTab } from "@/components/user/settings/SecurityTab";
 import { LoginHistoryTab } from "@/components/user/settings/LoginHistoryTab";
 import { AiProvidersTab } from "@/components/user/settings/AiProvidersTab";
@@ -26,11 +27,15 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
   const [tab, setTab] = useState<Tab>("security");
 
-  const handleLocaleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLocale = e.target.value as "zh" | "en";
-    await setUserLocale(newLocale);
+  const handleLocaleChange = async (newLocale: string) => {
+    await setUserLocale(newLocale as "zh" | "en");
     window.location.reload();
   };
+
+  const localeItems: BadgeDropdownItem[] = [
+    { id: "zh", label: "中文", badge: { letters: "中" } },
+    { id: "en", label: "English", badge: { letters: "EN" } },
+  ];
 
   const roleLabel = userRole === "admin" ? ts("roleAdmin") : userRole === "host" ? ts("roleHost") : ts("rolePlayer");
   const roleColor = userRole === "admin" ? "bg-danger/20 text-danger border-danger/30" : userRole === "host" ? "bg-success/20 text-success border-success/30" : "bg-primary/20 text-primary border-primary/30";
@@ -69,14 +74,15 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
 
           <div className="flex items-center gap-2">
             <span className="text-sm text-text-muted font-medium">{ts("language")}</span>
-            <select
-              value={locale}
-              onChange={handleLocaleChange}
-              className="px-3 py-2 bg-input-bg border border-input-border rounded-theme text-sm text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary transition"
-            >
-              <option value="zh">中文</option>
-              <option value="en">English</option>
-            </select>
+            <div className="w-44">
+              <BadgeDropdown
+                value={locale}
+                onChange={handleLocaleChange}
+                headerText={ts("language")}
+                tone="primary"
+                items={localeItems}
+              />
+            </div>
           </div>
         </div>
 

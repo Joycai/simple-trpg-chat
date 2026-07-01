@@ -1,17 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, X } from "lucide-react";
+import { Plus, X, User, Crosshair, Shield } from "lucide-react";
 import { createUser } from "@/app/admin/actions";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 
 export function CreateUserModal({ onClose }: { onClose: () => void }) {
   const t = useTranslations("admin");
+  const [role, setRole] = useState("player");
+
+  const roleItems: BadgeDropdownItem[] = [
+    { id: "player", label: t("rolePlayer"), badge: { Icon: User } },
+    { id: "host", label: t("roleHost"), badge: { Icon: Crosshair } },
+    { id: "admin", label: t("roleAdmin"), badge: { Icon: Shield } },
+  ];
+
   return (
     <OverlayShell
       onClose={onClose}
       rootClassName="p-4"
-      panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md overflow-hidden"
+      panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md"
     >
       {(close) => (
         <>
@@ -32,12 +42,14 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
                 className="px-3 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
               <input name="displayName" placeholder={t("displayName")} required
                 className="px-3 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
-              <select name="role" required defaultValue="player"
-                className="px-3 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary">
-                <option value="player">{t("rolePlayer")}</option>
-                <option value="host">{t("roleHost")}</option>
-                <option value="admin">{t("roleAdmin")}</option>
-              </select>
+              <BadgeDropdown
+                name="role"
+                value={role}
+                onChange={setRole}
+                headerText={t("role")}
+                tone="primary"
+                items={roleItems}
+              />
             </div>
             <button type="submit"
               className="mt-1 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground py-2.5 rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">

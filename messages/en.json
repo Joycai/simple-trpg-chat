@@ -837,7 +837,8 @@
     "errTimeout": "AI analysis timed out, please retry",
     "errCancelled": "Analysis cancelled",
     "btnCancel": "Cancel",
-    "providerLabel": "AI Provider"
+    "providerLabel": "AI Provider",
+    "providerHeader": "AI Providers"
   },
   "hostCheck": {
     "title": "Normal Check",

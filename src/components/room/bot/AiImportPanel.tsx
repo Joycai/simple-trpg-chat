@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 
 interface AiImportPanelProps {
   roomId: number;
@@ -181,8 +182,6 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
     setError("");
   };
 
-  const selectedProvider = providers.find(p => p.id === providerId);
-
   return (
     <div className="fixed inset-0 z-50 flex" onClick={close}>
       <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
@@ -210,25 +209,20 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
               {providers.length > 0 && (
                 <div>
                   <label className="text-sm text-text-muted mb-1.5 block">{t("providerLabel")}</label>
-                  <div className="relative">
-                    <select
-                      value={providerId ?? ""}
-                      onChange={e => setProviderId(parseInt(e.target.value))}
-                      disabled={analyzing}
-                      className="w-full px-3.5 py-3 pr-24 border border-input-border bg-input-bg rounded-theme text-text text-sm outline-none transition appearance-none cursor-pointer focus:ring-[3px] focus:ring-ai/[0.18] focus:border-ai disabled:opacity-50">
-                      {providers.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.model})</option>
-                      ))}
-                    </select>
-                    {selectedProvider && (
-                      <span className={`absolute right-9 top-1/2 -translate-y-1/2 text-[10px] font-bold px-2 py-0.5 rounded-full border pointer-events-none ${
-                        selectedProvider.isShared ? "text-primary border-primary/40 bg-primary/10" : "text-text-muted border-border bg-surface-alt"
-                      }`}>
-                        {selectedProvider.isShared ? tp("shared") : tp("private")}
-                      </span>
-                    )}
-                    <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                  <BadgeDropdown
+                    value={String(providerId ?? "")}
+                    onChange={id => setProviderId(parseInt(id))}
+                    disabled={analyzing}
+                    headerText={t("providerHeader")}
+                    tone="accent"
+                    items={providers.map((p): BadgeDropdownItem => ({
+                      id: String(p.id),
+                      label: p.name,
+                      description: `${p.model} · ${p.isShared ? tp("shared") : tp("private")}`,
+                      descriptionMono: true,
+                      badge: { letters: p.name.slice(0, 2).toUpperCase() },
+                    }))}
+                  />
                 </div>
               )}
               <textarea

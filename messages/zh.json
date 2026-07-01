@@ -837,7 +837,8 @@
     "errTimeout": "AI 分析超时，请重试",
     "errCancelled": "已取消分析",
     "btnCancel": "取消",
-    "providerLabel": "AI 服务商"
+    "providerLabel": "AI 服务商",
+    "providerHeader": "AI 服务商"
   },
   "hostCheck": {
     "title": "普通检定",
