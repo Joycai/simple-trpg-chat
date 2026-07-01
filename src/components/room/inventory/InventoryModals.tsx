@@ -257,6 +257,8 @@ export function CreateEditModal({
                 </label>
                 {imageUrl ? (
                   <div className="relative rounded-theme overflow-hidden border border-border">
+                    {/* User-supplied image URL (arbitrary domain or data URL) — next/image can't optimize these. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageUrl} alt="" className="w-full max-h-48 object-cover" />
                     <button onClick={() => onImageChange(null)} aria-label={tCommon("close")}
                       className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
@@ -488,6 +490,8 @@ export function DetailModal({
               {detailItem.imageUrl ? (
                 <button type="button" onClick={() => setPreviewOpen(true)} aria-label={t("imageEnlarge")}
                   className="shrink-0 rounded-theme overflow-hidden border border-accent/40 cursor-zoom-in hover:brightness-110 transition">
+                  {/* User-supplied image URL (arbitrary domain or data URL) — next/image can't optimize these. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={detailItem.imageUrl} alt={detailItem.title} className="w-14 h-14 object-cover block" />
                 </button>
               ) : (
@@ -507,6 +511,8 @@ export function DetailModal({
             detailItem.imageUrl ? (
               <button type="button" onClick={() => setPreviewOpen(true)} aria-label={t("imageEnlarge")}
                 className="block w-full mb-4 rounded-theme overflow-hidden border border-border cursor-zoom-in hover:brightness-105 transition group relative">
+                {/* User-supplied image URL (arbitrary domain or data URL) — next/image can't optimize these. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={detailItem.imageUrl} alt={detailItem.title} className="w-full max-h-72 object-cover block" />
                 <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                   <Icons.Search className="w-3.5 h-3.5" />

@@ -77,6 +77,8 @@ export function MembersDialog({
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   {p.room_members?.avatar ? (
+                    // Avatars are base64 data URLs (per-room, stored in DB) — next/image can't optimize these.
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.room_members.avatar} alt={nick} className="w-11 h-11 rounded-full object-cover border border-border shadow-sm" />
                   ) : isMe ? (
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold bg-primary/15 text-primary ring-2 ring-primary/60 shadow-sm">

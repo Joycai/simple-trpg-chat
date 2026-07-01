@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getRoomSkills, upsertSkillAction, deleteSkillAction } from "@/app/actions/room";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -37,16 +37,17 @@ export function SkillPanel({ roomId, userId, onClose, readOnly = false, refreshK
   const router = useRouter();
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
 
-  const loadSkills = async () => {
+  const loadSkills = useCallback(async () => {
     try {
       const data = await getRoomSkills(roomId, userId);
       setSkills(data as Skill[]);
     } catch { /* server-side, handle gracefully */ }
     setLoading(false);
-  };
+  }, [roomId, userId]);
 
+  // refreshKey is bumped by the parent (after a .st command) to force a reload.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadSkills(); }, [roomId, userId, refreshKey]);
+  useEffect(() => { void loadSkills(); }, [loadSkills, refreshKey]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;

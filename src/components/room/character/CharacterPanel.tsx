@@ -458,6 +458,8 @@ export function CharacterPanel({
               <div className="w-16 h-16 rounded-theme overflow-hidden flex items-center justify-center border-2"
                 style={{ borderColor: selectedColor, boxShadow: `0 0 12px ${selectedColor}55` }}>
                 {avatarSrc
+                  // Avatar is a base64 data URL — next/image can't optimize these.
+                  // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={avatarSrc} alt={nickname} className="w-full h-full object-cover" />
                   : <span className="w-full h-full flex items-center justify-center text-2xl font-bold"
                       style={{ backgroundColor: selectedColor, color: getContrastColor(selectedColor) }}>{nickname.charAt(0).toUpperCase()}</span>}

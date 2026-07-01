@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createBotAction, getRoomBotsAction, updateBotAction, triggerBotAction } from "@/app/actions/bot";
 import { getMyProviders } from "@/app/actions/ai-providers";
 import { getBotPresetsAction } from "@/app/actions/bot-presets";
@@ -74,16 +74,16 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     getBotPresetsAction().then(setPresets).catch(console.error);
   }, []);
 
-  const loadBots = async () => {
+  const loadBots = useCallback(async () => {
     try {
       const data = await getRoomBotsAction(roomId);
       setBots(data as BotInfo[]);
     } catch { /* */ }
     setLoading(false);
-  };
+  }, [roomId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadBots(); }, [roomId]);
+  useEffect(() => { void loadBots(); }, [loadBots]);
 
   const handlePresetChange = (presetIdVal: string) => {
     setSelectedPresetId(presetIdVal);

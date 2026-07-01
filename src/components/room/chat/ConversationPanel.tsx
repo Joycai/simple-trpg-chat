@@ -185,6 +185,8 @@ export function ConversationPanel({
               {/* Avatar with presence dot */}
               <div style={{ position: "relative", width: 24, height: 24, flexShrink: 0 }}>
                 {conv.avatar ? (
+                  // Avatar is a base64 data URL — next/image can't optimize these.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={conv.avatar}
                     alt={conv.nickname}

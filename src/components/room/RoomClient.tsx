@@ -42,6 +42,13 @@ export function RoomClient({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
   const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
+  // Latest messages snapshot for event handlers (e.g. infinite-scroll) that must read the
+  // current oldest id without being re-created on every message change. Synced in an effect
+  // (see below) rather than during render, per react-hooks/refs.
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [nickname, setNickname] = useState(currentNickname);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
@@ -257,10 +264,12 @@ export function RoomClient({
       isAtBottomRef.current = atBottom;
       setShowScrollButton(!atBottom);
 
-      // Infinite scroll load more (R8)
-      if (el.scrollTop < 10 && hasMore && !loadingMore && messages.length > 0) {
+      // Infinite scroll load more (R8) — read the live snapshot via ref so the
+      // handler needn't list `messages` as a dep (which would recreate it on every message).
+      const currentMessages = messagesRef.current;
+      if (el.scrollTop < 10 && hasMore && !loadingMore && currentMessages.length > 0) {
         setLoadingMore(true);
-        const oldestId = messages[0].id;
+        const oldestId = currentMessages[0].id;
         try {
           const older = await loadMoreMessagesAction(room.id, oldestId, 50) as unknown as Message[];
           if (older.length < 50) {
@@ -292,7 +301,7 @@ export function RoomClient({
         }
       }
     });
-  }, [room.id, hasMore, loadingMore, messages.length]);
+  }, [room.id, hasMore, loadingMore]);
 
   useEffect(() => {
     if (isAtBottomRef.current) {
@@ -391,7 +400,7 @@ export function RoomClient({
       }
       if (isSheetMutationCmd) refreshSelfSheet();
     } catch (e) { console.error(e); }
-  }, [room.id, userId, activeTab, refreshSelfSheet]);
+  }, [room.id, userId, activeTab, tra, refreshSelfSheet]);
 
   const handleViewPlayerCard = useCallback(async (targetUserId: number, targetNickname: string) => {
     setShowMembers(false);
