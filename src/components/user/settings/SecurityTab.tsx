@@ -50,6 +50,7 @@ export function SecurityTab() {
             type="password"
             value={oldPwd}
             onChange={e => setOldPwd(e.target.value)}
+            placeholder={ts("oldPasswordHint")}
             autoComplete="current-password"
             className={FIELD_CLS}
           />
@@ -71,6 +72,7 @@ export function SecurityTab() {
             type="password"
             value={confirmPwd}
             onChange={e => setConfirmPwd(e.target.value)}
+            placeholder={ts("confirmNewPasswordHint")}
             autoComplete="new-password"
             className={FIELD_CLS}
           />
