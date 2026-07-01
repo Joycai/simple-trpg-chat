@@ -20,20 +20,42 @@ export async function requireAdmin() {
 export async function createUser(formData: FormData) {
   await requireAdmin();
 
-  const username = formData.get("username") as string;
+  const username = (formData.get("username") as string)?.trim();
   const password = formData.get("password") as string;
   const role = formData.get("role") as string;
-  const displayName = formData.get("displayName") as string;
+  // Nickname is optional — fall back to the username when the admin leaves it blank.
+  const displayName = (formData.get("displayName") as string)?.trim() || username;
+  // Initial AI quota granted at creation; clamp to a non-negative integer.
+  const aiPoints = Math.max(0, Math.floor(Number(formData.get("aiPoints")) || 0));
 
-  if (!username || !password || !role || !displayName) throw new Error("Missing fields");
+  if (!username || !password || !role) throw new Error("Missing fields");
+
+  const allowedRoles = ["player", "host", "admin"];
+  if (!allowedRoles.includes(role)) throw new Error("Invalid role");
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await db.insert(users).values({
-    username,
-    passwordHash,
-    role,
-    displayName,
+  await db.transaction(async (tx) => {
+    const [created] = await tx.insert(users).values({
+      username,
+      passwordHash,
+      role,
+      displayName,
+      aiPoints,
+    }).returning({ id: users.id });
+
+    // Record the opening balance so the points history stays consistent with
+    // every later admin adjustment (which always writes an aiPointLogs row).
+    if (aiPoints > 0) {
+      await tx.insert(aiPointLogs).values({
+        userId: created.id,
+        amount: aiPoints,
+        beforePoints: 0,
+        afterPoints: aiPoints,
+        type: "admin",
+        description: "Initial points on account creation",
+      });
+    }
   });
 
   revalidatePath("/admin");
