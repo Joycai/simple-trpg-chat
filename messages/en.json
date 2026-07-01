@@ -793,6 +793,9 @@
     "toolSetCharacterCard": "Set character card",
     "presetSelect": "Apply Preset",
     "manualPreset": "Manual Config (No Preset)",
+    "presetHeader": "Presets",
+    "providerHeader": "AI Providers",
+    "activationHeader": "Trigger mode",
     "cancel": "Cancel",
     "submitCreate": "Create",
     "submitSave": "Save"
@@ -834,7 +837,8 @@
     "errTimeout": "AI analysis timed out, please retry",
     "errCancelled": "Analysis cancelled",
     "btnCancel": "Cancel",
-    "providerLabel": "AI Provider"
+    "providerLabel": "AI Provider",
+    "providerHeader": "AI Providers"
   },
   "hostCheck": {
     "title": "Normal Check",

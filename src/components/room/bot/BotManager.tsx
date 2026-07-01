@@ -9,6 +9,8 @@ import { useTranslations } from "next-intl";
 import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Icons } from "@/components/shared/icons";
+import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
+import { SlidersHorizontal, AtSign, MousePointerClick } from "lucide-react";
 
 interface BotInfo {
   id: number;
@@ -275,14 +277,20 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                 {presets.length > 0 && (
                   <div>
                     <label className={labelCls}>{t("presetSelect")}</label>
-                    <div className="relative">
-                      <select value={selectedPresetId} onChange={e => handlePresetChange(e.target.value)}
-                        className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
-                        <option value="">{t("manualPreset")}</option>
-                        {presets.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                      </select>
-                      <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
+                    <BadgeDropdown
+                      value={String(selectedPresetId)}
+                      onChange={handlePresetChange}
+                      headerText={t("presetHeader")}
+                      tone="primary"
+                      items={[
+                        { id: "", label: t("manualPreset"), badge: { Icon: SlidersHorizontal } },
+                        ...presets.map((p): BadgeDropdownItem => ({
+                          id: String(p.id),
+                          label: p.name,
+                          badge: { letters: p.name.slice(0, 2).toUpperCase() },
+                        })),
+                      ]}
+                    />
                   </div>
                 )}
 
@@ -338,17 +346,22 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                 {providers.length > 0 && (
                   <div>
                     <label className={labelCls}>AI Provider</label>
-                    <div className="relative">
-                      <select value={providerId || ""} onChange={e => {
-                        const pid = parseInt(e.target.value); setProviderId(pid);
+                    <BadgeDropdown
+                      value={String(providerId ?? "")}
+                      onChange={id => {
+                        const pid = parseInt(id); setProviderId(pid);
                         const p = providers.find(x => x.id === pid); if (p) setModel(p.model || "gpt-4o");
-                      }} className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
-                        {providers.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} ({p.model}) {p.isShared ? `[${tp("shared")}]` : `[${tp("private")}]`}</option>
-                        ))}
-                      </select>
-                      <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
+                      }}
+                      headerText={t("providerHeader")}
+                      tone="accent"
+                      items={providers.map((p): BadgeDropdownItem => ({
+                        id: String(p.id),
+                        label: p.name,
+                        description: `${p.model} · ${p.isShared ? tp("shared") : tp("private")}`,
+                        descriptionMono: true,
+                        badge: { letters: p.name.slice(0, 2).toUpperCase() },
+                      }))}
+                    />
                     {providerId && <p className="text-xs text-text-dim mt-1.5">{t("modelHint", { model })}</p>}
                   </div>
                 )}
@@ -356,14 +369,16 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                 {/* Trigger mode */}
                 <div>
                   <label className={labelCls}>{t("activation")}</label>
-                  <div className="relative">
-                    <select value={activation} onChange={e => setActivation(e.target.value)}
-                      className={`${fieldCls} appearance-none pr-9 cursor-pointer`}>
-                      <option value="@mention">{t("activationMention")}</option>
-                      <option value="manual">{t("activationManual")}</option>
-                    </select>
-                    <Icons.ChevronDown className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                  <BadgeDropdown
+                    value={activation}
+                    onChange={setActivation}
+                    headerText={t("activationHeader")}
+                    tone="primary"
+                    items={[
+                      { id: "@mention", label: t("activationMention"), badge: { Icon: AtSign } },
+                      { id: "manual", label: t("activationManual"), badge: { Icon: MousePointerClick } },
+                    ]}
+                  />
                 </div>
 
                 {/* Tools as toggle pills */}

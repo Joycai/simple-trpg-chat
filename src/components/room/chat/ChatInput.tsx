@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { DiceRoller } from "@/components/room/chat/DiceRoller";
 import { StickerPicker } from "@/components/room/chat/StickerPicker";
 import { Icons } from "@/components/shared/icons";
+import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { useTranslations } from "next-intl";
 
 interface MentionTarget {
@@ -295,10 +296,12 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         <div className="absolute bottom-full left-12 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
           <div className="bg-private-bg border border-private-border rounded-theme shadow-lg p-2 flex items-center gap-2">
             <span className="text-[10px] font-bold text-accent uppercase tracking-wider ml-1">{t("privateChatTarget")}</span>
-            <select 
-              value={privateTargetId || ""} 
+            <ThemedSelect
+              value={privateTargetId || ""}
               onChange={(e) => setPrivateTargetId(Number(e.target.value))}
-              className="bg-surface border border-private-border rounded px-2 py-1 text-xs text-text outline-none focus:ring-1 focus:ring-accent"
+              wrapperClassName="w-auto"
+              className="w-auto bg-surface border-private-border rounded px-2 py-1 pr-7 text-xs focus:ring-1 focus:ring-accent focus:border-private-border"
+              chevronClassName="w-3 h-3 right-1.5"
             >
               <option value="" disabled>{t("selectMember")}</option>
               {mentions.map(m => (
@@ -309,7 +312,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
                   {m.isBot && !m.isBotDisabled && m.isProviderError ? ` [${tRoom("tagProviderError")}]` : ""}
                 </option>
               ))}
-            </select>
+            </ThemedSelect>
             <button
               onClick={() => { setIsPrivate(false); setPrivateTargetId(null); }}
               className="text-text-muted hover:text-danger p-1 transition"
