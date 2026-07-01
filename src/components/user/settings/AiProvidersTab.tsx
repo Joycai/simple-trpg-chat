@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Bot, Plus, Trash2, Pencil } from "lucide-react";
+import { Bot, Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { getMyProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
 import { PresetProviderSelect } from "@/components/shared/PresetProviderSelect";
@@ -66,11 +66,11 @@ export function AiProvidersTab() {
         setProvMsg(tp("msgConnectOk"));
         setProvSuccess(true);
       } else {
-        setProvMsg(`❌ ${result.error}`);
+        setProvMsg(result.error || "");
         setProvSuccess(false);
       }
     } catch (e: unknown) {
-      setProvMsg(`❌ ${e instanceof Error ? e.message : String(e)}`);
+      setProvMsg(e instanceof Error ? e.message : String(e));
       setProvSuccess(false);
     }
     setTesting(false);
@@ -235,7 +235,8 @@ export function AiProvidersTab() {
             </div>
 
             {provMsg && (
-              <p className={`text-xs font-semibold ${provSuccess ? "text-success" : "text-danger"}`}>
+              <p className={`text-xs font-semibold flex items-center gap-1 ${provSuccess ? "text-success" : "text-danger"}`}>
+                {provSuccess ? <Check className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
                 {provMsg}
               </p>
             )}

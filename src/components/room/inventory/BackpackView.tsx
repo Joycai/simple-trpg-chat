@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Package } from "lucide-react";
+import { Package, Share2 } from "lucide-react";
 import { isUnread, isUpdated, isNew, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
 
 interface BackpackViewProps {
@@ -87,7 +87,7 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
                       {d.item?.title || `#${d.itemId}`}
                     </span>
                     {d.fromUserId !== userId && (
-                      <span className="absolute bottom-1.5 right-2 text-[8px] text-text-dim opacity-0 group-hover:opacity-100 transition-opacity">★</span>
+                      <Share2 className="absolute bottom-1.5 right-2 w-3 h-3 text-text-dim opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
                   </>
                 )}

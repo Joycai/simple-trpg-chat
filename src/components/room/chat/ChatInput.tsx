@@ -271,16 +271,18 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
                 i === mentionIndex ? "bg-primary/10 text-primary" : "text-text hover:bg-surface-alt"
               }`}
             >
-              <span>{m.isBot ? (m.isBotDisabled ? "🚫" : m.isProviderError ? "⚠️" : "🤖") : "👤"}</span>
+              <span className="shrink-0 inline-flex items-center">
+                {m.isBot ? (m.isBotDisabled ? <Icons.Ban className="w-3.5 h-3.5" /> : m.isProviderError ? <Icons.AlertTriangle className="w-3.5 h-3.5" /> : <Icons.Bot className="w-3.5 h-3.5" />) : <Icons.User className="w-3.5 h-3.5" />}
+              </span>
               <span className="font-mono flex-1 text-left">@{m.nickname}</span>
               {m.isBot && m.isBotDisabled && (
-                <span className="text-[9px] px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none scale-90 shrink-0">
-                  🚫 {tRoom("tagDisabled")}
+                <span className="text-[9px] px-1 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 select-none scale-90 shrink-0 inline-flex items-center gap-0.5">
+                  <Icons.Ban className="w-2.5 h-2.5" /> {tRoom("tagDisabled")}
                 </span>
               )}
               {m.isBot && !m.isBotDisabled && m.isProviderError && (
-                <span className="text-[9px] px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none scale-90 shrink-0 animate-pulse">
-                  ⚠️ {tRoom("tagProviderError")}
+                <span className="text-[9px] px-1 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 select-none scale-90 shrink-0 animate-pulse inline-flex items-center gap-0.5">
+                  <Icons.AlertTriangle className="w-2.5 h-2.5" /> {tRoom("tagProviderError")}
                 </span>
               )}
             </button>

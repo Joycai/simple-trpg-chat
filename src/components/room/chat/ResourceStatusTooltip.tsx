@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { Info, Heart, Eye, Droplet, Clover, Sparkles } from "lucide-react";
 import { type CharacterData } from "@/lib/character-types";
 import { useTranslations } from "next-intl";
 import { getRule } from "@/lib/rules";
@@ -43,7 +44,7 @@ export function ResourceStatusTooltip({
         </div>
       ) : !hasStatus ? (
         <div className="text-center py-2 text-text-dim flex flex-col items-center gap-1">
-          <span className="text-lg">🎴</span>
+          <Info className="w-5 h-5" />
           <span className="font-medium">{tChat("resourceUnavailable")}</span>
         </div>
       ) : (
@@ -62,7 +63,7 @@ export function ResourceStatusTooltip({
               {/* HP */}
               <div>
                 <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
-                  <span>❤️ {tChar("hp")}</span>
+                  <span className="inline-flex items-center gap-1"><Heart className="w-3 h-3" /> {tChar("hp")}</span>
                   <span className="font-mono">
                     {charData.cocDerived.hp_current ?? charData.cocDerived.hp}/{charData.cocDerived.hpMax}
                   </span>
@@ -95,7 +96,7 @@ export function ResourceStatusTooltip({
               {/* SAN */}
               <div>
                 <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
-                  <span>💜 {tChar("san")}</span>
+                  <span className="inline-flex items-center gap-1"><Eye className="w-3 h-3" /> {tChar("san")}</span>
                   <span className="font-mono">
                     {charData.cocDerived.san_current ?? charData.cocDerived.san}/{charData.cocDerived.sanMax}
                   </span>
@@ -120,7 +121,7 @@ export function ResourceStatusTooltip({
               {/* MP */}
               <div>
                 <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
-                  <span>💙 {tChar("mp")}</span>
+                  <span className="inline-flex items-center gap-1"><Droplet className="w-3 h-3" /> {tChar("mp")}</span>
                   <span className="font-mono">
                     {charData.cocDerived.mp_current ?? charData.cocDerived.mp}/{charData.cocDerived.mpMax}
                   </span>
@@ -144,7 +145,7 @@ export function ResourceStatusTooltip({
 
               {/* Luck */}
               <div className="flex justify-between text-[10px] text-text-muted border-t border-border/40 pt-1.5 font-medium">
-                <span>🍀 {tChar("luck")}</span>
+                <span className="inline-flex items-center gap-1"><Clover className="w-3 h-3" /> {tChar("luck")}</span>
                 <span className="font-mono font-bold text-text">
                   {charData.cocDerived.luck}
                 </span>
@@ -158,7 +159,7 @@ export function ResourceStatusTooltip({
               {charData.customAttributes.map((attr) => (
                 <div key={attr.name} className="flex flex-col gap-0.5">
                   <div className="flex justify-between text-[10px] text-text-muted font-medium">
-                    <span>✨ {attr.name}</span>
+                    <span className="inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> {attr.name}</span>
                     <span className="font-mono">
                       {attr.value}
                       {attr.max !== undefined && `/${attr.max}`}

@@ -83,8 +83,6 @@ export function formatContent(item: InventoryItem): string {
   } catch { return item.contentJson; }
 }
 
-export const typeEmoji = (tStr: string) => ({ clue: "🃏", info: "📄", character: "👤", item: "🎒" }[tStr] || "📦");
-
 // Category → lucide icon + semantic color (rainglass design): clue=cyan,
 // info=violet, character=magenta, item=green.
 export const typeIcon: Record<InventoryItemType, LucideIcon> = {
