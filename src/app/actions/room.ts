@@ -1064,7 +1064,7 @@ export async function uploadAvatarAction(
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   // Strict whitelist: only JPEG data URLs, capped size, real JPEG magic + dims ≤ 512.
-  // AvatarCropper always emits 512x512 JPEG; anything else is rejected so SVG/
+  // The avatar cropper (shared ImageCropper) always emits ≤512 JPEG; anything else is rejected so SVG/
   // mislabelled payloads can't reach the DB or downstream <img> renders.
   const parsed = parseAvatarDataUrl(imageData);
   if (!parsed.ok) {

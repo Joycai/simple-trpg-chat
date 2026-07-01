@@ -1,9 +1,9 @@
 /**
  * Avatar upload validation.
  *
- * Avatars are produced exclusively by AvatarCropper (client-side), which always
- * outputs 512x512 JPEG via canvas.toDataURL("image/jpeg", 0.85). We pin the
- * server-side contract to that shape:
+ * Avatars are produced exclusively by the shared ImageCropper (client-side),
+ * which outputs a square JPEG capped at 512x512 via canvas.toDataURL("image/jpeg").
+ * We pin the server-side contract to that shape:
  *
  *  - Only `data:image/jpeg;base64,` is accepted (rejects SVG, GIF, PNG, etc).
  *  - Base64 length is capped well under the cropper's ~80 KB typical output.

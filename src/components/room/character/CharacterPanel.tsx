@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Check } from "lucide-react";
-import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction } from "@/app/actions/room";
+import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction, uploadAvatarAction } from "@/app/actions/room";
 import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, computeCocDerived } fro
 import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
-import { AvatarCropper } from "@/components/room/character/AvatarCropper";
+import { ImageCropper } from "@/components/shared/ImageCropper";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
@@ -64,7 +64,8 @@ export function CharacterPanel({
   // Avatar photo: shows the uploaded image when present, falling back to a
   // colored initial. `avatarOverride` reflects a just-cropped image instantly,
   // before router.refresh propagates the new value down through props.
-  const [showAvatarCropper, setShowAvatarCropper] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
   const avatarSrc = avatarOverride ?? avatar ?? null;
 
@@ -465,10 +466,22 @@ export function CharacterPanel({
                   : <span className="w-full h-full flex items-center justify-center text-2xl font-bold"
                       style={{ backgroundColor: selectedColor, color: getContrastColor(selectedColor) }}>{nickname.charAt(0).toUpperCase()}</span>}
               </div>
-              <button onClick={() => setShowAvatarCropper(true)} title={t("changeAvatar")}
+              <button onClick={() => avatarInputRef.current?.click()} title={t("changeAvatar")}
                 className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground border-2 border-surface flex items-center justify-center cursor-pointer">
                 <Icons.Pencil className="w-3 h-3" />
               </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // Reset value so re-selecting the same file re-fires onChange.
+                  e.target.value = "";
+                  if (file) setCropFile(file);
+                }}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs text-text-muted mb-2">{t("avatarColor")}</div>
@@ -578,12 +591,18 @@ export function CharacterPanel({
       </div>
     </div>
 
-    {showAvatarCropper && (
-      <AvatarCropper
-        roomId={roomId}
-        onClose={() => setShowAvatarCropper(false)}
-        onSuccess={(img) => {
-          setAvatarOverride(img);
+    {cropFile && (
+      <ImageCropper
+        file={cropFile}
+        aspectRatio={1}
+        maxOutputSize={512}
+        maxOutputBytes={280_000}
+        title={t("changeAvatar")}
+        onCancel={() => setCropFile(null)}
+        onConfirm={async (dataUrl) => {
+          await uploadAvatarAction(roomId, dataUrl);
+          setAvatarOverride(dataUrl);
+          setCropFile(null);
           router.refresh();
         }}
       />
