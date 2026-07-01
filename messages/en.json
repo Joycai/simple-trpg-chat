@@ -793,6 +793,9 @@
     "toolSetCharacterCard": "Set character card",
     "presetSelect": "Apply Preset",
     "manualPreset": "Manual Config (No Preset)",
+    "presetHeader": "Presets",
+    "providerHeader": "AI Providers",
+    "activationHeader": "Trigger mode",
     "cancel": "Cancel",
     "submitCreate": "Create",
     "submitSave": "Save"

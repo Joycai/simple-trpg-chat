@@ -793,6 +793,9 @@
     "toolSetCharacterCard": "设置角色卡",
     "presetSelect": "套用预置设定",
     "manualPreset": "手动配置（不使用预置）",
+    "presetHeader": "预置设定",
+    "providerHeader": "AI 服务商",
+    "activationHeader": "触发方式",
     "cancel": "取消",
     "submitCreate": "创建",
     "submitSave": "保存"
