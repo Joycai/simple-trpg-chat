@@ -6,6 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
+import { validateApiEndpoint } from "@/lib/url-guard";
 
 /**
  * System Config (Admin Only)
@@ -72,6 +73,10 @@ export async function testAiConnection(endpoint: string, apiKey: string, model: 
   if (!session) return { success: false, error: "Unauthorized" };
   const role = session.user.role;
   if (role !== "host" && role !== "admin") return { success: false, error: "Unauthorized" };
+
+  const endpointCheck = await validateApiEndpoint(endpoint);
+  if (!endpointCheck.valid) return { success: false, error: endpointCheck.error };
+
   try {
     const response = await fetch(`${endpoint}/chat/completions`, {
       method: "POST",

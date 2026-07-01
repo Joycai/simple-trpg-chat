@@ -37,7 +37,7 @@ export async function createProvider(data: ProviderData): Promise<{ error: strin
     return { error: t("msgRequireFields") };
   }
 
-  const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
+  const endpointCheck = await validateApiEndpoint(data.apiEndpoint.trim());
   if (!endpointCheck.valid) return { error: endpointCheck.error! };
 
   try {
@@ -77,7 +77,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   const values: Record<string, unknown> = { updatedAt: sqlNow() };
   if (data.name?.trim()) values.name = data.name.trim();
   if (data.apiEndpoint?.trim()) {
-    const endpointCheck = validateApiEndpoint(data.apiEndpoint.trim());
+    const endpointCheck = await validateApiEndpoint(data.apiEndpoint.trim());
     if (!endpointCheck.valid) return { error: endpointCheck.error! };
     values.apiEndpoint = data.apiEndpoint.trim();
   }

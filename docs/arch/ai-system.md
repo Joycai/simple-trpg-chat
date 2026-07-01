@@ -39,7 +39,7 @@ A bot can only do this if the host enabled `send_image` in its `enableTools` arr
 Each host configures their own provider via the `aiProviders` table:
 - API endpoint + model are stored in plaintext; API keys are AES-256-GCM encrypted (`src/lib/encryption.ts`).
 - `AI_ENCRYPTION_KEY` env var is the encryption key (falls back to `dev-secret-key` in dev).
-- SSRF guard (`src/lib/url-guard.ts`) rejects endpoints that resolve to private/loopback IPs.
+- SSRF guard (`src/lib/url-guard.ts`) resolves the endpoint hostname via DNS and rejects it if any resolved address is private/loopback/link-local (also checked against literal IPv4/IPv6 forms, including IPv4-mapped IPv6). Applied both when a provider is saved and again immediately before every outbound call (`ai_agent.ts`, `ai-import.ts`, `testAiConnection`), since DNS can change between the two.
 - Admin can mark a provider as `isShared` to make it available to all users.
 
 ## Token Usage & Points

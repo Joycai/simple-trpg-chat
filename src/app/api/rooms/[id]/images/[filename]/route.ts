@@ -38,6 +38,14 @@ export async function GET(
     return new Response(msg, { status: msg.includes("authenticated") ? 401 : 403 });
   }
 
+  // Images are stored in one flat directory shared by all rooms, keyed only
+  // by an unguessable filename — bind the request to its own room so that
+  // membership in *some* room can't be used to fetch another room's image
+  // (e.g. via a stale URL from a room the user has since left).
+  if (!filename.startsWith(`${roomId}-`)) {
+    return new Response("Not found", { status: 404 });
+  }
+
   const filePath = resolveChatImagePath(filename);
   if (!filePath) {
     return new Response("Not found", { status: 404 });
