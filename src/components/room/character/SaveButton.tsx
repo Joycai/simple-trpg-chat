@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Check, X } from "lucide-react";
 
 export type SaveStatus = "idle" | "saving" | "success" | "error";
 
@@ -31,9 +32,9 @@ export function SaveButton({ status, onClick, idleLabel, className = "" }: SaveB
           {t("saving") || "保存中..."}
         </>
       ) : status === "success" ? (
-        <>✓ {t("saveSuccess") || "保存成功"}</>
+        <><Check className="w-4 h-4" /> {t("saveSuccess") || "保存成功"}</>
       ) : status === "error" ? (
-        <>× {t("saveFailed") || "保存失败"}</>
+        <><X className="w-4 h-4" /> {t("saveFailed") || "保存失败"}</>
       ) : (
         idleLabel
       )}

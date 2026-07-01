@@ -246,7 +246,12 @@ export function AdminProviderManager() {
                 </div>
               )}
 
-              {msg && <p className={`text-xs ${msg === tp("msgSaved") || msg === tp("msgConnectOk") ? "text-success" : "text-danger"}`}>{msg}</p>}
+              {msg && (
+                <p className={`text-xs flex items-center gap-1 ${msg === tp("msgSaved") || msg === tp("msgConnectOk") ? "text-success" : "text-danger"}`}>
+                  {msg === tp("msgSaved") || msg === tp("msgConnectOk") ? <Check className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
+                  {msg}
+                </p>
+              )}
 
               {/* Footer */}
               <div className="flex gap-3 pt-1">
@@ -255,8 +260,8 @@ export function AdminProviderManager() {
                   setTesting(true); setMsg("");
                   try {
                     const r = await testAiConnection(endpoint.trim(), key.trim(), model || "gpt-4o");
-                    setMsg(r.success ? tp("msgConnectOk") : `❌ ${r.error}`);
-                  } catch (e: unknown) { setMsg(`❌ ${e instanceof Error ? e.message : String(e)}`); }
+                    setMsg(r.success ? tp("msgConnectOk") : r.error || "");
+                  } catch (e: unknown) { setMsg(e instanceof Error ? e.message : String(e)); }
                   setTesting(false);
                 }} disabled={testing}
                   className="px-4 py-2.5 rounded-theme border border-border text-text-muted hover:text-text hover:bg-surface-alt disabled:opacity-50 text-sm font-medium transition cursor-pointer shrink-0">

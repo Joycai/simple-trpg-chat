@@ -565,7 +565,7 @@ export async function runAgent(
         assistantMessage = data.choices[0].message;
       } catch (err: unknown) {
         console.error(`[runAgent] completion error:`, err);
-        const content = `🤖 (${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
+        const content = `(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
         await dispatchMessage({
           roomId,
           actorUserId: botUserId,
@@ -587,7 +587,7 @@ export async function runAgent(
         const matchedWord = await checkSensitiveWords(textToSend);
         if (matchedWord) {
           console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
-          textToSend = "🤖 (Output blocked due to sensitive content filter)";
+          textToSend = "(Output blocked due to sensitive content filter)";
         }
         await dispatchMessage({
           roomId,
@@ -618,7 +618,7 @@ export async function runAgent(
             const faces = Math.max(1, Math.min(args.faces || 6, 1000));
             const { results: rollResults, sum } = rollDice(faces, count);
             const detail = JSON.stringify({ dice: `d${faces}`, count, results: rollResults, sum, isBot: true });
-            const content = `🤖 (${botNickname}) 🎲 ${count}d${faces}: [${rollResults.join(", ")}] = ${sum}`;
+            const content = `(${botNickname}) 🎲 ${count}d${faces}: [${rollResults.join(", ")}] = ${sum}`;
             await dispatchMessage({
               roomId,
               actorUserId: botUserId,

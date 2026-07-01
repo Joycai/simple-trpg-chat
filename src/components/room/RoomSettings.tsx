@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, type LucideIcon } from "lucide-react";
+import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, AlertTriangle, type LucideIcon } from "lucide-react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
 import { THEME_LIST, THEME_MODES, getThemeName } from "@/themes/types";
 import type { ThemeId, ThemeMode } from "@/themes/types";
@@ -207,8 +207,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
           {/* Footer — always visible, shared across tabs */}
           <div className="shrink-0 border-t border-border px-5 py-3.5 bg-surface">
             {error && (
-              <div className="bg-danger/10 border border-danger/30 text-text text-sm px-3 py-2 rounded-theme mb-3">
-                ⚠️ {error}
+              <div className="bg-danger/10 border border-danger/30 text-text text-sm px-3 py-2 rounded-theme mb-3 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" /> {error}
               </div>
             )}
             <div className="flex gap-3 justify-end items-center">

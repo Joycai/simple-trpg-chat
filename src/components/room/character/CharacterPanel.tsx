@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Check } from "lucide-react";
 import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction } from "@/app/actions/room";
 import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
@@ -569,8 +570,8 @@ export function CharacterPanel({
           </button>
           {canSave && (
             <button onClick={handleSaveAll} disabled={saveStatus === "saving"}
-              className="flex-1 py-2.5 rounded-theme bg-primary hover:bg-primary-hover text-primary-foreground font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)] disabled:opacity-70 disabled:shadow-none">
-              {saveStatus === "saving" ? tCommon("loading") : saveStatus === "success" ? `✓ ${t("save")}` : t("save")}
+              className="flex-1 py-2.5 rounded-theme bg-primary hover:bg-primary-hover text-primary-foreground font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)] disabled:opacity-70 disabled:shadow-none flex items-center justify-center gap-1.5">
+              {saveStatus === "saving" ? tCommon("loading") : saveStatus === "success" ? <><Check className="w-4 h-4" /> {t("save")}</> : t("save")}
             </button>
           )}
         </div>

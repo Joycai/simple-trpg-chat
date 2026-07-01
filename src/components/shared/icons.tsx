@@ -10,6 +10,7 @@ import {
   Target, Eye, Droplet, Braces, Clock,
   HelpCircle, AlertTriangle, UserPlus, CheckSquare,
   RefreshCw, Share2, Box, File, Stamp,
+  ArrowDown, Ban, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -85,4 +86,7 @@ export const Icons = {
   Box: wrap(Box),
   File: wrap(File),
   Stamp: wrap(Stamp),
+  ArrowDown: wrap(ArrowDown),
+  Ban: wrap(Ban),
+  Sparkles: wrap(Sparkles),
 };

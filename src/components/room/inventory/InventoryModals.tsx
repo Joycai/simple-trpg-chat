@@ -382,9 +382,9 @@ export function DistributeModal({
                   className={`flex justify-between items-center py-2 px-3 rounded-md text-sm text-left border cursor-pointer select-none transition ${
                     isSelected ? "bg-primary/10 border-primary/40 text-primary font-medium" : "bg-surface border-border/60 text-text hover:bg-surface-alt"
                   }`}>
-                  <span>👤 {p.nickname || p.username}</span>
+                  <span className="inline-flex items-center gap-1.5"><Icons.User className="w-3.5 h-3.5" /> {p.nickname || p.username}</span>
                   <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${isSelected ? "bg-primary border-primary text-white" : "border-input-border bg-input-bg"}`}>
-                    {isSelected && "✓"}
+                    {isSelected && <Icons.Check className="w-3 h-3" />}
                   </span>
                 </div>
               );

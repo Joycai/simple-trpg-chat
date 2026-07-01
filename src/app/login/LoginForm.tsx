@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { Dice5, User, Lock } from "lucide-react";
+import { Dice5, User, Lock, ScrollText, X } from "lucide-react";
 import { Notice } from "@/components/shared/Notice";
 import { ThemeLoginHero } from "@/components/theme/ThemeDecor";
 
@@ -171,14 +171,14 @@ export function LoginForm({ siteTitle, version, icp, icpUrl, noticeReason, notic
             {/* Modal Header */}
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="text-sm font-bold text-text flex items-center gap-1.5">
-                📜 {t("licenseAgreement")}
+                <ScrollText className="w-4 h-4" /> {t("licenseAgreement")}
               </h2>
               <button
                 type="button"
                 onClick={() => setShowLicense(false)}
-                className="text-text-muted hover:text-text p-1 cursor-pointer transition text-base"
+                className="text-text-muted hover:text-text p-1 cursor-pointer transition"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 

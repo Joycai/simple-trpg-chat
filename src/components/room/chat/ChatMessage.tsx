@@ -173,9 +173,9 @@ function RollIcon({ kind, grade, psy }: { kind: RollKind; grade: DiceGrade; psy?
 
 /**
  * Translatable success/failure/critical/fumble label rendered as
- * `<span class="dice-result-grade"><span class="dice-result-grade-icon">✅ </span><span class="dice-result-grade-label">成功</span></span>`.
+ * `<span class="dice-result-grade"><span class="dice-result-grade-icon"><Icon /> </span><span class="dice-result-grade-label">成功</span></span>`.
  * The icon span carries its trailing space, so hiding it cleanly removes the
- * gap for themes (e.g. shrine) that swap the emoji for a colored chip.
+ * gap for themes (e.g. shrine) that swap the icon for a colored chip.
  */
 function DiceResultGrade({
   grade,
@@ -184,14 +184,14 @@ function DiceResultGrade({
   grade: Exclude<DiceGrade, "none">;
   t: (key: string, opts?: Record<string, string | number | Date>) => string;
 }) {
-  const icon =
-    grade === "critical" ? "🟢"
-    : grade === "fumble" ? "🔴"
-    : grade === "success" ? "✅"
-    : "❌";
+  const Icon =
+    grade === "critical" ? Icons.CheckCheck
+    : grade === "fumble" ? Icons.X
+    : grade === "success" ? Icons.Check
+    : Icons.X;
   return (
     <span className="dice-result-grade" data-grade={grade}>
-      <span className="dice-result-grade-icon" aria-hidden>{icon}{" "}</span>
+      <span className="dice-result-grade-icon" aria-hidden><Icon className="w-3 h-3 inline-block" />{" "}</span>
       <span className="dice-result-grade-label">{t(grade)}</span>
     </span>
   );

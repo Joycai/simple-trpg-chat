@@ -107,7 +107,7 @@ export function ChatArea({
 
       {showScrollButton && (
         <button onClick={() => scrollToBottom(true)} className="absolute bottom-28 right-8 z-10 bg-scroll-btn hover:opacity-90 text-white w-10 h-10 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group" title={t("scrollToBottom")}>
-          <span className="text-xl group-hover:animate-bounce">↓</span>
+          <Icons.ArrowDown className="w-5 h-5 group-hover:animate-bounce" />
         </button>
       )}
 
