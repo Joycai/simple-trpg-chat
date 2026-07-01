@@ -44,10 +44,17 @@ export function decrypt(encryptedText: string): string {
   return decrypted;
 }
 
+// scrypt is deliberately CPU-expensive, and this env-derived key never
+// changes at runtime — cache it instead of re-deriving on every encrypt/decrypt
+// call (which, for the AI provider key, happens on every bot message).
+let cachedKey: Buffer | null = null;
+
 /**
  * Helper to get a valid 32-byte key from the environment variable.
  */
 function getEncryptionKey(): Buffer {
+  if (cachedKey) return cachedKey;
+
   const rawKey = process.env.AI_ENCRYPTION_KEY;
   if (!rawKey) {
     throw new Error("AI_ENCRYPTION_KEY environment variable is missing!");
@@ -58,8 +65,10 @@ function getEncryptionKey(): Buffer {
     if (process.env.NODE_ENV === "production") {
       throw new Error("AI_ENCRYPTION_SALT environment variable is required in production!");
     }
-    return crypto.scryptSync(rawKey, "salt", 32);
+    cachedKey = crypto.scryptSync(rawKey, "salt", 32);
+    return cachedKey;
   }
   // Ensure it's exactly 32 bytes
-  return crypto.scryptSync(rawKey, salt, 32);
+  cachedKey = crypto.scryptSync(rawKey, salt, 32);
+  return cachedKey;
 }

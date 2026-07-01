@@ -9,6 +9,7 @@ import { recordTokenUsage } from "@/lib/ai_usage";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 import { emitToUser } from "@/lib/events";
+import { validateApiEndpoint } from "@/lib/url-guard";
 
 type Translator = Awaited<ReturnType<typeof getTranslations>>;
 type Provider = typeof aiProviders.$inferSelect;
@@ -133,6 +134,12 @@ async function runAnalysis(
 
   try {
     const endpoint = provider.apiEndpoint;
+
+    const endpointCheck = await validateApiEndpoint(endpoint);
+    if (!endpointCheck.valid) {
+      emit({ success: false, error: t("errRequestFailed", { status: 0, error: endpointCheck.error || "" }) });
+      return;
+    }
 
     const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。
 

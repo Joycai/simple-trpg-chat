@@ -11,6 +11,7 @@ import { executeCommand } from "@/lib/commands";
 import { z } from "zod";
 import type { CharacterData } from "@/lib/character-types";
 import { getRuleForRoom, listRules, listRuleIds } from "@/lib/rules";
+import { validateApiEndpoint } from "@/lib/url-guard";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({
@@ -72,6 +73,14 @@ function capToolContent(content: string): string {
  */
 const MAX_BACKOFF_DELAY_MS = 16_000;
 async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 3, initialDelay = 1000): Promise<Response> {
+  // Re-validate at call time (not just when the provider was saved): DNS can
+  // change after the fact, and this closes that TOCTOU window before every
+  // outbound request to a host-configured endpoint.
+  const endpointCheck = await validateApiEndpoint(url);
+  if (!endpointCheck.valid) {
+    throw new Error(`Blocked outbound AI request: ${endpointCheck.error}`);
+  }
+
   let delay = initialDelay;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
