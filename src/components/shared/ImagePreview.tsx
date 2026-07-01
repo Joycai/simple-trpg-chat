@@ -210,6 +210,10 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
         <X className="w-5 h-5" />
       </button>
 
+      {/* Zoomable/pannable preview driven by custom transform + pointer handlers on a
+          user-supplied URL — next/image would fight the manual layout and can't optimize
+          arbitrary/external sources anyway. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}

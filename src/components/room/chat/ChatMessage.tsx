@@ -1185,6 +1185,8 @@ export const ChatMessage = memo(function ChatMessage({
         onMouseLeave={() => setIsHovered(false)}
       >
         {avatar ? (
+          // Avatar is a base64 data URL — next/image can't optimize these.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatar}
             alt={nickname}
@@ -1358,6 +1360,8 @@ export const ChatMessage = memo(function ChatMessage({
                 <span>{t("stickerUnavailable")}</span>
               </div>
             ) : (
+              // Sticker is served from an arbitrary /api path with an onError fallback — next/image adds no value here.
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={content}
                 alt={t("stickerAlt")}
@@ -1375,6 +1379,9 @@ export const ChatMessage = memo(function ChatMessage({
               </div>
             ) : (
               <>
+                {/* Chat image is a user-supplied URL (internal /api path or arbitrary external https) — next/image
+                    would require enumerating remotePatterns for domains we cannot know ahead of time. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={content}
                   alt={t("imageAlt")}
