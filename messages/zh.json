@@ -928,6 +928,8 @@
     "btnBack": "← 返回选人",
     "skillName": "技能名称",
     "skillPlaceholder": "如：侦查、聆听、图书馆...",
+    "recentChecks": "最近检定",
+    "clearHistory": "清空",
     "diceType": "骰子类型",
     "btnSubmit": "发起检定",
     "psyTitle": "心理学暗骰",

@@ -928,6 +928,8 @@
     "btnBack": "← Back to select players",
     "skillName": "Skill Name",
     "skillPlaceholder": "e.g. Spot, Listen, Library Use...",
+    "recentChecks": "Recent checks",
+    "clearHistory": "Clear",
     "diceType": "Dice Type",
     "btnSubmit": "Request Check",
     "psyTitle": "Psychology Hidden Roll",
