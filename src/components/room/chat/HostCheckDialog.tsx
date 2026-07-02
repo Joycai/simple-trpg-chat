@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { requestSkillCheckAction, psychologyHiddenRollAction, requestSanCheckAction } from "@/app/actions/room";
 import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
@@ -33,6 +33,44 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
   const [diceType, setDiceType] = useState("d100");
   const [successExpr, setSuccessExpr] = useState("0");
   const [failureExpr, setFailureExpr] = useState("1d6");
+
+  // Recent skill-name history — last 10 entries, per-room, stored client-side.
+  // KP's habitual skill names are a local convenience; no server round-trip needed.
+  const [history, setHistory] = useState<string[]>([]);
+  const historyKey = `trpg-check-history-${roomId}`;
+
+  useEffect(() => {
+    if (mode !== "check") return;
+    try {
+      const raw = localStorage.getItem(historyKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHistory(parsed.filter((x): x is string => typeof x === "string").slice(0, 10));
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, [historyKey, mode]);
+
+  const pushHistory = (name: string) => {
+    const next = [name, ...history.filter(h => h !== name)].slice(0, 10);
+    setHistory(next);
+    try {
+      localStorage.setItem(historyKey, JSON.stringify(next));
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    try {
+      localStorage.removeItem(historyKey);
+    } catch {
+      /* non-fatal */
+    }
+  };
 
   const nonBotIds = players.filter(p => !p.isBot).map(p => p.id);
   const allNonBotSelected = nonBotIds.length > 0 && nonBotIds.every(id => selectedIds.has(id));
@@ -73,7 +111,9 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
     } else if (mode === "sancheck") {
       await requestSanCheckAction(roomId, targets, successExpr.trim(), failureExpr.trim(), isPrivate, channelTargetUserId);
     } else {
-      await requestSkillCheckAction(roomId, targets, skillName.trim(), diceType, isPrivate, channelTargetUserId);
+      const name = skillName.trim();
+      await requestSkillCheckAction(roomId, targets, name, diceType, isPrivate, channelTargetUserId);
+      pushHistory(name);
     }
     close();
   };
@@ -160,6 +200,37 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
                 <label className="text-sm text-text-muted mb-2 block">{t("skillName")}</label>
                 <input value={skillName} onChange={e => setSkillName(e.target.value)} placeholder={t("skillPlaceholder")}
                   className={fieldCls} autoFocus onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+
+                {/* Recent skill-name history — click a tag to fill the input. */}
+                {history.length > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="flex-1 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
+                      <span className="flex items-center gap-1.5 text-[11px] tracking-wide text-text-dim">
+                        <Icons.Clock className="w-3 h-3 text-accent" />
+                        {t("recentChecks")}
+                      </span>
+                      <span className="flex-1 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {history.map((name, i) => (
+                        <button key={name} type="button" onClick={() => setSkillName(name)}
+                          className={`px-2.5 py-1 rounded-theme text-[13px] transition cursor-pointer ${
+                            i === 0
+                              ? "bg-primary text-primary-foreground border border-primary-hover"
+                              : "bg-surface-alt text-text border border-accent/40 hover:bg-primary/10 hover:border-primary/50"
+                          }`}>
+                          {name}
+                        </button>
+                      ))}
+                      <button type="button" onClick={clearHistory}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-theme text-[12px] text-text-muted border border-dashed border-border hover:text-text hover:border-text-dim transition cursor-pointer">
+                        <Icons.Trash2 className="w-3 h-3" />
+                        {t("clearHistory")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-sm text-text-muted mb-2 block">{t("diceType")}</label>
