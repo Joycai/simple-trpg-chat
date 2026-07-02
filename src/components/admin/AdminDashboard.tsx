@@ -5,9 +5,11 @@ import { useTranslations } from "next-intl";
 import { Database, HardDrive, RefreshCw } from "lucide-react";
 import { getServerLoadAction } from "@/app/actions/server-load";
 import { getServerStatsAction } from "@/app/actions/stats";
+import { getImageCacheStatsAction, type ImageCacheStatsView } from "@/app/actions/image-cache";
 import { StatCard, StatusBadge } from "@/components/admin/dashboard/StatCards";
 import { TrafficStatsSection, type StatsData, type StatsRange } from "@/components/admin/dashboard/TrafficStatsSection";
 import { ServerLoadSection } from "@/components/admin/dashboard/ServerLoadSection";
+import { ImageCacheSection } from "@/components/admin/dashboard/ImageCacheSection";
 
 interface AdminDashboardProps {
   dbType: string;
@@ -27,6 +29,7 @@ export function AdminDashboard({
   const t = useTranslations("admin");
   const [loadData, setLoadData] = useState<Awaited<ReturnType<typeof getServerLoadAction>> | null>(null);
   const [statsData, setStatsData] = useState<StatsData | null>(null);
+  const [imageCache, setImageCache] = useState<ImageCacheStatsView | null>(null);
   const [range, setRange] = useState<StatsRange>("day");
   const [loading, setLoading] = useState(false);
 
@@ -48,9 +51,19 @@ export function AdminDashboard({
     }
   };
 
+  const fetchImageCache = async () => {
+    try {
+      const data = await getImageCacheStatsAction();
+      setImageCache(data);
+    } catch (e) {
+      console.error("Failed to fetch image cache stats:", e);
+    }
+  };
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchLoad();
+    void fetchImageCache();
     const loadInterval = setInterval(() => { void fetchLoad(); }, 10000);
     return () => clearInterval(loadInterval);
   }, []);
@@ -64,7 +77,7 @@ export function AdminDashboard({
 
   const handleManualRefresh = async () => {
     setLoading(true);
-    await Promise.all([fetchLoad(), fetchStats(range)]);
+    await Promise.all([fetchLoad(), fetchStats(range), fetchImageCache()]);
     setLoading(false);
   };
 
@@ -136,6 +149,9 @@ export function AdminDashboard({
         <StatCard label={t("roleHost")} value={hostCount} accent="success" />
         <StatCard label={t("rolePlayer")} value={playerCount} accent="accent" />
       </div>
+
+      {/* Image Cache */}
+      <ImageCacheSection stats={imageCache} />
     </div>
   );
 }
