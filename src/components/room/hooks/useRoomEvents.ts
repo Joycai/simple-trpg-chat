@@ -103,6 +103,14 @@ export function useRoomEvents({
             setOnlineUserIds(new Set(data.onlineUserIds as number[]));
             return;
           }
+          if (data.type === "message_deleted") {
+            // A host withdrew a message (e.g. a timeline divider). Drop it from
+            // state and forget its id so an equal id could be re-added later.
+            const idStr = String(data.messageId);
+            setMessages((prev) => prev.filter((m) => String(m.id) !== idStr));
+            seenIdsRef.current.delete(idStr);
+            return;
+          }
           if (data.type === "character_updated") {
             const uid = data.userId as number;
             const hpCurrent = data.hp_current as number;

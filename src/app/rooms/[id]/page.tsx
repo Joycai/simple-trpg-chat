@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { rooms, roomMembers, messages, users, systemConfig, aiProviders } from "@/db/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { messageVisibilityWhere } from "@/lib/messaging/router";
 import { redirect } from "next/navigation";
 import { RoomClient } from "@/components/room/RoomClient";
 import { RoomThemeSetter } from "@/components/theme/RoomThemeSetter";
-import type { ThemeId, ThemeMode } from "@/themes/types";
+import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
+import type { ThemeId, StoredThemeMode, ResolvedMode } from "@/themes/types";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
@@ -139,9 +140,26 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     .filter(p => !p.isShared || isHostQuotaOk)
     .map(p => p.id);
 
+  // "Follow timeline" mode: resolve the concrete light/dark from the room's most
+  // recent timeline divider so the very first paint is right even when that
+  // divider predates the loaded message window.
+  const storedMode = (room.themeMode as StoredThemeMode) || "auto";
+  const followsTimeline = storedMode === "timeline";
+  let initialTimelineMode: ResolvedMode = "light";
+  if (followsTimeline) {
+    const [lastDivider] = await db
+      .select({ diceDetail: messages.diceDetail })
+      .from(messages)
+      .where(and(eq(messages.roomId, roomId), eq(messages.systemKind, "timeline-divider")))
+      .orderBy(desc(messages.id))
+      .limit(1);
+    if (lastDivider) {
+      initialTimelineMode = resolvedModeFromDivider(parseTimelinePayload(lastDivider.diceDetail)) ?? "light";
+    }
+  }
   return (
     <>
-      <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} mode={(room.themeMode as ThemeMode) || "auto"} />
+      <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} />
       <RoomClient
         room={room as Parameters<typeof RoomClient>[0]["room"]}
         players={members}
@@ -151,7 +169,8 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         currentNickname={currentNickname}
         characterData={currentMember?.characterData || null}
         roomTheme={(room.theme as ThemeId) || "default"}
-        roomThemeMode={(room.themeMode as ThemeMode) || "auto"}
+        roomThemeMode={storedMode}
+        initialTimelineMode={initialTimelineMode}
         aiEnabled={aiEnabled}
         validProviderIds={validProviderIds}
         userName={user.name || user.username}

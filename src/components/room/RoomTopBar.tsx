@@ -70,6 +70,8 @@ interface RoomTopBarProps {
   setShowCheckMenu: Dispatch<SetStateAction<boolean>>;
   showItemManager: boolean;
   setShowItemManager: Dispatch<SetStateAction<boolean>>;
+  showTimeline: boolean;
+  setShowTimeline: Dispatch<SetStateAction<boolean>>;
   showAiMenu: boolean;
   setShowAiMenu: Dispatch<SetStateAction<boolean>>;
   setShowAiImport: Dispatch<SetStateAction<boolean>>;
@@ -113,6 +115,8 @@ export function RoomTopBar({
   setShowCheckMenu,
   showItemManager,
   setShowItemManager,
+  showTimeline,
+  setShowTimeline,
   showAiMenu,
   setShowAiMenu,
   setShowAiImport,
@@ -135,9 +139,12 @@ export function RoomTopBar({
   const iconBtn = "relative flex items-center justify-center w-9 h-9 rounded-theme border transition-colors cursor-pointer";
   const iconActive = "bg-primary/10 text-primary border-primary/40";
   const iconIdle = "text-text-muted hover:text-text hover:bg-surface-alt border-transparent";
-  // Host-only variants — accent (magenta) for 检定/道具, ai (violet) for Bot/AI.
+  // Host-only variants — accent (gold) for 检定, primary (vermilion) for 道具,
+  // ai (violet) for Bot/AI. 检定 and 道具 must read as distinct colors.
   const iconAccentActive = "bg-accent/15 text-accent border-accent/50";
   const iconAccentIdle = "text-accent/80 hover:text-accent hover:bg-accent/10 border-transparent";
+  const iconPrimaryActive = "bg-primary/15 text-primary border-primary/50";
+  const iconPrimaryIdle = "text-primary/80 hover:text-primary hover:bg-primary/10 border-transparent";
   const iconAiActive = "bg-ai/15 text-ai border-ai/50";
   const iconAiIdle = "text-ai/80 hover:text-ai hover:bg-ai/10 border-transparent";
 
@@ -355,11 +362,19 @@ export function RoomTopBar({
               )}
               <button
                 onClick={() => setShowItemManager(!showItemManager)}
-                className={`${iconBtn} ${showItemManager ? iconAccentActive : iconAccentIdle}`}
+                className={`${iconBtn} ${showItemManager ? iconPrimaryActive : iconPrimaryIdle}`}
                 title={t("tooltipItemManage")}
                 aria-pressed={showItemManager}
               >
                 <Icons.ClipboardList className="w-[18px] h-[18px]" />
+              </button>
+              <button
+                onClick={() => setShowTimeline(!showTimeline)}
+                className={`${iconBtn} ${showTimeline ? iconAccentActive : iconAccentIdle}`}
+                title={t("tooltipTimeline")}
+                aria-pressed={showTimeline}
+              >
+                <Icons.Sunrise className="w-[18px] h-[18px]" />
               </button>
               <div className="relative" ref={aiRef}>
                 <button

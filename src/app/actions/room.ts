@@ -1,7 +1,7 @@
 "use server";
 
 import { db, sqlNow } from "@/db";
-import { rooms, roomMembers, messages, users, roomSkills, type Theme, type ThemeMode, type RuleTemplate } from "@/db/schema";
+import { rooms, roomMembers, messages, users, roomSkills, type Theme, type RuleTemplate } from "@/db/schema";
 import { eq, and, sql, inArray, or, desc, asc, lt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
@@ -15,8 +15,9 @@ import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { isValidStickerRef } from "@/lib/stickers";
 import { parseAvatarDataUrl } from "@/lib/avatars";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
+import { buildTimelinePayload, composeTimelineLabel, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { getRuleForRoom } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character-types";
 
@@ -811,6 +812,97 @@ export async function requestSanCheckAction(
   return msg;
 }
 
+// --- Timeline divider (host-only) ---
+
+/**
+ * Insert a "timeline divider" system message into the public feed — a host-only
+ * marker separating in-game dates. The payload is stored in `diceDetail` so the
+ * chat UI can recompose a localized label; `content` holds a plain fallback.
+ */
+export async function insertTimelineDividerAction(
+  roomId: number,
+  data: TimelineDividerData,
+): Promise<{ success: boolean; error?: string }> {
+  const { userId: hostId } = await checkRoomAccess(roomId, true);
+
+  // Validate the payload — reject anything the modal shouldn't have produced.
+  const mode = data?.mode;
+  if (mode !== "day" && mode !== "date" && mode !== "custom") return { success: false, error: "Invalid mode" };
+  const timeMode = data?.timeMode;
+  if (timeMode !== "segment" && timeMode !== "clock") return { success: false, error: "Invalid time mode" };
+
+  const clean: TimelineDividerData = { mode, timeMode };
+  if (mode === "day") {
+    const day = Math.trunc(Number(data.day));
+    if (!Number.isFinite(day) || day < 1 || day > 999) return { success: false, error: "Invalid day" };
+    clean.day = day;
+  } else if (mode === "date") {
+    const date = String(data.date ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
+      return { success: false, error: "Invalid date" };
+    }
+    clean.date = date;
+  } else {
+    const custom = String(data.custom ?? "").trim();
+    if (!custom) return { success: false, error: "Invalid custom text" };
+    clean.custom = custom.slice(0, 100);
+  }
+  if (timeMode === "segment") {
+    const seg = data.segment;
+    if (seg !== "morning" && seg !== "afternoon" && seg !== "night") return { success: false, error: "Invalid segment" };
+    clean.segment = seg;
+  } else {
+    const clock = String(data.clock ?? "");
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(clock)) return { success: false, error: "Invalid time" };
+    clean.clock = clock;
+  }
+
+  const [hostMember] = await db.select().from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
+  const hostNick = hostMember?.nickname || "Host";
+
+  // Plain-text fallback label (localized to the room's active request locale).
+  const t = await getTranslations("timeline");
+  const locale = await getLocale();
+  const label = composeTimelineLabel(clean, t, locale);
+
+  await dispatchMessage({
+    roomId,
+    actorUserId: hostId,
+    nickname: hostNick,
+    type: "system",
+    audience: "everyone",
+    systemKind: "timeline-divider",
+    content: label,
+    diceDetail: buildTimelinePayload(clean),
+  });
+
+  return { success: true };
+}
+
+/**
+ * Withdraw (delete) a timeline divider. Host-only, and only rows that are
+ * actually timeline dividers in this room. Broadcasts a `message_deleted` event
+ * (keyed by `messageId`, not `id`, to bypass the SSE per-stream id dedup) so
+ * every client removes the row.
+ */
+export async function withdrawTimelineDividerAction(
+  roomId: number,
+  messageId: number,
+): Promise<{ success: boolean; error?: string }> {
+  await checkRoomAccess(roomId, true);
+
+  const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
+  if (!row || row.roomId !== roomId || row.type !== "system" || row.systemKind !== "timeline-divider") {
+    return { success: false, error: "Not a timeline divider" };
+  }
+
+  await db.delete(messages).where(eq(messages.id, messageId));
+  broadcastToRoom(roomId, { type: "message_deleted", messageId });
+
+  return { success: true };
+}
+
 // --- Room Settings ---
 
 export async function updateRoomSettingsAction(roomId: number, formData: FormData) {
@@ -821,11 +913,14 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   const ruleTemplateRaw = ((formData.get("ruleTemplate") as string) || "basic");
 
   const { THEMES, THEME_MODES, RULE_TEMPLATES } = await import("@/db/schema");
+  // `timeline` is a room-only stored mode (light/dark follows inserted dividers)
+  // on top of the user-selectable auto/light/dark.
+  const storableModes: string[] = [...THEME_MODES, "timeline"];
   if (!THEMES.includes(themeRaw as Theme)) throw new Error("Invalid theme");
-  if (!THEME_MODES.includes(themeModeRaw as ThemeMode)) throw new Error("Invalid themeMode");
+  if (!storableModes.includes(themeModeRaw)) throw new Error("Invalid themeMode");
   if (!RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) throw new Error("Invalid ruleTemplate");
   const theme = themeRaw as Theme;
-  const themeMode = themeModeRaw as ThemeMode;
+  const themeMode = themeModeRaw;
   const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
   await db.update(rooms).set({ theme, themeMode, ruleTemplate }).where(eq(rooms.id, roomId));

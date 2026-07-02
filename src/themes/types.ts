@@ -30,6 +30,14 @@ export type ThemeId =
 export const THEME_MODES = ["auto", "light", "dark"] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
 
+/**
+ * What a room may persist in `rooms.theme_mode`: the user-selectable modes plus
+ * `"timeline"` — a room-only mode where light/dark follows the latest inserted
+ * timeline divider (night → dark, morning/afternoon → light). It is never a
+ * selectable option in the app-wide switcher, only a room setting.
+ */
+export type StoredThemeMode = ThemeMode | "timeline";
+
 /** The concrete mode actually applied to `<html data-mode>` (auto already resolved). */
 export type ResolvedMode = "light" | "dark";
 

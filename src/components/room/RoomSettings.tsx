@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, AlertTriangle, type LucideIcon } from "lucide-react";
+import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, Sunrise, AlertTriangle, type LucideIcon } from "lucide-react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
 import { THEME_LIST, THEME_MODES, getThemeName } from "@/themes/types";
-import type { ThemeId, ThemeMode } from "@/themes/types";
+import type { ThemeId, ThemeMode, StoredThemeMode } from "@/themes/types";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -16,7 +16,7 @@ interface RoomSettingsProps {
   roomId: number;
   roomName: string;
   currentTheme: ThemeId;
-  currentThemeMode: ThemeMode;
+  currentThemeMode: StoredThemeMode;
   currentRuleTemplate?: string;
   onClose: () => void;
 }
@@ -32,7 +32,12 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
-  const [selectedMode, setSelectedMode] = useState<ThemeMode>(currentThemeMode);
+  // "timeline" is stored as its own mode; split it into a toggle + the fallback
+  // light/dark/auto the room reverts to when the toggle is switched off.
+  const [followTimeline, setFollowTimeline] = useState(currentThemeMode === "timeline");
+  const [selectedMode, setSelectedMode] = useState<ThemeMode>(
+    currentThemeMode === "timeline" ? "auto" : currentThemeMode
+  );
   const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
 
@@ -44,7 +49,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
     try {
       const formData = new FormData();
       formData.set("theme", selectedTheme);
-      formData.set("themeMode", selectedMode);
+      formData.set("themeMode", followTimeline ? "timeline" : selectedMode);
       formData.set("ruleTemplate", selectedRuleTemplate);
 
       await updateRoomSettingsAction(roomId, formData);
@@ -150,16 +155,22 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                   <div className="mt-1">
                     <h5 className="text-sm font-semibold text-text mb-1">{t("themeModeLabel")}</h5>
                     <p className="text-xs text-text-muted mb-2.5">{t("themeModeHint")}</p>
-                    <div role="radiogroup" aria-label={t("themeModeLabel")} className="grid grid-cols-3 gap-2.5">
+                    <div
+                      role="radiogroup"
+                      aria-label={t("themeModeLabel")}
+                      aria-disabled={followTimeline}
+                      className={`grid grid-cols-3 gap-2.5 transition ${followTimeline ? "opacity-40 pointer-events-none" : ""}`}
+                    >
                       {THEME_MODES.map((m) => {
                         const Icon = MODE_ICONS[m];
-                        const active = selectedMode === m;
+                        const active = !followTimeline && selectedMode === m;
                         return (
                           <button
                             key={m}
                             type="button"
                             role="radio"
                             aria-checked={active}
+                            disabled={followTimeline}
                             onClick={() => setSelectedMode(m)}
                             className={`flex flex-col items-center justify-center gap-1.5 p-4 rounded-theme border transition cursor-pointer ${
                               active
@@ -173,6 +184,34 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                         );
                       })}
                     </div>
+
+                    {/* Follow-timeline toggle — overrides the mode above so light/dark
+                        tracks the story's inserted timeline dividers. */}
+                    <label className="mt-2.5 flex items-center gap-3 px-4 py-3 rounded-theme border border-border hover:border-text-muted transition cursor-pointer select-none">
+                      <span className="flex items-center justify-center shrink-0 text-accent">
+                        <Sunrise className="w-5 h-5" />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-medium text-text">{t("followTimelineLabel")}</span>
+                        <span className="block text-xs text-text-muted mt-0.5">{t("followTimelineHint")}</span>
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={followTimeline}
+                        aria-label={t("followTimelineLabel")}
+                        onClick={() => setFollowTimeline((v) => !v)}
+                        className={`relative w-11 h-6 rounded-full shrink-0 transition-colors cursor-pointer ${
+                          followTimeline ? "bg-accent" : "bg-input-border"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                            followTimeline ? "translate-x-5" : ""
+                          }`}
+                        />
+                      </button>
+                    </label>
                   </div>
                 </div>
               )}

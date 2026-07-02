@@ -8,13 +8,14 @@ import { AiImportPanel } from "@/components/room/bot/AiImportPanel";
 import { ExportButton } from "@/components/room/ExportButton";
 import { RoomInfoPanel } from "@/components/room/RoomInfoPanel";
 import { HostCheckDialog } from "@/components/room/chat/HostCheckDialog";
+import { TimelineDividerDialog } from "@/components/room/chat/TimelineDividerDialog";
 import { SkillSetPrompt } from "@/components/room/character/SkillSetPrompt";
 import { SkillPanel } from "@/components/room/character/SkillPanel";
 import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { MembersDialog } from "@/components/room/MembersDialog";
 import type { Room, PlayerEntry, MentionTarget, CheckMode, PendingSkillCheck } from "@/components/room/types";
-import type { ThemeId, ThemeMode } from "@/themes/types";
+import type { ThemeId, StoredThemeMode } from "@/themes/types";
 
 interface RoomOverlaysProps {
   room: Room;
@@ -29,7 +30,7 @@ interface RoomOverlaysProps {
   userName: string;
   userRole: string;
   roomTheme?: ThemeId;
-  roomThemeMode?: ThemeMode;
+  roomThemeMode?: StoredThemeMode;
   inventoryRefreshKey: number;
   skillRefreshKey: number;
   mentionTargets: MentionTarget[];
@@ -57,6 +58,8 @@ interface RoomOverlaysProps {
   setShowInventory: (v: boolean) => void;
   showItemManager: boolean;
   setShowItemManager: (v: boolean) => void;
+  showTimeline: boolean;
+  setShowTimeline: (v: boolean) => void;
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
   showRoomInfo: boolean;
@@ -90,6 +93,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
     showMembers, setShowMembers, showInventory, setShowInventory, showItemManager, setShowItemManager,
+    showTimeline, setShowTimeline,
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
     showSkills, setShowSkills, showUserSettings, setShowUserSettings,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
@@ -188,6 +192,9 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       )}
       {showItemManager && isHost && (
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
+      )}
+      {showTimeline && isHost && (
+        <TimelineDividerDialog roomId={room.id} onClose={() => setShowTimeline(false)} />
       )}
       {showSettings && (
         <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentRuleTemplate={room.ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
