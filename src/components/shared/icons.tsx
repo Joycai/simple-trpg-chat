@@ -11,6 +11,7 @@ import {
   HelpCircle, AlertTriangle, UserPlus, CheckSquare,
   RefreshCw, Share2, Box, File, Stamp,
   ArrowDown, Ban, Sparkles,
+  Sunrise, Sun, Moon, CalendarDays, Undo2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -89,4 +90,9 @@ export const Icons = {
   ArrowDown: wrap(ArrowDown),
   Ban: wrap(Ban),
   Sparkles: wrap(Sparkles),
+  Sunrise: wrap(Sunrise),
+  Sun: wrap(Sun),
+  Moon: wrap(Moon),
+  CalendarDays: wrap(CalendarDays),
+  Undo2: wrap(Undo2),
 };

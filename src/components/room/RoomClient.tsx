@@ -11,7 +11,7 @@ import { ChatArea } from "@/components/room/chat/ChatArea";
 import { RoomOverlays } from "@/components/room/RoomOverlays";
 import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
-import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/room";
+import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction, withdrawTimelineDividerAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { useTranslations } from "next-intl";
@@ -20,6 +20,9 @@ import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom } from "@/lib/rules";
+import { useTheme } from "@/components/theme/ThemeProvider";
+import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
+import type { ThemeMode } from "@/themes/types";
 
 export function RoomClient({
   room,
@@ -29,6 +32,7 @@ export function RoomClient({
   currentNickname,
   roomTheme,
   roomThemeMode,
+  initialTimelineMode,
   players = [],
   characterData,
   aiEnabled = false,
@@ -58,6 +62,7 @@ export function RoomClient({
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showItemManager, setShowItemManager] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
   const [showBotManager, setShowBotManager] = useState(false);
@@ -327,6 +332,34 @@ export function RoomClient({
     setCharacterResources,
   });
 
+  // Room display mode — RoomClient is the single owner of the theme context's
+  // roomMode (RoomThemeSetter owns only the theme). Normally this is the room's
+  // configured auto/light/dark. When themeMode is "timeline", light/dark instead
+  // follows the most recent timeline divider (night → dark, morning/afternoon →
+  // light). The latest divider is the max-id one in the loaded window; if none is
+  // loaded we fall back to the server-resolved initial (the true latest may
+  // predate the window).
+  const { setRoomMode } = useTheme();
+  const followsTimeline = room.themeMode === "timeline";
+  const effectiveRoomMode = useMemo<ThemeMode>(() => {
+    if (!followsTimeline) return (room.themeMode as ThemeMode) || "auto";
+    let latest: Message | null = null;
+    for (const m of messages) {
+      if (m.type === "system" && m.systemKind === "timeline-divider" && (!latest || m.id > latest.id)) {
+        latest = m;
+      }
+    }
+    if (!latest) return initialTimelineMode ?? "light";
+    return resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
+  }, [followsTimeline, room.themeMode, messages, initialTimelineMode]);
+
+  useEffect(() => {
+    setRoomMode(effectiveRoomMode);
+    // Cache for the pre-paint FOUC script (src/app/layout.tsx) on next navigation.
+    try { window.sessionStorage.setItem("room-mode-" + room.id, effectiveRoomMode); } catch {}
+    return () => setRoomMode(null);
+  }, [effectiveRoomMode, room.id, setRoomMode]);
+
   // Re-fetch the current user's sheet so an open 角色卡 / 技能 panel reflects command-driven
   // changes (.st / .sc) without a full page reload. router.refresh() updates the
   // characterData prop (synced into CharacterPanel); the key bump reloads SkillPanel.
@@ -472,6 +505,16 @@ export function RoomClient({
     await respondCheck(messageId);
   }, [pendingSkillCheck, room.id, userId, respondCheck]);
 
+  // Host withdraws a timeline divider. The row is removed for everyone via the
+  // `message_deleted` SSE event (handled in useRoomEvents), including this client.
+  const handleWithdrawTimeline = useCallback(async (messageId: number) => {
+    try {
+      await withdrawTimelineDividerAction(room.id, messageId);
+    } catch (e) {
+      console.error("Failed to withdraw timeline divider:", e);
+    }
+  }, [room.id]);
+
   const handleToggleInventory = () => {
     setShowInventory((v) => !v);
     // Clear only the local unread dot here. The server-side "viewed" flags are
@@ -512,6 +555,8 @@ export function RoomClient({
         setShowCheckMenu={setShowCheckMenu}
         showItemManager={showItemManager}
         setShowItemManager={setShowItemManager}
+        showTimeline={showTimeline}
+        setShowTimeline={setShowTimeline}
         showAiMenu={showAiMenu}
         setShowAiMenu={setShowAiMenu}
         setShowAiImport={setShowAiImport}
@@ -599,6 +644,7 @@ export function RoomClient({
           onProxyCheckRequest={isHost ? handleProxyCheckRequest : undefined}
           onLoadProxyTargets={isHost ? loadProxyTargets : undefined}
           onOpenInventory={handleToggleInventory}
+          onWithdrawTimeline={isHost ? handleWithdrawTimeline : undefined}
           onSendMessage={handleSendMessage}
         />
       </div>
@@ -645,6 +691,8 @@ export function RoomClient({
         setShowInventory={setShowInventory}
         showItemManager={showItemManager}
         setShowItemManager={setShowItemManager}
+        showTimeline={showTimeline}
+        setShowTimeline={setShowTimeline}
         showSettings={showSettings}
         setShowSettings={setShowSettings}
         showRoomInfo={showRoomInfo}

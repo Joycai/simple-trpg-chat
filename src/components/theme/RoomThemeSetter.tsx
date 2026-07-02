@@ -2,30 +2,31 @@
 
 import { useEffect } from "react";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import type { ThemeId, ThemeMode } from "@/themes/types";
+import type { ThemeId } from "@/themes/types";
 
 interface RoomThemeSetterProps {
   roomId: number;
   theme: ThemeId;
-  mode: ThemeMode;
 }
 
-/** Sets data-theme + data-mode on <html> for room-specific theming */
-export function RoomThemeSetter({ roomId, theme, mode }: RoomThemeSetterProps) {
-  const { setRoomTheme, setRoomMode } = useTheme();
+/**
+ * Sets data-theme on <html> for room-specific theming. The color mode (data-mode)
+ * is owned by RoomClient — it may follow the room's timeline dividers — so it is
+ * intentionally not set here to keep a single writer of the theme context's
+ * roomMode.
+ */
+export function RoomThemeSetter({ roomId, theme }: RoomThemeSetterProps) {
+  const { setRoomTheme } = useTheme();
 
   useEffect(() => {
     setRoomTheme(theme);
-    setRoomMode(mode);
     try {
       window.sessionStorage.setItem("room-theme-" + roomId, theme);
-      window.sessionStorage.setItem("room-mode-" + roomId, mode);
     } catch {}
     return () => {
       setRoomTheme(null);
-      setRoomMode(null);
     };
-  }, [roomId, theme, mode, setRoomTheme, setRoomMode]);
+  }, [roomId, theme, setRoomTheme]);
 
   return null;
 }

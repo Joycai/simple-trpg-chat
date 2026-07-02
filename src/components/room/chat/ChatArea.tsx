@@ -34,13 +34,15 @@ interface ChatAreaProps {
   }>;
   /** Opens the backpack (inventory panel). Wired to the CTA on receipt pills. */
   onOpenInventory: () => void;
+  /** Host-only: withdraw (delete) a timeline-divider message by id. */
+  onWithdrawTimeline?: (messageId: number) => void | Promise<void>;
   onSendMessage: (content: string, type: "text" | "dice" | "image" | "sticker", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
 }
 
 export function ChatArea({
   scrollRef, onScroll, tabMessages, players, userId, isHost, roomId, hostId,
   typingBots, activeTab, showScrollButton, scrollToBottom, dmConversations,
-  mentionTargets, readOnly, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onSendMessage,
+  mentionTargets, readOnly, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onWithdrawTimeline, onSendMessage,
 }: ChatAreaProps) {
   const t = useTranslations("room");
 
@@ -71,6 +73,7 @@ export function ChatArea({
                 onProxyCheckRequest={onProxyCheckRequest}
                 onLoadProxyTargets={onLoadProxyTargets}
                 onOpenInventory={onOpenInventory}
+                onWithdrawTimeline={onWithdrawTimeline}
                 messageId={msg.id}
                 isBot={!!playerData?.users?.isBot}
                 roomId={roomId}

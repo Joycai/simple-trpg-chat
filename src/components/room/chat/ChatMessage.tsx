@@ -7,9 +7,11 @@ import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { Icons } from "@/components/shared/icons";
 import { ResourceStatusTooltip } from "@/components/room/chat/ResourceStatusTooltip";
+import { TimelineDivider } from "@/components/room/chat/TimelineDivider";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
 import type { Audience } from "@/lib/messaging/audience";
 
 // Stable `useSyncExternalStore` callbacks. The store never changes, so subscribe
@@ -730,7 +732,7 @@ interface ChatMessageProps {
   content: string;
   type: "text" | "dice" | "system" | "check_request" | "image" | "sticker" | "clue";
   /** Subtype for type='system' messages. Drives the kind-specific pill / help card render. */
-  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | null;
+  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | "timeline-divider" | null;
   diceDetail?: string | null;
   isPrivate: boolean;
   audience?: Audience;
@@ -753,6 +755,8 @@ interface ChatMessageProps {
   }>;
   /** Called when the receipt-pill CTA (`查看背包`) is clicked — opens the inventory drawer. */
   onOpenInventory?: () => void;
+  /** Host-only: withdraw (delete) a timeline-divider message by id. */
+  onWithdrawTimeline?: (messageId: number) => void | Promise<void>;
   messageId?: number;
   roomId?: number;
   hostId?: number;
@@ -780,6 +784,7 @@ export const ChatMessage = memo(function ChatMessage({
   onProxyCheckRequest,
   onLoadProxyTargets,
   onOpenInventory,
+  onWithdrawTimeline,
   messageId,
   roomId,
   hostId,
@@ -1103,6 +1108,21 @@ export const ChatMessage = memo(function ChatMessage({
     // Inventory receipt: recipient-side notification with NEW/更新 badge + 查看背包 CTA.
     if (systemKind === "inventory-receipt") {
       return <ReceiptPill content={content} diceDetail={diceDetail} onOpenInventory={onOpenInventory} />;
+    }
+    // Timeline divider: host date separator, with a host-only withdraw affordance.
+    if (systemKind === "timeline-divider") {
+      return (
+        <TimelineDivider
+          data={parseTimelinePayload(diceDetail)}
+          fallback={content}
+          isHost={isHost}
+          onWithdraw={
+            isHost && onWithdrawTimeline && messageId !== undefined
+              ? () => onWithdrawTimeline(messageId)
+              : undefined
+          }
+        />
+      );
     }
     // Legacy multi-line messages keep the block-card fallback (no system_kind set).
     const isBlock = !systemKind && content.includes("\n");

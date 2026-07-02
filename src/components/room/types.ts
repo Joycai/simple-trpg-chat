@@ -1,4 +1,4 @@
-import type { ThemeId, ThemeMode } from "@/themes/types";
+import type { ThemeId, StoredThemeMode, ResolvedMode } from "@/themes/types";
 import type { Audience } from "@/lib/messaging/audience";
 
 export interface Room {
@@ -22,7 +22,7 @@ export interface Message {
   nickname: string;
   content: string;
   type: "text" | "dice" | "system" | "clue" | "check_request" | "image" | "sticker";
-  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | null;
+  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | "timeline-divider" | null;
   diceDetail: string | null;
   audience: Audience;
   isPrivate: boolean;
@@ -70,7 +70,9 @@ export interface RoomClientProps {
   isHost: boolean;
   currentNickname: string;
   roomTheme?: ThemeId;
-  roomThemeMode?: ThemeMode;
+  roomThemeMode?: StoredThemeMode;
+  /** Concrete light/dark resolved server-side from the latest divider (themeMode="timeline"). */
+  initialTimelineMode?: ResolvedMode;
   players?: PlayerEntry[];
   characterData?: string | null;
   aiEnabled?: boolean;
