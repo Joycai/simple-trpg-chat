@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Dice5, User, Lock, ScrollText, X } from "lucide-react";
 import { Notice } from "@/components/shared/Notice";
+import { FilingFooter } from "@/components/shared/FilingFooter";
 import { ThemeLoginHero } from "@/components/theme/ThemeDecor";
 
 interface LoginFormProps {
@@ -16,13 +17,17 @@ interface LoginFormProps {
   icp?: string;
   /** ICP filing link; defaults to the MIIT portal upstream. */
   icpUrl?: string;
+  /** Public security (公安) filing icon, base64 data URL. */
+  policeIcon?: string;
+  /** Public security filing HTML snippet. Empty hides the line. */
+  policeHtml?: string;
   /** Why the user landed on /login, e.g. "elsewhere" when kicked by a newer login. */
   noticeReason?: string;
   /** IP of the login that kicked this session (single-session notice). */
   noticeIp?: string;
 }
 
-export function LoginForm({ siteTitle, version, icp, icpUrl, noticeReason, noticeIp }: LoginFormProps) {
+export function LoginForm({ siteTitle, version, icp, icpUrl, policeIcon, policeHtml, noticeReason, noticeIp }: LoginFormProps) {
   const t = useTranslations("login");
   const [error, setError] = useState("");
   const notice =
@@ -260,18 +265,7 @@ export function LoginForm({ siteTitle, version, icp, icpUrl, noticeReason, notic
             {displayTitle}
           </a>
         </p>
-        {icp && (
-          <p className="text-[10px] text-text-dim/50">
-            <a
-              href={icpUrl || "https://beian.miit.gov.cn/"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-            >
-              {icp}
-            </a>
-          </p>
-        )}
+        <FilingFooter icp={icp} icpUrl={icpUrl} policeIcon={policeIcon} policeHtml={policeHtml} />
         <p className="text-[10px] text-text-dim/60">v{version}</p>
       </footer>
     </div>

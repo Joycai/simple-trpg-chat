@@ -65,3 +65,35 @@ export const getCachedSiteIcpUrl = unstable_cache(
   ["site_icp_url_cache"],
   { tags: ["system_config"] }
 );
+
+/**
+ * Get the public security (公安) filing icon as a base64 data URL.
+ * Empty string means no icon uploaded — footers render text-only.
+ */
+export const getCachedSitePoliceIcon = unstable_cache(
+  async () => {
+    const [row] = await db
+      .select()
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "site_police_icon"));
+    return row?.value ?? "";
+  },
+  ["site_police_icon_cache"],
+  { tags: ["system_config"] }
+);
+
+/**
+ * Get the public security (公安) filing HTML snippet pasted by the admin.
+ * Empty string means no filing configured — footers hide the line.
+ */
+export const getCachedSitePoliceHtml = unstable_cache(
+  async () => {
+    const [row] = await db
+      .select()
+      .from(systemConfig)
+      .where(eq(systemConfig.key, "site_police_html"));
+    return row?.value?.trim() ?? "";
+  },
+  ["site_police_html_cache"],
+  { tags: ["system_config"] }
+);

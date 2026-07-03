@@ -5,8 +5,15 @@ import { eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { getCachedSiteTitle } from "@/lib/config";
+import {
+  getCachedSiteTitle,
+  getCachedSiteIcp,
+  getCachedSiteIcpUrl,
+  getCachedSitePoliceIcon,
+  getCachedSitePoliceHtml,
+} from "@/lib/config";
 import { APP_VERSION } from "@/lib/version";
+import { FilingFooter } from "@/components/shared/FilingFooter";
 import { LobbyClient } from "@/components/lobby/LobbyClient";
 import { Dices } from "lucide-react";
 import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
@@ -23,8 +30,14 @@ export default async function HomePage() {
   const isHost = user.role === "host";
   const isAdmin = user.role === "admin";
 
-  // Get site title
-  const siteTitle = await getCachedSiteTitle();
+  // Get site title + filing info (footer)
+  const [siteTitle, icp, icpUrl, policeIcon, policeHtml] = await Promise.all([
+    getCachedSiteTitle(),
+    getCachedSiteIcp(),
+    getCachedSiteIcpUrl(),
+    getCachedSitePoliceIcon(),
+    getCachedSitePoliceHtml(),
+  ]);
 
   // Get all active rooms
   const allRooms = await db
@@ -94,17 +107,20 @@ export default async function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-3 px-4 text-center text-[11px] text-text-dim border-t border-border">
-        <a
-          href="https://github.com/Joycai/simple-trpg-chat"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          {siteTitle}
-        </a>
-        <span className="mx-1.5 text-text-dim/50">·</span>
-        <span>v{APP_VERSION}</span>
+      <footer className="py-3 px-4 text-center text-[11px] text-text-dim border-t border-border space-y-1">
+        <div>
+          <a
+            href="https://github.com/Joycai/simple-trpg-chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            {siteTitle}
+          </a>
+          <span className="mx-1.5 text-text-dim/50">·</span>
+          <span>v{APP_VERSION}</span>
+        </div>
+        <FilingFooter icp={icp} icpUrl={icpUrl} policeIcon={policeIcon} policeHtml={policeHtml} />
       </footer>
     </div>
   );

@@ -27,6 +27,8 @@ export default async function AdminConfigPage() {
         "site_favicon",
         "site_icp",
         "site_icp_url",
+        "site_police_icon",
+        "site_police_html",
         "sensitive_words",
         "sensitive_words_enabled",
       ])
@@ -41,6 +43,8 @@ export default async function AdminConfigPage() {
         initialTitle={cfg.site_title ?? ""}
         initialIcp={cfg.site_icp ?? ""}
         initialIcpUrl={cfg.site_icp_url ?? ""}
+        initialPoliceIcon={cfg.site_police_icon ?? ""}
+        initialPoliceHtml={cfg.site_police_html ?? ""}
         initialFavicon={cfg.site_favicon ?? ""}
         initialSensitiveEnabled={cfg.sensitive_words_enabled !== "0"}
         initialCustomWords={parseSensitiveWords(cfg.sensitive_words ?? "")}
