@@ -52,10 +52,10 @@ src/
 │   ├── login/
 │   └── rooms/[id]/
 ├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 16-table schema, seed
+├── db/                        # Drizzle client, 17-table schema, seed
 ├── lib/                       # 15 utility/service modules
 ├── i18n/                      # next-intl server config (default: zh)
-├── themes/                    # 4 themes; each has themes/<name>/theme.css
+├── themes/                    # 6 themes; each has themes/<name>/theme.css
 ├── types/                     # next-auth.d.ts type augmentation
 ├── auth.ts / auth.config.ts   # NextAuth full config + callbacks
 └── proxy.ts                   # Auth middleware
@@ -70,7 +70,7 @@ For deep dives into specific systems, see `docs/`:
 
 | Topic | File |
 | ----- | ---- |
-| Database — 16 tables, schema, relations | `docs/arch/database.md` |
+| Database — 17 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
 | Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
@@ -93,7 +93,7 @@ if (process.env.NODE_ENV !== "production") {
 
 ### Theming
 
-4 themes: `default`, `parchment`, `cthulhu`, `shrine`. Each has `src/themes/<name>/theme.css`. Always use semantic Tailwind classes (`bg-surface`, `text-text`, `border-border`) — never hardcode colors. Variables mapped via `@theme inline` in `globals.css`.
+6 themes: `default`, `parchment`, `cthulhu`, `shrine`, `rainglass`, `aether`. Each has `src/themes/<name>/theme.css`. Always use semantic Tailwind classes (`bg-surface`, `text-text`, `border-border`) — never hardcode colors. Variables mapped via `@theme inline` in `globals.css`.
 
 ### Chat Commands
 

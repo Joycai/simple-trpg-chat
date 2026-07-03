@@ -14,11 +14,13 @@
 ## ✨ 核心特性
 
 - 🌐 **实时双向同步 (SSE)**：基于 Server-Sent Events 实现的极速消息推送，并针对 Next.js 生产环境多 Worker 部署进行了全局单例优化（避免 SSE 跨路由消息丢失）。
-- 🎨 **多主题视觉支持**：内置 4 种精美跑团主题风格，支持一键热切换：
-  - 🌌 **默认暗色 (Default)**：现代化极简深色主题。
-  - 🏺 **羊皮纸 (Parchment)**：复古奇幻与中世纪风格。
-  - 🦑 **克苏鲁 (Cthulhu)**：神秘深邃的邪神诡秘色调。
-  - ⛩️ **神社 (Shrine)**：东方幻想的和风典雅配色。
+- 🎨 **多主题视觉支持**：内置 6 种精美跑团主题风格，支持一键热切换：
+  - 🌐 **默认 (Default)**：现代 web / SaaS 质感，蓝色主色配琥珀强调的浅色主题。
+  - 🏺 **古旧羊皮卷 (Parchment)**：古旧牛皮纸与铁胆墨水的西方奇幻手稿质感。
+  - 🦑 **克苏鲁的呼唤 (Cthulhu)**：因思茅斯雾港的深渊黑绿与不可名状的恐惧。
+  - ⛩️ **远古神社 (Shrine)**：巫女红白、朱漆鸟居的和风神社气息。
+  - 🌧️ **霓虹雨夜 (Rainglass)**：磨砂玻璃与霓虹倒影的赛博都市夜雨（深色）。
+  - 🔮 **苍穹幻境 (Aether)**：蓝天白云、水晶切面的晴空幻想冒险（浅色）。
 - 🎲 **多功能骰点器**：
   - 界面化骰点面板，支持 d4 到 d100 的多颗骰子连投。
   - 支持**主持人暗骰 (🔒)**，结果仅主持人和发送人可见。
@@ -105,8 +107,11 @@ pnpm db:doctor       # 运行环境与数据库诊断工具，并支持表结构
 | :--- | :--- | :--- |
 | `.st <技能名> <数值>` | `.st 侦查 50` | 设置当前房间中自己角色的技能值 (0-100) |
 | `.st <技能1><数值1><技能2>...` | `.st 侦查50聆听60` | 批量紧凑设置多个技能值（空格可选） |
-| `.rc <技能名>` | `.rc 侦查` | 进行 d100 技能检定，输出检定结果及判定等级 |
+| `.rc <技能名>` | `.rc 侦查` | 进行 d100 技能检定，输出检定结果及判定等级（大成功/大失败等由房间规则模板决定） |
+| `.sc <成功损失>/<失败损失>` | `.sc 1/1d6` | 理智检定（COC 7th），成功/失败按对应表达式扣减 SAN |
 | `.rd<N>` | `.rd100` / `.rd20` | 快速投掷 1 个指定面数的骰子并公布结果 |
+| `.r <表达式>` | `.r 3d100k2+2d20` | 通用掷骰表达式（支持多骰、取高 `k`、加减修正） |
+| `.rh <表达式>` | `.rh 1d100` | 暗骰：结果仅自己（及主持人）可见 |
 | `.help` | `.help` | 获取当前的系统指令帮助说明 |
 
 ---
@@ -125,7 +130,7 @@ src/
 ├── db/                       # 数据库连接、Drizzle 架构 schema 定义及 Seed 脚本
 ├── lib/                      # 核心公共逻辑 (AI Agent 环、指令解析、加密、全局 SSE Event 单例)
 ├── i18n/                     # Next-intl 国际化配置
-├── themes/                   # 跑团主题类型定义
+├── themes/                   # 6 套跑团主题 (每套含 theme.css) 及主题类型定义
 └── messages/                 # 中英多语言翻译 JSON 文件
 ```
 
@@ -147,9 +152,11 @@ globalThis.__eventHub = eventHub;
 
 ## 📖 相关文档
 
-- **用户指南**：关于界面操作、各角色权限等更详细的使用方法，请参考 [用户手册](file:///Users/caizhengxu/github/simple-trpg-chat/docs/user-guide.md)。
-- **管理员指南**：关于系统设置、成员管理等，请参考 [管理员手册](file:///Users/caizhengxu/github/simple-trpg-chat/docs/admin-guide.md)。
-- **部署指南**：推荐使用 PM2 + Caddy 反向代理部署，详细配置参考 [部署文档](file:///Users/caizhengxu/github/simple-trpg-chat/Deployment.md)。
+- **用户指南**：关于界面操作、各角色权限等更详细的使用方法，请参考 [用户手册](docs/guides/user-guide.md)。
+- **管理员指南**：关于系统设置、成员管理等，请参考 [管理员手册](docs/guides/admin-guide.md)。
+- **分步部署（Windows / Linux）**：面向首次部署的逐步指南，见 [分步部署指南](docs/guides/deployment-step-by-step.md)。
+- **部署指南（参考版）**：更精简的部署参考与 SSE 反向代理要点，见 [部署文档](docs/guides/deployment.md)。
+- **架构文档**：数据库、实时消息、AI、角色、后台等系统的深入说明见 [`docs/arch/`](docs/arch/)。
 
 ---
 
@@ -162,7 +169,7 @@ globalThis.__eventHub = eventHub;
 - **署名要求**：无论在何种授权模式下，二次开发版本均必须在关于页面或页脚清晰标注原作者 `Joycai` 及原项目 GitHub 链接：`https://github.com/Joycai/simple-trpg-chat`。
 - **免责声明**：本项目按“现状”提供，作者不对使用者造成的任何直接或间接法律问题承担责任。
 
-完整的开源协议文本请参见 [LICENSE](file:///Users/caizhengxu/github/simple-trpg-chat/LICENSE) 文件。
+完整的开源协议文本请参见 [LICENSE](LICENSE) 文件。
 
 ---
 
@@ -173,6 +180,6 @@ This project is licensed under the **GNU Affero General Public License v3.0 (AGP
 - **Attribution**: In all licensing models, any derivative works must preserve and clearly display credit to the original author (`Joycai`) and the link to the original GitHub repository.
 - **Disclaimer**: This software is provided "as is", and the author assumes no liability for any legal issues or damages arising from its use.
 
-For the full open-source license terms, please refer to the [LICENSE](file:///Users/caizhengxu/github/simple-trpg-chat/LICENSE) file.
+For the full open-source license terms, please refer to the [LICENSE](LICENSE) file.
 
 
