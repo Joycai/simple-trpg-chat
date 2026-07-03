@@ -1,8 +1,17 @@
 # Simple TRPG Chat — Schema Design Rationale (B1)
 
 **Version**: V1.0
-**Status**: Final
+**Status**: Historical — superseded
 **Author**: @Anela + @水月
+
+> ⚠️ **This is a historical MVP design-rationale document, kept for context only.**
+> It reflects the original SQLite, 4-table design and the legacy `is_private`
+> visibility model. The project has since migrated to **PostgreSQL** with a
+> **17-table schema**, and message visibility is now owned by the `audience` +
+> `channelUserId` model (the `is_private` column is a derived legacy mirror).
+> For the current schema see [`docs/arch/database.md`](../arch/database.md) and
+> [`docs/arch/realtime.md`](../arch/realtime.md); the source of truth is
+> `src/db/schema.ts`.
 
 ---
 

@@ -4,13 +4,17 @@ Route prefix: `/admin`. Requires `role === 'admin'` (enforced by `auth.config.ts
 
 ## Pages
 
-| Route | Component | Purpose |
-| ----- | --------- | ------- |
-| `/admin` | `AdminDashboard.tsx` | Overview: live stats, quick links |
-| `/admin/ai` | `AdminAiToggle`, `AdminBotPresets`, `AdminProviderManager` | Toggle AI feature; manage bot preset templates; manage shared AI providers |
-| `/admin/config` | `AdminTitleConfig`, `AdminThemeSetter`, `AdminSensitiveWords` | Site title; default theme; sensitive word blacklist |
-| `/admin/usage` | `TokenUsageDashboard.tsx` | AI token usage analytics — filter by user, provider, date |
-| `/admin/users` | `AdminUserManager.tsx` | View/manage users: roles, bans, AI point balances |
+Components live under `src/components/admin/`. Navigation is via `AdminSidebar.tsx`.
+
+| Route | Component(s) | Purpose |
+| ----- | ------------ | ------- |
+| `/admin` | `AdminDashboard` (`dashboard/StatCards`, `ServerLoadSection`, `TrafficStatsSection`, `ImageCacheSection`) | Overview: live stats, traffic, server load, image-cache summary |
+| `/admin/ai` | `ai/AdminAiToggle`, `ai/AdminBotPresets`, `ai/AdminProviderManager` | Toggle AI feature; manage bot preset templates; manage shared AI providers |
+| `/admin/config` | `config/AdminConfigClient`, `config/AdminFaviconConfig` | Site title; default theme; sensitive word blacklist; 公安备案 (public-security) filing info; favicon |
+| `/admin/images` | `images/AdminImageCacheManager` | Image cache dashboard + per-room cleanup |
+| `/admin/rooms` | `rooms/AdminRoomManager` | View/manage all rooms across hosts |
+| `/admin/usage` | `usage/TokenUsageDashboard` | AI token usage analytics — filter by user, provider, date |
+| `/admin/users` | `users/AdminUserManager` (+ `AiPointsModal`, `ChangePasswordModal`, `CreateUserModal`, `EditUserModal`, `LoginHistoryModal`) | View/manage users: roles, bans, passwords, AI point balances, login history |
 
 Admin-specific server actions live in `src/app/admin/actions.ts` and `src/app/actions/stats.ts`.
 

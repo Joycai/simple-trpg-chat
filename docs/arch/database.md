@@ -8,7 +8,7 @@ ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push change
 | ----- | ----------- | ----- |
 | `users` | id, username, passwordHash, role, displayName, isBot, botConfigJson, themePreference, sessionToken, isBanned, aiPoints | Bots stored as users with `isBot: true` |
 | `rooms` | id, name, hostId, secretKey, theme, diceRules, ruleTemplate, status | `hostId` → users |
-| `roomMembers` | id, roomId, userId, nickname, joinedAt, characterData, avatarColor | `characterData` holds full COC character sheet JSON |
+| `roomMembers` | id, roomId, userId, nickname, joinedAt, characterData, avatarColor, avatar | `characterData` holds full COC character sheet JSON; `avatar` is an optional base64 JPEG (≤512×512) per-room custom avatar, `avatarColor` the fallback letter-badge color. Unique on `(roomId, userId)` |
 | `roomSkills` | id, roomId, userId, skillName, skillValue | Per-player skills; synced with `characterData` for sanity |
 | `roomDmReads` | id, roomId, userId, partnerUserId, lastReadAt | Tracks last-read per DM pair for unread badges |
 | `messages` | id, roomId, userId, targetUserId, nickname, content, type, diceDetail, audience, channelUserId, isPrivate, createdAt | `audience` (WHO: everyone/self/recipient/directed/dm/gm) + `channelUserId` (WHERE: null=public, else DM partner) own visibility — see `docs/arch/realtime.md`. `isPrivate` is a legacy derived mirror |
