@@ -154,7 +154,8 @@ globalThis.__eventHub = eventHub;
 
 - **用户指南**：关于界面操作、各角色权限等更详细的使用方法，请参考 [用户手册](docs/guides/user-guide.md)。
 - **管理员指南**：关于系统设置、成员管理等，请参考 [管理员手册](docs/guides/admin-guide.md)。
-- **部署指南**：推荐配合 Nginx / Caddy 反向代理部署（需关闭 SSE 缓冲），详细配置参考 [部署文档](docs/guides/deployment.md)。
+- **分步部署（Windows / Linux）**：面向首次部署的逐步指南，见 [分步部署指南](docs/guides/deployment-step-by-step.md)。
+- **部署指南（参考版）**：更精简的部署参考与 SSE 反向代理要点，见 [部署文档](docs/guides/deployment.md)。
 - **架构文档**：数据库、实时消息、AI、角色、后台等系统的深入说明见 [`docs/arch/`](docs/arch/)。
 
 ---
