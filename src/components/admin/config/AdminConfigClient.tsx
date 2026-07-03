@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Globe, ShieldAlert, Monitor, Sun, Moon, X, RotateCcw, Save } from "lucide-react";
+import { Globe, ShieldAlert, Monitor, Sun, Moon, X, RotateCcw, Save, Upload, ImageIcon } from "lucide-react";
 import { updateSystemConfigBatch } from "@/app/actions/ai";
 import { setSiteTheme, setSiteThemeMode } from "@/app/actions/theme";
 import { AdminFaviconConfig } from "./AdminFaviconConfig";
@@ -14,6 +14,8 @@ interface AdminConfigClientProps {
   initialTitle: string;
   initialIcp: string;
   initialIcpUrl: string;
+  initialPoliceIcon: string;
+  initialPoliceHtml: string;
   initialFavicon: string;
   initialSensitiveEnabled: boolean;
   initialCustomWords: string[];
@@ -31,6 +33,8 @@ export function AdminConfigClient({
   initialTitle,
   initialIcp,
   initialIcpUrl,
+  initialPoliceIcon,
+  initialPoliceHtml,
   initialFavicon,
   initialSensitiveEnabled,
   initialCustomWords,
@@ -46,6 +50,9 @@ export function AdminConfigClient({
   const [title, setTitle] = useState(initialTitle);
   const [icp, setIcp] = useState(initialIcp);
   const [icpUrl, setIcpUrl] = useState(initialIcpUrl);
+  const [policeIcon, setPoliceIcon] = useState(initialPoliceIcon);
+  const [policeHtml, setPoliceHtml] = useState(initialPoliceHtml);
+  const policeIconInputRef = useRef<HTMLInputElement>(null);
   const [enabled, setEnabled] = useState(initialSensitiveEnabled);
   const [customList, setCustomList] = useState<string[]>(initialCustomWords);
   const [wordInput, setWordInput] = useState("");
@@ -67,6 +74,23 @@ export function AdminConfigClient({
 
   const removeWord = (w: string) => setCustomList(customList.filter((x) => x !== w));
 
+  const handlePoliceIconChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (file.size > 512 * 1024) {
+      setMsg(t("faviconFileTooLarge"));
+      setMsgType("error");
+      return;
+    }
+    setMsg("");
+
+    const reader = new FileReader();
+    reader.onload = () => setPoliceIcon(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const handleThemeChange = async (id: ThemeId) => {
     setTheme(id);
     await setSiteTheme(id);
@@ -87,6 +111,8 @@ export function AdminConfigClient({
         site_title: title.trim(),
         site_icp: icp.trim(),
         site_icp_url: icpUrl.trim(),
+        site_police_icon: policeIcon,
+        site_police_html: policeHtml.trim(),
         sensitive_words: customList.join("\n"),
         sensitive_words_enabled: enabled ? "1" : "0",
       });
@@ -106,6 +132,8 @@ export function AdminConfigClient({
     setTitle(initialTitle);
     setIcp(initialIcp);
     setIcpUrl(initialIcpUrl);
+    setPoliceIcon(initialPoliceIcon);
+    setPoliceHtml(initialPoliceHtml);
     setEnabled(initialSensitiveEnabled);
     setCustomList(initialCustomWords);
     setWordInput("");
@@ -167,6 +195,66 @@ export function AdminConfigClient({
 
         <AdminFaviconConfig initialFavicon={initialFavicon} />
       </div>
+
+      {/* Public security (公安) filing */}
+      <section className="bg-surface theme-border rounded-theme p-6 flex flex-col gap-5">
+        <div>
+          <h3 className="font-bold text-text font-theme-display">{t("policeTitle")}</h3>
+          <p className="text-xs text-text-muted mt-1">{t("policeDesc")}</p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-text-muted">{t("policeIconLabel")}</label>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-theme border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
+              {policeIcon ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={policeIcon} alt="police filing icon preview" className="w-8 h-8 object-contain" />
+              ) : (
+                <ImageIcon className="w-5 h-5 text-text-dim" />
+              )}
+            </div>
+            <input
+              ref={policeIconInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/svg+xml"
+              onChange={handlePoliceIconChange}
+              className="hidden"
+            />
+            <button
+              onClick={() => policeIconInputRef.current?.click()}
+              className="inline-flex items-center gap-2 border border-border bg-surface-alt hover:bg-surface text-text font-medium px-4 py-2.5 rounded-theme text-sm transition cursor-pointer"
+            >
+              <Upload className="w-4 h-4" />
+              {t("policeIconUpload")}
+            </button>
+            {policeIcon && (
+              <button
+                onClick={() => setPoliceIcon("")}
+                className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-danger transition"
+              >
+                <X className="w-3.5 h-3.5" />
+                {t("policeIconRemove")}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-text-dim">{t("policeIconHint")}</p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-text-muted">{t("policeHtmlLabel")}</label>
+            <span className="text-[10px] text-text-dim">{t("policeHtmlHint")}</span>
+          </div>
+          <textarea
+            value={policeHtml}
+            onChange={(e) => setPoliceHtml(e.target.value)}
+            placeholder={t("policeHtmlPlaceholder")}
+            rows={4}
+            className={`${inputCls} font-theme-mono resize-y`}
+          />
+        </div>
+      </section>
 
       {/* Default theme */}
       <section className="bg-surface theme-border rounded-theme p-6 flex flex-col gap-5">

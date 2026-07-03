@@ -1,4 +1,10 @@
-import { getCachedSiteTitle, getCachedSiteIcp, getCachedSiteIcpUrl } from "@/lib/config";
+import {
+  getCachedSiteTitle,
+  getCachedSiteIcp,
+  getCachedSiteIcpUrl,
+  getCachedSitePoliceIcon,
+  getCachedSitePoliceHtml,
+} from "@/lib/config";
 import { APP_VERSION } from "@/lib/version";
 import { LoginForm } from "./LoginForm";
 
@@ -7,10 +13,12 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ reason?: string; ip?: string }>;
 }) {
-  const [siteTitle, icp, icpUrl] = await Promise.all([
+  const [siteTitle, icp, icpUrl, policeIcon, policeHtml] = await Promise.all([
     getCachedSiteTitle(),
     getCachedSiteIcp(),
     getCachedSiteIcpUrl(),
+    getCachedSitePoliceIcon(),
+    getCachedSitePoliceHtml(),
   ]);
   const { reason, ip } = await searchParams;
 
@@ -20,6 +28,8 @@ export default async function LoginPage({
       version={APP_VERSION}
       icp={icp}
       icpUrl={icpUrl}
+      policeIcon={policeIcon}
+      policeHtml={policeHtml}
       noticeReason={reason}
       noticeIp={ip}
     />
