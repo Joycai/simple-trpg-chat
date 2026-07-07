@@ -23,7 +23,7 @@ export function FilingFooter({ icp, icpUrl, policeIcon, policeHtml }: FilingFoot
   if (!icp && !police && !policeIcon) return null;
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-text-dim/50">
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-text-dim/60">
       {icp && (
         <a
           href={icpUrl || "https://beian.miit.gov.cn/"}
@@ -35,10 +35,10 @@ export function FilingFooter({ icp, icpUrl, policeIcon, policeHtml }: FilingFoot
         </a>
       )}
       {(policeIcon || police) && (
-        <span className="inline-flex items-center gap-1 [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1 [&_a:hover]:underline [&_p]:inline [&_p]:m-0 [&_img]:inline-block [&_img]:h-3.5 [&_img]:w-auto">
+        <span className="inline-flex items-center gap-1 [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1 [&_a:hover]:underline [&_p]:inline [&_p]:m-0 [&_img]:inline-block [&_img]:h-4 [&_img]:w-auto">
           {policeIcon && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={policeIcon} alt="公安备案" className="h-3.5 w-auto" />
+            <img src={policeIcon} alt="公安备案" className="h-4 w-auto" />
           )}
           {police && <span dangerouslySetInnerHTML={{ __html: police }} />}
         </span>
