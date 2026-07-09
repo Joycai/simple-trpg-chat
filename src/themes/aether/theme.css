@@ -1,7 +1,7 @@
 /* ---- 苍穹幻境 v2 — 宇宙罗盘（暗夜紫空 · 黄铜铆钉 · 水晶青）----
    概念：深邃宇宙中的古老罗盘 —— 深紫夜空底，黄铜为主色，水晶青为强调。
    · DARK  = 主形态：紫黑暗夜底 (#1a1626)，黄铜辉光 (#c9a14a)，水晶青 (#5fd3da)。
-   · LIGHT = 次形态：苍穹罗盘·亮色 —— 羊皮纸底 (#ddcca2)，黄铜铆钉，封蜡红强调。
+   · LIGHT = 次形态：黄铜蒸汽·日光形态 —— 象牙暖白底 (#e7dfc9)，抛光黄铜 (#b07d1e)，铜绿强调 (#2e8577)。
    字体：Cinzel (display) · Cormorant Garamond (body) · JetBrains Mono (mono) */
 
 /* ============ DARK (baseline) — 暗夜紫空 ============ */
@@ -297,84 +297,89 @@
 }
 
 /* =====================================================================
-   LIGHT — 苍穹罗盘·亮色（羊皮纸 + 黄铜铆钉 + 封蜡红强调）
-   Warm parchment base, brass gold primary, sealing-wax red accent.
+   LIGHT — 黄铜蒸汽·日光形态（象牙暖白 + 抛光黄铜 + 铜绿强调）
+   Warm ivory base, polished brass primary, verdigris accent.
+   Verdigris (oxidised copper) mirrors dark mode's crystal cyan —
+   same compass, seen by daylight.
    ===================================================================== */
 [data-theme="aether"][data-mode="light"] {
-  --theme-bg: 221 204 162;           /* aged parchment */
-  --theme-surface: 239 228 200;      /* cream vellum */
-  --theme-surface-alt: 232 220 192;  /* shaded parchment */
-  --theme-border: 176 150 104;       /* ink-stained leather edge */
-  --theme-text: 58 47 30;            /* dark sepia ink */
-  --theme-text-muted: 122 106 74;    /* faded ink */
-  --theme-text-dim: 154 138 102;     /* distant script */
-  --theme-primary: 181 133 58;       /* antique brass */
-  --theme-primary-hover: 160 116 50;
-  --theme-primary-foreground: 42 31 8;
-  --theme-accent: 168 69 31;         /* sealing-wax red */
-  --theme-accent-hover: 142 56 25;
-  --theme-accent-foreground: 255 248 245;
+  --theme-bg: 231 223 201;           /* warm ivory workshop wall */
+  --theme-surface: 243 236 216;      /* polished bone panel */
+  --theme-surface-alt: 236 228 204;  /* shaded panel */
+  --theme-border: 160 129 68;        /* brass-etched edge */
+  --theme-text: 50 40 23;            /* dark umber ink */
+  --theme-text-muted: 116 99 66;     /* oiled bronze */
+  --theme-text-dim: 150 134 100;     /* worn engraving */
+  --theme-primary: 176 125 30;       /* polished brass */
+  --theme-primary-hover: 154 108 22;
+  --theme-primary-foreground: 36 26 4;
+  --theme-accent: 46 133 119;        /* verdigris — oxidised copper */
+  --theme-accent-hover: 37 110 98;
+  --theme-accent-foreground: 234 250 246;
   --theme-danger: 192 57 43;         /* alert crimson */
   --theme-success: 47 158 99;        /* verdant green */
   --theme-warning: 196 122 26;       /* amber caution */
   --theme-ai: 109 99 168;            /* twilight violet */
   --theme-ai-hover: 92 82 140;
   --theme-ai-foreground: 255 255 255;
-  --theme-header-bg: 229 214 180;
-  --theme-header-border: 176 150 104;
-  --theme-input-bg: 245 236 212;
-  --theme-input-border: 168 142 96;
-  --theme-dice-card-bg: 235 224 196;
-  --theme-dice-card-border: 168 142 96;
-  --theme-private-border: 181 133 58;
-  --theme-private-bg: 248 238 210;
-  --theme-scroll-btn: 181 133 58;
+  --theme-header-bg: 213 194 146;    /* brass nameplate strip */
+  --theme-header-border: 160 129 68;
+  --theme-input-bg: 248 242 222;
+  --theme-input-border: 160 132 80;
+  --theme-dice-card-bg: 238 230 206;
+  --theme-dice-card-border: 160 132 80;
+  --theme-private-border: 176 125 30;
+  --theme-private-bg: 246 238 212;
+  --theme-scroll-btn: 176 125 30;
 
-  /* === Skill palette — parchment hues === */
-  --theme-skill-0: 181 133 58;   /* brass */
-  --theme-skill-1: 168 69 31;    /* sealing-wax red */
-  --theme-skill-2: 47 158 99;    /* green */
+  /* === Skill palette — brass / verdigris / copper hues === */
+  --theme-skill-0: 176 125 30;   /* polished brass */
+  --theme-skill-1: 46 133 119;   /* verdigris */
+  --theme-skill-2: 168 90 40;    /* copper */
   --theme-skill-3: 109 99 168;   /* violet */
   --theme-skill-4: 196 122 26;   /* amber */
   --theme-skill-5: 86 120 172;   /* slate blue */
 
-  --theme-glow: 0 0 10px rgba(181, 133, 58, 0.35),
-               0 0 20px rgba(181, 133, 58, 0.14);
+  /* Warm brass glow with a cold verdigris rim — metallic reflection */
+  --theme-glow: 0 0 10px rgba(176, 125, 30, 0.38),
+               0 0 20px rgba(46, 133, 119, 0.16);
 
   --theme-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.70),
-                       0 6px 16px rgba(80, 60, 20, 0.14),
-                       0 2px 4px rgba(80, 60, 20, 0.10);
+                       0 6px 16px rgba(70, 55, 20, 0.14),
+                       0 2px 4px rgba(70, 55, 20, 0.10);
 
-  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath d='M0 4 L4 0' stroke='%23b5853a' stroke-opacity='0.06' stroke-width='1'/%3E%3C/svg%3E");
+  /* Riveted brass plate: dot grid instead of paper cross-hatch */
+  --theme-surface-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Ccircle cx='4' cy='4' r='0.8' fill='%23b07d1e' fill-opacity='0.10'/%3E%3C/svg%3E");
 
-  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23b5853a' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%23a8451f' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23b5853a'/%3E%3C/svg%3E");
+  --theme-divider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16' width='120' height='16'%3E%3Cg fill='none' stroke='%23b07d1e' stroke-width='1'%3E%3Cpath d='M12 8 H48'/%3E%3Cpath d='M72 8 H108'/%3E%3C/g%3E%3Cpath d='M60 2 L66 8 L60 14 L54 8 Z' fill='none' stroke='%232e8577' stroke-width='1.3'/%3E%3Cpath d='M60 5 L63 8 L60 11 L57 8 Z' fill='%23b07d1e'/%3E%3C/svg%3E");
 }
 
+/* Ambient: warm brass daylight top-left + verdigris mist bottom-right */
 [data-theme="aether"][data-mode="light"] body,
 [data-theme="aether"][data-mode="light"] .bg-bg {
   background-color: rgb(var(--theme-bg));
   background-image:
-    radial-gradient(70% 42% at 18% -4%, rgba(255, 236, 180, 0.55), transparent 64%),
-    radial-gradient(60% 42% at 92% 100%, rgba(168, 69, 31, 0.08), transparent 68%),
+    radial-gradient(70% 42% at 18% -4%, rgba(255, 228, 158, 0.50), transparent 64%),
+    radial-gradient(60% 42% at 92% 100%, rgba(46, 133, 119, 0.10), transparent 68%),
     var(--theme-surface-texture);
   background-repeat: no-repeat, no-repeat, repeat;
-  background-size: auto, auto, 4px 4px;
+  background-size: auto, auto, 8px 8px;
 }
 
 [data-theme="aether"][data-mode="light"] .conv-sidebar {
-  background: linear-gradient(180deg, rgba(239, 228, 200, 0.85) 0%, rgba(229, 214, 180, 0.80) 100%);
+  background: linear-gradient(180deg, rgba(243, 236, 216, 0.85) 0%, rgba(228, 216, 184, 0.80) 100%);
   backdrop-filter: blur(4px) saturate(1.3);
-  border-right: 2px solid rgba(181, 133, 58, 0.55);
+  border-right: 2px solid rgba(176, 125, 30, 0.55);
 }
 [data-theme="aether"][data-mode="light"] .conv-tab {
-  background: linear-gradient(90deg, rgba(235, 224, 196, 0.6) 0%, rgba(245, 236, 212, 0.3) 100%);
+  background: linear-gradient(90deg, rgba(238, 230, 206, 0.6) 0%, rgba(248, 242, 222, 0.3) 100%);
   border-left: 3px solid transparent;
-  border-bottom: 1px solid rgba(176, 150, 104, 0.5);
+  border-bottom: 1px solid rgba(160, 129, 68, 0.5);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
   transition: all 0.25s ease-in-out;
 }
 [data-theme="aether"][data-mode="light"] .conv-tab:hover {
-  background: linear-gradient(90deg, rgba(222, 208, 174, 0.7) 0%, rgba(232, 218, 186, 0.4) 100%);
+  background: linear-gradient(90deg, rgba(226, 214, 182, 0.7) 0%, rgba(236, 226, 196, 0.4) 100%);
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="aether"][data-mode="light"] .conv-tab.active {
@@ -386,97 +391,105 @@
 }
 
 [data-theme="aether"][data-mode="light"] .conv-divider {
-  filter: drop-shadow(0 0 2px rgba(181, 133, 58, 0.40));
+  filter: drop-shadow(0 0 2px rgba(176, 125, 30, 0.40));
 }
 
+/* Brushed-brass nameplate header: top highlight, engraved bottom edge */
+[data-theme="aether"][data-mode="light"] .bg-header-bg {
+  background-image: linear-gradient(180deg, rgba(255, 240, 196, 0.45) 0%, rgba(213, 194, 146, 0) 45%, rgba(160, 129, 68, 0.18) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 220, 0.75),
+              inset 0 -1px 0 rgba(120, 92, 40, 0.35);
+}
+
+/* Riveted brass panel cards */
 [data-theme="aether"][data-mode="light"] .clue-card,
 [data-theme="aether"][data-mode="light"] .inventory-card {
-  background-color: #efe4c8 !important;
-  background-image: linear-gradient(rgba(245, 236, 212, 0.95), rgba(239, 228, 200, 0.95)), var(--theme-surface-texture) !important;
-  background-size: auto, 4px 4px !important;
-  border: 1px solid rgba(181, 133, 58, 0.55) !important;
-  box-shadow: inset 0 0 0 1px rgba(181, 133, 58, 0.22),
-              0 4px 10px rgba(80, 60, 20, 0.14) !important;
-  --theme-text: 58 47 30;
-  --theme-text-muted: 122 106 74;
-  --theme-text-dim: 154 138 102;
+  background-color: #f3ecd8 !important;
+  background-image: linear-gradient(rgba(248, 242, 222, 0.95), rgba(240, 232, 208, 0.95)), var(--theme-surface-texture) !important;
+  background-size: auto, 8px 8px !important;
+  border: 1px solid rgba(176, 125, 30, 0.55) !important;
+  box-shadow: inset 0 0 0 1px rgba(176, 125, 30, 0.22),
+              0 4px 10px rgba(70, 55, 20, 0.14) !important;
+  --theme-text: 50 40 23;
+  --theme-text-muted: 116 99 66;
+  --theme-text-dim: 150 134 100;
   color: rgb(var(--theme-text)) !important;
 }
 [data-theme="aether"][data-mode="light"] .clue-card:hover,
 [data-theme="aether"][data-mode="light"] .inventory-card:hover {
-  border-color: rgba(181, 133, 58, 0.80) !important;
-  box-shadow: inset 0 0 0 1px rgba(181, 133, 58, 0.38),
-              0 6px 14px rgba(80, 60, 20, 0.18) !important;
+  border-color: rgba(176, 125, 30, 0.80) !important;
+  box-shadow: inset 0 0 0 1px rgba(176, 125, 30, 0.38),
+              0 6px 14px rgba(70, 55, 20, 0.18) !important;
 }
 
-/* Light-mode star-shards: brass body + sealing-wax edge */
+/* Light-mode star-shards: brass body + verdigris edge (mirrors dark mode) */
 [data-theme="aether"][data-mode="light"] .chat-bubble-other::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b5853a' fill-opacity='0.85' stroke='%23a8451f' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 3px rgba(181, 133, 58, 0.50));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232e8577' fill-opacity='0.85' stroke='%23b07d1e' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 3px rgba(176, 125, 30, 0.50));
 }
 [data-theme="aether"][data-mode="light"] .chat-bubble-own::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a8451f' fill-opacity='0.90' stroke='%23b5853a' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
-  filter: drop-shadow(0 0 3px rgba(168, 69, 31, 0.45));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23b07d1e' fill-opacity='0.90' stroke='%232e8577' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M12 2 L15 9 L12 22 L9 9 Z'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 3px rgba(46, 133, 119, 0.45));
 }
 
 [data-theme="aether"][data-mode="light"] .theme-border {
-  box-shadow: inset 0 0 0 1px rgba(181, 133, 58, 0.50),
+  box-shadow: inset 0 0 0 1px rgba(176, 125, 30, 0.50),
               inset 0 0 0 3px rgba(255, 255, 255, 0.65),
-              0 6px 16px rgba(80, 60, 20, 0.14);
+              0 6px 16px rgba(70, 55, 20, 0.14);
 }
 
 [data-theme="aether"][data-mode="light"] .filter-indicator {
-  background: #b5853a;
-  box-shadow: 0 0 10px rgba(181, 133, 58, 0.55), 0 0 20px rgba(168, 69, 31, 0.20);
+  background: #b07d1e;
+  box-shadow: 0 0 10px rgba(176, 125, 30, 0.55), 0 0 20px rgba(46, 133, 119, 0.22);
 }
 [data-theme="aether"][data-mode="light"] .filter-tab-active {
-  color: #b5853a;
-  text-shadow: 0 0 8px rgba(181, 133, 58, 0.38);
+  color: #b07d1e;
+  text-shadow: 0 0 8px rgba(176, 125, 30, 0.38);
 }
 
 /* =====================================================================
-   LOGIN CARD — 宇宙罗盘 · LIGHT override (parchment + antique brass + sealing-wax red)
+   LOGIN CARD — 宇宙罗盘 · LIGHT override (ivory + polished brass + verdigris)
    ===================================================================== */
 
 [data-theme="aether"][data-mode="light"] .login-card {
-  border-color: rgba(181, 133, 58, 0.55) !important;
+  border-color: rgba(176, 125, 30, 0.55) !important;
   box-shadow:
-    0 0 22px rgba(181, 133, 58, 0.20),
-    0 0 40px rgba(168, 69, 31, 0.08),
-    0 18px 48px rgba(80, 60, 20, 0.22),
+    0 0 22px rgba(176, 125, 30, 0.20),
+    0 0 40px rgba(46, 133, 119, 0.10),
+    0 18px 48px rgba(70, 55, 20, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
 }
 [data-theme="aether"][data-mode="light"] .login-card::before {
-  background: linear-gradient(90deg, transparent, rgba(181, 133, 58, 0.85), rgba(168, 69, 31, 0.45), rgba(181, 133, 58, 0.85), transparent);
+  background: linear-gradient(90deg, transparent, rgba(176, 125, 30, 0.85), rgba(46, 133, 119, 0.50), rgba(176, 125, 30, 0.85), transparent);
 }
 [data-theme="aether"][data-mode="light"] .login-card::after {
   background-image:
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65)),
-    linear-gradient(rgba(181, 133, 58, 0.65), rgba(181, 133, 58, 0.65));
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
+    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65));
 }
 [data-theme="aether"][data-mode="light"] .aether-login-hero {
   color: rgb(var(--theme-primary));
 }
 [data-theme="aether"][data-mode="light"] .aether-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(181, 133, 58, 0.6));
+  background: linear-gradient(90deg, transparent, rgba(176, 125, 30, 0.6));
 }
 [data-theme="aether"][data-mode="light"] .aether-hero-rule-right {
-  background: linear-gradient(90deg, rgba(181, 133, 58, 0.6), transparent);
+  background: linear-gradient(90deg, rgba(176, 125, 30, 0.6), transparent);
 }
 [data-theme="aether"][data-mode="light"] .aether-hero-badge {
-  border-color: rgba(181, 133, 58, 0.55);
-  background: radial-gradient(circle, rgba(181, 133, 58, 0.12), transparent 70%);
+  border-color: rgba(176, 125, 30, 0.55);
+  background: radial-gradient(circle, rgba(176, 125, 30, 0.12), transparent 70%);
   box-shadow:
-    0 0 14px rgba(181, 133, 58, 0.30),
-    0 0 24px rgba(168, 69, 31, 0.10),
-    inset 0 0 10px rgba(181, 133, 58, 0.18);
+    0 0 14px rgba(176, 125, 30, 0.30),
+    0 0 24px rgba(46, 133, 119, 0.12),
+    inset 0 0 10px rgba(176, 125, 30, 0.18);
 }
 [data-theme="aether"][data-mode="light"] .aether-hero-badge-ring {
-  border-color: rgba(181, 133, 58, 0.4);
+  border-color: rgba(176, 125, 30, 0.4);
 }
