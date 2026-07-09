@@ -135,10 +135,10 @@ export const THEMES: Record<ThemeId, ThemeMeta> = {
     id: "aether",
     name: "苍穹幻境",
     nameEn: "Azure Aether",
-    description: "蓝天白云大地，明亮天蓝配洁白云面，金辉与草绿大地点缀，水晶切面与金线花纹指令窗，浅色为主的晴空幻想冒险气息",
+    description: "深紫夜空中的宇宙罗盘，黄铜辉光配水晶青；亮色形态为象牙暖白底、抛光黄铜与铜绿点缀的黄铜蒸汽质感",
     descriptionEn:
-      "Blue sky, white clouds and golden earth — bright azure with white cloud panels, gilt and verdant earth accents, crystal facets and gilt-filigree command windows — a light-first skybound fantasy adventure",
-    swatch: { bg: "#deedfa", border: "#d69e28" },
+      "A cosmic compass in deep violet night — brass glow with crystal cyan; light mode turns to warm ivory with polished brass and verdigris, a brass-and-steam daylight form",
+    swatch: { bg: "#1a1626", border: "#c9a14a" },
     icon: "🔮",
     decorations: { loginHero: "aether" },
   },
