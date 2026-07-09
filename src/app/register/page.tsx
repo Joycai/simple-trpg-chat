@@ -5,15 +5,18 @@ import {
   getCachedSitePoliceIcon,
   getCachedSitePoliceHtml,
 } from "@/lib/config";
-import { APP_VERSION } from "@/lib/version";
 import { getInviteConfig } from "@/lib/invites";
-import { LoginForm } from "./LoginForm";
+import { APP_VERSION } from "@/lib/version";
+import { getTranslations } from "next-intl/server";
+import type { Metadata } from "next";
+import { RegisterForm } from "./RegisterForm";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ reason?: string; ip?: string }>;
-}) {
+export async function generateMetadata(): Promise<Metadata> {
+  const [t, siteTitle] = await Promise.all([getTranslations("register"), getCachedSiteTitle()]);
+  return { title: `${t("title")} | ${siteTitle}` };
+}
+
+export default async function RegisterPage() {
   const [siteTitle, icp, icpUrl, policeIcon, policeHtml, inviteConfig] = await Promise.all([
     getCachedSiteTitle(),
     getCachedSiteIcp(),
@@ -22,18 +25,15 @@ export default async function LoginPage({
     getCachedSitePoliceHtml(),
     getInviteConfig(),
   ]);
-  const { reason, ip } = await searchParams;
 
   return (
-    <LoginForm
+    <RegisterForm
       siteTitle={siteTitle}
       version={APP_VERSION}
       icp={icp}
       icpUrl={icpUrl}
       policeIcon={policeIcon}
       policeHtml={policeHtml}
-      noticeReason={reason}
-      noticeIp={ip}
       registrationEnabled={inviteConfig.registrationEnabled}
     />
   );

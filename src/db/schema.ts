@@ -1,8 +1,8 @@
 /**
  * Simple TRPG Chat — PostgreSQL Schema (Drizzle ORM)
  *
- * Single source of truth for the database (PostgreSQL only). 17 tables:
- *   Identity:   users
+ * Single source of truth for the database (PostgreSQL only). 18 tables:
+ *   Identity:   users | invite_codes
  *   Room core:  rooms | room_members | room_skills | room_dm_reads
  *   Messaging:  messages
  *   Inventory:  inventory_items | inventory_distributions
@@ -73,6 +73,15 @@ export type InventoryAction = (typeof INVENTORY_ACTIONS)[number];
 export const DEVICE_TYPES = ['mobile', 'desktop', 'tablet', 'unknown'] as const;
 export type DeviceType = (typeof DEVICE_TYPES)[number];
 
+/**
+ * Invite-code lifecycle. `active` is the only non-terminal state:
+ *   active → used     registration consumed the code
+ *   active → expired  48h TTL elapsed (lazy sweep; quota refunded)
+ *   active → revoked  creator cancelled it (quota refunded)
+ */
+export const INVITE_CODE_STATUS = ['active', 'used', 'expired', 'revoked'] as const;
+export type InviteCodeStatus = (typeof INVITE_CODE_STATUS)[number];
+
 // ============================================================
 // Tables
 // ============================================================
@@ -90,6 +99,9 @@ export const users = pgTable('users', {
   sessionToken: text('session_token'),
   isBanned: boolean('is_banned').notNull().default(false),
   aiPoints: numeric('ai_points', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  // Remaining invite-code generations (hosts only; see docs/design/invite-registration.md).
+  // -1 on generate, +1 on expire/revoke, reset to `invite.defaultQuota` by admin.
+  inviteQuota: integer('invite_quota').notNull().default(4),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
@@ -413,5 +425,28 @@ export const aiPointLogs = pgTable('ai_point_logs', {
 
 export const aiPointLogsRelations = relations(aiPointLogs, ({ one }) => ({
   user: one(users, { fields: [aiPointLogs.userId], references: [users.id] }),
+}));
+
+// ============================================================
+// Invite Codes (invite-only registration)
+// ============================================================
+
+export const inviteCodes = pgTable('invite_codes', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  code: text('code').notNull().unique(),
+  creatorId: integer('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text('status').$type<InviteCodeStatus>().notNull().default('active'),
+  usedByUserId: integer('used_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  // createdAt + 48h, computed at insert time — the lazy sweep compares against NOW().
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true, mode: 'string' }),
+}, (t) => ({
+  idxCreatorStatus: index('idx_invite_codes_creator_status').on(t.creatorId, t.status),
+}));
+
+export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
+  creator: one(users, { fields: [inviteCodes.creatorId], references: [users.id], relationName: 'createdInvites' }),
+  usedBy: one(users, { fields: [inviteCodes.usedByUserId], references: [users.id], relationName: 'usedInvite' }),
 }));
 

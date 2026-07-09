@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Shield, History, X, Bot, BarChart3, Coins } from "lucide-react";
+import { Shield, History, X, Bot, BarChart3, Coins, Ticket } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { setUserLocale } from "@/app/actions/locale";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -12,6 +12,7 @@ import { LoginHistoryTab } from "@/components/user/settings/LoginHistoryTab";
 import { AiProvidersTab } from "@/components/user/settings/AiProvidersTab";
 import { AiUsageTab } from "@/components/user/settings/AiUsageTab";
 import { AiPointsTab } from "@/components/user/settings/AiPointsTab";
+import { InvitesTab } from "@/components/user/settings/InvitesTab";
 
 interface UserSettingsPanelProps {
   userName: string;
@@ -19,7 +20,7 @@ interface UserSettingsPanelProps {
   onClose: () => void;
 }
 
-type Tab = "security" | "history" | "ai" | "ai-usage" | "ai-points";
+type Tab = "security" | "history" | "ai" | "ai-usage" | "ai-points" | "invites";
 
 export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsPanelProps) {
   const ts = useTranslations("userSettings");
@@ -96,6 +97,8 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
               ["ai", Bot, ts("tabAi")],
               ["ai-usage", BarChart3, ts("tabAiUsage")],
               ["ai-points", Coins, ts("tabAiPoints")],
+              // Invite codes are a host-only feature (admins create users directly).
+              ...(userRole === "host" ? ([["invites", Ticket, ts("tabInvites")]] as const) : []),
             ] as const).map(([key, Icon, label]) => {
               const isActive = tab === key;
               return (
@@ -122,6 +125,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
             {tab === "ai" && <AiProvidersTab />}
             {tab === "ai-usage" && <AiUsageTab />}
             {tab === "ai-points" && <AiPointsTab userRole={userRole} />}
+            {tab === "invites" && userRole === "host" && <InvitesTab />}
           </div>
         </div>
         </>

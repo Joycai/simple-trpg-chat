@@ -31,6 +31,8 @@ export default async function AdminConfigPage() {
         "site_police_html",
         "sensitive_words",
         "sensitive_words_enabled",
+        "invite_registration_enabled",
+        "invite_default_quota",
       ])
     );
   const cfg = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -48,6 +50,8 @@ export default async function AdminConfigPage() {
         initialFavicon={cfg.site_favicon ?? ""}
         initialSensitiveEnabled={cfg.sensitive_words_enabled !== "0"}
         initialCustomWords={parseSensitiveWords(cfg.sensitive_words ?? "")}
+        initialRegistrationEnabled={cfg.invite_registration_enabled !== "0"}
+        initialInviteDefaultQuota={cfg.invite_default_quota ?? "4"}
         currentTheme={siteTheme as ThemeId}
         currentMode={siteMode as ThemeMode}
       />

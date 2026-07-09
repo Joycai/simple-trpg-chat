@@ -5,6 +5,8 @@ export interface User {
   role: string;
   isBanned: boolean;
   aiPoints: number;
+  /** Remaining invite-code generations (meaningful for hosts only). */
+  inviteQuota: number;
   createdAt: string;
 }
 

@@ -52,7 +52,7 @@ src/
 │   ├── login/
 │   └── rooms/[id]/
 ├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 17-table schema, seed
+├── db/                        # Drizzle client, 18-table schema, seed
 ├── lib/                       # 15 utility/service modules
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
@@ -70,7 +70,7 @@ For deep dives into specific systems, see `docs/`:
 
 | Topic | File |
 | ----- | ---- |
-| Database — 17 tables, schema, relations | `docs/arch/database.md` |
+| Database — 18 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
 | Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
@@ -129,10 +129,14 @@ The `avatar` column was added to `roomMembers` table schema. If upgrading, run:
 pnpm db:push  # Interactive mode — answer "No" to ai_token_usages truncate prompt if it appears
 ```
 
+### Invite-Code Registration
+
+Public `/register` page: new users sign up with a host-issued invite code and join as `player`. Hosts generate codes from the user settings panel ("邀请码" tab, host-only); each code is single-use, expires after 48h (lazy sweep refunds quota). Admin controls: per-host quota column + reset in user management, plus a registration on/off toggle and default quota (`invite_registration_enabled` / `invite_default_quota` in `system_config`) in system config. Core logic: `src/lib/invites.ts` + `src/app/actions/invite.ts`. Design doc: `docs/design/invite-registration.md`.
+
 ### Authentication
 
 - NextAuth v5 beta, Credentials provider (username + bcrypt). Config split: `auth.config.ts` (callbacks) + `auth.ts` (full config with DB).
-- `proxy.ts` protects all routes except `/api`, `/login`, `/_next/*`, `/favicon.ico`.
+- `proxy.ts` protects all routes except `/api`, `/login`, `/register`, `/_next/*`, `/favicon.ico`.
 - Admin requires `role === 'admin'`. Session carries: `id`, `name`, `username`, `role`.
 
 ## Coding Conventions
