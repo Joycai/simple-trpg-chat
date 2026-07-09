@@ -37,6 +37,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   }
 
   const isHost = room.hostId === userId;
+  const isAdmin = user.role === "admin";
 
   // 1. Get all room members (for player list)
   let members;
@@ -88,7 +89,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       .where(eq(roomMembers.roomId, roomId));
     currentMemberJoint = members.find(m => m.room_members.userId === userId);
     currentMember = currentMemberJoint?.room_members || null;
-  } else if (!currentMember) {
+  } else if (!currentMember && !isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
         <h1 className="text-2xl font-bold text-text-muted">{t("notJoined")}</h1>
@@ -99,10 +100,17 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     );
   }
 
+  // Admin viewing a room they haven't joined: silent observer mode.
+  // No member row is created — read-only, not shown in the player list.
+  // Matches the SSE endpoint, where checkRoomAccess already lets admins through.
+  const isObserver = !currentMember;
+
   const currentNickname = currentMember?.nickname || user.name || user.username || "Player";
 
   // Get visible messages: SQL-level visibility filter (R8) — see messaging/router.
-  const visibilityCondition = messageVisibilityWhere(roomId, userId, isHost);
+  // Admins get host-level visibility (consistent with SSE, where checkRoomAccess
+  // returns isHost: true for admins).
+  const visibilityCondition = messageVisibilityWhere(roomId, userId, isHost || isAdmin);
 
   // 3. Parallelized queries (P9)
   const [roomMessages, [aiConfig], [hostUser], roomProviders] = await Promise.all([
@@ -175,6 +183,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         validProviderIds={validProviderIds}
         userName={user.name || user.username}
         userRole={user.role}
+        isObserver={isObserver}
       />
     </>
   );

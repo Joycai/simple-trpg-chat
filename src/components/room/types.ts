@@ -79,4 +79,6 @@ export interface RoomClientProps {
   validProviderIds?: number[];
   userName: string;
   userRole: string;
+  /** Admin viewing a room they haven't joined: read-only, not in member list. */
+  isObserver?: boolean;
 }

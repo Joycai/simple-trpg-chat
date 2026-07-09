@@ -39,6 +39,7 @@ export function RoomClient({
   validProviderIds = [],
   userName,
   userRole,
+  isObserver = false,
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tra = useTranslations("roomActions");
@@ -106,7 +107,8 @@ export function RoomClient({
   } = useSidebar();
 
   // Frozen rooms are read-only for players; the host can still operate.
-  const readOnly = !!room.frozen && !isHost;
+  // Admin observers (viewing a room they haven't joined) are always read-only.
+  const readOnly = (!!room.frozen && !isHost) || isObserver;
 
   const handleSaveRoomName = async () => {
     const trimmed = roomNameDraft.trim();
@@ -638,6 +640,7 @@ export function RoomClient({
           dmConversations={dmConversations}
           mentionTargets={mentionTargets}
           readOnly={readOnly}
+          readOnlyNotice={isObserver ? t("observerNotice") : undefined}
           onViewCharacter={handleViewPlayerCard}
           onStartDM={handleTabChange}
           onCheckRequest={handleCheckRequest}
