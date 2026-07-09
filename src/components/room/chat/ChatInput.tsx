@@ -21,6 +21,8 @@ interface ChatInputProps {
   mentions?: MentionTarget[];
   isPrivateLocked?: boolean;
   readOnly?: boolean;
+  /** Custom notice shown when readOnly (defaults to the frozen-room notice). */
+  readOnlyNotice?: string;
 }
 
 // Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
@@ -29,7 +31,7 @@ const IMAGE_MAX_BYTES = 1024 * 1024;
 // Quick-insert command chips shown above the input.
 const QUICK_COMMANDS = [".rc 侦查", ".sc 1/1d6", ".rd100"];
 
-export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false }: ChatInputProps) {
+export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
@@ -243,7 +245,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     return (
       <div className="flex items-center justify-center gap-2 bg-input-bg border border-input-border rounded-theme p-3 text-text-muted text-sm select-none">
         <Icons.Lock className="w-4 h-4" />
-        <span>{tRoom("frozenNotice")}</span>
+        <span>{readOnlyNotice ?? tRoom("frozenNotice")}</span>
       </div>
     );
   }

@@ -165,7 +165,8 @@
     "editNameTooltip": "点击修改房名",
     "frozenBadge": "已冻结",
     "frozenBadgeHost": "已冻结 · 玩家只读",
-    "frozenNotice": "房间已冻结，你可以查看但无法发言。"
+    "frozenNotice": "房间已冻结，你可以查看但无法发言。",
+    "observerNotice": "管理员观察模式：你未加入该房间，仅可查看。"
   },
   "timeline": {
     "title": "插入时间线分割",

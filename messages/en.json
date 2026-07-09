@@ -165,7 +165,8 @@
     "editNameTooltip": "Click to rename",
     "frozenBadge": "Frozen",
     "frozenBadgeHost": "Frozen · players read-only",
-    "frozenNotice": "This room is frozen. You can view it but cannot post."
+    "frozenNotice": "This room is frozen. You can view it but cannot post.",
+    "observerNotice": "Admin observer mode: you haven't joined this room, view only."
   },
   "timeline": {
     "title": "Insert Timeline Divider",
