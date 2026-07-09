@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Key, Search, Plus, CircleDollarSign } from "lucide-react";
-import { deleteUser, toggleBanUser } from "@/app/admin/actions";
+import { Key, Search, Plus, CircleDollarSign, Ticket, RotateCcw } from "lucide-react";
+import { deleteUser, toggleBanUser, resetInviteQuotaAction } from "@/app/admin/actions";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import { useRouter } from "next/navigation";
 import { CreateUserModal } from "./CreateUserModal";
@@ -16,9 +16,11 @@ import type { User, RoleFilter } from "./types";
 interface AdminUserManagerProps {
   users: User[];
   lastLogins: Record<number, string>;
+  /** Configured default invite quota (`invite_default_quota`) — the reset target. */
+  inviteDefaultQuota: number;
 }
 
-export function AdminUserManager({ users: allUsers, lastLogins }: AdminUserManagerProps) {
+export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuota }: AdminUserManagerProps) {
   const t = useTranslations("admin");
   const router = useRouter();
 
@@ -73,6 +75,16 @@ export function AdminUserManager({ users: allUsers, lastLogins }: AdminUserManag
       router.refresh();
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleResetInviteQuota = async (user: User) => {
+    if (!confirm(t("inviteQuotaResetConfirm", { name: user.username, quota: inviteDefaultQuota }))) return;
+    try {
+      await resetInviteQuotaAction(user.id);
+      router.refresh();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : t("operationFailed"));
     }
   };
 
@@ -187,13 +199,14 @@ export function AdminUserManager({ users: allUsers, lastLogins }: AdminUserManag
                 <th className="px-5 py-3 font-medium">{t("role")}</th>
                 <th className="px-5 py-3 font-medium">{t("status")}</th>
                 <th className="px-5 py-3 font-medium">{t("aiPointsColumn")}</th>
+                <th className="px-5 py-3 font-medium">{t("inviteQuotaColumn")}</th>
                 <th className="px-5 py-3 font-medium">{t("lastLogin")}</th>
                 <th className="px-5 py-3 font-medium text-right">{t("actions")}</th>
               </tr>
             </thead>
             <tbody>
               {visibleUsers.length === 0 ? (
-                <tr><td colSpan={6} className="py-14 text-center text-text-dim text-sm">{t("noUsers")}</td></tr>
+                <tr><td colSpan={7} className="py-14 text-center text-text-dim text-sm">{t("noUsers")}</td></tr>
               ) : (
                 visibleUsers.map(user => {
                   const color = getRandomColorForUser(user.id);
@@ -235,6 +248,27 @@ export function AdminUserManager({ users: allUsers, lastLogins }: AdminUserManag
                           <CircleDollarSign className="w-4 h-4 opacity-80" />
                           {pv.text}
                         </span>
+                      </td>
+                      {/* Invite quota (hosts only) */}
+                      <td className="px-5 py-3.5">
+                        {user.role === "host" ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm font-medium font-theme-mono">
+                            <Ticket className="w-4 h-4 opacity-80 text-success" />
+                            <span className={user.inviteQuota <= 0 ? "text-text-dim" : "text-text"}>
+                              {user.inviteQuota}
+                              <span className="text-text-dim">/{inviteDefaultQuota}</span>
+                            </span>
+                            <button
+                              onClick={() => handleResetInviteQuota(user)}
+                              className="p-1 rounded-theme text-text-dim hover:text-primary hover:bg-primary/10 transition cursor-pointer"
+                              title={t("inviteQuotaReset")}
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ) : (
+                          <span className="text-sm text-text-dim">—</span>
+                        )}
                       </td>
                       {/* Last login */}
                       <td className="px-5 py-3.5 text-sm text-text-muted">{formatRelative(lastLogins[user.id])}</td>

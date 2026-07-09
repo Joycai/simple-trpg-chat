@@ -1,9 +1,13 @@
 import { db } from "@/db";
 import { users, loginHistory } from "@/db/schema";
 import { sql } from "drizzle-orm";
+import { sweepExpiredInvites, getInviteConfig } from "@/lib/invites";
 import { AdminUserManager } from "@/components/admin/users/AdminUserManager";
 
 export default async function AdminUsersPage() {
+  // Lazy invite expiry sweep so the quota column reflects refunded codes.
+  await db.transaction(async (tx) => sweepExpiredInvites(tx));
+
   const allUsers = await db.select({
     id: users.id,
     username: users.username,
@@ -12,6 +16,7 @@ export default async function AdminUsersPage() {
     isBot: users.isBot,
     isBanned: users.isBanned,
     aiPoints: users.aiPoints,
+    inviteQuota: users.inviteQuota,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
   }).from(users);
@@ -24,9 +29,11 @@ export default async function AdminUsersPage() {
   const lastLogins: Record<number, string> = {};
   for (const r of lastLoginRows) if (r.last) lastLogins[r.userId] = r.last;
 
+  const { defaultQuota } = await getInviteConfig();
+
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
-      <AdminUserManager users={allUsers} lastLogins={lastLogins} />
+      <AdminUserManager users={allUsers} lastLogins={lastLogins} inviteDefaultQuota={defaultQuota} />
     </div>
   );
 }

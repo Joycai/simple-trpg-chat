@@ -117,7 +117,9 @@ export const authConfig = {
 
       const isLoggedIn = !!auth?.user;
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
-      const isOnLogin = nextUrl.pathname.startsWith("/login");
+      // /register behaves exactly like /login: public when logged out,
+      // redirected away (by role) when already authenticated.
+      const isOnLogin = nextUrl.pathname.startsWith("/login") || nextUrl.pathname.startsWith("/register");
 
       const isAdmin = auth?.user?.role === "admin";
 

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Dice5, User, Lock, ScrollText, X } from "lucide-react";
@@ -25,15 +26,19 @@ interface LoginFormProps {
   noticeReason?: string;
   /** IP of the login that kicked this session (single-session notice). */
   noticeIp?: string;
+  /** Show the invite-code registration entry (admin toggle). */
+  registrationEnabled?: boolean;
 }
 
-export function LoginForm({ siteTitle, version, icp, icpUrl, policeIcon, policeHtml, noticeReason, noticeIp }: LoginFormProps) {
+export function LoginForm({ siteTitle, version, icp, icpUrl, policeIcon, policeHtml, noticeReason, noticeIp, registrationEnabled }: LoginFormProps) {
   const t = useTranslations("login");
   const [error, setError] = useState("");
   const notice =
     noticeReason === "elsewhere"
       ? t("noticeLoggedInElsewhere", { ip: noticeIp || t("unknownIp") })
-      : "";
+      : noticeReason === "registered"
+        ? t("noticeRegistered")
+        : "";
   const [showLicense, setShowLicense] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -168,6 +173,15 @@ export function LoginForm({ siteTitle, version, icp, icpUrl, policeIcon, policeH
         <p className="text-[10px] text-text-dim text-center -mt-3">
           {t("hint")}
         </p>
+
+        {registrationEnabled && (
+          <p className="text-xs text-text-muted text-center border-t border-border pt-4 -mt-2">
+            {t("registerPrompt")}{" "}
+            <Link href="/register" className="text-primary hover:underline font-medium">
+              {t("registerLink")}
+            </Link>
+          </p>
+        )}
       </form>
 
       {showLicense && (

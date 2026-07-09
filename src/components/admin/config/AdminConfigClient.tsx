@@ -3,7 +3,7 @@
 import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Globe, ShieldAlert, Monitor, Sun, Moon, X, RotateCcw, Save, Upload, ImageIcon } from "lucide-react";
+import { Globe, ShieldAlert, Monitor, Sun, Moon, X, RotateCcw, Save, Upload, ImageIcon, Ticket } from "lucide-react";
 import { updateSystemConfigBatch } from "@/app/actions/ai";
 import { setSiteTheme, setSiteThemeMode } from "@/app/actions/theme";
 import { AdminFaviconConfig } from "./AdminFaviconConfig";
@@ -19,6 +19,9 @@ interface AdminConfigClientProps {
   initialFavicon: string;
   initialSensitiveEnabled: boolean;
   initialCustomWords: string[];
+  initialRegistrationEnabled: boolean;
+  /** Raw config string ("4") — validated/clamped on save. */
+  initialInviteDefaultQuota: string;
   currentTheme: ThemeId;
   currentMode: ThemeMode;
 }
@@ -38,6 +41,8 @@ export function AdminConfigClient({
   initialFavicon,
   initialSensitiveEnabled,
   initialCustomWords,
+  initialRegistrationEnabled,
+  initialInviteDefaultQuota,
   currentTheme,
   currentMode,
 }: AdminConfigClientProps) {
@@ -56,6 +61,8 @@ export function AdminConfigClient({
   const [enabled, setEnabled] = useState(initialSensitiveEnabled);
   const [customList, setCustomList] = useState<string[]>(initialCustomWords);
   const [wordInput, setWordInput] = useState("");
+  const [registrationEnabled, setRegistrationEnabled] = useState(initialRegistrationEnabled);
+  const [inviteQuota, setInviteQuota] = useState(initialInviteDefaultQuota);
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -107,6 +114,8 @@ export function AdminConfigClient({
     setSaving(true);
     setMsg("");
     try {
+      // Clamp the default invite quota to a sane 0–99 integer before saving.
+      const quotaNum = Math.min(99, Math.max(0, Math.floor(Number(inviteQuota)) || 0));
       await updateSystemConfigBatch({
         site_title: title.trim(),
         site_icp: icp.trim(),
@@ -115,7 +124,10 @@ export function AdminConfigClient({
         site_police_html: policeHtml.trim(),
         sensitive_words: customList.join("\n"),
         sensitive_words_enabled: enabled ? "1" : "0",
+        invite_registration_enabled: registrationEnabled ? "1" : "0",
+        invite_default_quota: String(quotaNum),
       });
+      setInviteQuota(String(quotaNum));
       setMsg(t("saveSuccess"));
       setMsgType("success");
       router.refresh();
@@ -137,6 +149,8 @@ export function AdminConfigClient({
     setEnabled(initialSensitiveEnabled);
     setCustomList(initialCustomWords);
     setWordInput("");
+    setRegistrationEnabled(initialRegistrationEnabled);
+    setInviteQuota(initialInviteDefaultQuota);
     setMsg("");
   };
 
@@ -322,6 +336,51 @@ export function AdminConfigClient({
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* Registration & invites */}
+      <section className="bg-surface theme-border rounded-theme p-6 flex flex-col gap-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-primary/10 text-primary rounded-theme shrink-0">
+              <Ticket className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-text font-theme-display">{t("inviteRegTitle")}</h3>
+              <p className="text-xs text-text-muted mt-0.5">{t("inviteRegDesc")}</p>
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={registrationEnabled}
+            onClick={() => setRegistrationEnabled(!registrationEnabled)}
+            className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${
+              registrationEnabled ? "bg-primary shadow-[var(--theme-glow)]" : "bg-surface-alt border border-border"
+            }`}
+          >
+            <span
+              className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
+                registrationEnabled ? "translate-x-5" : ""
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2 max-w-xs">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-text-muted">{t("inviteDefaultQuotaLabel")}</label>
+            <span className="text-[10px] text-text-dim">{t("inviteDefaultQuotaHint")}</span>
+          </div>
+          <input
+            type="number"
+            min={0}
+            max={99}
+            step={1}
+            value={inviteQuota}
+            onChange={(e) => setInviteQuota(e.target.value)}
+            className={`${inputCls} font-theme-mono`}
+          />
         </div>
       </section>
 

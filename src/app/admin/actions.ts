@@ -35,6 +35,11 @@ export async function createUser(formData: FormData) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // New hosts start with the configured default invite quota.
+  const inviteQuota = role === "host"
+    ? (await (await import("@/lib/invites")).getInviteConfig()).defaultQuota
+    : 0;
+
   await db.transaction(async (tx) => {
     const [created] = await tx.insert(users).values({
       username,
@@ -42,6 +47,7 @@ export async function createUser(formData: FormData) {
       role,
       displayName,
       aiPoints,
+      inviteQuota,
     }).returning({ id: users.id });
 
     // Record the opening balance so the points history stays consistent with
@@ -74,13 +80,50 @@ export async function updateUser(id: number, displayName: string, role: string) 
   // Never let the built-in admin be demoted out of the admin role (lockout guard).
   if (user.username === "admin" && role !== "admin") throw new Error("Cannot change the default admin's role");
 
+  // Promotion to host grants the configured default invite quota; any other
+  // role change zeroes it (players/admins don't generate codes).
+  const patch: { displayName: string; role: string; updatedAt: string; inviteQuota?: number } = {
+    displayName: name,
+    role,
+    updatedAt: new Date().toISOString(),
+  };
+  if (role === "host" && user.role !== "host") {
+    const { getInviteConfig } = await import("@/lib/invites");
+    patch.inviteQuota = (await getInviteConfig()).defaultQuota;
+  } else if (role !== "host" && user.role === "host") {
+    patch.inviteQuota = 0;
+  }
+
   await db.update(users)
-    .set({ displayName: name, role, updatedAt: new Date().toISOString() })
+    .set(patch)
     .where(eq(users.id, id));
 
   // A role change must refresh the cached session so it takes effect immediately.
   invalidateSessionCache(String(id));
   revalidatePath("/admin");
+}
+
+/**
+ * Reset a host's remaining invite-code quota back to the configured default
+ * (`invite_default_quota`, clamped 0–99). Host-only by design — players don't
+ * generate codes and admins create accounts directly.
+ */
+export async function resetInviteQuotaAction(id: number) {
+  await requireAdmin();
+
+  const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, id));
+  if (!user) throw new Error("User not found");
+  if (user.role !== "host") throw new Error("Invite quota only applies to hosts");
+
+  const { getInviteConfig } = await import("@/lib/invites");
+  const { defaultQuota } = await getInviteConfig();
+
+  await db.update(users)
+    .set({ inviteQuota: defaultQuota, updatedAt: new Date().toISOString() })
+    .where(eq(users.id, id));
+
+  revalidatePath("/admin");
+  return { quota: defaultQuota };
 }
 
 export async function deleteUser(id: number) {
