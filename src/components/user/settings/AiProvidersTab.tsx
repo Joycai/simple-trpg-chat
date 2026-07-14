@@ -5,8 +5,9 @@ import { useTranslations } from "next-intl";
 import { Bot, Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { getMyProviders, createProvider, updateProvider, deleteProvider } from "@/app/actions/ai-providers";
 import { testAiConnection } from "@/app/actions/ai";
-import { PresetProviderSelect } from "@/components/shared/PresetProviderSelect";
-import { CUSTOM_PRESET_ID, getPreset } from "@/lib/provider-presets";
+import { VendorSelect } from "@/components/shared/VendorSelect";
+import { ModelPicker } from "@/components/shared/ModelPicker";
+import { COMPAT_VENDOR_ID, getVendor } from "@/lib/provider-presets";
 
 export function AiProvidersTab() {
   const t = useTranslations("admin");
@@ -25,7 +26,7 @@ export function AiProvidersTab() {
   const [provMsg, setProvMsg] = useState("");
   const [provSuccess, setProvSuccess] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [preset, setPreset] = useState(CUSTOM_PRESET_ID);
+  const [vendor, setVendor] = useState(COMPAT_VENDOR_ID);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -39,13 +40,13 @@ export function AiProvidersTab() {
       .finally(() => setLoadingProviders(false));
   }, []);
 
-  const handlePresetChange = (val: string) => {
-    setPreset(val);
-    const p = getPreset(val);
-    if (p) {
-      setProvName(p.name);
-      setProvEndpoint(p.endpoint);
-      setProvModel(p.model);
+  const handleVendorChange = (val: string) => {
+    setVendor(val);
+    const v = getVendor(val);
+    if (v && val !== COMPAT_VENDOR_ID) {
+      setProvName(v.name);
+      setProvEndpoint(v.endpoint);
+      setProvModel(v.models[0]?.id ?? "");
     } else {
       setProvName("");
       setProvEndpoint("");
@@ -84,9 +85,9 @@ export function AiProvidersTab() {
     }
     try {
       if (editProviderId) {
-        await updateProvider(editProviderId, { name: provName, apiEndpoint: provEndpoint, apiKey: provKey, model: provModel });
+        await updateProvider(editProviderId, { name: provName, apiEndpoint: provEndpoint, apiKey: provKey, vendor, model: provModel });
       } else {
-        await createProvider({ name: provName, apiEndpoint: provEndpoint, apiKey: provKey, model: provModel });
+        await createProvider({ name: provName, apiEndpoint: provEndpoint, apiKey: provKey, vendor, model: provModel });
       }
       setProvMsg(tp("msgSaved"));
       setProvSuccess(true);
@@ -142,7 +143,7 @@ export function AiProvidersTab() {
                       setProvEndpoint(p.apiEndpoint);
                       setProvModel(p.model);
                       setProvKey("");
-                      setPreset(CUSTOM_PRESET_ID);
+                      setVendor(p.vendor ?? COMPAT_VENDOR_ID);
                       setProvMsg("");
                       setProvSuccess(false);
                       setShowAddProvider(true);
@@ -171,7 +172,7 @@ export function AiProvidersTab() {
               setProvEndpoint("");
               setProvKey("");
               setProvModel("gpt-4o");
-              setPreset(CUSTOM_PRESET_ID);
+              setVendor(COMPAT_VENDOR_ID);
               setProvMsg("");
               setProvSuccess(false);
               setShowAddProvider(true);
@@ -186,8 +187,8 @@ export function AiProvidersTab() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-text-muted">{tp("presetLabel")}</label>
-                <PresetProviderSelect value={preset} onChange={handlePresetChange} t={tp} />
+                <label className="block text-xs font-semibold text-text-muted">{tp("labelVendor")}</label>
+                <VendorSelect value={vendor} onChange={handleVendorChange} t={tp} />
               </div>
 
               <div className="space-y-1">
@@ -225,11 +226,15 @@ export function AiProvidersTab() {
 
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-text-muted">Model</label>
-                <input
+                <ModelPicker
                   value={provModel}
-                  onChange={e => setProvModel(e.target.value)}
-                  placeholder={tp("modelPlaceholder")}
-                  className="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+                  onChange={setProvModel}
+                  vendor={vendor}
+                  endpoint={provEndpoint}
+                  apiKey={provKey}
+                  providerId={editProviderId}
+                  t={tp}
+                  inputClassName="w-full p-2 bg-bg border border-border rounded-theme text-text text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 />
               </div>
             </div>

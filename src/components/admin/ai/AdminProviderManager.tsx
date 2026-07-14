@@ -7,8 +7,9 @@ import { getAllProviders, createProvider, updateProvider, deleteProvider } from 
 import { testAiConnection } from "@/app/actions/ai";
 import { useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { PresetProviderSelect } from "@/components/shared/PresetProviderSelect";
-import { CUSTOM_PRESET_ID, getPreset } from "@/lib/provider-presets";
+import { VendorSelect } from "@/components/shared/VendorSelect";
+import { ModelPicker } from "@/components/shared/ModelPicker";
+import { COMPAT_VENDOR_ID, getVendor, getVendorModelPreset } from "@/lib/provider-presets";
 
 export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
@@ -25,21 +26,29 @@ export function AdminProviderManager() {
   const [msg, setMsg] = useState("");
   const [testing, setTesting] = useState(false);
   const [showKey, setShowKey] = useState(false);
-  const [preset, setPreset] = useState(CUSTOM_PRESET_ID);
+  const [vendor, setVendor] = useState(COMPAT_VENDOR_ID);
   const [tokenRateInput, setTokenRateInput] = useState("0");
   const [tokenRateCached, setTokenRateCached] = useState("0");
   const [tokenRateOutput, setTokenRateOutput] = useState("0");
 
-  const handlePresetChange = (val: string) => {
-    setPreset(val);
-    const p = getPreset(val);
-    if (p) {
-      setName(p.name);
-      setEndpoint(p.endpoint);
-      setModel(p.model);
-      setTokenRateInput(String(p.tokenRateInput ?? 0));
-      setTokenRateCached(String(p.tokenRateCached ?? 0));
-      setTokenRateOutput(String(p.tokenRateOutput ?? 0));
+  // Selecting a known preset model prefills the admin token rates.
+  const applyModel = (vendorId: string, modelId: string) => {
+    setModel(modelId);
+    const mp = getVendorModelPreset(vendorId, modelId);
+    if (mp) {
+      setTokenRateInput(String(mp.tokenRateInput ?? 0));
+      setTokenRateCached(String(mp.tokenRateCached ?? 0));
+      setTokenRateOutput(String(mp.tokenRateOutput ?? 0));
+    }
+  };
+
+  const handleVendorChange = (val: string) => {
+    setVendor(val);
+    const v = getVendor(val);
+    if (v && val !== COMPAT_VENDOR_ID) {
+      setName(v.name);
+      setEndpoint(v.endpoint);
+      applyModel(val, v.models[0]?.id ?? "");
     } else {
       setName("");
       setEndpoint("");
@@ -69,9 +78,9 @@ export function AdminProviderManager() {
     };
     let result;
     if (editId) {
-      result = await updateProvider(editId, { name, apiEndpoint: endpoint, apiKey: key || undefined, model, isShared, ...rates });
+      result = await updateProvider(editId, { name, apiEndpoint: endpoint, apiKey: key || undefined, vendor, model, isShared, ...rates });
     } else {
-      result = await createProvider({ name, apiEndpoint: endpoint, apiKey: key, model, isShared, ...rates });
+      result = await createProvider({ name, apiEndpoint: endpoint, apiKey: key, vendor, model, isShared, ...rates });
     }
     if (result && "error" in result) {
       setMsg(result.error);
@@ -85,7 +94,7 @@ export function AdminProviderManager() {
 
   const openCreate = () => {
     setEditId(null); setName(""); setEndpoint(""); setKey(""); setModel("gpt-4o"); setIsShared(false);
-    setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0"); setPreset(CUSTOM_PRESET_ID); setMsg("");
+    setTokenRateInput("0"); setTokenRateCached("0"); setTokenRateOutput("0"); setVendor(COMPAT_VENDOR_ID); setMsg("");
     setShowForm(true);
   };
 
@@ -138,7 +147,7 @@ export function AdminProviderManager() {
                   setTokenRateCached(String(p.tokenRateCached ?? 0));
                   setTokenRateOutput(String(p.tokenRateOutput ?? 0));
                   setKey("");
-                  setPreset(CUSTOM_PRESET_ID);
+                  setVendor(p.vendor ?? COMPAT_VENDOR_ID);
                   setMsg("");
                   setShowForm(true);
                 }}
@@ -170,10 +179,10 @@ export function AdminProviderManager() {
             </div>
 
             <div className="p-5 flex flex-col gap-4">
-              {/* Quick preset */}
+              {/* Vendor */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-dim font-medium">{tp("labelPreset")}</label>
-                <PresetProviderSelect value={preset} onChange={handlePresetChange} t={tp} />
+                <label className="text-xs text-text-dim font-medium">{tp("labelVendor")}</label>
+                <VendorSelect value={vendor} onChange={handleVendorChange} t={tp} />
               </div>
 
               {/* Name + Model */}
@@ -185,8 +194,16 @@ export function AdminProviderManager() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-text-dim font-medium">{tp("labelModel")}</label>
-                  <input value={model} onChange={e => setModel(e.target.value)} placeholder={tp("modelPlaceholder")}
-                    className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm font-theme-mono placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
+                  <ModelPicker
+                    value={model}
+                    onChange={(m) => applyModel(vendor, m)}
+                    vendor={vendor}
+                    endpoint={endpoint}
+                    apiKey={key}
+                    providerId={editId}
+                    t={tp}
+                    inputClassName="w-full px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm font-theme-mono placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary"
+                  />
                 </div>
               </div>
 
