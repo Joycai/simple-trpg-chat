@@ -1,24 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Image as ImageIcon, X } from "lucide-react";
-import { useTranslations } from "next-intl";
-
-/** localStorage key — one global preference, not per room. */
-const INTENSITY_KEY = "room-bg-intensity";
-const DEFAULT_INTENSITY = 60;
-
-function readStoredIntensity(): number {
-  try {
-    const raw = window.localStorage.getItem(INTENSITY_KEY);
-    if (raw === null) return DEFAULT_INTENSITY;
-    const n = parseInt(raw, 10);
-    if (Number.isNaN(n)) return DEFAULT_INTENSITY;
-    return Math.min(100, Math.max(0, n));
-  } catch {
-    return DEFAULT_INTENSITY;
-  }
-}
+import { useEffect, useState } from "react";
+import { useRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
 
 /**
  * Full-screen ambient room background (docs/design/room-background.md).
@@ -36,25 +19,17 @@ function readStoredIntensity(): number {
  * <body>; globals.css uses it to make the room's opaque shells (header,
  * sidebar, input bar, surfaces) translucent with a backdrop blur.
  *
- * The floating button (bottom-right, above the chat input) opens the local
- * intensity slider: 0 = off entirely (no layers, no blur cost), stored in
- * localStorage — a per-player choice that never touches the server.
+ * This component only paints. The intensity slider (0 = off entirely — no
+ * layers, no blur cost) lives in RoomTopBar's gear menu, alongside the other
+ * personal preferences; the two share state via `useRoomBgIntensity`.
  */
 export function RoomBackground({ url }: { url: string | null }) {
-  const t = useTranslations("roomBackground");
-  // Lazy init: SSR renders the default; the client initializer reads the
-  // stored value. No hydration risk — intensity only affects layers that
-  // render after `shownUrl` is set, which happens post-mount by definition.
-  const [intensity, setIntensity] = useState(() =>
-    typeof window === "undefined" ? DEFAULT_INTENSITY : readStoredIntensity()
-  );
+  const intensity = useRoomBgIntensity();
   // The URL most recently preloaded — lags `url` until the new image has
   // loaded, so switching backgrounds cross-fades instead of flashing a
   // half-loaded img. When `url` is null the layers derive to hidden without
   // any state write (see `effectiveUrl`).
   const [shownUrl, setShownUrl] = useState<string | null>(null);
-  const [showSlider, setShowSlider] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!url) return;
@@ -84,88 +59,29 @@ export function RoomBackground({ url }: { url: string | null }) {
     return () => document.body.removeAttribute("data-room-bg");
   }, [active]);
 
-  // Close the slider popover on outside click.
-  useEffect(() => {
-    if (!showSlider) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setShowSlider(false);
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [showSlider]);
-
-  const updateIntensity = (value: number) => {
-    setIntensity(value);
-    try {
-      window.localStorage.setItem(INTENSITY_KEY, String(value));
-    } catch {}
-  };
-
-  if (!url) return null;
+  if (!active) return null;
 
   return (
-    <>
-      {active && (
-        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden>
-          {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed layer; next/image adds nothing here */}
-          <img
-            src={effectiveUrl!}
-            alt=""
-            draggable={false}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 scale-105"
-            style={{
-              opacity: intensity / 100,
-              filter: "blur(var(--theme-bg-image-blur, 6px))",
-            }}
-          />
-          {/* Theme scrim — tints any picture into the current theme's palette. */}
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundColor:
-                "rgb(var(--theme-bg-scrim, var(--theme-bg)) / var(--theme-bg-scrim-alpha, 0.72))",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Player-local intensity control — only offered while the host has a
-          background set. Sits above the input bar, clear of the scroll-to-
-          bottom button. */}
-      <div ref={popoverRef} className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-2">
-        {showSlider && (
-          <div className="overlay-pop bg-surface border border-border rounded-theme shadow-lg px-4 py-3 w-56">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-text">{t("intensityLabel")}</span>
-              <span className="text-xs text-text-muted font-mono">
-                {intensity === 0 ? t("intensityOff") : `${intensity}%`}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={intensity}
-              onChange={(e) => updateIntensity(parseInt(e.target.value, 10))}
-              className="w-full accent-primary cursor-pointer"
-              aria-label={t("intensityLabel")}
-            />
-            <p className="text-[11px] text-text-dim mt-1.5">{t("intensityHint")}</p>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => setShowSlider((v) => !v)}
-          title={t("intensityLabel")}
-          aria-label={t("intensityLabel")}
-          className="w-9 h-9 flex items-center justify-center rounded-full bg-surface/80 border border-border text-text-muted hover:text-text hover:border-text-muted shadow-md backdrop-blur-sm transition cursor-pointer"
-        >
-          {showSlider ? <X className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
-        </button>
-      </div>
-    </>
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed layer; next/image adds nothing here */}
+      <img
+        src={effectiveUrl!}
+        alt=""
+        draggable={false}
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 scale-105"
+        style={{
+          opacity: intensity / 100,
+          filter: "blur(var(--theme-bg-image-blur, 6px))",
+        }}
+      />
+      {/* Theme scrim — tints any picture into the current theme's palette. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundColor:
+            "rgb(var(--theme-bg-scrim, var(--theme-bg)) / var(--theme-bg-scrim-alpha, 0.72))",
+        }}
+      />
+    </div>
   );
 }

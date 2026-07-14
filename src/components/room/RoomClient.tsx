@@ -538,6 +538,7 @@ export function RoomClient({
         nickname={nickname}
         status={status}
         checkMenuModes={ruleCapabilities.checkMenuModes}
+        hasBackground={!!backgroundUrl}
         playerCount={playerCount}
         botCount={botCount}
         sidebarCollapsed={sidebarCollapsed}

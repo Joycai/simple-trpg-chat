@@ -146,11 +146,15 @@ z-10 现有 UI    聊天区、面板等
 
 ### 5.4 玩家侧强度滑块(localStorage,不进 DB)
 
-设置入口放房间内现有个人设置处,滑块 0–100:
+设置入口放 TopBar 齿轮菜单的个人设置分区(紧随"个人设置"一项),仅当 host 已设背景时出现,滑块 0–100:
 
 - 控制背景图层 opacity;**0 = 完全关闭**(同时移除 blur 与罩层渲染,省 GPU);
 - key:`room-bg-intensity`(全局一份即可,无需按房间);默认 60;
 - 顺带解决低配设备 `backdrop-filter` 性能问题——拉到 0 即回到纯色主题渲染路径。
+
+滑块状态由 `src/components/room/hooks/useRoomBgIntensity.ts`(模块级 store + `useSyncExternalStore`)在 `RoomBackground`(绘制图层)与 `RoomTopBar`(滑块 UI)两棵互不相干的子树间共享,避免穿过 RoomTopBar 冗长的 props 透传。
+
+> 早期实现曾把滑块做成聊天区右下角的浮动按钮,与"回到最新消息"按钮重叠(两者分属不同子树,z-index 只能决定谁盖住谁),已按本节回归菜单入口。该角落现在只属于滚动按钮。
 
 ### 5.5 Host 管理 UI
 
@@ -212,7 +216,9 @@ example.com {
 | 新 | `src/app/api/rooms/[id]/backgrounds/[filename]/route.ts`(GET 服务) |
 | 新 | `src/app/actions/background.ts`(list / set / rename / delete) |
 | 改 | `src/app/rooms/[id]/page.tsx`(下发激活背景 URL) |
-| 新 | `src/components/room/RoomBackground.tsx`(背景层+罩层+淡入淡出+滑块联动) |
+| 新 | `src/components/room/RoomBackground.tsx`(背景层+罩层+淡入淡出) |
+| 新 | `src/components/room/hooks/useRoomBgIntensity.ts`(强度 store,跨子树共享) |
+| 改 | `src/components/room/RoomTopBar.tsx`(齿轮菜单内的强度滑块) |
 | 改 | `src/components/room/RoomClient.tsx`(挂载背景层与 `data-room-bg`) |
 | 改 | `src/components/room/RoomSettings.tsx`(host 背景管理区块) |
 | 改 | `src/themes/*/theme.css` ×6 + `src/app/globals.css`(scrim 变量 + surface 半透明规则 + 兜底) |
