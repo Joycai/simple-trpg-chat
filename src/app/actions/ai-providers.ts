@@ -6,6 +6,8 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { validateApiEndpoint } from "@/lib/url-guard";
+import { normalizeVendorId } from "@/lib/provider-presets";
+import { buildModelsRequest, parseModelsResponse } from "@/lib/model-fetch";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 
@@ -13,6 +15,7 @@ export interface ProviderData {
   name: string;
   apiEndpoint: string;
   apiKey?: string;       // plain text (new/updated), or undefined to keep existing
+  vendor?: string;       // AI_VENDORS id; falls back to "openai-compatible"
   model: string;
   isShared?: boolean;    // admin only
   tokenRateInput?: number;
@@ -47,6 +50,7 @@ export async function createProvider(data: ProviderData): Promise<{ error: strin
       apiEndpoint: data.apiEndpoint.trim(),
       apiKeyEncrypted: encrypt(data.apiKey.trim()),
       apiKeyHint: data.apiKey.trim().slice(-4),
+      vendor: normalizeVendorId(data.vendor),
       model: data.model || "gpt-4o",
       isShared: isAdmin && !!data.isShared,
       tokenRateInput: Math.max(0, Number(data.tokenRateInput) || 0.0),
@@ -82,6 +86,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
     values.apiEndpoint = data.apiEndpoint.trim();
   }
   if (data.model?.trim()) values.model = data.model.trim();
+  if (data.vendor !== undefined) values.vendor = normalizeVendorId(data.vendor);
   if (data.apiKey?.trim() && !data.apiKey.includes("***")) {
     values.apiKeyEncrypted = encrypt(data.apiKey.trim());
     values.apiKeyHint = data.apiKey.trim().slice(-4);
@@ -186,6 +191,63 @@ export async function getProviderKey(providerId: number): Promise<string> {
     return decrypt(provider.apiKeyEncrypted);
   } catch {
     throw new Error("Provider API key cannot be decrypted — please delete and re-create this provider.");
+  }
+}
+
+// ============================================================
+// Model listing
+// ============================================================
+
+/**
+ * Fetch the vendor's model list for the create/edit provider form.
+ * Uses the plaintext key typed into the form when present; otherwise falls
+ * back to the stored (encrypted) key of `providerId` when editing.
+ */
+export async function fetchProviderModels(input: {
+  vendor: string;
+  endpoint: string;
+  apiKey?: string;
+  providerId?: number | null;
+}): Promise<{ models: string[] } | { error: string }> {
+  const session = await auth();
+  if (!session) return { error: "Not authenticated" };
+  const role = session.user.role;
+  if (role !== "host" && role !== "admin") return { error: "Unauthorized" };
+
+  const t = await getTranslations("adminProviders");
+  const endpoint = input.endpoint?.trim().replace(/\/+$/, "");
+  if (!endpoint) return { error: t("msgRequireTestFields") };
+
+  const endpointCheck = await validateApiEndpoint(endpoint);
+  if (!endpointCheck.valid) return { error: endpointCheck.error! };
+
+  // Masked placeholders ("••••1234" / "***") mean "use the stored key".
+  let apiKey = input.apiKey?.trim() ?? "";
+  if (!apiKey || apiKey.includes("***") || apiKey.includes("••")) {
+    if (!input.providerId) return { error: t("msgNeedKeyForFetch") };
+    const [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, input.providerId));
+    if (!provider) return { error: "Provider not found" };
+    const userId = parseInt(session.user.id);
+    if (provider.ownerId !== userId && role !== "admin") return { error: "Not authorized" };
+    try {
+      apiKey = decrypt(provider.apiKeyEncrypted);
+    } catch {
+      return { error: t("msgNeedKeyForFetch") };
+    }
+  }
+
+  const { url, headers } = buildModelsRequest(input.vendor, endpoint, apiKey);
+  try {
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      return { error: `HTTP ${response.status}: ${body.slice(0, 100)}` };
+    }
+    const models = parseModelsResponse(await response.json());
+    if (models.length === 0) return { error: t("msgFetchFailed") };
+    return { models };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : t("msgFetchFailed") };
   }
 }
 

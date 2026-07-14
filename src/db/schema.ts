@@ -380,6 +380,7 @@ export const aiProviders = pgTable('ai_providers', {
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
+  vendor: text('vendor').notNull().default('openai-compatible'),  // ids from src/lib/provider-presets.ts AI_VENDORS
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
   tokenRateInput: numeric('token_rate_input', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),

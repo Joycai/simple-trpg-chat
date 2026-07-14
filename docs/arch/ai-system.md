@@ -37,9 +37,12 @@ A bot can only do this if the host enabled `send_image` in its `enableTools` arr
 ## AI Providers
 
 Each host configures their own provider via the `aiProviders` table:
+- A provider is one **vendor + model** pair. The create/edit form is two-level: pick a vendor first (OpenAI / Google GenAI / Claude / DeepSeek / OpenAI-compatible third party), then a model. The vendor registry lives in `src/lib/provider-presets.ts` (`AI_VENDORS`): default endpoint, badge, model presets with per-1M token rates, and how to list models. `aiProviders.vendor` stores the chosen vendor id (legacy rows default to `openai-compatible`).
+- The chat path is uniformly OpenAI-compatible (`{endpoint}/chat/completions` + Bearer key) for every vendor — Google and Claude go through their official OpenAI-compatibility endpoints (`…/v1beta/openai`, `api.anthropic.com/v1`), so `ai_agent.ts` needs no per-vendor branching.
+- Model listing is vendor-aware: `fetchProviderModels` (server action in `ai-providers.ts`) GETs `{endpoint}/models` with Bearer auth, except the Claude vendor which uses `x-api-key` + `anthropic-version`. Request building and response parsing are pure functions in `src/lib/model-fetch.ts`. The form's `ModelPicker.tsx` combobox shows vendor preset models and can pull the live list (using the typed key, or the stored key when editing).
 - API endpoint + model are stored in plaintext; API keys are AES-256-GCM encrypted (`src/lib/encryption.ts`).
 - `AI_ENCRYPTION_KEY` env var is the encryption key (falls back to `dev-secret-key` in dev).
-- SSRF guard (`src/lib/url-guard.ts`) resolves the endpoint hostname via DNS and rejects it if any resolved address is private/loopback/link-local (also checked against literal IPv4/IPv6 forms, including IPv4-mapped IPv6). Applied both when a provider is saved and again immediately before every outbound call (`ai_agent.ts`, `ai-import.ts`, `testAiConnection`), since DNS can change between the two.
+- SSRF guard (`src/lib/url-guard.ts`) resolves the endpoint hostname via DNS and rejects it if any resolved address is private/loopback/link-local (also checked against literal IPv4/IPv6 forms, including IPv4-mapped IPv6). Applied both when a provider is saved and again immediately before every outbound call (`ai_agent.ts`, `ai-import.ts`, `testAiConnection`), and by `fetchProviderModels` before listing models, since DNS can change between the two.
 - Admin can mark a provider as `isShared` to make it available to all users.
 
 ## Token Usage & Points
