@@ -33,6 +33,12 @@ export async function createUser(formData: FormData) {
   const allowedRoles = ["player", "host", "admin"];
   if (!allowedRoles.includes(role)) throw new Error("Invalid role");
 
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.username, username));
+  if (existing) {
+    const t = await getTranslations("register");
+    throw new Error(t("errorUsernameTaken"));
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   // New hosts start with the configured default invite quota.
