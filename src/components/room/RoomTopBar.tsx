@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useClickOutside } from "@/lib/useClickOutside";
+import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
 
@@ -43,6 +44,8 @@ interface RoomTopBarProps {
    * straight from `rule.capabilities.checkMenuModes`.
    */
   checkMenuModes: ReadonlyArray<CheckMenuMode>;
+  /** True while the host has a background set — gates the intensity slider in the gear menu. */
+  hasBackground: boolean;
   playerCount: number;
   botCount: number;
   // Sidebar
@@ -91,6 +94,7 @@ export function RoomTopBar({
   nickname,
   status,
   checkMenuModes,
+  hasBackground,
   playerCount,
   botCount,
   sidebarCollapsed,
@@ -132,6 +136,8 @@ export function RoomTopBar({
   const t = useTranslations("room");
   const tn = useTranslations("nav");
   const ts = useTranslations("userSettings");
+  const tb = useTranslations("roomBackground");
+  const bgIntensity = useRoomBgIntensity();
 
   // Uniform sizing for every top-bar control, so heights and edges line up
   // regardless of group/color. Per-button classes only add the color variant.
@@ -295,6 +301,31 @@ export function RoomTopBar({
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                     <Icons.User className="w-4 h-4" /> {ts("title")}
                   </button>
+                  {/* Player-local background intensity — only offered while the host
+                      has a background set. stopPropagation keeps the wrapper's
+                      close-on-click from firing while dragging the slider. */}
+                  {hasBackground && (
+                    <div className="px-4 pt-1.5 pb-1.5 w-60" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2.5 text-sm text-text">
+                        <Icons.Image className="w-4 h-4 shrink-0" />
+                        <span>{tb("intensityLabel")}</span>
+                        <span className="ml-auto text-xs text-text-muted font-mono">
+                          {bgIntensity === 0 ? tb("intensityOff") : `${bgIntensity}%`}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={bgIntensity}
+                        onChange={(e) => setRoomBgIntensity(parseInt(e.target.value, 10))}
+                        className="w-full accent-primary cursor-pointer mt-2"
+                        aria-label={tb("intensityLabel")}
+                      />
+                      <p className="text-[11px] text-text-dim mt-1 leading-snug">{tb("intensityHint")}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
