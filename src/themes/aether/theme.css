@@ -8,6 +8,11 @@
 [data-theme="aether"] {
   /* === Core palette: deep cosmic purple + brass gold + crystal cyan === */
   --theme-bg: 26 22 38;              /* deep indigo-purple night */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 26 22 38;
+  --theme-bg-scrim-alpha: 0.72;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 39 33 47;         /* elevated panel, warm purple */
   --theme-surface-alt: 31 26 42;     /* inner block */
   --theme-border: 58 49 68;          /* subtle amethyst edge */
@@ -304,6 +309,11 @@
    ===================================================================== */
 [data-theme="aether"][data-mode="light"] {
   --theme-bg: 231 223 201;           /* warm ivory workshop wall */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 231 223 201;
+  --theme-bg-scrim-alpha: 0.66;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 243 236 216;      /* polished bone panel */
   --theme-surface-alt: 236 228 204;  /* shaded panel */
   --theme-border: 160 129 68;        /* brass-etched edge */

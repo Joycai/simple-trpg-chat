@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { UserPlus, X, Eye, EyeOff, Minus, Plus } from "lucide-react";
 import { createUser } from "@/app/admin/actions";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { Notice } from "@/components/shared/Notice";
 
 const AI_POINTS_STEP = 100;
 const DEFAULT_AI_POINTS = 500;
@@ -24,6 +25,21 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [aiPoints, setAiPoints] = useState(DEFAULT_AI_POINTS);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, close: () => void) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      await createUser(new FormData(e.currentTarget));
+      close();
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : t("operationFailed"));
+      setSubmitting(false);
+    }
+  };
 
   const roleLabel = (r: string): string =>
     ({ player: t("rolePlayer"), host: t("roleHost"), admin: t("roleAdmin") } as Record<string, string>)[r] ?? r;
@@ -53,7 +69,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <form action={createUser} className="flex flex-col gap-5 p-5">
+          <form onSubmit={(e) => handleSubmit(e, close)} className="flex flex-col gap-5 p-5">
             <input type="hidden" name="role" value={role} />
             <input type="hidden" name="aiPoints" value={aiPoints} />
 
@@ -164,14 +180,16 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
+            {error && <Notice variant="error">{error}</Notice>}
+
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 pt-1">
               <button type="button" onClick={close}
                 className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">
                 {t("cancel")}
               </button>
-              <button type="submit"
-                className="btn-primary px-6 py-2.5 rounded-theme bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
+              <button type="submit" disabled={submitting}
+                className="btn-primary px-6 py-2.5 rounded-theme bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)] disabled:opacity-60 disabled:cursor-not-allowed">
                 {t("createAccount")}
               </button>
             </div>

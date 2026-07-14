@@ -124,6 +124,8 @@ pnpm dev
 | `AUTH_URL` | ✅ | 部署服务的外部访问根路径（反向代理必须填写正确，否则会导致重定向到 localhost） |
 | `AI_ENCRYPTION_KEY` | ❌ | 用于加密存储在数据库中 AI 提供商 API Key 的密钥。未配置则无法使用 AI 模块 |
 | `DATABASE_URL` | ❌ | Drizzle-kit CLI 迁移时使用的 fallback 数据库连接串（优先读取 `db.config.json`） |
+| `CHAT_IMAGE_DIR` | ❌ | 聊天图片缓存目录（默认 `<cwd>/cache/chat-images`，可清理） |
+| `ROOM_BACKGROUND_DIR` | ❌ | 房间背景图目录（默认 `<cwd>/cache/room-backgrounds`）。⚠️ 背景图为主持人备团素材，**不是**可随意清理的缓存，请勿与聊天图片一并清空 |
 
 ---
 
@@ -137,6 +139,10 @@ pnpm dev
 server {
     listen 443 ssl http2;
     server_name trpg.example.com;
+
+    # ⚠️ 必须：房间背景图上传最大 5MB（Nginx 默认 1MB 会直接 413 拒绝）。
+    # 留 1MB 余量给 multipart 报文开销。
+    client_max_body_size 6m;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -161,6 +167,9 @@ trpg.example.com {
     }
 }
 ```
+
+> Caddy v2 默认**不限制**请求体大小，背景图上传（≤5MB）开箱即用。
+> 若你的站点显式配置过 `request_body { max_size ... }`，请确保其不低于 `6MB`。
 
 ### 2. 数据库备份
 PostgreSQL 数据存放在数据库服务中。生产环境应配置定时任务，使用工具定期执行热备份：

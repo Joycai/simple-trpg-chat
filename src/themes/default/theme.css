@@ -7,6 +7,11 @@
 :root,
 [data-theme="default"] {
   --theme-bg: 248 250 252;
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 248 250 252;
+  --theme-bg-scrim-alpha: 0.66;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 255 255 255;
   --theme-surface-alt: 241 245 249;
   --theme-border: 226 232 240;
@@ -63,6 +68,11 @@
 /* ============ DARK ============ */
 [data-theme="default"][data-mode="dark"] {
   --theme-bg: 15 23 42;            /* slate-900 */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 15 23 42;
+  --theme-bg-scrim-alpha: 0.72;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 30 41 59;       /* slate-800 */
   --theme-surface-alt: 51 65 85;   /* slate-700 */
   --theme-border: 51 65 85;

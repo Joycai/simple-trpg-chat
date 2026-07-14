@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers, messages, users, systemConfig, aiProviders } from "@/db/schema";
+import { rooms, roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import { messageVisibilityWhere } from "@/lib/messaging/router";
 import { redirect } from "next/navigation";
@@ -11,6 +11,7 @@ import type { ThemeId, StoredThemeMode, ResolvedMode } from "@/themes/types";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
+import { roomBackgroundUrl } from "@/lib/backgrounds";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
@@ -140,6 +141,17 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       )
   ]);
 
+  // Active room background (null = off). The filename lookup is skipped
+  // entirely for rooms that never set one.
+  let backgroundUrl: string | null = null;
+  if (room.backgroundId != null) {
+    const [bg] = await db
+      .select({ filename: roomBackgrounds.filename })
+      .from(roomBackgrounds)
+      .where(eq(roomBackgrounds.id, room.backgroundId));
+    if (bg) backgroundUrl = roomBackgroundUrl(roomId, bg.filename);
+  }
+
   const visibleMessages = roomMessages.reverse();
   const aiEnabled = aiConfig?.value === "true";
   const isHostQuotaOk = !hostUser || hostUser.role === "admin" || Number(hostUser.aiPoints || 0) > 0;
@@ -183,6 +195,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         validProviderIds={validProviderIds}
         userName={user.name || user.username}
         userRole={user.role}
+        backgroundUrl={backgroundUrl}
         isObserver={isObserver}
       />
     </>

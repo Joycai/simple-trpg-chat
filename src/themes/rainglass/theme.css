@@ -8,6 +8,11 @@
 /* ============ LIGHT (baseline) — overcast cool-steel frosted glass ============ */
 [data-theme="rainglass"] {
   --theme-bg: 216 222 226;          /* overcast cool steel */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 216 222 226;
+  --theme-bg-scrim-alpha: 0.66;
+  --theme-bg-image-blur: 8px;
   --theme-surface: 231 236 239;     /* frosted glass pane */
   --theme-surface-alt: 222 228 231;
   --theme-border: 196 208 215;      /* cool steel edge */
@@ -296,6 +301,11 @@
 /* ============ DARK — neon rainy night (the hero) ============ */
 [data-theme="rainglass"][data-mode="dark"] {
   --theme-bg: 6 12 16;              /* deepest cool teal-black sky */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 6 12 16;
+  --theme-bg-scrim-alpha: 0.72;
+  --theme-bg-image-blur: 8px;
   --theme-surface: 15 24 30;
   --theme-surface-alt: 11 19 24;
   --theme-border: 38 54 62;

@@ -52,7 +52,7 @@ src/
 │   ├── login/
 │   └── rooms/[id]/
 ├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 18-table schema, seed
+├── db/                        # Drizzle client, 19-table schema, seed
 ├── lib/                       # 15 utility/service modules
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
@@ -70,7 +70,7 @@ For deep dives into specific systems, see `docs/`:
 
 | Topic | File |
 | ----- | ---- |
-| Database — 18 tables, schema, relations | `docs/arch/database.md` |
+| Database — 19 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
 | Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
@@ -128,6 +128,10 @@ The `avatar` column was added to `roomMembers` table schema. If upgrading, run:
 ```bash
 pnpm db:push  # Interactive mode — answer "No" to ai_token_usages truncate prompt if it appears
 ```
+
+### Room Backgrounds
+
+Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图 tab) and switch between them live; players get a local intensity slider (localStorage, 0 = off). Uploads (≤5MB, JPEG/PNG/WebP — GIF rejected) are re-encoded server-side via `sharp` to bounded WebP (2560px / q80) under `cache/room-backgrounds/` (`ROOM_BACKGROUND_DIR`) — a **separate** directory from chat images because backgrounds are host prep material, not disposable cache; admin cleanup only touches them via an explicit opt-in checkbox. The image renders behind a per-theme scrim (`--theme-bg-scrim*` vars in each `theme.css`); `data-room-bg` on `<body>` softens opaque shells (globals.css). Switching broadcasts the existing `room_settings_updated` SSE event. Core: `src/lib/backgrounds.ts`, `src/app/api/rooms/[id]/backgrounds/`, `src/app/actions/background.ts`, `RoomBackground.tsx`, `RoomBackgroundManager.tsx`. Reverse-proxy note: nginx needs `client_max_body_size 6m`. Design doc: `docs/design/room-background.md`.
 
 ### Invite-Code Registration
 

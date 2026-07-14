@@ -33,6 +33,12 @@ export async function createUser(formData: FormData) {
   const allowedRoles = ["player", "host", "admin"];
   if (!allowedRoles.includes(role)) throw new Error("Invalid role");
 
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.username, username));
+  if (existing) {
+    const t = await getTranslations("register");
+    throw new Error(t("errorUsernameTaken"));
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   // New hosts start with the configured default invite quota.
@@ -145,8 +151,16 @@ export async function deleteUser(id: number) {
 export async function deleteRoom(id: number) {
   await requireAdmin();
 
+  // Background FILES live outside the DB — remove them before the row delete
+  // cascades away the room_backgrounds rows that name them (best-effort; a
+  // leftover file is harmless and admin cleanup can sweep it later).
+  const { cleanupRoomBackgrounds } = await import("@/lib/image-cache");
+  await cleanupRoomBackgrounds(id).catch((err) => {
+    console.error("[admin] Failed to remove room background files:", err);
+  });
+
   // All room-scoped tables cascade on rooms.id delete (members, messages,
-  // skills, dm reads, inventory items/distributions, clue cards).
+  // skills, dm reads, inventory items/distributions, clue cards, backgrounds).
   await db.delete(rooms).where(eq(rooms.id, id));
   revalidatePath("/admin/rooms");
 }

@@ -5,6 +5,11 @@
 /* ============ DARK (baseline) — 烛光下的深色羊皮 ============ */
 [data-theme="parchment"] {
   --theme-bg: 26 19 11;              /* dark leather */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 26 19 11;
+  --theme-bg-scrim-alpha: 0.72;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 37 26 15;         /* candlelit vellum */
   --theme-surface-alt: 31 21 9;
   --theme-border: 74 54 36;          /* dim sepia line */
@@ -318,6 +323,11 @@
    ===================================================================== */
 [data-theme="parchment"][data-mode="light"] {
   --theme-bg: 230 211 165;           /* aged tan vellum */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 230 211 165;
+  --theme-bg-scrim-alpha: 0.66;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 241 227 185;      /* fresh parchment */
   --theme-surface-alt: 232 214 160;
   --theme-border: 184 148 101;       /* sepia line */

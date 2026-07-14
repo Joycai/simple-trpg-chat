@@ -7,6 +7,7 @@ let localEphemeralId = -1;
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
 import { RoomTopBar } from "@/components/room/RoomTopBar";
+import { RoomBackground } from "@/components/room/RoomBackground";
 import { ChatArea } from "@/components/room/chat/ChatArea";
 import { RoomOverlays } from "@/components/room/RoomOverlays";
 import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
@@ -39,6 +40,7 @@ export function RoomClient({
   validProviderIds = [],
   userName,
   userRole,
+  backgroundUrl = null,
   isObserver = false,
 }: RoomClientProps) {
   const t = useTranslations("room");
@@ -527,6 +529,9 @@ export function RoomClient({
 
   return (
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
+      {/* Ambient background: fixed z-0 layers above the root's opaque bg-bg,
+          below the top bar (z-20) and the positioned content row below. */}
+      <RoomBackground url={backgroundUrl} />
       <RoomTopBar
         room={room}
         isHost={isHost}

@@ -1,9 +1,9 @@
 /**
  * Simple TRPG Chat — PostgreSQL Schema (Drizzle ORM)
  *
- * Single source of truth for the database (PostgreSQL only). 18 tables:
+ * Single source of truth for the database (PostgreSQL only). 19 tables:
  *   Identity:   users | invite_codes
- *   Room core:  rooms | room_members | room_skills | room_dm_reads
+ *   Room core:  rooms | room_members | room_skills | room_dm_reads | room_backgrounds
  *   Messaging:  messages
  *   Inventory:  inventory_items | inventory_distributions
  *   Clues:      clue_cards | clue_visibility
@@ -13,7 +13,7 @@
  * See docs/arch/database.md for column-level reference.
  */
 
-import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { Audience } from '@/lib/messaging/audience';
 
@@ -116,9 +116,34 @@ export const rooms = pgTable('rooms', {
   ruleTemplate: text('rule_template').notNull().default('basic'),
   status: text('status').notNull().default('active'),
   frozen: boolean('frozen').notNull().default(false),
+  // Currently active room background (null = background off). `set null` on
+  // delete so removing a background can never leave a dangling reference —
+  // see docs/design/room-background.md.
+  backgroundId: integer('background_id').references((): AnyPgColumn => roomBackgrounds.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
+
+/**
+ * Host-uploaded room background images (docs/design/room-background.md).
+ * Files live on disk under `cache/room-backgrounds/` (ROOM_BACKGROUND_DIR);
+ * rows and files are created/deleted together. Unlike chat images this is
+ * NOT a disposable cache — admin cleanup only touches it when explicitly
+ * asked (`includeBackgrounds`).
+ */
+export const roomBackgrounds = pgTable('room_backgrounds', {
+  id: serial('id').primaryKey(),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  // On-disk filename: <roomId>-<ts>-<rand>.webp (always re-encoded WebP).
+  filename: text('filename').notNull(),
+  // Optional host-given label ("教堂内景") shown in the management grid.
+  title: text('title'),
+  // Post-compression size — lets admin stats SUM without hitting the disk.
+  sizeBytes: integer('size_bytes').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, (t) => ({
+  idxRoom: index('idx_room_backgrounds_room').on(t.roomId),
+}));
 
 export const roomMembers = pgTable('room_members', {
   id: serial('id').primaryKey(),
@@ -271,6 +296,12 @@ export const roomsRelations = relations(rooms, ({ one, many }) => ({
   skills: many(roomSkills),
   inventoryItems: many(inventoryItems),
   distributions: many(inventoryDistributions),
+  backgrounds: many(roomBackgrounds, { relationName: 'roomBackgrounds' }),
+  activeBackground: one(roomBackgrounds, { fields: [rooms.backgroundId], references: [roomBackgrounds.id], relationName: 'activeRoomBackground' }),
+}));
+
+export const roomBackgroundsRelations = relations(roomBackgrounds, ({ one }) => ({
+  room: one(rooms, { fields: [roomBackgrounds.roomId], references: [rooms.id], relationName: 'roomBackgrounds' }),
 }));
 
 export const roomMembersRelations = relations(roomMembers, ({ one }) => ({
@@ -449,4 +480,3 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
   creator: one(users, { fields: [inviteCodes.creatorId], references: [users.id], relationName: 'createdInvites' }),
   usedBy: one(users, { fields: [inviteCodes.usedByUserId], references: [users.id], relationName: 'usedInvite' }),
 }));
-
