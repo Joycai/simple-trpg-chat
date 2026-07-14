@@ -7,6 +7,11 @@
 /* ============ DARK (baseline) — Innsmouth fog-port abyssal locker ============ */
 [data-theme="cthulhu"] {
   --theme-bg: 10 19 22;             /* 深渊黑绿 deepest abyss */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 10 19 22;
+  --theme-bg-scrim-alpha: 0.72;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 16 28 32;
   --theme-surface-alt: 12 23 27;
   --theme-border: 40 56 61;
@@ -288,6 +293,11 @@
    ===================================================================== */
 [data-theme="cthulhu"][data-mode="light"] {
   --theme-bg: 213 205 179;           /* faded archive paper */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 213 205 179;
+  --theme-bg-scrim-alpha: 0.66;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 226 217 192;
   --theme-surface-alt: 205 196 169;
   --theme-border: 163 152 121;

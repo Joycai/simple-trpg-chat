@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Images, RefreshCw, Trash2, ChevronDown } from "lucide-react";
+import { Images, RefreshCw, Trash2, ChevronDown, Image as ImageIcon, AlertTriangle } from "lucide-react";
 import {
   getImageCacheStatsAction,
   cleanupImageCacheAction,
@@ -23,6 +23,9 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
   const [busy, setBusy] = useState<string | null>(null);
   /** Room id whose per-room cleanup panel is expanded. */
   const [expanded, setExpanded] = useState<number | null>(null);
+  /** Explicit opt-in: cleanup also deletes room backgrounds. Default OFF —
+      backgrounds are host prep material, not an aging cache. */
+  const [includeBackgrounds, setIncludeBackgrounds] = useState(false);
 
   const rescan = async () => {
     setScanning(true);
@@ -36,16 +39,19 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
   };
 
   const cleanup = async (scope: "all" | number, range: CleanupRange, key: string) => {
-    const confirmMsg =
+    let confirmMsg =
       range === "all"
         ? scope === "all"
           ? t("imageCacheConfirmAllRooms")
           : t("imageCacheConfirmRoomAll")
         : t("imageCacheConfirmRange");
+    if (includeBackgrounds) {
+      confirmMsg += "\n\n" + t("imageCacheConfirmBackgrounds");
+    }
     if (!window.confirm(confirmMsg)) return;
     setBusy(key);
     try {
-      const res = await cleanupImageCacheAction(scope, range);
+      const res = await cleanupImageCacheAction(scope, range, includeBackgrounds);
       setStats(res.stats);
       setExpanded(null);
     } catch (e) {
@@ -106,6 +112,16 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
               {t("imageCacheRoomsCount", { count: stats.roomCount })}
             </span>
           </div>
+          {/* Room backgrounds — separate ledger, excluded from routine cleanup. */}
+          <div className="flex items-center gap-2 text-xs text-text-muted border-t border-border/60 pt-2.5">
+            <ImageIcon className="w-3.5 h-3.5 text-text-dim shrink-0" />
+            <span>
+              {t("imageCacheBackgroundsSummary", {
+                count: stats.backgrounds.totalCount,
+                size: formatBytes(stats.backgrounds.totalBytes),
+              })}
+            </span>
+          </div>
         </section>
 
         {/* Batch cleanup */}
@@ -139,6 +155,28 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
               onClick={() => cleanup("all", "all", "all:all")}
             />
           </div>
+
+          {/* Explicit opt-in for room backgrounds — default OFF. Applies to
+              every cleanup action (batch + per-room) while checked. */}
+          <label className="flex items-start gap-2.5 mt-1 px-3 py-2.5 rounded-theme border border-border bg-bg/30 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeBackgrounds}
+              onChange={(e) => setIncludeBackgrounds(e.target.checked)}
+              className="mt-0.5 accent-danger cursor-pointer"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-medium text-text">
+                {t("imageCacheIncludeBackgrounds", {
+                  size: formatBytes(stats.backgrounds.totalBytes),
+                })}
+              </span>
+              <span className={`flex items-center gap-1 text-[11px] mt-0.5 ${includeBackgrounds ? "text-danger" : "text-text-dim"}`}>
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                {t("imageCacheIncludeBackgroundsWarning")}
+              </span>
+            </span>
+          </label>
         </section>
       </div>
 

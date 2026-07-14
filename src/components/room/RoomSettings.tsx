@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, Sunrise, AlertTriangle, type LucideIcon } from "lucide-react";
+import { Palette, SlidersHorizontal, X, Monitor, Sun, Moon, Sunrise, AlertTriangle, Image as ImageIcon, type LucideIcon } from "lucide-react";
 import { updateRoomSettingsAction } from "@/app/actions/room";
 import { THEME_LIST, THEME_MODES, getThemeName } from "@/themes/types";
 import type { ThemeId, ThemeMode, StoredThemeMode } from "@/themes/types";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
+import { RoomBackgroundManager } from "@/components/room/RoomBackgroundManager";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
@@ -18,13 +19,16 @@ interface RoomSettingsProps {
   currentTheme: ThemeId;
   currentThemeMode: StoredThemeMode;
   currentRuleTemplate?: string;
+  /** Background management is host prep material — tab hidden otherwise. */
+  isHost?: boolean;
   onClose: () => void;
 }
 
-type SettingsTab = "theme" | "general";
+type SettingsTab = "theme" | "general" | "background";
 
-export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode, currentRuleTemplate, onClose }: RoomSettingsProps) {
+export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode, currentRuleTemplate, isHost = false, onClose }: RoomSettingsProps) {
   const t = useTranslations("roomSettings");
+  const tb = useTranslations("roomBackground");
   const tm = useTranslations("themeMode");
   const locale = useLocale();
   const tCommon = useTranslations("common");
@@ -66,6 +70,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   const tabs = [
     ["theme", Palette, t("tabTheme")],
     ["general", SlidersHorizontal, t("tabGeneral")],
+    ...(isHost ? ([["background", ImageIcon, tb("tabTitle")]] as const) : []),
   ] as const;
 
   return (
@@ -213,6 +218,19 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                       </button>
                     </label>
                   </div>
+                </div>
+              )}
+
+              {tab === "background" && isHost && (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <h4 className="text-base font-bold text-text flex items-center gap-2 mb-1">
+                      <ImageIcon className="w-5 h-5 text-primary" />
+                      {tb("tabTitle")}
+                    </h4>
+                    <p className="text-xs text-text-muted">{tb("tabDesc")}</p>
+                  </div>
+                  <RoomBackgroundManager roomId={roomId} />
                 </div>
               )}
 

@@ -145,8 +145,16 @@ export async function deleteUser(id: number) {
 export async function deleteRoom(id: number) {
   await requireAdmin();
 
+  // Background FILES live outside the DB — remove them before the row delete
+  // cascades away the room_backgrounds rows that name them (best-effort; a
+  // leftover file is harmless and admin cleanup can sweep it later).
+  const { cleanupRoomBackgrounds } = await import("@/lib/image-cache");
+  await cleanupRoomBackgrounds(id).catch((err) => {
+    console.error("[admin] Failed to remove room background files:", err);
+  });
+
   // All room-scoped tables cascade on rooms.id delete (members, messages,
-  // skills, dm reads, inventory items/distributions, clue cards).
+  // skills, dm reads, inventory items/distributions, clue cards, backgrounds).
   await db.delete(rooms).where(eq(rooms.id, id));
   revalidatePath("/admin/rooms");
 }

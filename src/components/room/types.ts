@@ -79,6 +79,8 @@ export interface RoomClientProps {
   validProviderIds?: number[];
   userName: string;
   userRole: string;
+  /** Active room background URL (null = background off) — see RoomBackground. */
+  backgroundUrl?: string | null;
   /** Admin viewing a room they haven't joined: read-only, not in member list. */
   isObserver?: boolean;
 }

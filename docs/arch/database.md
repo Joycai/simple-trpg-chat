@@ -2,7 +2,7 @@
 
 ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push changes with `pnpm db:push`.
 
-## Tables (17)
+## Tables (19)
 
 | Table | Key Columns | Notes |
 | ----- | ----------- | ----- |
@@ -11,6 +11,7 @@ ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push change
 | `roomMembers` | id, roomId, userId, nickname, joinedAt, characterData, avatarColor, avatar | `characterData` holds full COC character sheet JSON; `avatar` is an optional base64 JPEG (≤512×512) per-room custom avatar, `avatarColor` the fallback letter-badge color. Unique on `(roomId, userId)` |
 | `roomSkills` | id, roomId, userId, skillName, skillValue | Per-player skills; synced with `characterData` for sanity |
 | `roomDmReads` | id, roomId, userId, partnerUserId, lastReadAt | Tracks last-read per DM pair for unread badges |
+| `roomBackgrounds` | id, roomId, filename, title, sizeBytes, createdAt | Host-uploaded backgrounds (sharp-re-encoded WebP on disk under `cache/room-backgrounds/`); `rooms.backgroundId` (FK, `set null`) marks the active one — see `docs/design/room-background.md` |
 | `messages` | id, roomId, userId, targetUserId, nickname, content, type, diceDetail, audience, channelUserId, isPrivate, createdAt | `audience` (WHO: everyone/self/recipient/directed/dm/gm) + `channelUserId` (WHERE: null=public, else DM partner) own visibility — see `docs/arch/realtime.md`. `isPrivate` is a legacy derived mirror |
 | `systemConfig` | key, value, updatedAt | Key-value store: site title, default theme, sensitive words, etc. |
 | `inventoryItems` | id, roomId, creatorId, type (`clue`/`info`/`character`/`item`), title, contentJson, imageUrl | |

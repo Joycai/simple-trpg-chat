@@ -8,6 +8,11 @@
 [data-theme="shrine"] {
   /* === Core palette (light) === */
   --theme-bg: 221 210 188;            /* #ddd2bc washi ground */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 221 210 188;
+  --theme-bg-scrim-alpha: 0.66;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 236 227 209;       /* #ece3d1 card / panel */
   --theme-surface-alt: 224 214 194;   /* #e0d6c2 inner block / input */
   --theme-border: 205 191 163;        /* #cdbfa3 edge / divider */
@@ -255,6 +260,11 @@
    ===================================================================== */
 [data-theme="shrine"][data-mode="dark"] {
   --theme-bg: 20 16 11;               /* #14100b cool sumi night */
+  /* Room background scrim — tints host-uploaded images into this palette
+     (docs/design/room-background.md). */
+  --theme-bg-scrim: 20 16 11;
+  --theme-bg-scrim-alpha: 0.72;
+  --theme-bg-image-blur: 6px;
   --theme-surface: 31 22 13;          /* #1f160d lantern-lit wood */
   --theme-surface-alt: 26 18 11;      /* #1a120b inner block */
   --theme-border: 70 52 30;           /* #46341e */

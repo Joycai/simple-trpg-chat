@@ -197,7 +197,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <TimelineDividerDialog roomId={room.id} onClose={() => setShowTimeline(false)} />
       )}
       {showSettings && (
-        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentRuleTemplate={room.ruleTemplate || "basic"} onClose={() => setShowSettings(false)} />
+        <RoomSettings roomId={room.id} roomName={room.name} currentTheme={roomTheme || "default"} currentThemeMode={roomThemeMode || "auto"} currentRuleTemplate={room.ruleTemplate || "basic"} isHost={isHost} onClose={() => setShowSettings(false)} />
       )}
       {showRoomInfo && (
         <RoomInfoPanel room={{ ...room, ruleTemplate: room.ruleTemplate ?? "basic", createdAt: room.createdAt ?? "" }} isHost={isHost} userId={userId} onClose={() => setShowRoomInfo(false)} />

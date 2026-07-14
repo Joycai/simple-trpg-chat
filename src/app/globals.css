@@ -82,6 +82,47 @@ h3:not(.no-display-font),
 
 
 /* ============================================================
+   Room background (docs/design/room-background.md)
+   ------------------------------------------------------------
+   RoomBackground sets `data-room-bg` on <body> while a host-set
+   background image is visibly active (player intensity > 0).
+   The image itself is painted by the component (fixed z-0 image +
+   theme scrim, both driven by the per-theme --theme-bg-scrim*
+   variables); the rules here soften the room's opaque shells so
+   the picture shows through without ever costing readability —
+   text sits on high-opacity surfaces regardless of the image.
+   Fallbacks below cover any theme that forgets to define the vars.
+   ============================================================ */
+:root {
+  --theme-bg-scrim-alpha: 0.7;
+  --theme-bg-image-blur: 6px;
+}
+
+/* Big shells: header, sidebar, chat input bar — translucent + blur. */
+body[data-room-bg] .bg-header-bg {
+  background-color: rgb(var(--theme-header-bg) / 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body[data-room-bg] .bg-surface-alt {
+  background-color: rgb(var(--theme-surface-alt) / 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+/* Cards, bubbles, panels: high-opacity — contrast is guaranteed here,
+   independent of whatever picture the host chose. No blur (too many
+   elements; the shells above already carry the frosted look). */
+body[data-room-bg] .bg-surface {
+  background-color: rgb(var(--theme-surface) / 0.92);
+}
+/* Full-bleed opaque fills inside the room (NOT the room root itself —
+   these rules are descendant-scoped, and the root carries its own
+   `bg-bg` as the opaque base under the image). */
+body[data-room-bg] .bg-bg .bg-bg {
+  background-color: rgb(var(--theme-bg) / 0.6);
+}
+
+/* ============================================================
    Overlay / Modal motion — Apple-style non-linear transitions
    ------------------------------------------------------------
    Drives the enter/exit of top-bar panels (character sheet,

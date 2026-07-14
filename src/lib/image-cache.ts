@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
+import { eq, inArray, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { roomBackgrounds, rooms } from "@/db/schema";
 import { getChatImageDir } from "@/lib/uploads";
+import { getRoomBackgroundDir } from "@/lib/backgrounds";
 
 /**
  * Chat-image cache accounting & cleanup.
@@ -153,6 +157,103 @@ export async function getImageCacheStats(): Promise<ImageCacheStats> {
     bytes7d,
     bytes30d,
     rooms,
+  };
+}
+
+// ============================================================
+// Room backgrounds (docs/design/room-background.md)
+// ------------------------------------------------------------
+// Backgrounds are host prep material, NOT a disposable cache: they live in
+// their own directory, are registered in the `room_backgrounds` table (the
+// source of truth — stats come from the DB, not a disk scan), and are only
+// touched by cleanup when the admin explicitly opts in (`includeBackgrounds`,
+// default off). No time ranges: opting in deletes the scope's backgrounds
+// outright.
+// ============================================================
+
+/** Per-room rollup of background usage (DB-derived). */
+export interface RoomBackgroundUsage {
+  roomId: number;
+  count: number;
+  bytes: number;
+}
+
+export interface RoomBackgroundStats {
+  totalBytes: number;
+  totalCount: number;
+  roomCount: number;
+  rooms: RoomBackgroundUsage[];
+}
+
+/** Aggregate `room_backgrounds` per room, sorted by bytes descending. */
+export async function getRoomBackgroundStats(): Promise<RoomBackgroundStats> {
+  const rows = await db
+    .select({
+      roomId: roomBackgrounds.roomId,
+      count: sql<number>`count(*)::int`,
+      bytes: sql<number>`coalesce(sum(${roomBackgrounds.sizeBytes}), 0)::bigint`,
+    })
+    .from(roomBackgrounds)
+    .groupBy(roomBackgrounds.roomId);
+
+  const usage: RoomBackgroundUsage[] = rows
+    .map((r) => ({ roomId: r.roomId, count: r.count, bytes: Number(r.bytes) }))
+    .sort((a, b) => b.bytes - a.bytes);
+
+  return {
+    totalBytes: usage.reduce((a, r) => a + r.bytes, 0),
+    totalCount: usage.reduce((a, r) => a + r.count, 0),
+    roomCount: usage.length,
+    rooms: usage,
+  };
+}
+
+/**
+ * Delete room backgrounds (rows first — `rooms.backgroundId` falls back to
+ * null via FK `set null` — then files, best-effort).
+ *
+ * @param scope `"all"` for every room, or a numeric room id.
+ * @returns bytes/count removed plus the room ids that were actively showing a
+ *          deleted background — callers broadcast `room_settings_updated` to
+ *          those so members drop the image immediately.
+ */
+export async function cleanupRoomBackgrounds(
+  scope: "all" | number
+): Promise<{ freedBytes: number; deletedCount: number; affectedActiveRoomIds: number[] }> {
+  const where = scope === "all" ? undefined : eq(roomBackgrounds.roomId, scope);
+
+  const targets = await (where
+    ? db.select().from(roomBackgrounds).where(where)
+    : db.select().from(roomBackgrounds));
+  if (targets.length === 0) {
+    return { freedBytes: 0, deletedCount: 0, affectedActiveRoomIds: [] };
+  }
+
+  // Rooms currently displaying one of the doomed backgrounds (before the FK
+  // nulls the reference).
+  const targetIds = targets.map((t) => t.id);
+  const activeRooms = await db
+    .select({ id: rooms.id })
+    .from(rooms)
+    .where(inArray(rooms.backgroundId, targetIds));
+
+  await (where ? db.delete(roomBackgrounds).where(where) : db.delete(roomBackgrounds));
+
+  const dir = getRoomBackgroundDir();
+  let freedBytes = 0;
+  for (const t of targets) {
+    try {
+      await fs.unlink(path.join(dir, t.filename));
+    } catch {
+      // Already gone / not deletable — the DB row was the source of truth.
+    }
+    freedBytes += t.sizeBytes;
+  }
+
+  return {
+    freedBytes,
+    deletedCount: targets.length,
+    affectedActiveRoomIds: activeRooms.map((r) => r.id),
   };
 }
 
