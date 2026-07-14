@@ -1018,6 +1018,7 @@
     "labelKey": "API Key",
     "shareAllUsers": "共享给全站用户",
     "quotaTitle": "Token 配额系数",
+    "quotaHint": "费率单位：积分 / 每 100 万 (1M) token",
     "rateInputShort": "输入",
     "rateCachedShort": "缓存",
     "rateOutputShort": "输出",

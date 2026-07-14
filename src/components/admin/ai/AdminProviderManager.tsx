@@ -242,7 +242,10 @@ export function AdminProviderManager() {
               {/* Quota rates */}
               {isShared && (
                 <div className="rounded-theme border border-border bg-surface-alt/40 p-4 flex flex-col gap-3">
-                  <p className="text-[11px] font-bold text-accent uppercase tracking-wider">{tp("quotaTitle")}</p>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-[11px] font-bold text-accent uppercase tracking-wider">{tp("quotaTitle")}</p>
+                    <p className="text-[11px] text-text-dim">{tp("quotaHint")}</p>
+                  </div>
                   <div className="grid grid-cols-3 gap-2.5">
                     <div className="flex flex-col gap-1">
                       <label className="text-[11px] text-text-dim font-medium">{tp("rateInputShort")}</label>

@@ -1018,6 +1018,7 @@
     "labelKey": "API Key",
     "shareAllUsers": "Share with all users",
     "quotaTitle": "Token Quota Rates",
+    "quotaHint": "Rate unit: points per 1M tokens",
     "rateInputShort": "Input",
     "rateCachedShort": "Cached",
     "rateOutputShort": "Output",
