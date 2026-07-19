@@ -10,7 +10,7 @@ const MAX_RECENT = 5;
 
 /* Shared frozen empty snapshot — useSyncExternalStore compares snapshots by
    reference, so returning a fresh [] each call would loop forever. */
-const EMPTY: string[] = Object.freeze([]) as string[];
+const EMPTY = Object.freeze<string[]>([]) as string[];
 
 /* Module store rather than component state so the history survives ChatInput
    remounts (e.g. switching between public and DM tabs) without a re-read. */
