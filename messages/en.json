@@ -224,6 +224,7 @@
     "scDeductLabel": "Deduct",
     "scSanityLabel": "Sanity",
     "scWarningInsanityShort": "Temporary Insanity",
+    "keptLabel": "kept",
     "unknownTime": "Unknown time",
     "justNow": "Just now",
     "minutesAgo": "{count}m ago",
