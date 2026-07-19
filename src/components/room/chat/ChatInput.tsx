@@ -6,6 +6,8 @@ import { StickerPicker } from "@/components/room/chat/StickerPicker";
 import { Icons } from "@/components/shared/icons";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { useTranslations } from "next-intl";
+import { isRollCommand, normalizeRollCommand } from "@/lib/roll-command";
+import { recordRollCommand, useRecentRollCommands } from "@/components/room/hooks/useRecentRollCommands";
 
 interface MentionTarget {
   id: number;
@@ -36,6 +38,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
+  const recentRolls = useRecentRollCommands(roomId);
   const [_mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
 
@@ -104,7 +107,15 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   const handleSend = () => {
     const trimmed = message.trim();
     if (!trimmed) return;
-    
+
+    // Remember roll commands for the recent-rolls chips. Recorded on send,
+    // not on server success — a failed roll is still worth retrying via chip.
+    if (isRollCommand(trimmed)) {
+      const normalized = normalizeRollCommand(trimmed);
+      if (!QUICK_COMMANDS.includes(normalized)) recordRollCommand(roomId, normalized);
+    }
+
+
     // If not locked to a specific tab, but private mode is toggled, ensure target is selected
     let finalTargetId = privateTargetId;
     if (!isPrivateLocked && isPrivate && !finalTargetId) {
@@ -348,6 +359,20 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
             onClick={() => insertQuick(cmd)}
             className="px-2.5 py-1 rounded-theme border border-primary/30 bg-primary/5 text-primary text-xs font-theme-mono hover:bg-primary/15 transition cursor-pointer"
           >
+            {cmd}
+          </button>
+        ))}
+        {/* Recent roll history — filtered against the static chips so stale
+            stored values can never render a duplicate. */}
+        {recentRolls.filter((cmd) => !QUICK_COMMANDS.includes(cmd)).map((cmd) => (
+          <button
+            key={`recent-${cmd}`}
+            type="button"
+            onClick={() => insertQuick(cmd)}
+            title={t("recentRollChip")}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-theme border border-border bg-surface-alt text-text-muted text-xs font-theme-mono hover:bg-primary/10 hover:text-primary transition cursor-pointer"
+          >
+            <Icons.Clock className="w-3 h-3" />
             {cmd}
           </button>
         ))}
