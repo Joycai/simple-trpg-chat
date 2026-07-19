@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const { mockSelect } = vi.hoisted(() => {
   return {
@@ -40,6 +40,10 @@ describe("Traffic and Online Statistics Helpers", () => {
     mockSelect.mockReset();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("should return correct live online count based on unique active connections", () => {
     globalThis.__userConnections = new Map([
       [101, new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
@@ -58,18 +62,12 @@ describe("Traffic and Online Statistics Helpers", () => {
   });
 
   it("should aggregate stats correctly for 'day' range", async () => {
-    const today = new Date();
-    const formatDate = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    const todayStr = formatDate(today);
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const yesterdayStr = formatDate(yesterday);
+    // stats.ts buckets days by UTC date; pin the clock so the fixture
+    // matches deterministically regardless of run date and timezone.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
+    const todayStr = "2026-03-15";
+    const yesterdayStr = "2026-03-14";
 
     mockSelect.mockReturnValue({
       from: vi.fn(() => ({
