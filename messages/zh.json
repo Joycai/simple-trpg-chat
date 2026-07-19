@@ -206,6 +206,7 @@
   },
   "chat": {
     "inputPlaceholder": "输入消息或指令...",
+    "recentRollChip": "最近使用的投点指令",
     "send": "发送",
     "roleHost": "主持人",
     "privateRoll": "暗骰 - 仅主持人可见",

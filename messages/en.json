@@ -206,6 +206,7 @@
   },
   "chat": {
     "inputPlaceholder": "Type a message or command...",
+    "recentRollChip": "Recent roll command",
     "send": "Send",
     "roleHost": "Host",
     "privateRoll": "Private Roll - GM Only",
