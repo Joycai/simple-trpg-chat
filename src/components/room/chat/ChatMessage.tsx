@@ -132,6 +132,7 @@ type DiceDetailJson = {
   dice?: string;
   sum?: number;
   results?: number[];
+  keptRolls?: number[];
   command?: string;
   check?: { skillName: string; target: number; success: boolean; grade?: DiceGrade };
   sanityCheck?: {
@@ -285,11 +286,23 @@ function DiceResultDisplay({
     );
   }
 
+  // kN keep-highest rolls: annotate which dice were kept (e.g. 3d100k2).
+  const keptRolls =
+    Array.isArray(d.keptRolls) &&
+    Array.isArray(d.results) &&
+    d.keptRolls.length < d.results.length
+      ? d.keptRolls
+      : null;
+  const keptLabel = t("keptLabel") || "保留";
+
   return (
     <>
       <span className="dice-formula">
         {rawNotation}
         {showResults && ` [${d.results!.join(", ")}]`}
+        {keptRolls && (
+          <span className="dice-kept">({keptLabel}[{keptRolls.join(", ")}])</span>
+        )}
         {" = "}
       </span>
       <span className="dice-value">{isD100Check ? padD100(d.sum) : d.sum}</span>

@@ -224,6 +224,7 @@
     "scDeductLabel": "扣除",
     "scSanityLabel": "理智",
     "scWarningInsanityShort": "临时疯狂",
+    "keptLabel": "保留",
     "unknownTime": "未知时间",
     "justNow": "刚刚",
     "minutesAgo": "{count}分钟前",

@@ -1002,7 +1002,7 @@ function formatDiceRollMessage(
     } else {
       const keptLabel = t("keptLabel") || "保留";
       if (term.keep !== undefined) {
-        termDisplay = `${term.count}d${term.faces}k${term.keep}([${term.rolls.join(", ")}]${keptLabel}[${term.keptRolls.join(", ")}])`;
+        termDisplay = `${term.count}d${term.faces}k${term.keep}([${term.rolls.join(", ")}], ${keptLabel}[${term.keptRolls.join(", ")}])`;
       } else {
         termDisplay = `${term.count}d${term.faces}([${term.rolls.join(", ")}])`;
       }
