@@ -373,6 +373,7 @@ export function CharacterPanel({
       lines.push(
         `${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`,
         `${t("shMana")}: ${currentResources.mana ?? 0}/${resourceMaxes.mana ?? 0}`,
+        `${t("shSpellStrength")}: ${shDerived?.spellStrength ?? 0}`,
         `${t("shSpiritSense")}: ${shDerived?.spiritSense ?? 0}`,
         ""
       );
@@ -614,6 +615,7 @@ export function CharacterPanel({
               resourceMaxEditable={ruleTemplate === "dnd5e" && !readOnly}
               onResourceMaxChange={handleResourceMaxChange}
               attributeValues={attributeValues}
+              derivedValues={shDerived ? { spellStrength: shDerived.spellStrength } : undefined}
               onUpdateAttr={updateAttr}
               customAttrs={customAttrs}
               onAddCustom={addCustom}

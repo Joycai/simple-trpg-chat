@@ -97,6 +97,11 @@
     "manager": "经理",
     "gm": "主持人"
   },
+  "playerLabels": {
+    "player": "玩家",
+    "investigator": "调查员",
+    "soulHunter": "狩魂者"
+  },
   "room": {
     "notFound": "房间不存在",
     "notJoined": "你还没有加入这个房间",
@@ -165,11 +170,10 @@
     "dmExit": "退出私聊 ×",
     "titleMembers": "房间成员",
     "countMembers": "{count} 人",
-    "labelPlayers": "玩家 {count}",
+    "labelPlayers": "{label} {count}",
     "labelBots": "机器人 {count}",
     "suffixMe": "（我）",
     "youAvatar": "你",
-    "rolePlayer": "调查员",
     "roleBot": "机器人",
     "btnViewCard": "角色卡",
     "memberOptions": "操作",
@@ -752,6 +756,7 @@
     "shWis": "智慧",
     "shSoul": "心魂",
     "shMana": "灵力值",
+    "shSpellStrength": "术法强度",
     "shSpiritSense": "灵识",
     "shSpiritSenseHint": "灵识 = 三项基础属性之和（初始 9 点，分配由主持人把关）",
     "role": "角色",

@@ -1231,3 +1231,65 @@ describe("hostLabelKey", () => {
     expect(zhLabels.gm).toBe("主持人");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Player title (每套规则对玩家的称呼)
+// ---------------------------------------------------------------------------
+
+describe("playerLabelKey", () => {
+  // Same contract as hostLabelKey: the rule decides what its players are
+  // called (COC 调查员, 狩魂者 狩魂者), everything else stays 玩家/Player.
+  const EXPECTED: Record<string, string> = {
+    coc7th: "investigator",
+    dnd5e: "player",
+    triangle: "player",
+    shouhun: "soulHunter",
+    basic: "player",
+  };
+
+  it("每套规则都声明了预期的玩家称呼", () => {
+    for (const rule of listRules()) {
+      expect(rule.capabilities.playerLabelKey).toBe(EXPECTED[rule.id]);
+    }
+    // Guards against a new rule silently skipping the mapping above.
+    expect([...listRuleIds()].sort()).toEqual(Object.keys(EXPECTED).sort());
+  });
+
+  it("称呼的 i18n key 在 zh/en 两份文案里都存在", async () => {
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    const zhLabels = (zh.default as { playerLabels: Record<string, string> }).playerLabels;
+    const enLabels = (en.default as { playerLabels: Record<string, string> }).playerLabels;
+    for (const rule of listRules()) {
+      const key = rule.capabilities.playerLabelKey;
+      expect(zhLabels[key], `zh.playerLabels.${key}`).toBeTruthy();
+      expect(enLabels[key], `en.playerLabels.${key}`).toBeTruthy();
+    }
+    expect(zhLabels.investigator).toBe("调查员");
+    expect(zhLabels.soulHunter).toBe("狩魂者");
+    expect(zhLabels.player).toBe("玩家");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Derived stat cards (角色卡只读衍生属性)
+// ---------------------------------------------------------------------------
+
+describe("capabilities.derivedStats", () => {
+  it("狩魂者声明 术法强度,且 label 在 zh/en 文案里都存在", async () => {
+    const rule = getRule("shouhun");
+    expect(rule.capabilities.derivedStats).toEqual([
+      { key: "spellStrength", labelKey: "shSpellStrength" },
+    ]);
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    const zhChar = (zh.default as { character: Record<string, string> }).character;
+    const enChar = (en.default as { character: Record<string, string> }).character;
+    expect(zhChar.shSpellStrength).toBe("术法强度");
+    expect(enChar.shSpellStrength).toBeTruthy();
+  });
+});

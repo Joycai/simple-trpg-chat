@@ -166,6 +166,14 @@ export interface RuleCapabilities {
    * lobby room cards) reads this instead of hardcoding a title.
    */
   hostLabelKey: string;
+  /**
+   * i18n key under `messages.playerLabels` for what this system calls the
+   * people playing — COC 7th says 调查员/Investigator, 狩魂者 says 狩魂者/
+   * Soul Hunter, everything else falls back to the generic 玩家/Player.
+   * Room-scoped surfaces that name the player role (member list role tag,
+   * member count badge) read this instead of hardcoding a title.
+   */
+  playerLabelKey: string;
   /** Renders SAN bar; enables `.sc` and host `requestSanCheckAction`. */
   hasSanity: boolean;
   /** Enables host `psychologyHiddenRollAction` and its TopBar menu item. */
@@ -180,6 +188,12 @@ export interface RuleCapabilities {
   resourceBars: ReadonlyArray<ResourceBarSpec>;
   /** Predefined attribute grid rendered in the character sheet. */
   attributeKeys: ReadonlyArray<AttributeKeySpec>;
+  /**
+   * Read-only derived stats rendered after the attribute grid (狩魂者 shows
+   * 术法强度 = ⌊智慧/2⌋). Pure display metadata — the values themselves are
+   * computed by the sheet UI from the rule's derive helper, never persisted.
+   */
+  derivedStats?: ReadonlyArray<AttributeKeySpec>;
   /**
    * `.rd`/`.r` default dice expression when player supplies no args.
    * COC/basic: `"1d100"`; DnD 5e: `"1d20"`.

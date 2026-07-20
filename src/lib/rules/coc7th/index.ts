@@ -62,6 +62,7 @@ const COC_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "kp",
+  playerLabelKey: "investigator",
   hasSanity: true,
   hasPsychologyRoll: true,
   hasManaPoints: true,

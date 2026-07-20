@@ -46,6 +46,7 @@ const TA_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "manager",
+  playerLabelKey: "player",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,

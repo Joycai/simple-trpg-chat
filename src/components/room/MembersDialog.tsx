@@ -6,7 +6,7 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import { getBotStatus } from "@/lib/botStatus";
 import type { PlayerEntry } from "@/components/room/types";
-import { useHostLabel } from "@/components/shared/host-label";
+import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 
 interface MembersDialogProps {
   players: PlayerEntry[];
@@ -38,6 +38,7 @@ export function MembersDialog({
   const t = useTranslations("room");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
+  const playerLabel = usePlayerLabel();
 
   return (
     <OverlayShell
@@ -51,7 +52,7 @@ export function MembersDialog({
           <div>
             <h3 className="font-bold text-xl text-text font-theme-display leading-tight">{t("titleMembers")}</h3>
             <div className="flex items-center gap-2 mt-2.5">
-              <span className="inline-flex items-center text-xs font-bold bg-primary/15 text-primary px-2.5 py-1 rounded-full">{t("labelPlayers", { count: playerCount })}</span>
+              <span className="inline-flex items-center text-xs font-bold bg-primary/15 text-primary px-2.5 py-1 rounded-full">{t("labelPlayers", { label: playerLabel, count: playerCount })}</span>
               {botCount > 0 && <span className="inline-flex items-center text-xs font-bold bg-ai/15 text-ai px-2.5 py-1 rounded-full">{t("labelBots", { count: botCount })}</span>}
             </div>
           </div>
@@ -69,7 +70,7 @@ export function MembersDialog({
             const isBot = !!u.isBot;
             const isMe = u.id === userId;
             const isHostMember = u.id === hostId;
-            const roleLabel = isBot ? t("roleBot") : isHostMember ? hostLabel : t("rolePlayer");
+            const roleLabel = isBot ? t("roleBot") : isHostMember ? hostLabel : playerLabel;
             const badgeColor = p.room_members?.avatarColor || getRandomColorForUser(u.id);
             const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
             return (

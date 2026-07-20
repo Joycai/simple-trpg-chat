@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
-import { Info, Heart, Eye, Droplet, Clover, Sparkles } from "lucide-react";
-import { type CharacterData } from "@/lib/character-types";
+import { Info, Heart, Eye, Droplet, Clover, Sparkles, Wand2 } from "lucide-react";
+import { computeShDerived, shGradeLabel, type CharacterData } from "@/lib/character-types";
 import { useTranslations } from "next-intl";
 import { getRule } from "@/lib/rules";
 
@@ -23,11 +23,16 @@ export function ResourceStatusTooltip({
   if (!coords) return null;
 
   const ruleCap = getRule(charData?.ruleTemplate).capabilities;
-  // A rule with structured resources (e.g. COC's hasSanity) renders its preset
-  // bars when the sheet has derived data; otherwise we fall back to whatever
-  // the player put in customAttributes.
+  // 狩魂者 maxes/strengths are never persisted — derive them from the stored
+  // attributes on the fly (same helper the character panel uses).
+  const shAttrs = charData?.ruleTemplate === "shouhun" ? charData.shAttributes : undefined;
+  const shDerived = shAttrs ? computeShDerived(shAttrs) : null;
+  // A rule with structured resources (e.g. COC's hasSanity, 狩魂者's derived
+  // sheet) renders its preset bars when the sheet has the data; otherwise we
+  // fall back to whatever the player put in customAttributes.
   const hasStatus = !loading && !!charData && (
     (ruleCap.hasSanity && !!charData.cocDerived) ||
+    !!shDerived ||
     (charData.customAttributes && charData.customAttributes.length > 0)
   );
 
@@ -149,6 +154,74 @@ export function ResourceStatusTooltip({
                 <span className="font-mono font-bold text-text">
                   {charData.cocDerived.luck}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* 狩魂者 preset status: HP / 灵力值 bars, 术法强度, and the 3 base
+              attributes (with their E..SSS+ grades). All maxes/strengths are
+              derived from the stored attributes — nothing here is persisted. */}
+          {shDerived && shAttrs && (
+            <div className="flex flex-col gap-2">
+              {/* HP */}
+              {(() => {
+                const hpCur = charData.shSheet?.hp_current ?? shDerived.hpMax;
+                const hpPct = shDerived.hpMax > 0 ? Math.min(100, (hpCur / shDerived.hpMax) * 100) : 0;
+                return (
+                  <div>
+                    <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
+                      <span className="inline-flex items-center gap-1"><Heart className="w-3 h-3" /> {tChar("hp")}</span>
+                      <span className="font-mono">{hpCur}/{shDerived.hpMax}</span>
+                    </div>
+                    <div className="h-2 bg-surface-alt rounded-full overflow-hidden border border-border/50">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          hpPct > 50 ? "bg-success" : hpPct > 25 ? "bg-accent" : "bg-danger"
+                        }`}
+                        style={{ width: `${hpPct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 灵力值 */}
+              {(() => {
+                const manaCur = charData.shSheet?.mana_current ?? shDerived.manaMax;
+                const manaPct = shDerived.manaMax > 0 ? Math.min(100, (manaCur / shDerived.manaMax) * 100) : 0;
+                return (
+                  <div>
+                    <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
+                      <span className="inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> {tChar("shMana")}</span>
+                      <span className="font-mono">{manaCur}/{shDerived.manaMax}</span>
+                    </div>
+                    <div className="h-2 bg-surface-alt rounded-full overflow-hidden border border-border/50">
+                      <div className="h-full rounded-full bg-ai transition-all duration-300" style={{ width: `${manaPct}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 术法强度 */}
+              <div className="flex justify-between text-[10px] text-text-muted border-t border-border/40 pt-1.5 font-medium">
+                <span className="inline-flex items-center gap-1"><Wand2 className="w-3 h-3" /> {tChar("shSpellStrength")}</span>
+                <span className="font-mono font-bold text-text">{shDerived.spellStrength}</span>
+              </div>
+
+              {/* 3 base attributes with grades */}
+              <div className="grid grid-cols-3 gap-1.5 border-t border-border/40 pt-1.5">
+                {([
+                  ["shPhy", shAttrs.phy],
+                  ["shWis", shAttrs.wis],
+                  ["shSoul", shAttrs.soul],
+                ] as const).map(([labelKey, value]) => (
+                  <div key={labelKey} className="flex flex-col items-center gap-0.5 rounded bg-surface-alt/60 border border-border/40 py-1">
+                    <span className="text-[10px] text-text-muted font-medium truncate max-w-full px-1">{tChar(labelKey)}</span>
+                    <span className="font-mono font-bold text-text text-xs">
+                      {value} <span className="text-text-dim font-medium">{shGradeLabel(value)}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

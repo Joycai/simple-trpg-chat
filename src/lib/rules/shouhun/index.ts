@@ -98,6 +98,7 @@ function parseXyGroup(group: string): { modifierExpression?: string } | null {
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "gm",
+  playerLabelKey: "soulHunter",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,
@@ -106,6 +107,9 @@ const capabilities: RuleCapabilities = {
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
   resourceBars: SH_RESOURCE_BARS,
   attributeKeys: SH_ATTRIBUTE_KEYS,
+  // 术法强度 (= ⌊智慧/2⌋) is surfaced as a read-only derived card in the
+  // character sheet; the value comes from `computeShDerived`, never storage.
+  derivedStats: [{ key: "spellStrength", labelKey: "shSpellStrength" }],
   defaultRollExpression: "1d20",
   // x/y are player-typed, so a check never needs a stored room_skills value.
   requiresStoredTarget: false,

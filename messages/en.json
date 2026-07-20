@@ -97,6 +97,11 @@
     "manager": "Manager",
     "gm": "GM"
   },
+  "playerLabels": {
+    "player": "Player",
+    "investigator": "Investigator",
+    "soulHunter": "Soul Hunter"
+  },
   "room": {
     "notFound": "Room not found",
     "notJoined": "You haven't joined this room",
@@ -165,11 +170,10 @@
     "dmExit": "Exit Whisper ×",
     "titleMembers": "Room Members",
     "countMembers": "{count} players",
-    "labelPlayers": "Players {count}",
+    "labelPlayers": "{label} {count}",
     "labelBots": "Bots {count}",
     "suffixMe": " (Me)",
     "youAvatar": "You",
-    "rolePlayer": "Investigator",
     "roleBot": "Bot",
     "btnViewCard": "Character Card",
     "memberOptions": "Options",
@@ -751,6 +755,7 @@
     "shWis": "Wisdom 智慧",
     "shSoul": "Soul 心魂",
     "shMana": "Mana",
+    "shSpellStrength": "Spell Strength",
     "shSpiritSense": "Spirit Sense",
     "shSpiritSenseHint": "Spirit Sense = sum of the 3 base attributes (initial 9 points, host adjudicates)",
     "reprimands": "Reprimands",
