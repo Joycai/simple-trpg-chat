@@ -37,7 +37,8 @@ description: >
 | `src/lib/rules/coc7th/index.ts` | COC 7th 模块(包装 `coc-stats.ts` + `computeCocDerived`) |
 | `src/lib/rules/dnd5e/index.ts` | DnD 5e (d20) 模块(包装 `d20-stats.ts`;free-set 属性,d20 vs DC) |
 | `src/lib/rules/triangle/index.ts` | Triangle Agency 模块(6d4 数 3;无 `.rc`;计数器资源;包装 `ta-stats.ts`) |
-| `src/lib/__tests__/rules.test.ts` | 边界测试,新规则上线必须补类似覆盖 |
+| `src/components/shared/host-label.tsx` | `useHostLabel()` / `useHostLabelResolver()` — 房间内 UI 解析 `capabilities.hostLabelKey` 的唯一入口 |
+| `src/lib/__tests__/rules.test.ts` | 边界测试,新规则上线必须补类似覆盖(含 `hostLabelKey` 映射的全量断言) |
 | `src/db/schema.ts` | `RULE_TEMPLATES` 常量数组(必须与注册表同步)+ `rooms.rule_template` 列 |
 | `src/db/scripts/backfill-rule-template.ts` | 历史回填脚本(legacy `dice_rules` 列已删,留作模板参考) |
 
@@ -88,6 +89,7 @@ description: >
 
 ```ts
 interface RuleCapabilities {
+  hostLabelKey: string;                        // 本规则对主持人的称呼,i18n key 在 messages.hostLabels(coc7th=kp;dnd5e=dm;triangle=manager;shouhun/basic=gm)
   hasSanity: boolean;                          // SAN 资源 + .sc 命令 + requestSanCheckAction 守卫
   hasPsychologyRoll: boolean;                  // psychologyHiddenRollAction 守卫 + TopBar 心理学暗骰菜单项
   hasManaPoints: boolean;                      // MP 资源条渲染
@@ -102,6 +104,8 @@ interface RuleCapabilities {
   highlightDieFace?: number;                   // 掷骰时写入 diceDetail.highlightFace,渲染器逐骰标亮该面(triangle=3)
 }
 ```
+
+`hostLabelKey` 是**必填**字段:所有房间内会提到主持人的界面(聊天徽章、成员列表、可见性标签、物品来源/可见性、时间线、房间信息、大厅房间卡)都通过 `src/components/shared/host-label.tsx` 的 `useHostLabel()` / `useHostLabelResolver()` 解析它,而不是硬编码"KP"。新规则漏填会被 `rules.test.ts` 的 `hostLabelKey` 用例拦下(见 §4 Step 5)。
 
 **Capabilities 是纯数据,禁止放 React 类型/组件引用**——规则模块要在 server 端也可加载。UI 端的图标/颜色映射(如 `RESOURCE_ICON` 在 `AttributesTab.tsx`、`CHECK_MODE_UI` 在 `RoomTopBar.tsx`)是 client-only 的**静态 map**,key 与 capability 的 key 字段对齐。
 
@@ -119,6 +123,7 @@ export const dnd5eRule: RuleModule = {
   labelKey: "ruleTemplateDnd5e",
   hintKey: "ruleTemplateDnd5eHint",
   capabilities: {
+    hostLabelKey: "dm",                                         // 5e 管主持人叫 DM
     hasSanity: false,
     hasPsychologyRoll: false,
     hasManaPoints: false,
@@ -173,7 +178,35 @@ export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e'] as const;
 
 `messages/zh.json` 和 `messages/en.json` 加 `ruleTemplateDnd5e` / `ruleTemplateDnd5eHint`。若 5e 属性键不复用 COC 现有的(`str/dex/con`),还要加新 labelKey(`wis`/`cha`)。
 
-### Step 5 — 单元测试
+### Step 5 — 主持人称呼(`hostLabelKey`)
+
+每套规则都要声明房间里怎么称呼主持人,三处缺一不可:
+
+1. **文案**——`messages/zh.json` 和 `messages/en.json` 的 `hostLabels` 里挑一个已有 key,或加一个新的:
+
+   ```jsonc
+   // 现有:{"kp": "KP", "dm": "DM", "manager": "经理/Manager", "gm": "主持人/GM"}
+   "hostLabels": { …, "narrator": "叙述者" }   // 只有当现有称呼都不合适时才新增
+   ```
+
+   泛用规则直接复用 `gm`(主持人 / GM),不要为了"看起来独特"造新 key。
+
+2. **capability**——模块的 `capabilities.hostLabelKey` 指向该 key(见 §3)。
+
+3. **测试**——`src/lib/__tests__/rules.test.ts` 的 `hostLabelKey` describe 块里,把新规则加进 `EXPECTED` 映射:
+
+   ```ts
+   const EXPECTED: Record<string, string> = {
+     coc7th: "kp", dnd5e: "dm", triangle: "manager", shouhun: "gm", basic: "gm",
+     yourRule: "gm",  // ← 加这一行
+   };
+   ```
+
+   该用例同时断言 `listRuleIds()` 与 `EXPECTED` 的键集合完全相等,所以漏加会直接红——这正是它存在的意义。另一个用例会校验 key 在 zh/en 两份文案里都有值。
+
+UI 侧不用改:所有提到主持人的房间内组件都已通过 `src/components/shared/host-label.tsx` 的 `useHostLabel()` / `useHostLabelResolver()` 读这个 key。
+
+### Step 6 — 单元测试
 
 参考 `src/lib/__tests__/rules.test.ts` 的 COC 边界测试,补:
 - `resolveCheck` 在 nat1 / nat20 / 边界 DC 的 grade
@@ -182,7 +215,7 @@ export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e'] as const;
 - `initCharacter` 的字段结构
 - 注册表能查到 `dnd5e`,且 `listRuleIds()` 包含它
 
-### Step 6 — 数据库迁移
+### Step 7 — 数据库迁移
 
 无!`rooms.rule_template` 是 text,接受任何字符串。`pnpm db:push` 不需要为新规则跑(只在改 schema 结构时跑)。
 
