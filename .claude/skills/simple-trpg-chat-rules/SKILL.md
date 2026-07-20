@@ -90,6 +90,7 @@ description: >
 ```ts
 interface RuleCapabilities {
   hostLabelKey: string;                        // 本规则对主持人的称呼,i18n key 在 messages.hostLabels(coc7th=kp;dnd5e=dm;triangle=manager;shouhun/basic=gm)
+  playerLabelKey: string;                      // 本规则对玩家的称呼,i18n key 在 messages.playerLabels(coc7th=investigator;shouhun=soulHunter;其余=player);UI 经 host-label.tsx 的 usePlayerLabel() 读取
   hasSanity: boolean;                          // SAN 资源 + .sc 命令 + requestSanCheckAction 守卫
   hasPsychologyRoll: boolean;                  // psychologyHiddenRollAction 守卫 + TopBar 心理学暗骰菜单项
   hasManaPoints: boolean;                      // MP 资源条渲染
@@ -97,6 +98,7 @@ interface RuleCapabilities {
   supportedCommands: string[];                 // .sc 的命令门控就读这个
   resourceBars: { key, labelKey, style? }[];   // 角色卡预置资源条;style:"counter" 渲染为无上限计数器(默认 "bar" 为 当前/上限 条)
   attributeKeys: { key, labelKey }[];          // 角色卡属性宫格(basic=空;COC=9;5e=8;triangle=9)
+  derivedStats?: { key, labelKey }[];          // 角色卡属性宫格后的只读衍生卡(shouhun=术法强度);值由 CharacterPanel 按规则现算传入 AttributesTab 的 derivedValues
   defaultRollExpression: string;               // 空参数 .r/.rd 的默认骰(COC/basic=1d100;5e=1d20;triangle=6d4)
   requiresStoredTarget: boolean;               // .rc 查不到值时是否报 STAT_NOT_SET(COC/basic=true;5e/triangle=false)
   hasRoleLevel: boolean;                       // 角色卡是否显示 role/level 字段(仅 5e)
@@ -178,9 +180,9 @@ export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e'] as const;
 
 `messages/zh.json` 和 `messages/en.json` 加 `ruleTemplateDnd5e` / `ruleTemplateDnd5eHint`。若 5e 属性键不复用 COC 现有的(`str/dex/con`),还要加新 labelKey(`wis`/`cha`)。
 
-### Step 5 — 主持人称呼(`hostLabelKey`)
+### Step 5 — 主持人/玩家称呼(`hostLabelKey` / `playerLabelKey`)
 
-每套规则都要声明房间里怎么称呼主持人,三处缺一不可:
+每套规则都要声明房间里怎么称呼主持人**和玩家**(两者机制完全对称:capability 必填 key + `messages.hostLabels`/`messages.playerLabels` 文案 + `rules.test.ts` 里各自 describe 块的 `EXPECTED` 映射;玩家称呼现有 key:`player` 玩家、`investigator` 调查员、`soulHunter` 狩魂者,泛用规则复用 `player`)。以主持人为例,三处缺一不可:
 
 1. **文案**——`messages/zh.json` 和 `messages/en.json` 的 `hostLabels` 里挑一个已有 key,或加一个新的:
 

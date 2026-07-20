@@ -47,6 +47,7 @@ const D20_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "dm",
+  playerLabelKey: "player",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,

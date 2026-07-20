@@ -24,6 +24,7 @@ import type {
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "gm",
+  playerLabelKey: "player",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,

@@ -34,6 +34,8 @@ interface AttributesTabProps {
   onResourceChange: (key: string, value: number) => void;
   /** Attribute values keyed by `capabilities.attributeKeys[*].key`. */
   attributeValues: Record<string, number>;
+  /** Read-only derived stat values keyed by `capabilities.derivedStats[*].key`. */
+  derivedValues?: Record<string, number>;
   /** Whether the resource bar's max input is editable (d20: yes; COC: no — max is derived). */
   resourceMaxEditable?: boolean;
   /** Updater for a single resource max value. Only used when resourceMaxEditable=true. */
@@ -51,7 +53,7 @@ export function AttributesTab({
   ruleTemplate, readOnly, canEditResources,
   currentResources, resourceMaxes, onResourceChange,
   resourceMaxEditable = false, onResourceMaxChange,
-  attributeValues, onUpdateAttr,
+  attributeValues, derivedValues, onUpdateAttr,
   customAttrs, onAddCustom, onUpdateCustom, onRemoveCustom,
 }: AttributesTabProps) {
   const t = useTranslations("character");
@@ -169,6 +171,12 @@ export function AttributesTab({
             {cap.attributeKeys.map(({ key, labelKey }) => (
               <AttrCard key={key} label={t(labelKey)} value={attributeValues[key] ?? 0} readOnly={readOnly}
                 onChange={v => onUpdateAttr(key, v)} />
+            ))}
+            {/* Derived stats are always read-only — the rule computes them
+                from the attributes above (e.g. 狩魂者's 术法强度 = ⌊智慧/2⌋). */}
+            {(cap.derivedStats ?? []).map(({ key, labelKey }) => (
+              <AttrCard key={key} label={t(labelKey)} value={derivedValues?.[key] ?? 0} readOnly
+                onChange={() => {}} />
             ))}
             {customSingles.map(a => (
               <AttrCard key={a.name} label={a.name} value={a.value} readOnly={readOnly}
