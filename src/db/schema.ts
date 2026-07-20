@@ -44,7 +44,7 @@ export { THEME_MODES, type ThemeMode } from '@/themes/types';
  * register it in the registry AND append it here so the schema-level
  * validators in `src/app/actions/room.ts` accept it.
  */
-export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e', 'triangle'] as const;
+export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e', 'triangle', 'shouhun'] as const;
 export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
 
 export const MESSAGE_TYPES = ['text', 'dice', 'system', 'clue', 'check_request', 'image', 'sticker'] as const;

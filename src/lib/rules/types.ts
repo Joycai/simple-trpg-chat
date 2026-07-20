@@ -30,6 +30,26 @@ import type { CharacterData } from "@/lib/character-types";
 /** Closed vocabulary the chat bubble understands. */
 export type VisualGrade = "critical" | "success" | "failure" | "fumble";
 
+/**
+ * One evaluated term of a `.rc` modifier expression, with per-die results.
+ * Produced by the engine's `parseAndRollExpression` so rules can render
+ * individual die faces (e.g. 狩魂者 shows `2d4[3, 4] + 1d6[2]`, not just the
+ * summed modifier).
+ */
+export interface ModifierTerm {
+  sign: "+" | "-";
+  /** Dice count (0 for constant terms). */
+  count: number;
+  /** Die faces (0 for constant terms). */
+  faces: number;
+  /** Individual die results, in roll order (empty for constant terms). */
+  rolls: ReadonlyArray<number>;
+  /** Term subtotal before the sign is applied. */
+  sum: number;
+  /** True when the term is a flat number, not dice. */
+  isConstant: boolean;
+}
+
 export interface CheckRequest {
   /** Display name to show in the check bubble (already canonicalized). */
   skillName: string;
@@ -67,6 +87,13 @@ export interface CheckRequest {
    * Rules persist this in the check `detail` for chat-bubble display.
    */
   modifierDisplay?: string;
+  /**
+   * Structured breakdown of the evaluated modifier expression, one entry per
+   * term with per-die results. Set alongside `modifierValue` whenever the
+   * player's formula was evaluated. Rules that show individual die faces in
+   * the check bubble build their display from this.
+   */
+  modifierTerms?: ReadonlyArray<ModifierTerm>;
   /** Character sheet of the rolling user (always loaded by the engine now). */
   sheet: CharacterData | null;
 }
@@ -172,6 +199,25 @@ export interface RuleCapabilities {
    * the chat renderer stays rule-agnostic and history self-describes.
    */
   highlightDieFace?: number;
+  /**
+   * Optional host-check-request specialization (pure data). When present:
+   *  - the host dialog swaps the diceType selector for the declared fields
+   *    (optional DC + style-dice stepper) and makes the check name optional;
+   *  - the request detail carries `{ dc, styleDice }`;
+   *  - responding players are prompted for a bonus-dice count before rolling
+   *    (the server synthesizes the rule's `.rc name+x±y DC` command).
+   * Absent (all other rules): the legacy skill-name + diceType flow.
+   */
+  checkRequestOptions?: {
+    /** Host dialog shows an optional DC input (blank → rule default DC). */
+    dcField: boolean;
+    /** Host dialog shows a style-dice (时髦骰) input within min..max, default 0. */
+    styleDiceField?: { min: number; max: number };
+    /** Check name may be left blank (server falls back to a generic label). */
+    skillNameOptional: boolean;
+    /** Responder must supply a bonus-dice count (加骰 x), 0..max. */
+    responderBonusDice?: { max: number };
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +299,20 @@ export interface RuleModule {
     skillName: string;
     explicitTarget?: number;
     /** Modifier formula string the engine must evaluate (e.g. `"+1+1d6"`). */
+    modifierExpression?: string;
+  };
+
+  /**
+   * Optional: claim a `.r <args>` invocation as a shorthand check. Called by
+   * the dice-roll handler BEFORE generic expression parsing (only when args
+   * are non-empty and the roll is not hidden). Returning a parsed shape (same
+   * contract as `parseRcArgs`; `skillName` may be empty for a nameless check)
+   * routes the command through the full check flow; returning `null` falls
+   * through to the normal dice roll. 狩魂者 uses this for `.r+x±y [DC]`.
+   */
+  parseQuickCheckArgs?(args: string): null | {
+    skillName: string;
+    explicitTarget?: number;
     modifierExpression?: string;
   };
 

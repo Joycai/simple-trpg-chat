@@ -10,6 +10,8 @@ import { RoomInfoPanel } from "@/components/room/RoomInfoPanel";
 import { HostCheckDialog } from "@/components/room/chat/HostCheckDialog";
 import { TimelineDividerDialog } from "@/components/room/chat/TimelineDividerDialog";
 import { SkillSetPrompt } from "@/components/room/character/SkillSetPrompt";
+import { BonusDicePrompt } from "@/components/room/chat/BonusDicePrompt";
+import { getRuleForRoom } from "@/lib/rules";
 import { SkillPanel } from "@/components/room/character/SkillPanel";
 import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -78,6 +80,11 @@ interface RoomOverlaysProps {
   setPendingSkillCheck: (v: PendingSkillCheck | null) => void;
   onConfirmSkillSet: (value: number) => void;
 
+  /** Rule-specialized check response: message awaiting the player's 加骰 count. */
+  pendingBonusDice: { messageId: number } | null;
+  setPendingBonusDice: (v: { messageId: number } | null) => void;
+  onConfirmBonusDice: (bonusDice: number) => void;
+
   onNicknameChange: (newNick: string) => void;
   onViewPlayerCard: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (tab: "public" | number) => void;
@@ -97,8 +104,11 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
     showSkills, setShowSkills, showUserSettings, setShowUserSettings,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
+    pendingBonusDice, setPendingBonusDice, onConfirmBonusDice,
     onNicknameChange, onViewPlayerCard, onStartDM,
   } = props;
+
+  const checkRequestOptions = getRuleForRoom(room).capabilities.checkRequestOptions;
 
   const memberOf = (uid: number | null) =>
     players.find((p) => (p.users?.id || p.user_id || p.user?.id) === uid)?.room_members;
@@ -162,6 +172,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           players={activeTab === "public" ? mentionTargets : mentionTargets.filter(p => p.id === activeTab)}
           isPrivate={activeTab !== "public"}
           channelTargetUserId={activeTab !== "public" ? activeTab : undefined}
+          checkOptions={checkRequestOptions}
           onClose={() => setCheckMode(null)}
         />
       )}
@@ -170,6 +181,13 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           skillName={pendingSkillCheck.skillName}
           onConfirm={onConfirmSkillSet}
           onClose={() => setPendingSkillCheck(null)}
+        />
+      )}
+      {pendingBonusDice && (
+        <BonusDicePrompt
+          max={checkRequestOptions?.responderBonusDice?.max ?? 20}
+          onConfirm={onConfirmBonusDice}
+          onClose={() => setPendingBonusDice(null)}
         />
       )}
       {showMembers && (

@@ -7,8 +7,8 @@ import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction,
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CocAttributes, D20Attributes, D20Sheet, TaQualities, TaSheet } from "@/lib/character-types";
-import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, TA_DEFAULT_QUALITIES, computeCocDerived } from "@/lib/character-types";
+import type { CocAttributes, D20Attributes, D20Sheet, ShAttributes, ShSheet, TaQualities, TaSheet } from "@/lib/character-types";
+import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, SH_DEFAULT_ATTRIBUTES, TA_DEFAULT_QUALITIES, computeCocDerived, computeShDerived, shGradeLabel } from "@/lib/character-types";
 import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
@@ -91,6 +91,8 @@ export function CharacterPanel({
     d20Sheet?: D20Sheet;
     taQualities?: TaQualities;
     taSheet?: TaSheet;
+    shAttributes?: ShAttributes;
+    shSheet?: ShSheet;
     bio?: string;
     occupation?: string;
     age?: number;
@@ -104,7 +106,7 @@ export function CharacterPanel({
   // Attributes — generic Record keyed by capability `attributeKeys[*].key`.
   // For COC: pulled from cocAttributes; for d20: from d20Attributes.
   const [attributeValues, setAttributeValues] = useState<Record<string, number>>(() =>
-    buildAttributeValues(ruleTemplate, charData.cocAttributes, charData.d20Attributes, charData.taQualities)
+    buildAttributeValues(ruleTemplate, charData.cocAttributes, charData.d20Attributes, charData.taQualities, charData.shAttributes)
   );
 
   // d20-specific role / level (gated by `cap.hasRoleLevel`).
@@ -121,7 +123,7 @@ export function CharacterPanel({
       return;
     }
     initCharacterAction(roomId).then((data) => {
-      setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities));
+      setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities, data.shAttributes));
       if (data.d20Sheet) {
         setD20Role(data.d20Sheet.role ?? "");
         setD20Level(data.d20Sheet.level ?? "");
@@ -145,14 +147,21 @@ export function CharacterPanel({
   const cocDerived = ruleTemplate === "coc7th"
     ? computeCocDerived(attributeValuesAsCocAttrs(attributeValues))
     : null;
+  // 狩魂者: maxes derive from the 3 attributes; recomputed per render so
+  // attribute edits move the bar denominators immediately (same as COC).
+  const shDerived = ruleTemplate === "shouhun"
+    ? computeShDerived(attributeValuesAsShAttrs(attributeValues))
+    : null;
   const resourceMaxes: Record<string, number> =
     ruleTemplate === "dnd5e"
       ? { hp: charData.d20Sheet?.hpMax ?? 10 }
       : ruleTemplate === "triangle"
         ? {} // counters have no max
-        : cocDerived
-          ? { hp: cocDerived.hpMax, san: cocDerived.sanMax, mp: cocDerived.mpMax }
-          : {};
+        : shDerived
+          ? { hp: shDerived.hpMax, mana: shDerived.manaMax }
+          : cocDerived
+            ? { hp: cocDerived.hpMax, san: cocDerived.sanMax, mp: cocDerived.mpMax }
+            : {};
 
   // Resource current values — generic Record keyed by resource key.
   const [currentResources, setCurrentResources] = useState<Record<string, number>>(() => {
@@ -164,6 +173,12 @@ export function CharacterPanel({
     if (ruleTemplate === "triangle") {
       out.commendations = charData.taSheet?.commendations ?? 0;
       out.reprimands = charData.taSheet?.reprimands ?? 0;
+      return out;
+    }
+    if (ruleTemplate === "shouhun") {
+      const d = computeShDerived(attributeValuesAsShAttrs(attributeValues));
+      out.hp = charData.shSheet?.hp_current ?? d.hpMax;
+      out.mana = charData.shSheet?.mana_current ?? d.manaMax;
       return out;
     }
     const d = computeCocDerived(attributeValuesAsCocAttrs(attributeValues));
@@ -200,6 +215,8 @@ export function CharacterPanel({
       d20Sheet?: D20Sheet;
       taQualities?: TaQualities;
       taSheet?: TaSheet;
+      shAttributes?: ShAttributes;
+      shSheet?: ShSheet;
       bio?: string;
       occupation?: string;
       age?: number;
@@ -208,7 +225,7 @@ export function CharacterPanel({
     };
     if (!cd) return;
     const rt = cd.ruleTemplate || ruleTemplate;
-    const attrs = buildAttributeValues(rt, cd.cocAttributes, cd.d20Attributes, cd.taQualities);
+    const attrs = buildAttributeValues(rt, cd.cocAttributes, cd.d20Attributes, cd.taQualities, cd.shAttributes);
     /* eslint-disable react-hooks/set-state-in-effect */
     setAttributeValues(attrs);
     setBio(cd.bio || "");
@@ -223,6 +240,12 @@ export function CharacterPanel({
       setCurrentResources({
         commendations: cd.taSheet?.commendations ?? 0,
         reprimands: cd.taSheet?.reprimands ?? 0,
+      });
+    } else if (rt === "shouhun") {
+      const d = computeShDerived(attributeValuesAsShAttrs(attrs));
+      setCurrentResources({
+        hp: cd.shSheet?.hp_current ?? d.hpMax,
+        mana: cd.shSheet?.mana_current ?? d.manaMax,
       });
     } else {
       const d = computeCocDerived(attributeValuesAsCocAttrs(attrs));
@@ -292,6 +315,17 @@ export function CharacterPanel({
             reprimands: currentResources.reprimands ?? 0,
           },
         });
+      } else if (ruleTemplate === "shouhun") {
+        // Two-step like COC: attributes on the caller's own sheet, currents
+        // via updateResourcesAction so a GM can adjust another player's bars.
+        await saveCharacterDataAction(roomId, {
+          ...basePayload,
+          shAttributes: attributeValuesAsShAttrs(attributeValues),
+        });
+        await updateResourcesAction(roomId, targetUserId || userId, {
+          hp_current: currentResources.hp ?? 0,
+          mana_current: currentResources.mana ?? 0,
+        });
       } else {
         // basic — no rule-specific shape; save just the generic fields.
         await saveCharacterDataAction(roomId, basePayload);
@@ -335,6 +369,16 @@ export function CharacterPanel({
       lines.push(t("baseAttributes") + ":");
       ruleCap.attributeKeys.forEach(({ key, labelKey }) =>
         lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0}`));
+    } else if (ruleTemplate === "shouhun") {
+      lines.push(
+        `${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`,
+        `${t("shMana")}: ${currentResources.mana ?? 0}/${resourceMaxes.mana ?? 0}`,
+        `${t("shSpiritSense")}: ${shDerived?.spiritSense ?? 0}`,
+        ""
+      );
+      lines.push(t("baseAttributes") + ":");
+      ruleCap.attributeKeys.forEach(({ key, labelKey }) =>
+        lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0} (${shGradeLabel(attributeValues[key] ?? 1)})`));
     }
     if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
     if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
@@ -577,6 +621,11 @@ export function CharacterPanel({
               onRemoveCustom={removeCustomAttr}
             />
           )}
+          {activeTab === "attributes" && shDerived && (
+            <p className="mt-3 text-xs text-text-dim text-center">
+              {t("shSpiritSense")}: {shDerived.spiritSense} · {t("shSpiritSenseHint")}
+            </p>
+          )}
 
           {activeTab === "skills" && (
             <SkillsTab
@@ -659,6 +708,7 @@ function buildAttributeValues(
   coc: CocAttributes | undefined,
   d20: D20Attributes | undefined,
   ta?: TaQualities,
+  sh?: ShAttributes,
 ): Record<string, number> {
   if (ruleTemplate === "coc7th") {
     const src = coc || COC_DEFAULT_ATTRIBUTES;
@@ -670,6 +720,10 @@ function buildAttributeValues(
   }
   if (ruleTemplate === "triangle") {
     const src = ta || TA_DEFAULT_QUALITIES;
+    return { ...src };
+  }
+  if (ruleTemplate === "shouhun") {
+    const src = sh || SH_DEFAULT_ATTRIBUTES;
     return { ...src };
   }
   return {};
@@ -689,6 +743,16 @@ function attributeValuesAsCocAttrs(values: Record<string, number>): CocAttribute
 function attributeValuesAsD20Attrs(values: Record<string, number>): D20Attributes {
   const keys: (keyof D20Attributes)[] = ["str","dex","con","int","wis","cha","pb","ac"];
   const out = { ...D20_DEFAULT_ATTRIBUTES };
+  keys.forEach(k => {
+    if (typeof values[k] === "number") out[k] = values[k];
+  });
+  return out;
+}
+
+/** Read back a 狩魂者 attributes object from the generic record. */
+function attributeValuesAsShAttrs(values: Record<string, number>): ShAttributes {
+  const keys: (keyof ShAttributes)[] = ["phy", "wis", "soul"];
+  const out = { ...SH_DEFAULT_ATTRIBUTES };
   keys.forEach(k => {
     if (typeof values[k] === "number") out[k] = values[k];
   });

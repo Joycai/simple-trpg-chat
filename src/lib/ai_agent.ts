@@ -397,7 +397,7 @@ export async function runAgent(
               // Enum sourced from the rule registry so any newly registered
               // rule is advertised to the LLM without a manual edit here.
               enum: [...listRuleIds()],
-              description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card, 'dnd5e' is for DnD 5e (d20)."
+              description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card, 'dnd5e' is for DnD 5e (d20), 'shouhun' is for 狩魂者 (Soul Hunter)."
             },
             name: { "type": "string", "description": "The character's name" },
             age: { "type": "integer", "description": "The character's age" },

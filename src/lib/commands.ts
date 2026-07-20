@@ -7,7 +7,7 @@ import type { SystemKind } from "@/db/schema";
 import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import type { CharacterData } from "@/lib/character-types";
-import { getRuleForRoom, type RuleModule, type VisualGrade } from "@/lib/rules";
+import { getRuleForRoom, type CheckRequest, type RuleModule, type VisualGrade } from "@/lib/rules";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -238,6 +238,15 @@ async function handleDiceRoll(
 ): Promise<CommandResult> {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const rule = getRuleForRoom(room || {});
+
+  // Give the rule first refusal on non-empty args: 狩魂者 claims `.r+x±y [DC]`
+  // as a nameless shorthand check. Hidden rolls (`.rh`) stay plain dice.
+  if (!hidden && rawArgs.trim() && rule.parseQuickCheckArgs) {
+    const quick = rule.parseQuickCheckArgs(rawArgs.trim());
+    if (quick) {
+      return await runRuleCheck(roomId, userId, quick, rule, t, ctx, rawCommand);
+    }
+  }
 
   let args = rawArgs;
   if (!args.trim()) {
@@ -500,11 +509,32 @@ async function handleRollCheck(
     return { success: false, isCommand: true, error: t(rule.rcUsageKey ?? "rcUsageError") };
   }
 
+  return await runRuleCheck(roomId, userId, parsed, rule, t, ctx, rawCommand);
+}
+
+/**
+ * Shared tail of the check flow: evaluate the modifier formula, resolve the
+ * target, and hand off to `performSkillCheck`. Reached from `.rc/.ra` (via
+ * `parseRcArgs`) and from `.r/.rd` when the rule claims the args as a
+ * shorthand check (via `parseQuickCheckArgs`, e.g. 狩魂者's `.r+x±y [DC]`).
+ */
+async function runRuleCheck(
+  roomId: number,
+  userId: number,
+  parsed: { skillName: string; explicitTarget?: number; modifierExpression?: string },
+  rule: RuleModule,
+  t: (key: string, opts?: Record<string, string | number | Date>) => string,
+  ctx: CommandContext | undefined,
+  rawCommand: string
+): Promise<CommandResult> {
   // Evaluate the modifier formula (rolling any embedded dice) if the rule
   // surfaced one. Result is passed as raw number + display string so the
-  // rule's resolveCheck can splice into chat output without re-parsing.
+  // rule's resolveCheck can splice into chat output without re-parsing;
+  // the structured per-term breakdown travels alongside so rules can show
+  // individual die faces.
   let modifierValue: number | undefined;
   let modifierDisplay: string | undefined;
+  let modifierTerms: PerformCheckExtras["modifierTerms"];
   if (parsed.modifierExpression) {
     const evalRes = parseAndRollExpression(parsed.modifierExpression, t);
     if (!evalRes.success) {
@@ -515,6 +545,14 @@ async function handleRollCheck(
     // chat bubble reads as a clear adjustment.
     const signedTotal = modifierValue >= 0 ? `+${modifierValue}` : `${modifierValue}`;
     modifierDisplay = `${parsed.modifierExpression.startsWith("-") ? "" : "+"}${evalRes.display.replace(/^\+/, "")}=${signedTotal}`;
+    modifierTerms = evalRes.terms.map((term) => ({
+      sign: term.sign,
+      count: term.count,
+      faces: term.faces,
+      rolls: term.rolls,
+      sum: term.sum,
+      isConstant: term.type === "constant",
+    }));
   }
 
   // Always load the sheet — rules may inspect it during resolveCheck.
@@ -546,6 +584,7 @@ async function handleRollCheck(
     storedValue: stored?.value,
     modifierValue,
     modifierDisplay,
+    modifierTerms,
     sheet,
   });
 }
@@ -581,6 +620,7 @@ interface PerformCheckExtras {
   storedValue?: number;
   modifierValue?: number;
   modifierDisplay?: string;
+  modifierTerms?: CheckRequest["modifierTerms"];
   sheet: CharacterData | null;
 }
 
@@ -608,6 +648,7 @@ async function performSkillCheck(
     storedValue: extras?.storedValue,
     modifierValue: extras?.modifierValue,
     modifierDisplay: extras?.modifierDisplay,
+    modifierTerms: extras?.modifierTerms,
     sheet: extras?.sheet ?? null,
   });
   const { successLevel, icon } = gradeDisplay(result.grade, t);

@@ -14,6 +14,7 @@
 import { basicRule } from "./basic";
 import { coc7thRule } from "./coc7th";
 import { dnd5eRule } from "./dnd5e";
+import { shouhunRule } from "./shouhun";
 import { triangleRule } from "./triangle";
 import type { RuleModule } from "./types";
 
@@ -34,6 +35,7 @@ register(basicRule);
 register(coc7thRule);
 register(dnd5eRule);
 register(triangleRule);
+register(shouhunRule);
 
 export const DEFAULT_RULE_ID = "basic";
 

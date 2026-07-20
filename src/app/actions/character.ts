@@ -10,9 +10,12 @@ import {
   type CharacterData,
   type CocAttributes,
   type D20Sheet,
+  type ShSheet,
   type CustomAttribute,
   COC_DEFAULT_ATTRIBUTES,
+  SH_DEFAULT_ATTRIBUTES,
   computeCocDerived,
+  computeShDerived,
 } from "@/lib/character-types";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 
@@ -267,6 +270,8 @@ export async function updateResourcesAction(
     mp_current?: number;
     // d20-only fields — applied to d20Sheet when the active rule is dnd5e.
     hpMax?: number;
+    // 狩魂者-only field — applied to shSheet when the active rule is shouhun.
+    mana_current?: number;
   }
 ) {
   const session = await auth();
@@ -332,6 +337,19 @@ export async function updateResourcesAction(
     charData.d20Sheet = meta;
     broadcastHp = meta.hp_current;
     broadcastHpMax = meta.hpMax;
+  } else if (charData.ruleTemplate === "shouhun") {
+    // 狩魂者: only currents persist on shSheet; maxes derive from attributes.
+    const derived = computeShDerived(charData.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
+    const meta: ShSheet = { ...(charData.shSheet ?? {}) };
+    if (resources.hp_current !== undefined) {
+      meta.hp_current = Math.max(0, Math.min(resources.hp_current, derived.hpMax));
+    }
+    if (resources.mana_current !== undefined) {
+      meta.mana_current = Math.max(0, Math.min(resources.mana_current, derived.manaMax));
+    }
+    charData.shSheet = meta;
+    broadcastHp = meta.hp_current ?? derived.hpMax;
+    broadcastHpMax = derived.hpMax;
   } else {
     // COC / basic: HP/SAN/MP on cocDerived.
     if (!charData.cocDerived) {

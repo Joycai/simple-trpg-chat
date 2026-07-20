@@ -8,12 +8,14 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 import { rollDie } from "@/lib/utils";
-import { basicRule, coc7thRule, dnd5eRule, triangleRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
+import { basicRule, coc7thRule, dnd5eRule, shouhunRule, triangleRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
 import {
   COC_DEFAULT_ATTRIBUTES,
   D20_DEFAULT_ATTRIBUTES,
   TA_DEFAULT_QUALITIES,
   computeCocDerived,
+  computeShDerived,
+  shGradeLabel,
   type CharacterData,
 } from "@/lib/character-types";
 
@@ -830,9 +832,360 @@ describe("rules/quickRolls — every rule contributes its chips", () => {
     expect(dnd5eRule.capabilities.quickRolls).toEqual([".rd20", ".rc 力量+2 15"]);
   });
 
+  it("shouhun teaches its own check syntax (named / with 时髦骰 / .r shorthand)", () => {
+    expect(shouhunRule.capabilities.quickRolls).toEqual([
+      ".rc 侦查+2 10", ".rc 侦查+2+1 12", ".r+2+1 12",
+    ]);
+  });
+
   it("only triangle sets highlightDieFace", () => {
     expect(basicRule.capabilities.highlightDieFace).toBeUndefined();
     expect(coc7thRule.capabilities.highlightDieFace).toBeUndefined();
     expect(dnd5eRule.capabilities.highlightDieFace).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// 狩魂者 (shouhun) — 1d20 + xd4 ± yd6 vs DC, tiered success levels.
+// ===========================================================================
+
+describe("shouhunRule/capabilities", () => {
+  it("is registered and enumerable", () => {
+    expect(getRule("shouhun")).toBe(shouhunRule);
+    expect(listRuleIds()).toContain("shouhun");
+  });
+
+  it("declares 3 attributes, hp+mana bars, no SAN surface, d20 default roll", () => {
+    const c = shouhunRule.capabilities;
+    expect(c.hasSanity).toBe(false);
+    expect(c.hasPsychologyRoll).toBe(false);
+    expect(c.hasManaPoints).toBe(false);
+    expect(c.checkMenuModes).toEqual(["check"]);
+    expect(c.supportedCommands).not.toContain("sc");
+    expect(c.resourceBars.map(r => r.key)).toEqual(["hp", "mana"]);
+    expect(c.attributeKeys.map(a => a.key)).toEqual(["phy", "wis", "soul"]);
+    expect(c.defaultRollExpression).toBe("1d20");
+    expect(c.requiresStoredTarget).toBe(false);
+    expect(c.hasRoleLevel).toBe(false);
+  });
+
+  it("declares the specialized host-check-request flow (DC + 时髦骰 + responder 加骰)", () => {
+    expect(shouhunRule.capabilities.checkRequestOptions).toEqual({
+      dcField: true,
+      styleDiceField: { min: -3, max: 3 },
+      skillNameOptional: true,
+      responderBonusDice: { max: 20 },
+    });
+    // Other rules keep the legacy skill-name + diceType flow.
+    expect(coc7thRule.capabilities.checkRequestOptions).toBeUndefined();
+    expect(dnd5eRule.capabilities.checkRequestOptions).toBeUndefined();
+    expect(basicRule.capabilities.checkRequestOptions).toBeUndefined();
+  });
+});
+
+describe("shouhun derived math (computeShDerived)", () => {
+  // Strength tier examples straight from docs/ext-rules/shouhun.md.
+  it.each([
+    [9, 4], [4, 2], [5, 2], [1, 0], [6, 3], [7, 3],
+  ])("attribute %i → strength %i", (attr, strength) => {
+    expect(computeShDerived({ phy: attr, wis: 1, soul: 1 }).phyStrength).toBe(strength);
+  });
+
+  it("HP = 5 + 体魄强度; mana = 5 + 智慧×2 + 心魂; 灵识 = sum", () => {
+    const d = computeShDerived({ phy: 9, wis: 6, soul: 7 });
+    expect(d.hpMax).toBe(9);        // 5 + 4
+    expect(d.manaMax).toBe(24);     // 5 + 12 + 7
+    expect(d.spiritSense).toBe(22);
+  });
+
+  it("grade labels cover E..SSS+", () => {
+    expect(shGradeLabel(1)).toBe("E");
+    expect(shGradeLabel(5)).toBe("A");
+    expect(shGradeLabel(9)).toBe("SSS+");
+  });
+});
+
+describe("shouhunRule.initCharacter", () => {
+  it("seeds 3/3/3 attributes (灵识 9) with full derived resources", () => {
+    const sheet = shouhunRule.initCharacter();
+    expect(sheet.ruleTemplate).toBe("shouhun");
+    expect(sheet.shAttributes).toEqual({ phy: 3, wis: 3, soul: 3 });
+    expect(sheet.shSheet).toEqual({ hp_current: 6, mana_current: 14 });
+  });
+});
+
+describe("shouhunRule.parseRcArgs", () => {
+  it.each([
+    ["侦查",         { skillName: "侦查" }],
+    ["侦查 12",      { skillName: "侦查", explicitTarget: 12 }],
+    ["侦查+3",       { skillName: "侦查", modifierExpression: "+3d4" }],
+    ["侦查+3 12",    { skillName: "侦查", modifierExpression: "+3d4", explicitTarget: 12 }],
+    ["侦查+3+2 12",  { skillName: "侦查", modifierExpression: "+3d4+2d6", explicitTarget: 12 }],
+    ["侦查+3-2",     { skillName: "侦查", modifierExpression: "+3d4-2d6" }],
+    ["侦查-2",       { skillName: "侦查", modifierExpression: "-2d6" }],
+    ["侦查+0+2",     { skillName: "侦查", modifierExpression: "+2d6" }],
+    ["scout+2 10",   { skillName: "scout", modifierExpression: "+2d4", explicitTarget: 10 }],
+    // Space before DC is required — "侦查12" reads as a name.
+    ["侦查12",       { skillName: "侦查12" }],
+  ])("parses %o", (input, expected) => {
+    const result = shouhunRule.parseRcArgs(input);
+    const clean = Object.fromEntries(Object.entries(result!).filter(([, v]) => v !== undefined));
+    expect(clean).toEqual(expected);
+  });
+
+  it("rejects out-of-range dice counts and empty input", () => {
+    expect(shouhunRule.parseRcArgs("")).toBeNull();
+    expect(shouhunRule.parseRcArgs("   ")).toBeNull();
+    expect(shouhunRule.parseRcArgs("侦查+21")).toBeNull();      // x > 20
+    expect(shouhunRule.parseRcArgs("侦查+3+4")).toBeNull();     // |y| > 3
+    expect(shouhunRule.parseRcArgs("侦查+3-4")).toBeNull();     // |y| > 3
+    expect(shouhunRule.parseRcArgs("侦查-2-1")).toBeNull();     // negative x is ambiguous
+  });
+});
+
+describe("shouhunRule.resolveCheck", () => {
+  it("default DC=10; success level 1 at the boundary", () => {
+    mockRollDie.mockReturnValueOnce(10);
+    const r = shouhunRule.resolveCheck({ skillName: "侦查", target: 0, sheet: null });
+    expect(r.target).toBe(10);
+    expect(r.total).toBe(10);
+    expect(r.passed).toBe(true);
+    expect(r.grade).toBe("success");
+    expect((r.detail as { check: { successLevel: number } }).check.successLevel).toBe(1);
+  });
+
+  it("rulebook example: total 26 vs DC 10 → success level 4", () => {
+    mockRollDie.mockReturnValueOnce(11);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null, modifierValue: 15, modifierDisplay: "+3d4([4, 5, 6])=+15",
+    });
+    expect(r.total).toBe(26);
+    expect((r.detail as { check: { successLevel: number } }).check.successLevel).toBe(4);
+  });
+
+  it("rulebook example: total 21 vs DC 20 → success level 1", () => {
+    mockRollDie.mockReturnValueOnce(21 - 5);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null, explicitTarget: 20, modifierValue: 5,
+    });
+    expect(r.total).toBe(21);
+    expect(r.passed).toBe(true);
+    expect((r.detail as { check: { successLevel: number } }).check.successLevel).toBe(1);
+  });
+
+  it("failure carries no success level; grade stays failure", () => {
+    mockRollDie.mockReturnValueOnce(9);
+    const r = shouhunRule.resolveCheck({ skillName: "侦查", target: 0, sheet: null });
+    expect(r.passed).toBe(false);
+    expect(r.grade).toBe("failure");
+    expect((r.detail as { check: { successLevel: number | null } }).check.successLevel).toBeNull();
+  });
+
+  it("no crit/fumble: nat 20 and nat 1 stay success/failure", () => {
+    mockRollDie.mockReturnValueOnce(20);
+    expect(shouhunRule.resolveCheck({ skillName: "a", target: 0, sheet: null }).grade).toBe("success");
+    mockRollDie.mockReturnValueOnce(1);
+    expect(shouhunRule.resolveCheck({ skillName: "a", target: 0, sheet: null }).grade).toBe("failure");
+  });
+
+  it("negative style dice subtract; detail reuses the d20 template", () => {
+    mockRollDie.mockReturnValueOnce(15);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null, modifierValue: -4, modifierDisplay: "-2d6([1, 3])=-4",
+    });
+    expect(r.total).toBe(11);
+    expect(r.notation).toBe("1d20-4");
+    expect((r.detail as Record<string, unknown>).dice).toBe("d20");
+    const check = (r.detail as { check: Record<string, unknown> }).check;
+    expect(check.raw).toBe(15);
+    expect(check.modifier).toBe(-4);
+  });
+});
+
+describe("shouhunRule.routeStat", () => {
+  it.each([
+    ["体魄", "attribute", "phy"],
+    ["PHY", "attribute", "phy"],
+    ["智慧", "attribute", "wis"],
+    ["wisdom", "attribute", "wis"],
+    ["心魂", "attribute", "soul"],
+    ["soul", "attribute", "soul"],
+    ["生命值", "resource", "hp"],
+    ["HP", "resource", "hp"],
+    ["灵力", "resource", "mana"],
+    ["mp", "resource", "mana"],
+    ["侦查", "skill", undefined],
+  ])("routes %s to %s", (name, kind, key) => {
+    const r = shouhunRule.routeStat(name);
+    expect(r.kind).toBe(kind);
+    if (kind !== "skill") {
+      expect((r as { key: string }).key).toBe(key);
+    }
+  });
+
+  it("canonicalStatName normalizes aliases, passes skills through", () => {
+    expect(shouhunRule.canonicalStatName("phy")).toBe("体魄");
+    expect(shouhunRule.canonicalStatName("mp")).toBe("灵力值");
+    expect(shouhunRule.canonicalStatName("侦查")).toBe("侦查");
+  });
+});
+
+describe("shouhunRule.lookupFallback", () => {
+  it("always returns null (x/y are player-typed, no auto lookup)", () => {
+    expect(shouhunRule.lookupFallback("体魄", null)).toBeNull();
+    expect(shouhunRule.lookupFallback("体魄", shouhunRule.initCharacter())).toBeNull();
+  });
+});
+
+describe("shouhunRule.computeDerived", () => {
+  it("identity for non-shouhun sheets", () => {
+    const coc: CharacterData = { ruleTemplate: "coc7th" };
+    expect(shouhunRule.computeDerived(coc)).toBe(coc);
+  });
+
+  it("normalizes attributes to 1..9 and re-clamps currents", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "shouhun",
+      shAttributes: { phy: 99, wis: 0, soul: 5 },
+      shSheet: { hp_current: 50, mana_current: 50 },
+    };
+    const out = shouhunRule.computeDerived(sheet);
+    expect(out.shAttributes).toEqual({ phy: 9, wis: 1, soul: 5 });
+    expect(out.shSheet?.hp_current).toBe(9);    // 5 + ⌊9/2⌋
+    expect(out.shSheet?.mana_current).toBe(12); // 5 + 2 + 5
+  });
+});
+
+describe("shouhunRule.applyStatWrite", () => {
+  it("attribute write clamps to 1..9 and re-clamps currents", () => {
+    const sheet = shouhunRule.initCharacter();
+    sheet.shSheet = { hp_current: 6, mana_current: 14 };
+    const { sheet: out, finalValue } = shouhunRule.applyStatWrite(
+      sheet, { kind: "attribute", key: "phy", canonical: "体魄" }, 42
+    );
+    expect(finalValue).toBe(9);
+    expect(out.shAttributes?.phy).toBe(9);
+    expect(out.shSheet?.hp_current).toBe(6); // still ≤ new max (9)
+  });
+
+  it("shrinking an attribute pulls the current below the new max", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "shouhun",
+      shAttributes: { phy: 9, wis: 3, soul: 3 },
+      shSheet: { hp_current: 9 },
+    };
+    const { sheet: out } = shouhunRule.applyStatWrite(
+      sheet, { kind: "attribute", key: "phy", canonical: "体魄" }, 1
+    );
+    expect(out.shSheet?.hp_current).toBe(5); // 5 + ⌊1/2⌋ = 5
+  });
+
+  it("resource write clamps to the derived max", () => {
+    const sheet = shouhunRule.initCharacter(); // hpMax 6, manaMax 14
+    const hp = shouhunRule.applyStatWrite(
+      sheet, { kind: "resource", key: "hp", canonical: "生命值" }, 99
+    );
+    expect(hp.finalValue).toBe(6);
+    expect(hp.sheet.shSheet?.hp_current).toBe(6);
+    const mana = shouhunRule.applyStatWrite(
+      sheet, { kind: "resource", key: "mana", canonical: "灵力值" }, -5
+    );
+    expect(mana.finalValue).toBe(0);
+    expect(mana.sheet.shSheet?.mana_current).toBe(0);
+  });
+});
+
+describe("shouhunRule.exportSnapshot", () => {
+  it("carries attributes, letter grades, strengths, 灵识 and resources", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "shouhun",
+      shAttributes: { phy: 9, wis: 6, soul: 7 },
+      shSheet: { hp_current: 4 },
+    };
+    expect(shouhunRule.exportSnapshot(sheet)).toEqual({
+      attributes: { phy: 9, wis: 6, soul: 7 },
+      grades: { phy: "SSS+", wis: "S", soul: "SS" },
+      strengths: { phyStrength: 4, spellStrength: 3, psychicStrength: 3 },
+      spiritSense: 22,
+      hp: 4,
+      hpMax: 9,
+      mana: 24, // no stored current → falls back to derived max
+      manaMax: 24,
+    });
+  });
+
+  it("is empty without attributes", () => {
+    expect(shouhunRule.exportSnapshot({ ruleTemplate: "shouhun" })).toEqual({});
+  });
+});
+
+describe("shouhunRule.parseQuickCheckArgs (.r shorthand)", () => {
+  it.each([
+    ["+2+1",    { skillName: "", modifierExpression: "+2d4+1d6" }],
+    ["+3",      { skillName: "", modifierExpression: "+3d4" }],
+    ["-2",      { skillName: "", modifierExpression: "-2d6" }],
+    ["+2+1 12", { skillName: "", modifierExpression: "+2d4+1d6", explicitTarget: 12 }],
+    ["+3-2 15", { skillName: "", modifierExpression: "+3d4-2d6", explicitTarget: 15 }],
+    ["+0",      { skillName: "" }],
+  ])("claims %o as a nameless check", (input, expected) => {
+    const result = shouhunRule.parseQuickCheckArgs!(input);
+    const clean = Object.fromEntries(Object.entries(result!).filter(([, v]) => v !== undefined));
+    expect(clean).toEqual(expected);
+  });
+
+  it("declines everything else so .r stays a generic roller", () => {
+    expect(shouhunRule.parseQuickCheckArgs!("")).toBeNull();
+    expect(shouhunRule.parseQuickCheckArgs!("3d6")).toBeNull();
+    expect(shouhunRule.parseQuickCheckArgs!("+2d8")).toBeNull();
+    expect(shouhunRule.parseQuickCheckArgs!("20")).toBeNull();
+    expect(shouhunRule.parseQuickCheckArgs!("侦查+2")).toBeNull();
+    expect(shouhunRule.parseQuickCheckArgs!("+21")).toBeNull();   // x out of range
+    expect(shouhunRule.parseQuickCheckArgs!("+2-4")).toBeNull();  // |y| out of range
+  });
+
+  it("other rules do not implement the shorthand", () => {
+    expect(coc7thRule.parseQuickCheckArgs).toBeUndefined();
+    expect(dnd5eRule.parseQuickCheckArgs).toBeUndefined();
+    expect(basicRule.parseQuickCheckArgs).toBeUndefined();
+  });
+});
+
+describe("shouhunRule.resolveCheck — per-die breakdown (rollDisplay)", () => {
+  const TERMS_2D4_1D6 = [
+    { sign: "+" as const, count: 2, faces: 4, rolls: [3, 4], sum: 7, isConstant: false },
+    { sign: "+" as const, count: 1, faces: 6, rolls: [2], sum: 2, isConstant: false },
+  ];
+
+  it("builds structural notation and per-die display from modifierTerms", () => {
+    mockRollDie.mockReturnValueOnce(14);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null,
+      explicitTarget: 12, modifierValue: 9, modifierTerms: TERMS_2D4_1D6,
+    });
+    expect(r.total).toBe(23);
+    expect(r.notation).toBe("1d20+2d4+1d6");
+    const check = (r.detail as { check: Record<string, unknown> }).check;
+    expect(check.rollDisplay).toBe("d20[14] + 2d4[3, 4] + 1d6[2]");
+  });
+
+  it("negative style dice render with a minus sign", () => {
+    mockRollDie.mockReturnValueOnce(15);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null,
+      modifierValue: -4,
+      modifierTerms: [{ sign: "-", count: 2, faces: 6, rolls: [1, 3], sum: 4, isConstant: false }],
+    });
+    expect(r.total).toBe(11);
+    expect(r.notation).toBe("1d20-2d6");
+    const check = (r.detail as { check: Record<string, unknown> }).check;
+    expect(check.rollDisplay).toBe("d20[15] - 2d6[1, 3]");
+  });
+
+  it("plain check (no modifier) still shows the d20 face", () => {
+    mockRollDie.mockReturnValueOnce(10);
+    const r = shouhunRule.resolveCheck({ skillName: "侦查", target: 0, sheet: null });
+    expect(r.notation).toBe("1d20");
+    const check = (r.detail as { check: Record<string, unknown> }).check;
+    expect(check.rollDisplay).toBe("d20[10]");
   });
 });
