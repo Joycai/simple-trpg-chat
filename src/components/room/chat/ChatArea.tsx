@@ -28,7 +28,7 @@ interface ChatAreaProps {
   quickCommands: ReadonlyArray<string>;
   onViewCharacter: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (tab: "public" | number) => void;
-  onCheckRequest: (messageId: number, skillName: string) => void;
+  onCheckRequest: (messageId: number, skillName: string, opts?: { bonusDicePrompt?: boolean }) => void;
   /** Host proxy roll: roll the pending check on behalf of an absent player. */
   onProxyCheckRequest?: (messageId: number, onBehalfOfUserId: number) => void;
   /** Load the pending targets + skill values for a check request's proxy popover. */

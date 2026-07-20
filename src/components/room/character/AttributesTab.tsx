@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Heart, Eye, Droplet, Plus, Trash2, X, Check, Minus, Award, AlertTriangle } from "lucide-react";
+import { Heart, Eye, Droplet, Plus, Trash2, X, Check, Minus, Award, AlertTriangle, Sparkles } from "lucide-react";
 import { getRule } from "@/lib/rules";
 
 /**
@@ -17,6 +17,7 @@ const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string }> = {
   mp:  { Icon: Droplet, color: "var(--theme-primary)" },
   commendations: { Icon: Award,         color: "var(--theme-accent)" },
   reprimands:    { Icon: AlertTriangle, color: "var(--theme-danger)" },
+  mana:          { Icon: Sparkles,      color: "var(--theme-ai)" },
 };
 
 type CustomItem = { name: string; value: number; max?: number };

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
+import type { RuleCapabilities } from "@/lib/rules";
 
 interface Player {
   id: number;
@@ -21,10 +22,12 @@ interface Props {
   isPrivate?: boolean;
   channelTargetUserId?: number;
   mode?: CheckMode;
+  /** Rule-declared check-request specialization (狩魂者: DC + 时髦骰, name optional). */
+  checkOptions?: RuleCapabilities["checkRequestOptions"];
   onClose: () => void;
 }
 
-export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, mode = "check", onClose }: Props) {
+export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, mode = "check", checkOptions, onClose }: Props) {
   const t = useTranslations("hostCheck");
   const tCommon = useTranslations("common");
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
@@ -33,6 +36,10 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
   const [diceType, setDiceType] = useState("d100");
   const [successExpr, setSuccessExpr] = useState("0");
   const [failureExpr, setFailureExpr] = useState("1d6");
+  // Rule-specialized fields (狩魂者): optional DC + style-dice count.
+  const [dcInput, setDcInput] = useState("");
+  const [styleDice, setStyleDice] = useState(0);
+  const styleBounds = checkOptions?.styleDiceField;
 
   // Recent skill-name history — last 10 entries, per-room, stored client-side.
   // KP's habitual skill names are a local convenience; no server round-trip needed.
@@ -97,10 +104,16 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
     else setSelectedIds(new Set(nonBotIds));
   };
 
+  // DC is optional even for specialized rules (blank → rule default); style
+  // dice must parse within the declared bounds.
+  const dcParsed = dcInput.trim() === "" ? undefined : parseInt(dcInput, 10);
+  const dcValid = dcParsed === undefined || (!isNaN(dcParsed) && dcParsed >= 0 && dcParsed <= 999);
+
   const canSubmit = selectedIds.size > 0 && (
     mode === "psychology" ? true
       : mode === "sancheck" ? !!successExpr.trim() && !!failureExpr.trim()
-        : !!skillName.trim()
+        : checkOptions ? dcValid && (checkOptions.skillNameOptional || !!skillName.trim())
+          : !!skillName.trim()
   );
 
   const handleSubmit = async () => {
@@ -112,8 +125,11 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
       await requestSanCheckAction(roomId, targets, successExpr.trim(), failureExpr.trim(), isPrivate, channelTargetUserId);
     } else {
       const name = skillName.trim();
-      await requestSkillCheckAction(roomId, targets, name, diceType, isPrivate, channelTargetUserId);
-      pushHistory(name);
+      await requestSkillCheckAction(
+        roomId, targets, name, checkOptions ? "d20" : diceType, isPrivate, channelTargetUserId,
+        checkOptions ? { dc: dcParsed, styleDice } : undefined
+      );
+      if (name) pushHistory(name);
     }
     close();
   };
@@ -198,7 +214,8 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
             <>
               <div>
                 <label className="text-sm text-text-muted mb-2 block">{t("skillName")}</label>
-                <input value={skillName} onChange={e => setSkillName(e.target.value)} placeholder={t("skillPlaceholder")}
+                <input value={skillName} onChange={e => setSkillName(e.target.value)}
+                  placeholder={checkOptions?.skillNameOptional ? t("skillOptionalPlaceholder") : t("skillPlaceholder")}
                   className={fieldCls} autoFocus onKeyDown={e => e.key === "Enter" && handleSubmit()} />
 
                 {/* Recent skill-name history — click a tag to fill the input. */}
@@ -232,14 +249,41 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
                   </div>
                 )}
               </div>
-              <div>
-                <label className="text-sm text-text-muted mb-2 block">{t("diceType")}</label>
-                <ThemedSelect value={diceType} onChange={e => setDiceType(e.target.value)}>
-                  <option value="d100">d100</option>
-                  <option value="d20">d20</option>
-                  <option value="d10">d10</option>
-                </ThemedSelect>
-              </div>
+              {checkOptions ? (
+                /* Rule-specialized fields (狩魂者): optional DC + style dice. */
+                <div className="grid grid-cols-2 gap-3">
+                  {checkOptions.dcField && (
+                    <div>
+                      <label className="text-sm text-text-muted mb-2 block">{t("dcLabel")}</label>
+                      <input type="number" min={0} max={999} value={dcInput}
+                        onChange={e => setDcInput(e.target.value)} placeholder={t("dcPlaceholder")}
+                        className={fieldCls} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+                    </div>
+                  )}
+                  {styleBounds && (
+                    <div>
+                      <label className="text-sm text-text-muted mb-2 block">
+                        {t("styleDiceLabel", { min: styleBounds.min, max: styleBounds.max })}
+                      </label>
+                      <input type="number" min={styleBounds.min} max={styleBounds.max} value={styleDice}
+                        onChange={e => {
+                          const v = parseInt(e.target.value, 10);
+                          setStyleDice(isNaN(v) ? 0 : Math.min(styleBounds.max, Math.max(styleBounds.min, v)));
+                        }}
+                        className={fieldCls} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="text-sm text-text-muted mb-2 block">{t("diceType")}</label>
+                  <ThemedSelect value={diceType} onChange={e => setDiceType(e.target.value)}>
+                    <option value="d100">d100</option>
+                    <option value="d20">d20</option>
+                    <option value="d10">d10</option>
+                  </ThemedSelect>
+                </div>
+              )}
             </>
           )}
 

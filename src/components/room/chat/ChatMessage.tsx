@@ -136,7 +136,16 @@ type DiceDetailJson = {
   /** Die face to accent per-die (stamped at roll time from the rule's `highlightDieFace`). */
   highlightFace?: number;
   command?: string;
-  check?: { skillName: string; target: number; success: boolean; grade?: DiceGrade };
+  check?: {
+    skillName: string;
+    target: number;
+    success: boolean;
+    grade?: DiceGrade;
+    /** 狩魂者 success level (1+); null/absent for rules without tiered success. */
+    successLevel?: number | null;
+    /** Rule-authored per-die breakdown (e.g. `d20[14] + 2d4[3, 4]`); shown in place of the notation. */
+    rollDisplay?: string;
+  };
   sanityCheck?: {
     oldSanity: number;
     newSanity: number;
@@ -154,10 +163,12 @@ function getRollKind(d: DiceDetailJson): RollKind {
   return "plain";
 }
 
-/** d100 single-die check results pad to two digits per the design (`03` not `3`). */
+/** d100 single-die check results pad to two digits per the design (`03` not `3`).
+ *  Negative totals (possible with subtractive modifiers, e.g. 狩魂者's -yd6
+ *  style dice or a d20 penalty) render as-is — `-4`, never `0-4`. */
 function padD100(value: number | undefined): string {
   if (value == null) return "";
-  return value < 10 ? `0${value}` : String(value);
+  return value >= 0 && value < 10 ? `0${value}` : String(value);
 }
 
 /** Strip the leading "1" off "1d100" → "d100" for visual cleanliness in checks. */
@@ -274,16 +285,21 @@ function DiceResultDisplay({
   const isD100Check = !!d.check;
 
   if (d.check) {
-    const { skillName, target, success, grade } = d.check;
+    const { skillName, target, success, grade, successLevel, rollDisplay } = d.check;
     const finalGrade: Exclude<DiceGrade, "none"> =
       grade && grade !== "none" ? grade : success ? "success" : "failure";
     return (
       <>
         <span className="dice-skill">{skillName}</span>
-        <span className="dice-formula">{trimSingleDieNotation(rawNotation)} = </span>
+        <span className="dice-formula">{rollDisplay ?? trimSingleDieNotation(rawNotation)} = </span>
         <span className="dice-value">{padD100(d.sum)}</span>
         <span className="dice-target"> / {target}</span>
         <DiceResultGrade grade={finalGrade} t={t} />
+        {typeof successLevel === "number" && (
+          <span className="dice-success-level text-xs text-text-muted">
+            {t("checkSuccessLevel", { level: successLevel })}
+          </span>
+        )}
       </>
     );
   }
@@ -781,7 +797,7 @@ interface ChatMessageProps {
   isHost?: boolean;
   onViewCharacter?: (userId: number, nickname: string) => void;
   onStartDM?: (userId: number) => void;
-  onCheckRequest?: (messageId: number, skillName: string, diceType: string) => void;
+  onCheckRequest?: (messageId: number, skillName: string, opts?: { bonusDicePrompt?: boolean }) => void;
   /** Host proxy roll. Present only for the host; when set, the check pill shows the
    *  seal button alongside the regular viewer icon. */
   onProxyCheckRequest?: (messageId: number, onBehalfOfUserId: number) => void;
@@ -950,6 +966,7 @@ export const ChatMessage = memo(function ChatMessage({
         respondedUserIds?: number[];
         proxiedUserIds?: number[];
         sanCheck?: { successExpr?: string; failureExpr?: string };
+        shCheck?: { dc?: number | null; styleDice?: number };
         ghost?: boolean;
       };
     };
@@ -996,6 +1013,15 @@ export const ChatMessage = memo(function ChatMessage({
           failureExpr: cr.sanCheck.failureExpr ?? "0",
         })
       : null;
+    // Rule-specialized request (狩魂者): surface the DC (host value or the
+    // rule default 10) and the host-announced style dice, signed.
+    const shStyle = cr?.shCheck?.styleDice ?? 0;
+    const shInline = cr?.shCheck
+      ? t("shCheckInline", {
+          dc: cr.shCheck.dc ?? 10,
+          style: shStyle > 0 ? `+${shStyle}` : `${shStyle}`,
+        })
+      : null;
 
     return (
       <div
@@ -1011,6 +1037,7 @@ export const ChatMessage = memo(function ChatMessage({
           <span className="check-request-text text-sm text-text">
             {renderCheckRequestContent(content, highlightToken)}
             {sanInline && <span className="check-request-sc-expr">{sanInline}</span>}
+            {shInline && <span className="check-request-sh-expr text-text-muted">{shInline}</span>}
           </span>
           {totalCount > 0 && (
             <span className="check-request-progress text-xs text-text-muted whitespace-nowrap inline-flex items-center gap-1">
@@ -1027,7 +1054,7 @@ export const ChatMessage = memo(function ChatMessage({
             </span>
           ) : checkState === "target-pending" && onCheckRequest && messageId !== undefined ? (
             <button
-              onClick={() => onCheckRequest(messageId, cr?.skillName ?? "", cr?.diceType ?? "")}
+              onClick={() => onCheckRequest(messageId, cr?.skillName ?? "", cr?.shCheck ? { bonusDicePrompt: true } : undefined)}
               className="check-request-button bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center transition animate-bounce shadow-[var(--theme-glow)]"
               title={t("clickCheck")}
             >

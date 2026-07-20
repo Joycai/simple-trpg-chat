@@ -75,6 +75,7 @@ export function RoomClient({
   const [checkMode, setCheckMode] = useState<CheckMode | null>(null);
   const [showCheckMenu, setShowCheckMenu] = useState(false);
   const [pendingSkillCheck, setPendingSkillCheck] = useState<PendingSkillCheck | null>(null);
+  const [pendingBonusDice, setPendingBonusDice] = useState<{ messageId: number } | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
@@ -456,8 +457,11 @@ export function RoomClient({
 
   // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
   // (so the caller can open the prompt); otherwise surfaces any error inline.
-  const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number): Promise<{ needsSkill?: boolean }> => {
-    const result = await respondToCheckRequestAction(room.id, messageId, onBehalfOfUserId ? { onBehalfOfUserId } : undefined);
+  const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number, bonusDice?: number): Promise<{ needsSkill?: boolean }> => {
+    const result = await respondToCheckRequestAction(
+      room.id, messageId,
+      onBehalfOfUserId !== undefined || bonusDice !== undefined ? { onBehalfOfUserId, bonusDice } : undefined
+    );
     if (result.needsSkill) return { needsSkill: true };
     if (!result.success && result.error) {
       const errorMsg = {
@@ -478,7 +482,13 @@ export function RoomClient({
     return {};
   }, [room.id, userId, tra, refreshSelfSheet]);
 
-  const handleCheckRequest = useCallback((messageId: number, skillName: string) => {
+  const handleCheckRequest = useCallback((messageId: number, skillName: string, opts?: { bonusDicePrompt?: boolean }) => {
+    // Rule-specialized request (狩魂者): ask the player for their 加骰 count
+    // first; the roll fires from the prompt's confirm.
+    if (opts?.bonusDicePrompt) {
+      setPendingBonusDice({ messageId });
+      return;
+    }
     // Let the server roll the check. If the stat isn't set, it reports needsSkill and we
     // open a themed in-page prompt. The server (lookupCheckTarget) is the source of truth,
     // so COC attributes/resources already on the character sheet won't trigger the prompt.
@@ -486,6 +496,14 @@ export function RoomClient({
       if (r.needsSkill) setPendingSkillCheck({ messageId, skillName });
     });
   }, [respondCheck]);
+
+  // Player confirmed their 加骰 count for a rule-specialized check request.
+  const handleConfirmBonusDice = useCallback((bonusDice: number) => {
+    if (!pendingBonusDice) return;
+    const { messageId } = pendingBonusDice;
+    setPendingBonusDice(null);
+    respondCheck(messageId, undefined, bonusDice);
+  }, [pendingBonusDice, respondCheck]);
 
   /** Host proxy: roll on behalf of an absent target. Skill prompt never triggers
    *  (the host can't set another player's skill — the server returns a plain error). */
@@ -718,6 +736,9 @@ export function RoomClient({
         pendingSkillCheck={pendingSkillCheck}
         setPendingSkillCheck={setPendingSkillCheck}
         onConfirmSkillSet={handleConfirmSkillSet}
+        pendingBonusDice={pendingBonusDice}
+        setPendingBonusDice={setPendingBonusDice}
+        onConfirmBonusDice={handleConfirmBonusDice}
         onNicknameChange={(newNick) => setNickname(newNick)}
         onViewPlayerCard={handleViewPlayerCard}
         onStartDM={handleTabChange}

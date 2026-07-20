@@ -396,13 +396,38 @@ export async function requestSkillCheckAction(
   skillName: string,
   diceType: string = "d100",
   isPrivate: boolean = false,
-  channelTargetUserId?: number
+  channelTargetUserId?: number,
+  /** Rule-specialized fields (only honored when the rule declares `checkRequestOptions`). */
+  extras?: { dc?: number; styleDice?: number }
 ) {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
-  const cleanSkill = skillName.trim().slice(0, 50);
+  // Rule-specialized requests (狩魂者): optional DC + style dice, name optional.
+  const [reqRoom] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  const checkOpts = getRuleForRoom(reqRoom || {}).capabilities.checkRequestOptions;
+
+  const t = await getTranslations("roomActions");
+  let cleanSkill = skillName.trim().slice(0, 50);
+  if (!cleanSkill && checkOpts?.skillNameOptional) {
+    cleanSkill = t("genericCheckName");
+  }
   if (!cleanSkill || targetUserIds.length === 0) {
     return { success: false, error: "Invalid check request" };
+  }
+
+  // Validate/clamp the specialized fields against the rule's declared bounds.
+  let shCheck: { dc: number | null; styleDice: number } | undefined;
+  if (checkOpts) {
+    const rawDc = extras?.dc;
+    const dc = typeof rawDc === "number" && Number.isFinite(rawDc)
+      ? Math.min(999, Math.max(0, Math.floor(rawDc)))
+      : null;
+    const styleBounds = checkOpts.styleDiceField;
+    const rawStyle = extras?.styleDice ?? 0;
+    const styleDice = styleBounds && Number.isFinite(rawStyle)
+      ? Math.min(styleBounds.max, Math.max(styleBounds.min, Math.floor(rawStyle)))
+      : 0;
+    shCheck = { dc: checkOpts.dcField ? dc : null, styleDice };
   }
 
   const [hostMember] = await db.select().from(roomMembers)
@@ -424,11 +449,10 @@ export async function requestSkillCheckAction(
   const targetNicks = targetMembers
     .filter((m: { userId: number }) => validTargetIds.includes(m.userId))
     .map((m: { nickname: string }) => m.nickname);
-  const t = await getTranslations("roomActions");
   const targetNicksStr = targetNicks.join(t("separator"));
   const content = t("checkRequestContent", { hostNick, targetNicks: targetNicksStr, skillName: cleanSkill });
   const detail = JSON.stringify({
-    checkRequest: { skillName: cleanSkill, diceType, targetUserIds: validTargetIds, hostNick, respondedUserIds: [] }
+    checkRequest: { skillName: cleanSkill, diceType, targetUserIds: validTargetIds, hostNick, respondedUserIds: [], ...(shCheck ? { shCheck } : {}) }
   });
 
   const msg = await dispatchMessage({
@@ -463,7 +487,7 @@ export async function requestSkillCheckAction(
 export async function respondToCheckRequestAction(
   roomId: number,
   checkRequestId: number,
-  opts?: { onBehalfOfUserId?: number }
+  opts?: { onBehalfOfUserId?: number; bonusDice?: number }
 ): Promise<{ success: boolean; error?: string; needsSkill?: boolean }> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
@@ -488,7 +512,7 @@ export async function respondToCheckRequestAction(
     return { success: false, error: t("checkRequestNotFound") };
   }
 
-  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; proxiedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } } };
+  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; proxiedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string }; shCheck?: { dc?: number | null; styleDice?: number } } };
   try { detail = JSON.parse(msg.diceDetail); } catch { return { success: false, error: t("checkRequestNotFound") }; }
   const cr = detail.checkRequest;
   if (!cr || !cr.skillName) return { success: false, error: t("checkRequestNotFound") };
@@ -523,6 +547,22 @@ export async function respondToCheckRequestAction(
         // so surface as plain error and let the host inform the player out-of-band.
         return { success: false, error: result.error, needsSkill: !isProxy && result.code === "STAT_NOT_SET" };
       }
+    }
+  } else if (cr.shCheck) {
+    // Rule-specialized check (狩魂者): synthesize the `.rc 名称+x±y DC` command
+    // from the host's DC/style dice and the responder's bonus-dice count. The
+    // DC is always made explicit (host value or the rule default 10) so a
+    // check name that happens to end in digits can't be misread as a DC.
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+    const maxBonus = getRuleForRoom(room || {}).capabilities.checkRequestOptions?.responderBonusDice?.max ?? 0;
+    const rawX = opts?.bonusDice ?? 0;
+    const x = Number.isFinite(rawX) ? Math.min(maxBonus, Math.max(0, Math.floor(rawX))) : 0;
+    const y = cr.shCheck.styleDice ?? 0;
+    const dc = typeof cr.shCheck.dc === "number" ? cr.shCheck.dc : 10;
+    const group = x > 0 || y !== 0 ? `+${x}${y > 0 ? `+${y}` : y < 0 ? `${y}` : ""}` : "";
+    const result = await executeCommand(roomId, rollerId, `.rc ${cr.skillName}${group} ${dc}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+    if (!result.success) {
+      return { success: false, error: result.error };
     }
   } else {
     const diceType = cr.diceType || "d100";

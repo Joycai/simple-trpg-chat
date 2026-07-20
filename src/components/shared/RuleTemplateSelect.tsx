@@ -23,6 +23,7 @@ const RULE_BADGES: Record<string, { letters?: string; Icon?: LucideIcon }> = {
   coc7th: { letters: "7E" },
   dnd5e: { letters: "5E" },
   triangle: { letters: "TA" },
+  shouhun: { letters: "狩" },
 };
 
 export function RuleTemplateSelect({ id, name, value, onChange, t, disabled }: RuleTemplateSelectProps) {
