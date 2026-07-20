@@ -1,13 +1,14 @@
 "use server";
 
 import { db } from "@/db";
-import { users, roomMembers } from "@/db/schema";
+import { users, roomMembers, rooms } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { broadcastToRoom } from "@/lib/events";
+import { getRuleForRoom } from "@/lib/rules";
 
 /**
  * createBotAction
@@ -33,6 +34,10 @@ export async function createBotAction(
   const botUsername = `bot_${crypto.randomBytes(4).toString("hex")}`;
   const passwordHash = "is_bot"; // Bots never log in directly; avoid expensive bcrypt hash
 
+  const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate })
+    .from(rooms)
+    .where(eq(rooms.id, roomId));
+
   const botUser = await db.transaction(async (tx) => {
     const [userRecord] = await tx.insert(users).values({
       username: botUsername,
@@ -57,6 +62,8 @@ export async function createBotAction(
       userId: userRecord.id,
       nickname: data.nickname,
       avatarColor: data.avatarColor || getRandomColorForUser(userRecord.id),
+      // Bots are members too — the AI sheet tools expect a rule-shaped card.
+      characterData: JSON.stringify(getRuleForRoom(room || {}).initCharacter()),
     });
 
     return userRecord;

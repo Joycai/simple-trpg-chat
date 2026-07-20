@@ -10,6 +10,7 @@ import { RoomInfoPanel } from "@/components/room/RoomInfoPanel";
 import { HostCheckDialog } from "@/components/room/chat/HostCheckDialog";
 import { TimelineDividerDialog } from "@/components/room/chat/TimelineDividerDialog";
 import { SkillSetPrompt } from "@/components/room/character/SkillSetPrompt";
+import { CharacterRuleGate } from "@/components/room/character/CharacterRuleGate";
 import { BonusDicePrompt } from "@/components/room/chat/BonusDicePrompt";
 import { getRuleForRoom } from "@/lib/rules";
 import { SkillPanel } from "@/components/room/character/SkillPanel";
@@ -127,6 +128,12 @@ export function RoomOverlays(props: RoomOverlaysProps) {
 
   return (
     <>
+      {/* Seeds a missing sheet / prompts when the room's rule no longer matches it. */}
+      <CharacterRuleGate
+        roomId={room.id}
+        roomRuleTemplate={room.ruleTemplate || "basic"}
+        disabled={readOnly}
+      />
       {showCharacter && (
         <CharacterPanel
           roomId={room.id}

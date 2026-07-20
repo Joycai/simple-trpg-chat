@@ -18,7 +18,7 @@ import { parseAvatarDataUrl } from "@/lib/avatars";
 import { getTranslations, getLocale } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { buildTimelinePayload, composeTimelineLabel, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
-import { getRuleForRoom } from "@/lib/rules";
+import { getRule, getRuleForRoom } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character-types";
 
 // --- Room Actions ---
@@ -56,12 +56,13 @@ export async function createRoomAction(formData: FormData) {
       ruleTemplate,
     }).returning();
 
-    // Host automatically joins
+    // Host automatically joins, with a sheet already shaped by the room's rule.
     await db.insert(roomMembers).values({
       roomId: newRoom.id,
       userId: parseInt(session.user.id),
       nickname: session.user.name || "Host",
       avatarColor: getRandomColorForUser(parseInt(session.user.id)),
+      characterData: JSON.stringify(getRule(ruleTemplate).initCharacter()),
     });
 
     revalidatePath("/");
@@ -98,6 +99,9 @@ export async function joinRoomAction(formData: FormData) {
         userId,
         nickname: session.user.name || "Player",
         avatarColor: getRandomColorForUser(userId),
+        // Seed the sheet for the room's rule up front, so the player never
+        // lands on an empty card (and .st writes have something to land on).
+        characterData: JSON.stringify(getRuleForRoom(room).initCharacter()),
       });
     }
 

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { roomBackgroundUrl } from "@/lib/backgrounds";
+import { getRuleForRoom } from "@/lib/rules";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
@@ -80,6 +81,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       userId,
       nickname: user.name || user.username || "Host",
       avatarColor: getRandomColorForUser(userId),
+      characterData: JSON.stringify(getRuleForRoom(room).initCharacter()),
     });
     
     // Re-fetch members to include the host

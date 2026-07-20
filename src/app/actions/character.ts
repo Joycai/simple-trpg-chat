@@ -17,6 +17,7 @@ import {
   computeCocDerived,
   computeShDerived,
 } from "@/lib/character-types";
+import { rebuildSheetForRule } from "@/lib/character-sheet";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 
 /** Verify that a user is a member of a room. Returns userId on success.
@@ -66,6 +67,109 @@ export async function initCharacterAction(roomId: number) {
 
   revalidatePath(`/rooms/${roomId}`);
   return characterData;
+}
+
+/** Result of the on-entry sheet/rule reconciliation. */
+export type SheetRuleStatus =
+  | { status: "ok" }
+  | { status: "initialized"; data: CharacterData }
+  | { status: "mismatch"; sheetRule: string; roomRule: string };
+
+/**
+ * Reconcile the caller's character sheet with the room's active rule, called
+ * when a member enters the room (and again whenever the host switches rules).
+ *
+ * - no sheet yet (or unparsable / rule-less) → seed `rule.initCharacter()`
+ * - sheet built for a different rule → report only; the player decides whether
+ *   to rebuild (see `rebuildCharacterForRoomRuleAction`)
+ *
+ * Never throws for non-members / observers / frozen rooms — those just get
+ * `ok` so the client can stay silent.
+ */
+export async function ensureCharacterSheetAction(roomId: number): Promise<SheetRuleStatus> {
+  const session = await auth();
+  if (!session) return { status: "ok" };
+  const userId = parseInt(session.user.id);
+
+  const [member] = await db.select({ characterData: roomMembers.characterData })
+    .from(roomMembers)
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, userId)
+    ));
+  if (!member) return { status: "ok" }; // observer / not a member
+
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { status: "ok" };
+  // Frozen rooms are read-only for everyone but the host — don't write, don't nag.
+  if (room.frozen && room.hostId !== userId) return { status: "ok" };
+
+  const rule = getRuleForRoom(room);
+
+  let sheet: CharacterData | null = null;
+  if (member.characterData) {
+    try {
+      sheet = JSON.parse(member.characterData) as CharacterData;
+    } catch {
+      sheet = null;
+    }
+  }
+
+  if (!sheet?.ruleTemplate) {
+    const data = rule.initCharacter();
+    await db.update(roomMembers)
+      .set({ characterData: JSON.stringify(data) })
+      .where(and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.userId, userId)
+      ));
+    revalidatePath(`/rooms/${roomId}`);
+    return { status: "initialized", data };
+  }
+
+  if (sheet.ruleTemplate !== rule.id) {
+    return { status: "mismatch", sheetRule: sheet.ruleTemplate, roomRule: rule.id };
+  }
+
+  return { status: "ok" };
+}
+
+/**
+ * Rebuild the caller's sheet for the room's current rule, keeping the generic
+ * profile fields (see `CARRYOVER_KEYS`). Invoked only after the player accepts
+ * the rule-change prompt.
+ */
+export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise<CharacterData> {
+  const userId = await requireMembership(roomId);
+
+  const [member] = await db.select({ characterData: roomMembers.characterData })
+    .from(roomMembers)
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, userId)
+    ));
+
+  let prev: CharacterData | null = null;
+  if (member?.characterData) {
+    try {
+      prev = JSON.parse(member.characterData) as CharacterData;
+    } catch {
+      prev = null;
+    }
+  }
+
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  const rebuilt = rebuildSheetForRule(prev, getRuleForRoom(room || {}).initCharacter());
+
+  await db.update(roomMembers)
+    .set({ characterData: JSON.stringify(rebuilt) })
+    .where(and(
+      eq(roomMembers.roomId, roomId),
+      eq(roomMembers.userId, userId)
+    ));
+
+  revalidatePath(`/rooms/${roomId}`);
+  return rebuilt;
 }
 
 /**
