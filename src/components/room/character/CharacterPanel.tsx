@@ -7,8 +7,8 @@ import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction,
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CocAttributes, D20Attributes, D20Sheet } from "@/lib/character-types";
-import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, computeCocDerived } from "@/lib/character-types";
+import type { CocAttributes, D20Attributes, D20Sheet, TaQualities, TaSheet } from "@/lib/character-types";
+import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, TA_DEFAULT_QUALITIES, computeCocDerived } from "@/lib/character-types";
 import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
@@ -89,6 +89,8 @@ export function CharacterPanel({
     cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number; hp?: number; san?: number; mp?: number; hpMax?: number; sanMax?: number; mpMax?: number };
     d20Attributes?: D20Attributes;
     d20Sheet?: D20Sheet;
+    taQualities?: TaQualities;
+    taSheet?: TaSheet;
     bio?: string;
     occupation?: string;
     age?: number;
@@ -102,7 +104,7 @@ export function CharacterPanel({
   // Attributes — generic Record keyed by capability `attributeKeys[*].key`.
   // For COC: pulled from cocAttributes; for d20: from d20Attributes.
   const [attributeValues, setAttributeValues] = useState<Record<string, number>>(() =>
-    buildAttributeValues(ruleTemplate, charData.cocAttributes, charData.d20Attributes)
+    buildAttributeValues(ruleTemplate, charData.cocAttributes, charData.d20Attributes, charData.taQualities)
   );
 
   // d20-specific role / level (gated by `cap.hasRoleLevel`).
@@ -119,7 +121,7 @@ export function CharacterPanel({
       return;
     }
     initCharacterAction(roomId).then((data) => {
-      setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes));
+      setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities));
       if (data.d20Sheet) {
         setD20Role(data.d20Sheet.role ?? "");
         setD20Level(data.d20Sheet.level ?? "");
@@ -146,15 +148,22 @@ export function CharacterPanel({
   const resourceMaxes: Record<string, number> =
     ruleTemplate === "dnd5e"
       ? { hp: charData.d20Sheet?.hpMax ?? 10 }
-      : cocDerived
-        ? { hp: cocDerived.hpMax, san: cocDerived.sanMax, mp: cocDerived.mpMax }
-        : {};
+      : ruleTemplate === "triangle"
+        ? {} // counters have no max
+        : cocDerived
+          ? { hp: cocDerived.hpMax, san: cocDerived.sanMax, mp: cocDerived.mpMax }
+          : {};
 
   // Resource current values — generic Record keyed by resource key.
   const [currentResources, setCurrentResources] = useState<Record<string, number>>(() => {
     const out: Record<string, number> = {};
     if (ruleTemplate === "dnd5e") {
       out.hp = charData.d20Sheet?.hp_current ?? charData.d20Sheet?.hpMax ?? 10;
+      return out;
+    }
+    if (ruleTemplate === "triangle") {
+      out.commendations = charData.taSheet?.commendations ?? 0;
+      out.reprimands = charData.taSheet?.reprimands ?? 0;
       return out;
     }
     const d = computeCocDerived(attributeValuesAsCocAttrs(attributeValues));
@@ -189,6 +198,8 @@ export function CharacterPanel({
       cocAttributes?: CocAttributes;
       d20Attributes?: D20Attributes;
       d20Sheet?: D20Sheet;
+      taQualities?: TaQualities;
+      taSheet?: TaSheet;
       bio?: string;
       occupation?: string;
       age?: number;
@@ -197,7 +208,7 @@ export function CharacterPanel({
     };
     if (!cd) return;
     const rt = cd.ruleTemplate || ruleTemplate;
-    const attrs = buildAttributeValues(rt, cd.cocAttributes, cd.d20Attributes);
+    const attrs = buildAttributeValues(rt, cd.cocAttributes, cd.d20Attributes, cd.taQualities);
     /* eslint-disable react-hooks/set-state-in-effect */
     setAttributeValues(attrs);
     setBio(cd.bio || "");
@@ -208,6 +219,11 @@ export function CharacterPanel({
       setD20Role(cd.d20Sheet?.role ?? "");
       setD20Level(cd.d20Sheet?.level ?? "");
       setCurrentResources({ hp: cd.d20Sheet?.hp_current ?? cd.d20Sheet?.hpMax ?? 10 });
+    } else if (rt === "triangle") {
+      setCurrentResources({
+        commendations: cd.taSheet?.commendations ?? 0,
+        reprimands: cd.taSheet?.reprimands ?? 0,
+      });
     } else {
       const d = computeCocDerived(attributeValuesAsCocAttrs(attrs));
       setCurrentResources({
@@ -267,6 +283,15 @@ export function CharacterPanel({
             hp_current: currentResources.hp ?? 0,
           },
         });
+      } else if (ruleTemplate === "triangle") {
+        await saveCharacterDataAction(roomId, {
+          ...basePayload,
+          taQualities: attributeValuesAsTaQualities(attributeValues),
+          taSheet: {
+            commendations: currentResources.commendations ?? 0,
+            reprimands: currentResources.reprimands ?? 0,
+          },
+        });
       } else {
         // basic — no rule-specific shape; save just the generic fields.
         await saveCharacterDataAction(roomId, basePayload);
@@ -301,6 +326,15 @@ export function CharacterPanel({
       lines.push(t("baseAttributes") + ":");
       ruleCap.attributeKeys.forEach(({ key }) =>
         lines.push(`  ${key.toUpperCase()}: ${attributeValues[key] ?? 0}`));
+    } else if (ruleTemplate === "triangle") {
+      lines.push(
+        `${t("commendations")}: ${currentResources.commendations ?? 0}`,
+        `${t("reprimands")}: ${currentResources.reprimands ?? 0}`,
+        ""
+      );
+      lines.push(t("baseAttributes") + ":");
+      ruleCap.attributeKeys.forEach(({ key, labelKey }) =>
+        lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0}`));
     }
     if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
     if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
@@ -624,6 +658,7 @@ function buildAttributeValues(
   ruleTemplate: string,
   coc: CocAttributes | undefined,
   d20: D20Attributes | undefined,
+  ta?: TaQualities,
 ): Record<string, number> {
   if (ruleTemplate === "coc7th") {
     const src = coc || COC_DEFAULT_ATTRIBUTES;
@@ -631,6 +666,10 @@ function buildAttributeValues(
   }
   if (ruleTemplate === "dnd5e") {
     const src = d20 || D20_DEFAULT_ATTRIBUTES;
+    return { ...src };
+  }
+  if (ruleTemplate === "triangle") {
+    const src = ta || TA_DEFAULT_QUALITIES;
     return { ...src };
   }
   return {};
@@ -650,6 +689,19 @@ function attributeValuesAsCocAttrs(values: Record<string, number>): CocAttribute
 function attributeValuesAsD20Attrs(values: Record<string, number>): D20Attributes {
   const keys: (keyof D20Attributes)[] = ["str","dex","con","int","wis","cha","pb","ac"];
   const out = { ...D20_DEFAULT_ATTRIBUTES };
+  keys.forEach(k => {
+    if (typeof values[k] === "number") out[k] = values[k];
+  });
+  return out;
+}
+
+/** Read back a Triangle Agency qualities object from the generic record. */
+function attributeValuesAsTaQualities(values: Record<string, number>): TaQualities {
+  const keys: (keyof TaQualities)[] = [
+    "attentiveness","duplicity","dynamism","empathy","initiative",
+    "persistence","presence","professionalism","subtlety",
+  ];
+  const out = { ...TA_DEFAULT_QUALITIES };
   keys.forEach(k => {
     if (typeof values[k] === "number") out[k] = values[k];
   });

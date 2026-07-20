@@ -44,7 +44,7 @@ vi.mock("next-intl/server", () => ({
   })
 }));
 
-import { parseAndRollExpression, executeCommand } from "../commands";
+import { parseAndRollExpression, executeCommand, formatDiceRollMessage } from "../commands";
 import { db } from "@/db";
 import { rooms, roomSkills, roomMembers } from "@/db/schema";
 
@@ -401,5 +401,42 @@ describe("Commands - unknown command suggestions", () => {
     const result = await executeCommand(1, 1, ".zzzzzz");
     expect(result.success).toBe(false);
     expect(result.error).toBe("unknownCommand");
+  });
+});
+
+describe("Commands - formatDiceRollMessage highlightFace stamping", () => {
+  const t = (key: string) => key;
+
+  it("stamps highlightFace into single-term detail when provided", () => {
+    const res = parseAndRollExpression("6d4", t);
+    expect(res.success).toBe(true);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 6d4", 3);
+    const detail = JSON.parse(diceDetail);
+    expect(detail.highlightFace).toBe(3);
+    expect(detail.notation).toBe("6d4");
+    expect(detail.results).toHaveLength(6);
+  });
+
+  it("omits highlightFace when the param is undefined", () => {
+    const res = parseAndRollExpression("6d4", t);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 6d4");
+    expect(JSON.parse(diceDetail)).not.toHaveProperty("highlightFace");
+  });
+
+  it("does not stamp compound expressions (results are empty there)", () => {
+    const res = parseAndRollExpression("2d4+1d6", t);
+    expect(res.success).toBe(true);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 2d4+1d6", 3);
+    const detail = JSON.parse(diceDetail);
+    expect(detail).not.toHaveProperty("highlightFace");
+    expect(detail.results).toEqual([]);
+  });
+
+  it("keeps kN keep-highest detail intact alongside highlightFace", () => {
+    const res = parseAndRollExpression("3d4k2", t);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 3d4k2", 3);
+    const detail = JSON.parse(diceDetail);
+    expect(detail.highlightFace).toBe(3);
+    expect(detail.keptRolls).toHaveLength(2);
   });
 });

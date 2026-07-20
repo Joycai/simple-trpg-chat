@@ -71,6 +71,7 @@ const capabilities: RuleCapabilities = {
   defaultRollExpression: "1d100",
   requiresStoredTarget: true,
   hasRoleLevel: false,
+  quickRolls: [".rc 侦查", ".sc 1/1d6", ".rd100"],
 };
 
 export const coc7thRule: RuleModule = {

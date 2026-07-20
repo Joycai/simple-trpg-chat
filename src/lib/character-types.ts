@@ -102,6 +102,43 @@ export const D20_DEFAULT_ATTRIBUTES: D20Attributes = {
 };
 
 // ============================================================
+// Triangle Agency Qualifications
+// ============================================================
+
+/**
+ * Triangle Agency's 9 Qualifications. Free-set numbers with no derivation —
+ * checks in this system are always 6d4 counting 3s, so the values are
+ * reference bookkeeping (e.g. Quality Assurance counts), not roll modifiers.
+ */
+export interface TaQualities {
+  attentiveness: number;
+  duplicity: number;
+  dynamism: number;
+  empathy: number;
+  initiative: number;
+  persistence: number;
+  presence: number;
+  professionalism: number;
+  subtlety: number;
+}
+
+/**
+ * Triangle Agency sheet meta. Commendations/reprimands are unbounded
+ * accumulating counters (no `*Max` pair — they render as counter cards,
+ * not fill bars).
+ */
+export interface TaSheet {
+  commendations?: number;
+  reprimands?: number;
+}
+
+export const TA_DEFAULT_QUALITIES: TaQualities = {
+  attentiveness: 0, duplicity: 0, dynamism: 0,
+  empathy: 0, initiative: 0, persistence: 0,
+  presence: 0, professionalism: 0, subtlety: 0,
+};
+
+// ============================================================
 // Character Data Root
 // ============================================================
 
@@ -114,7 +151,7 @@ export interface CharacterData {
   avatarUrl?: string;    // Reserved
 
   /** Rule-specific data */
-  ruleTemplate: string;  // 'basic' | 'coc7th' | 'dnd5e'
+  ruleTemplate: string;  // 'basic' | 'coc7th' | 'dnd5e' | 'triangle'
 
   /** COC 7th attributes (only when ruleTemplate = 'coc7th') */
   cocAttributes?: CocAttributes;
@@ -127,6 +164,12 @@ export interface CharacterData {
 
   /** DnD 5e role / level / HP (only when ruleTemplate = 'dnd5e') */
   d20Sheet?: D20Sheet;
+
+  /** Triangle Agency qualifications (only when ruleTemplate = 'triangle') */
+  taQualities?: TaQualities;
+
+  /** Triangle Agency commendation/reprimand counters (only when ruleTemplate = 'triangle') */
+  taSheet?: TaSheet;
 
   /** Generic custom attributes */
   customAttributes?: CustomAttribute[];

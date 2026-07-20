@@ -22,6 +22,7 @@ const RULE_BADGES: Record<string, { letters?: string; Icon?: LucideIcon }> = {
   basic: { Icon: Dices },
   coc7th: { letters: "7E" },
   dnd5e: { letters: "5E" },
+  triangle: { letters: "TA" },
 };
 
 export function RuleTemplateSelect({ id, name, value, onChange, t, disabled }: RuleTemplateSelectProps) {

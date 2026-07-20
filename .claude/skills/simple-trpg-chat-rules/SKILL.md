@@ -35,7 +35,9 @@ description: >
 | `src/lib/rules/index.ts` | barrel — 所有外部代码从 `@/lib/rules` 导入 |
 | `src/lib/rules/basic/index.ts` | basic d100 模块(do-nothing baseline) |
 | `src/lib/rules/coc7th/index.ts` | COC 7th 模块(包装 `coc-stats.ts` + `computeCocDerived`) |
-| `src/lib/__tests__/rules.test.ts` | 38 个边界测试,新规则上线必须补类似覆盖 |
+| `src/lib/rules/dnd5e/index.ts` | DnD 5e (d20) 模块(包装 `d20-stats.ts`;free-set 属性,d20 vs DC) |
+| `src/lib/rules/triangle/index.ts` | Triangle Agency 模块(6d4 数 3;无 `.rc`;计数器资源;包装 `ta-stats.ts`) |
+| `src/lib/__tests__/rules.test.ts` | 边界测试,新规则上线必须补类似覆盖 |
 | `src/db/schema.ts` | `RULE_TEMPLATES` 常量数组(必须与注册表同步)+ `rooms.rule_template` 列 |
 | `src/db/scripts/backfill-rule-template.ts` | 历史回填脚本(legacy `dice_rules` 列已删,留作模板参考) |
 
@@ -52,6 +54,7 @@ description: >
 | `id` | `string` | 持久化到 `rooms.rule_template`,如 `"coc7th"` / `"basic"` / `"dnd5e"`。**稳定**,不可改 |
 | `labelKey` | `string` | i18n key,UI 下拉框 / 标签从 `messages/*.json` 查 |
 | `hintKey?` | `string` | 下拉框的提示文案 i18n key |
+| `rcUsageKey?` | `string` | `parseRcArgs` 返 null 时的用法错误 i18n key(`messages.commands`,默认 `rcUsageError`;dnd5e=`d20RcUsage`;triangle=`taRcNotSupported` 用于"本规则不支持 .rc") |
 | `capabilities` | `RuleCapabilities` | 见 §3。**驱动所有 UI/host-action/AI 门控的唯一来源** |
 | `initCharacter()` | `→ CharacterData` | 新成员加入时的初始角色卡(COC=9 属性+衍生;basic=`{ruleTemplate:'basic'}`) |
 | `computeDerived(sheet)` | `→ CharacterData` | 属性改动后重算衍生 + 保留 player-set 当前值(HP/SAN/MP 钳到新上限)。basic 实现为 identity |
@@ -88,10 +91,15 @@ interface RuleCapabilities {
   hasSanity: boolean;                          // SAN 资源 + .sc 命令 + requestSanCheckAction 守卫
   hasPsychologyRoll: boolean;                  // psychologyHiddenRollAction 守卫 + TopBar 心理学暗骰菜单项
   hasManaPoints: boolean;                      // MP 资源条渲染
-  checkMenuModes: ("check"|"psychology"|"sancheck")[]; // TopBar 检定下拉项;length>1 才渲染下拉,否则单按钮
+  checkMenuModes: ("check"|"psychology"|"sancheck")[]; // TopBar 检定项;>1 下拉,=1 单按钮,空数组隐藏(triangle)
   supportedCommands: string[];                 // .sc 的命令门控就读这个
-  resourceBars: { key, labelKey }[];           // 角色卡预置资源条(HP 永远显示,SAN/MP 走自己的 cap)
-  attributeKeys: { key, labelKey }[];          // 角色卡属性宫格(basic=空;COC=9;5e=6)
+  resourceBars: { key, labelKey, style? }[];   // 角色卡预置资源条;style:"counter" 渲染为无上限计数器(默认 "bar" 为 当前/上限 条)
+  attributeKeys: { key, labelKey }[];          // 角色卡属性宫格(basic=空;COC=9;5e=8;triangle=9)
+  defaultRollExpression: string;               // 空参数 .r/.rd 的默认骰(COC/basic=1d100;5e=1d20;triangle=6d4)
+  requiresStoredTarget: boolean;               // .rc 查不到值时是否报 STAT_NOT_SET(COC/basic=true;5e/triangle=false)
+  hasRoleLevel: boolean;                       // 角色卡是否显示 role/level 字段(仅 5e)
+  quickRolls: string[];                        // 聊天输入框上方的快捷命令 chips(规则驱动,替代旧硬编码 QUICK_COMMANDS)
+  highlightDieFace?: number;                   // 掷骰时写入 diceDetail.highlightFace,渲染器逐骰标亮该面(triangle=3)
 }
 ```
 
@@ -192,12 +200,13 @@ export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e'] as const;
 
 ---
 
-## 5. 刻意保留的两处例外(不算缺陷,别"顺手清掉")
+## 5. 刻意保留的例外(不算缺陷,别"顺手清掉")
 
 | 位置 | 现状 | 为何保留 |
 | --- | --- | --- |
 | `src/app/actions/character.ts` — `saveCharacterDataAction` / `updateCocAttributesAction` | 仍用 inline `computeCocDerived` 而非 `rule.computeDerived` | 两者的 `san_current` 保留时机不同(`rule.computeDerived` 同步 `.san` 和 `.san_current`;legacy 只保 `.san`)。差异在罕见边界会改 export 快照中 `.san` 的值。等 5e 落地时和它的对应 action 一起重写 |
 | `src/components/lobby/LobbyClient.tsx:310` 附近的 COC 徽章 | 仍 hardcode `ruleTemplate === "coc7th"` + Skull 图标 | 规则专属装饰图标,不同规则可能要不同图标(5e=骰子、PbtA=面具…)。capabilities 不适合放 UI 装饰元数据;5e 时按需加 `else if` 分支 |
+| `src/components/room/character/CharacterPanel.tsx` — `buildAttributeValues` / `resourceMaxes` / `currentResources` / `handleSaveAll` / `handleExport` | 按 `ruleTemplate` 硬分支(coc7th / dnd5e / triangle) | 每套规则的属性包/资源字段结构不同(`cocAttributes+cocDerived` / `d20Attributes+d20Sheet` / `taQualities+taSheet`),面板需把它们摊平成通用 Record 再存回。新规则在这几处各加一个分支即可 |
 
 剩余几个 `<select>` 也是"刻意不迁"——参考 `src/components/shared/ThemedSelect.tsx` 文档注释的 carve-out 说明。
 

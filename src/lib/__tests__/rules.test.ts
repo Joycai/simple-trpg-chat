@@ -8,10 +8,11 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 import { rollDie } from "@/lib/utils";
-import { basicRule, coc7thRule, dnd5eRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
+import { basicRule, coc7thRule, dnd5eRule, triangleRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
 import {
   COC_DEFAULT_ATTRIBUTES,
   D20_DEFAULT_ATTRIBUTES,
+  TA_DEFAULT_QUALITIES,
   computeCocDerived,
   type CharacterData,
 } from "@/lib/character-types";
@@ -659,5 +660,179 @@ describe("rules/isolation — COC/basic must not regress", () => {
     expect(d.san).toBe(99);
     expect(d.san_current).toBe(99);
     expect(d.sanMax).toBe(99);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Triangle Agency — 6d4 count-3s system. No .rc checks in v1; qualifications
+// are free-set attributes and commendations/reprimands are unbounded counters.
+// ---------------------------------------------------------------------------
+
+const TA_QUALITY_KEYS = [
+  "attentiveness", "duplicity", "dynamism", "empathy", "initiative",
+  "persistence", "presence", "professionalism", "subtlety",
+] as const;
+
+describe("triangleRule/capabilities", () => {
+  it("is registered and enumerable", () => {
+    expect(getRule("triangle")).toBe(triangleRule);
+    expect(listRuleIds()).toContain("triangle");
+  });
+
+  it("declares the 6d4 pool + highlight face 3", () => {
+    const c = triangleRule.capabilities;
+    expect(c.defaultRollExpression).toBe("6d4");
+    expect(c.highlightDieFace).toBe(3);
+    expect(c.quickRolls).toContain(".r 6d4");
+  });
+
+  it("hides every check surface and sanity feature", () => {
+    const c = triangleRule.capabilities;
+    expect(c.hasSanity).toBe(false);
+    expect(c.hasPsychologyRoll).toBe(false);
+    expect(c.hasManaPoints).toBe(false);
+    expect(c.checkMenuModes).toEqual([]);
+    expect(c.supportedCommands).not.toContain("rc");
+    expect(c.supportedCommands).not.toContain("sc");
+  });
+
+  it("declares 9 qualifications + 2 counter-style resources", () => {
+    const c = triangleRule.capabilities;
+    expect(c.attributeKeys.map(a => a.key)).toEqual([...TA_QUALITY_KEYS]);
+    expect(c.resourceBars.map(r => r.key)).toEqual(["commendations", "reprimands"]);
+    expect(c.resourceBars.every(r => r.style === "counter")).toBe(true);
+  });
+});
+
+describe("triangleRule.initCharacter", () => {
+  it("seeds 9 qualifications at 0 and both counters at 0", () => {
+    const sheet = triangleRule.initCharacter();
+    expect(sheet.ruleTemplate).toBe("triangle");
+    TA_QUALITY_KEYS.forEach(k => {
+      expect(sheet.taQualities?.[k]).toBe(0);
+    });
+    expect(sheet.taSheet).toEqual({ commendations: 0, reprimands: 0 });
+  });
+});
+
+describe("triangleRule.routeStat", () => {
+  it("routes all 9 qualifications (zh + en aliases) to attribute", () => {
+    const zhAliases: Record<string, string> = {
+      专注: "attentiveness", 欺瞒: "duplicity", 活力: "dynamism",
+      共情: "empathy", 主动: "initiative", 坚持: "persistence",
+      存在感: "presence", 专业: "professionalism", 隐微: "subtlety",
+    };
+    for (const [zh, key] of Object.entries(zhAliases)) {
+      expect(triangleRule.routeStat(zh)).toMatchObject({ kind: "attribute", key });
+      expect(triangleRule.routeStat(key)).toMatchObject({ kind: "attribute", key });
+    }
+  });
+
+  it("routes 嘉奖/处分 (and en aliases) to resource", () => {
+    expect(triangleRule.routeStat("嘉奖")).toMatchObject({ kind: "resource", key: "commendations", canonical: "嘉奖" });
+    expect(triangleRule.routeStat("commendation")).toMatchObject({ kind: "resource", key: "commendations" });
+    expect(triangleRule.routeStat("处分")).toMatchObject({ kind: "resource", key: "reprimands", canonical: "处分" });
+    expect(triangleRule.routeStat("reprimands")).toMatchObject({ kind: "resource", key: "reprimands" });
+  });
+
+  it("falls through to skill for anything else", () => {
+    expect(triangleRule.routeStat("侦查")).toEqual({ kind: "skill", canonical: "侦查" });
+  });
+
+  it("canonicalStatName normalizes aliases and passes through skills", () => {
+    expect(triangleRule.canonicalStatName("attentiveness")).toBe("专注");
+    expect(triangleRule.canonicalStatName("嘉奖")).toBe("嘉奖");
+    expect(triangleRule.canonicalStatName("侦查")).toBe("侦查");
+  });
+});
+
+describe("triangleRule.applyStatWrite", () => {
+  const freshSheet = (): CharacterData => triangleRule.initCharacter();
+
+  it("writes a qualification without touching the others", () => {
+    const { sheet, finalValue } = triangleRule.applyStatWrite(
+      freshSheet(), { kind: "attribute", key: "empathy", canonical: "共情" }, 3
+    );
+    expect(finalValue).toBe(3);
+    expect(sheet.taQualities?.empathy).toBe(3);
+    expect(sheet.taQualities?.attentiveness).toBe(0);
+  });
+
+  it("counter writes are NOT clamped to any max (999 stays 999)", () => {
+    const { sheet, finalValue } = triangleRule.applyStatWrite(
+      freshSheet(), { kind: "resource", key: "commendations", canonical: "嘉奖" }, 999
+    );
+    expect(finalValue).toBe(999);
+    expect(sheet.taSheet?.commendations).toBe(999);
+  });
+
+  it("counter writes floor at 0", () => {
+    const { sheet, finalValue } = triangleRule.applyStatWrite(
+      freshSheet(), { kind: "resource", key: "reprimands", canonical: "处分" }, -5
+    );
+    expect(finalValue).toBe(0);
+    expect(sheet.taSheet?.reprimands).toBe(0);
+  });
+});
+
+describe("triangleRule — no .rc surface", () => {
+  it("parseRcArgs always returns null", () => {
+    expect(triangleRule.parseRcArgs("专注")).toBeNull();
+    expect(triangleRule.parseRcArgs("专注 50")).toBeNull();
+    expect(triangleRule.parseRcArgs("")).toBeNull();
+  });
+
+  it("resolveCheck throws (unreachable guard)", () => {
+    expect(() =>
+      triangleRule.resolveCheck({ skillName: "专注", target: 0, sheet: null })
+    ).toThrow();
+  });
+
+  it("lookupFallback returns null", () => {
+    expect(triangleRule.lookupFallback("专注", triangleRule.initCharacter())).toBeNull();
+  });
+
+  it("rcUsageKey points at the triangle-specific message", () => {
+    expect(triangleRule.rcUsageKey).toBe("taRcNotSupported");
+  });
+});
+
+describe("triangleRule.computeDerived / exportSnapshot", () => {
+  it("computeDerived is identity", () => {
+    const sheet = triangleRule.initCharacter();
+    expect(triangleRule.computeDerived(sheet)).toBe(sheet);
+  });
+
+  it("exportSnapshot carries counters + qualities", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "triangle",
+      taQualities: { ...TA_DEFAULT_QUALITIES, empathy: 3 },
+      taSheet: { commendations: 5, reprimands: 2 },
+    };
+    expect(triangleRule.exportSnapshot(sheet)).toEqual({
+      commendations: 5,
+      reprimands: 2,
+      qualities: { ...TA_DEFAULT_QUALITIES, empathy: 3 },
+    });
+  });
+});
+
+describe("rules/quickRolls — every rule contributes its chips", () => {
+  it("coc7th keeps the legacy three chips", () => {
+    expect(coc7thRule.capabilities.quickRolls).toEqual([".rc 侦查", ".sc 1/1d6", ".rd100"]);
+  });
+
+  it("basic drops the COC-only .sc chip", () => {
+    expect(basicRule.capabilities.quickRolls).toEqual([".rc 侦查", ".rd100"]);
+  });
+
+  it("dnd5e advertises d20-flavored chips", () => {
+    expect(dnd5eRule.capabilities.quickRolls).toEqual([".rd20", ".rc 力量+2 15"]);
+  });
+
+  it("only triangle sets highlightDieFace", () => {
+    expect(basicRule.capabilities.highlightDieFace).toBeUndefined();
+    expect(coc7thRule.capabilities.highlightDieFace).toBeUndefined();
+    expect(dnd5eRule.capabilities.highlightDieFace).toBeUndefined();
   });
 });

@@ -236,11 +236,14 @@ async function handleDiceRoll(
   hidden: boolean,
   rawCommand: string
 ): Promise<CommandResult> {
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  const rule = getRuleForRoom(room || {});
+
   let args = rawArgs;
   if (!args.trim()) {
-    // No args → use the rule's default die (COC/basic = 1d100, dnd5e = 1d20).
-    const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-    args = getRuleForRoom(room || {}).capabilities.defaultRollExpression;
+    // No args → use the rule's default die (COC/basic = 1d100, dnd5e = 1d20,
+    // triangle = 6d4).
+    args = rule.capabilities.defaultRollExpression;
   } else if (/^\d+(?![dD])/.test(args.trim())) {
     args = "1d" + args.trim();
   }
@@ -255,7 +258,8 @@ async function handleDiceRoll(
     rollResult.terms,
     rollResult.totalSum,
     t,
-    rawCommand
+    rawCommand,
+    rule.capabilities.highlightDieFace
   );
 
   const vis = hidden
@@ -493,8 +497,7 @@ async function handleRollCheck(
   const parsed = rule.parseRcArgs(trimmedArgs);
   if (!parsed) {
     // Pick the rule-flavored usage error when available, else the legacy one.
-    const usageKey = rule.id === "dnd5e" ? "d20RcUsage" : "rcUsageError";
-    return { success: false, isCommand: true, error: t(usageKey) };
+    return { success: false, isCommand: true, error: t(rule.rcUsageKey ?? "rcUsageError") };
   }
 
   // Evaluate the modifier formula (rolling any embedded dice) if the rule
@@ -947,13 +950,23 @@ export function parseAndRollExpression(expr: string, t?: (key: string, opts?: Re
   };
 }
 
-/** Format complex dice roll details for the message output */
-function formatDiceRollMessage(
+/**
+ * Format complex dice roll details for the message output.
+ *
+ * `highlightFace` (from the rule's `highlightDieFace` capability) is stamped
+ * into the detail JSON of single-term rolls so the chat renderer can accent
+ * matching dice without knowing the rule. Compound expressions persist
+ * `results: []`, so there is nothing to highlight there — known limitation.
+ *
+ * Exported for direct unit testing.
+ */
+export function formatDiceRollMessage(
   notation: string,
   terms: TermResult[],
   totalSum: number,
   t: (key: string, opts?: Record<string, string | number | Date>) => string,
-  rawCommand?: string
+  rawCommand?: string,
+  highlightFace?: number
 ): { content: string; diceDetail: string } {
   // If there's only one term and it's a dice term
   if (terms.length === 1 && terms[0].type === "dice") {
@@ -971,6 +984,7 @@ function formatDiceRollMessage(
       sum: totalSum,
       results: term.rolls,
       keptRolls: term.keptRolls,
+      ...(highlightFace !== undefined ? { highlightFace } : {}),
       command: rawCommand,
     });
 

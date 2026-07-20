@@ -114,6 +114,12 @@ export interface ResourceBarSpec {
   key: string;
   /** i18n key under `messages.character` for the bar label. */
   labelKey: string;
+  /**
+   * Render style. `"bar"` (default) is a current/max pair with a fill bar.
+   * `"counter"` is an unbounded counter (value + steppers, no max) for
+   * accumulating resources like Triangle Agency's commendations/reprimands.
+   */
+  style?: "bar" | "counter";
 }
 
 export interface AttributeKeySpec {
@@ -155,6 +161,17 @@ export interface RuleCapabilities {
    * `level` fields above the attribute grid. d20 sets true; COC/basic false.
    */
   hasRoleLevel: boolean;
+  /**
+   * Quick-insert command chips rendered above the chat input, in order.
+   * Each entry is a full command string (e.g. `".rd100"`, `".r 6d4"`).
+   */
+  quickRolls: ReadonlyArray<string>;
+  /**
+   * Die face to visually highlight in plain-roll results (Triangle Agency
+   * highlights every 3). Stamped into the dice detail JSON at roll time so
+   * the chat renderer stays rule-agnostic and history self-describes.
+   */
+  highlightDieFace?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +200,12 @@ export interface RuleModule {
   readonly labelKey: string;
   /** Optional i18n key for the dropdown hint line. */
   readonly hintKey?: string;
+  /**
+   * i18n key under `messages.commands` for the usage error emitted when
+   * `parseRcArgs` returns null. Defaults to `"rcUsageError"`. Rules that
+   * don't support `.rc` at all point this at an explanatory message.
+   */
+  readonly rcUsageKey?: string;
   /** Feature gates — see `RuleCapabilities`. */
   readonly capabilities: RuleCapabilities;
 
