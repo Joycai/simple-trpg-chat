@@ -157,6 +157,15 @@ export interface AttributeKeySpec {
 }
 
 export interface RuleCapabilities {
+  /**
+   * i18n key under `messages.hostLabels` for what this system calls the person
+   * running the game — COC 7th says "KP", DnD 5e says "DM", Triangle Agency
+   * says 经理/Manager, everything else falls back to the generic 主持人/GM.
+   * Every room-scoped surface that names the host (chat badges, member list,
+   * visibility labels, inventory source/visibility, timeline, room info,
+   * lobby room cards) reads this instead of hardcoding a title.
+   */
+  hostLabelKey: string;
   /** Renders SAN bar; enables `.sc` and host `requestSanCheckAction`. */
   hasSanity: boolean;
   /** Enables host `psychologyHiddenRollAction` and its TopBar menu item. */

@@ -8,6 +8,7 @@ import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { listRules } from "@/lib/rules";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface RoomInfoPanelProps {
   room: {
@@ -31,6 +32,7 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const ts = useTranslations("roomSettings");
   const locale = useLocale();
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const router = useRouter();
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
   const [editingName, setEditingName] = useState(false);
@@ -180,7 +182,7 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
               <code className="block bg-bg border border-danger/20 rounded-theme py-3 font-theme-mono font-bold text-lg text-center text-danger tracking-[0.3em] select-all">
                 {room.secretKey}
               </code>
-              <p className="text-xs text-text-dim mt-2">{t("secretKeyDesc")}</p>
+              <p className="text-xs text-text-dim mt-2">{t("secretKeyDesc", { host: hostLabel })}</p>
 
               {showPasswordConfirm && (
                 <div className="mt-3 pt-3 border-t border-danger/20 flex flex-col gap-2">

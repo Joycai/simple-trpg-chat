@@ -97,6 +97,7 @@ function parseXyGroup(group: string): { modifierExpression?: string } | null {
 }
 
 const capabilities: RuleCapabilities = {
+  hostLabelKey: "gm",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,

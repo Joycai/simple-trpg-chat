@@ -7,6 +7,7 @@ import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import type { RuleCapabilities } from "@/lib/rules";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface Player {
   id: number;
@@ -30,6 +31,7 @@ interface Props {
 export function HostCheckDialog({ roomId, players, isPrivate = false, channelTargetUserId, mode = "check", checkOptions, onClose }: Props) {
   const t = useTranslations("hostCheck");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [skillName, setSkillName] = useState("");
@@ -173,7 +175,7 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
           {mode === "psychology" && (
             <div className="flex gap-2.5 px-4 py-3 rounded-theme border border-ai/30 bg-ai/5">
               <Icons.Info className="w-4 h-4 text-ai shrink-0 mt-0.5" />
-              <span className="text-sm text-text-muted leading-relaxed">{t("psyHint")}</span>
+              <span className="text-sm text-text-muted leading-relaxed">{t("psyHint", { host: hostLabel })}</span>
             </div>
           )}
 

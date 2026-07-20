@@ -9,6 +9,7 @@ import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
+import { useHostLabel } from "@/components/shared/host-label";
 import {
   formatContent, typeIcon, typeColorClass, typeActiveClass,
   sourceKey, visibilityKey, relationKey, categoryKey, relationBadgeClass,
@@ -55,6 +56,7 @@ export function CreateEditModal({
 }: CreateEditModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   /** Source file the user picked, handed to the cropper. Null = cropper closed. */
@@ -176,7 +178,7 @@ export function CreateEditModal({
               <div>
                 <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("sourceLabel")}</label>
                 <div className="flex flex-wrap gap-2">
-                  {([["kp", t("sourceKp")], ["player", t("sourcePlayer")], ["system", t("sourceSystem")]] as const).map(([v, label]) => (
+                  {([["kp", t("sourceKp", { host: hostLabel })], ["player", t("sourcePlayer")], ["system", t("sourceSystem")]] as const).map(([v, label]) => (
                     <button key={v} type="button" onClick={() => onMetaChange({ ...meta, source: v })} className={pillCls(source === v, "border-ai bg-ai text-white")}>{label}</button>
                   ))}
                 </div>
@@ -237,7 +239,7 @@ export function CreateEditModal({
               <div>
                 <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("visibilityLabel")}</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {([["all", t("visibilityAll"), Icons.Eye], ["kp", t("visibilityKp"), Icons.Lock]] as const).map(([v, label, Ico]) => (
+                  {([["all", t("visibilityAll"), Icons.Eye], ["kp", t("visibilityKp", { host: hostLabel }), Icons.Lock]] as const).map(([v, label, Ico]) => (
                     <button key={v} type="button" onClick={() => onMetaChange({ ...meta, visibility: v })}
                       className={`flex items-center justify-center gap-2 py-2.5 rounded-theme border text-sm font-bold transition cursor-pointer ${
                         visibility === v ? "border-ai/50 bg-ai/10 text-text" : "border-border bg-surface-alt/40 text-text-muted hover:text-text"
@@ -427,6 +429,7 @@ export function DetailModal({
 }: DetailModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const [previewOpen, setPreviewOpen] = useState(false);
   const typeLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
   const TypeIcon = typeIcon[detailItem.type];
@@ -473,7 +476,7 @@ export function DetailModal({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {type === "info" && (
-                <span className="inline-flex items-center text-xs font-bold px-3 py-1 rounded-full bg-ai text-white">{t(sourceKey[mSource])}</span>
+                <span className="inline-flex items-center text-xs font-bold px-3 py-1 rounded-full bg-ai text-white">{t(sourceKey[mSource], { host: hostLabel })}</span>
               )}
               {type === "character" && (
                 <span className={`inline-flex items-center text-xs font-bold px-3 py-1 rounded-full border ${relationBadgeClass[mRelation]}`}>{t(relationKey[mRelation])}</span>
@@ -545,7 +548,7 @@ export function DetailModal({
           ) : type === "info" ? (
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-theme border border-border bg-surface-alt/40">
-                {mVisibility === "kp" ? <Icons.Lock className="w-4 h-4 text-text-muted shrink-0" /> : <Icons.Eye className="w-4 h-4 text-text-muted shrink-0" />} <span className="text-text">{t(visibilityKey[mVisibility])}</span>
+                {mVisibility === "kp" ? <Icons.Lock className="w-4 h-4 text-text-muted shrink-0" /> : <Icons.Eye className="w-4 h-4 text-text-muted shrink-0" />} <span className="text-text">{t(visibilityKey[mVisibility], { host: hostLabel })}</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-theme border border-border bg-surface-alt/40 min-w-0">
                 <Icons.User className="w-4 h-4 text-text-muted shrink-0" /> <span className="text-text-dim shrink-0">{t("holderInline")}</span> <span className="text-text truncate">{holderNames}</span>
@@ -631,6 +634,7 @@ interface ShareModalProps {
 export function ShareModal({ item, fromName, players, userId, hostId, onCancel, onShare }: ShareModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const TypeIcon = typeIcon[item.type];
   const typeLabel = (s: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[s] || s);
 
@@ -645,7 +649,7 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
 
   // Item summary meta line: 类型 [· 来源/关系] [· 类别 · ×数量].
   const metaParts = [typeLabel(item.type)];
-  if (item.type === "info" && item.source) metaParts.push(t(sourceKey[item.source]));
+  if (item.type === "info" && item.source) metaParts.push(t(sourceKey[item.source], { host: hostLabel }));
   if (item.type === "character" && item.relation) metaParts.push(t(relationKey[item.relation]));
   if (item.type === "item") { metaParts.push(t(categoryKey[item.category || "tool"])); metaParts.push(`×${item.quantity ?? 1}`); }
   const metaLine = metaParts.join(" · ");

@@ -11,6 +11,7 @@ import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import Link from "next/link";
 import { DEFAULT_RULE_ID } from "@/lib/rules";
+import { useHostLabelResolver } from "@/components/shared/host-label";
 
 /** Shared input/select styling for the create-room modal (rainglass spec). */
 const FIELD_CLS =
@@ -35,6 +36,9 @@ interface LobbyClientProps {
 
 export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId }: LobbyClientProps) {
   const t = useTranslations("lobby");
+  // Room cards label the owner with whatever that room's rule template calls
+  // the host (KP / DM / 经理 / 主持人), so the lobby matches the room itself.
+  const hostLabelOf = useHostLabelResolver();
   const tc = useTranslations("createRoom");
   const locale = useLocale();
   const [showCreate, setShowCreate] = useState(false);
@@ -317,7 +321,7 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                 <div className="flex items-center gap-2 mb-2 text-xs text-text-muted">
                   {isOwner && (
                     <span className="bg-success/10 text-success border border-success/30 px-2 py-0.5 rounded font-medium">
-                      {t("host")}
+                      {hostLabelOf((room as { ruleTemplate?: string | null }).ruleTemplate)}
                     </span>
                   )}
                   {isJoined && !isOwner && (

@@ -21,6 +21,7 @@ import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom } from "@/lib/rules";
+import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
 import type { ThemeMode } from "@/themes/types";
@@ -546,6 +547,7 @@ export function RoomClient({
   };
 
   return (
+    <RuleTemplateProvider ruleTemplate={room.ruleTemplate}>
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
       {/* Ambient background: fixed z-0 layers above the root's opaque bg-bg,
           below the top bar (z-20) and the positioned content row below. */}
@@ -744,5 +746,6 @@ export function RoomClient({
         onStartDM={handleTabChange}
       />
     </div>
+    </RuleTemplateProvider>
   );
 }
