@@ -23,6 +23,7 @@ import type {
 } from "../types";
 
 const capabilities: RuleCapabilities = {
+  hostLabelKey: "gm",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,

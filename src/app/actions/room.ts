@@ -707,7 +707,9 @@ export async function psychologyHiddenRollAction(
 
   const [hostMember] = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
-  const hostNick = hostMember?.nickname || "KP";
+  // Matches the neutral fallback used by every other host-nickname lookup in
+  // this file; the rule's own title is applied client-side via useHostLabel().
+  const hostNick = hostMember?.nickname || "Host";
 
   const targetMembers = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targetUserIds)));

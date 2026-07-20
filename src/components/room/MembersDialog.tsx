@@ -6,6 +6,7 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import { getBotStatus } from "@/lib/botStatus";
 import type { PlayerEntry } from "@/components/room/types";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface MembersDialogProps {
   players: PlayerEntry[];
@@ -36,6 +37,7 @@ export function MembersDialog({
 }: MembersDialogProps) {
   const t = useTranslations("room");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
 
   return (
     <OverlayShell
@@ -67,7 +69,7 @@ export function MembersDialog({
             const isBot = !!u.isBot;
             const isMe = u.id === userId;
             const isHostMember = u.id === hostId;
-            const roleLabel = isBot ? t("roleBot") : isHostMember ? t("roleHost") : t("rolePlayer");
+            const roleLabel = isBot ? t("roleBot") : isHostMember ? hostLabel : t("rolePlayer");
             const badgeColor = p.room_members?.avatarColor || getRandomColorForUser(u.id);
             const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
             return (

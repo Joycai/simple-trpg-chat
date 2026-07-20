@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { composeTimelineLabel, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface Props {
   /** Structured payload; when null the `fallback` content string is shown instead. */
@@ -21,6 +22,7 @@ interface Props {
  */
 export function TimelineDivider({ data, fallback, isHost, onWithdraw }: Props) {
   const t = useTranslations("timeline");
+  const hostLabel = useHostLabel();
   const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
 
@@ -45,7 +47,7 @@ export function TimelineDivider({ data, fallback, isHost, onWithdraw }: Props) {
         <span className="flex-1 h-px bg-gradient-to-l from-transparent to-accent/45" />
       </div>
       <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-text-dim select-none">
-        {t("subtitle")}
+        {t("subtitle", { host: hostLabel })}
       </span>
 
       {/* Host-only withdraw affordance — revealed on hover of the divider row. */}
@@ -84,6 +86,7 @@ function WithdrawConfirm({
   onConfirm: () => void | Promise<void>;
 }) {
   const t = useTranslations("timeline");
+  const hostLabel = useHostLabel();
   const { close, backdropClass, panelClass } = useOverlayTransition(onCancel);
   const [busy, setBusy] = useState(false);
 
@@ -114,7 +117,7 @@ function WithdrawConfirm({
           <span className="font-bold text-text">「{label}」</span>
           {t("withdrawMiddle")}
           <span className="font-bold text-danger">{t("withdrawIrreversible")}</span>
-          {t("withdrawAfter")}
+          {t("withdrawAfter", { host: hostLabel })}
         </p>
         <div className="flex gap-3">
           <button

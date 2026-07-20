@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import { useClickOutside } from "@/lib/useClickOutside";
 import { Icons } from "@/components/shared/icons";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface DMConversation {
   userId: number;
@@ -52,6 +53,7 @@ export function ConversationPanel({
   resizing = false,
 }: ConversationPanelProps) {
   const t = useTranslations("room");
+  const hostLabel = useHostLabel();
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   useClickOutside(dropdownRef, () => setOpenDropdown(null), openDropdown !== null);
@@ -223,7 +225,7 @@ export function ConversationPanel({
                   <span className="text-text truncate">{conv.nickname}</span>
                   {isSelf && <span className="text-text-dim text-[10px] shrink-0">({t("you")})</span>}
                   {isHostMember && (
-                    <span className="text-[8px] font-bold text-accent border border-accent/40 rounded px-1 leading-[1.4] shrink-0">KP</span>
+                    <span className="text-[8px] font-bold text-accent border border-accent/40 rounded px-1 leading-[1.4] shrink-0">{hostLabel}</span>
                   )}
                   {conv.isBot && (
                     <span className="text-[8px] font-bold text-ai border border-ai/40 rounded px-1 leading-[1.4] shrink-0">BOT</span>

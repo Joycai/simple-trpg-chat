@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface Props {
   /** Upper bound for the bonus-dice count (from the rule's capabilities). */
@@ -20,6 +21,7 @@ interface Props {
 export function BonusDicePrompt({ max, onConfirm, onClose }: Props) {
   const t = useTranslations("room");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
   const [value, setValue] = useState("0");
 
@@ -43,7 +45,7 @@ export function BonusDicePrompt({ max, onConfirm, onClose }: Props) {
           </button>
         </div>
 
-        <p className="text-sm text-text-muted leading-relaxed mb-5">{t("bonusDiceDesc")}</p>
+        <p className="text-sm text-text-muted leading-relaxed mb-5">{t("bonusDiceDesc", { host: hostLabel })}</p>
 
         <div className="flex flex-col gap-2 mb-5">
           <label className="text-sm text-text-muted">{t("bonusDiceLabel", { max })}</label>

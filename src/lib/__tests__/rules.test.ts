@@ -1189,3 +1189,45 @@ describe("shouhunRule.resolveCheck — per-die breakdown (rollDisplay)", () => {
     expect(check.rollDisplay).toBe("d20[10]");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Host title (每套规则对主持人的称呼)
+// ---------------------------------------------------------------------------
+
+describe("hostLabelKey", () => {
+  // The rule that owns a room decides what the person running it is called.
+  // Getting this wrong is invisible to types, so pin the mapping here.
+  const EXPECTED: Record<string, string> = {
+    coc7th: "kp",
+    dnd5e: "dm",
+    triangle: "manager",
+    shouhun: "gm",
+    basic: "gm",
+  };
+
+  it("每套规则都声明了预期的主持人称呼", () => {
+    for (const rule of listRules()) {
+      expect(rule.capabilities.hostLabelKey).toBe(EXPECTED[rule.id]);
+    }
+    // Guards against a new rule silently skipping the mapping above.
+    expect([...listRuleIds()].sort()).toEqual(Object.keys(EXPECTED).sort());
+  });
+
+  it("称呼的 i18n key 在 zh/en 两份文案里都存在", async () => {
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    const zhLabels = (zh.default as { hostLabels: Record<string, string> }).hostLabels;
+    const enLabels = (en.default as { hostLabels: Record<string, string> }).hostLabels;
+    for (const rule of listRules()) {
+      const key = rule.capabilities.hostLabelKey;
+      expect(zhLabels[key], `zh.hostLabels.${key}`).toBeTruthy();
+      expect(enLabels[key], `en.hostLabels.${key}`).toBeTruthy();
+    }
+    expect(zhLabels.kp).toBe("KP");
+    expect(zhLabels.dm).toBe("DM");
+    expect(zhLabels.manager).toBe("经理");
+    expect(zhLabels.gm).toBe("主持人");
+  });
+});

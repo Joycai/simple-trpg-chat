@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Package, Share2 } from "lucide-react";
 import { isUnread, isUpdated, isNew, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
+import { useHostLabel } from "@/components/shared/host-label";
 
 interface BackpackViewProps {
   filteredItems: Distribution[];
@@ -14,6 +15,7 @@ interface BackpackViewProps {
 
 export function BackpackView({ filteredItems, filterType, onFilterChange, userId, onSelect }: BackpackViewProps) {
   const t = useTranslations("inventory");
+  const hostLabel = useHostLabel();
   const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
 
   return (
@@ -45,7 +47,7 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
         <div className="text-center text-text-muted py-12 text-sm">
           <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>{t("emptyBackpack", { type: filterType === "all" ? "" : typeTabLabel(filterType) })}</p>
-          <p className="text-xs mt-1 opacity-60">{t("waitingKp")}</p>
+          <p className="text-xs mt-1 opacity-60">{t("waitingKp", { host: hostLabel })}</p>
         </div>
       ) : (
         (() => {

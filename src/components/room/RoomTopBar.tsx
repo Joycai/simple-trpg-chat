@@ -8,6 +8,7 @@ import { useClickOutside } from "@/lib/useClickOutside";
 import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
+import { useHostLabel } from "@/components/shared/host-label";
 
 type CheckMode = null | "check" | "psychology" | "sancheck";
 
@@ -137,6 +138,7 @@ export function RoomTopBar({
   const tn = useTranslations("nav");
   const ts = useTranslations("userSettings");
   const tb = useTranslations("roomBackground");
+  const hostLabel = useHostLabel();
   const bgIntensity = useRoomBgIntensity();
 
   // Uniform sizing for every top-bar control, so heights and edges line up
@@ -209,7 +211,7 @@ export function RoomTopBar({
           </div>
           {isHost && (
             <span className="md:hidden text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none self-center">
-              {t("gm")}
+              {hostLabel}
             </span>
           )}
         </div>
@@ -331,12 +333,12 @@ export function RoomTopBar({
             )}
           </div>
 
-          {/* Group 3: Host 专属功能 — KP 标识 + 检定 + 道具管理 + AI */}
+          {/* Group 3: Host 专属功能 — 主持人标识 + 检定 + 道具管理 + AI */}
           {isHost && (
             <>
               <ToolDivider />
               <span className="inline-flex items-center h-9 px-2.5 rounded-theme border border-accent/50 text-accent text-xs font-bold tracking-wide select-none shrink-0">
-                KP
+                {hostLabel}
               </span>
               {checkMenuModes.length > 1 ? (
                 /* Multi-mode rule (e.g. COC): a 检定 dropdown enumerating the
@@ -371,7 +373,9 @@ export function RoomTopBar({
                                 </span>
                                 <span className="min-w-0">
                                   <span className="block text-sm font-bold text-text">{t(titleKey)}</span>
-                                  <span className="block text-xs text-text-muted truncate">{t(descKey)}</span>
+                                  {/* Some descriptions name the host (「仅{host}可见」), so every
+                                      row gets the rule's title whether it uses it or not. */}
+                                  <span className="block text-xs text-text-muted truncate">{t(descKey, { host: hostLabel })}</span>
                                 </span>
                               </button>
                             );

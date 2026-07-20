@@ -13,6 +13,7 @@ import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
 import type { Audience } from "@/lib/messaging/audience";
+import { useHostLabel } from "@/components/shared/host-label";
 
 // Stable `useSyncExternalStore` callbacks. The store never changes, so subscribe
 // is a no-op; the snapshot pair gives us a "true on client / false on server"
@@ -846,6 +847,7 @@ export const ChatMessage = memo(function ChatMessage({
 }: ChatMessageProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
+  const hostLabel = useHostLabel();
   // `formatTime` reads `new Date()` and diverges between SSR and client.
   // useSyncExternalStore returns the server snapshot (false) during SSR and the
   // client snapshot (true) thereafter, avoiding the setState-in-effect pattern.
@@ -1256,7 +1258,7 @@ export const ChatMessage = memo(function ChatMessage({
     audience === "self" ? t("visSelf")
     : audience === "dm" ? t("visDm")
     : audience === "directed" ? t("visDirected")
-    : audience === "gm" ? t("visGm")
+    : audience === "gm" ? t("visGm", { host: hostLabel })
     : null;
 
   return (
@@ -1327,25 +1329,25 @@ export const ChatMessage = memo(function ChatMessage({
           </span>
           {senderId !== undefined && hostId !== undefined && senderId === hostId && (
             <span className="text-[10px] font-bold text-ai bg-ai/15 border border-ai/30 px-1.5 py-0.5 rounded">
-              {t("roleHost")}
+              {hostLabel}
             </span>
           )}
           {isDice && diceProxyNick && (
             <span
               className="dice-proxy-chip inline-flex items-center gap-1 text-[10px] text-primary border border-dashed border-primary/60 bg-primary/[0.06] rounded px-1.5 py-0.5"
-              title={t("proxyRolledByTitle", { hostNick: diceProxyNick })}
+              title={t("proxyRolledByTitle", { hostNick: diceProxyNick, host: hostLabel })}
             >
               <Icons.Stamp className="w-3 h-3" />
               {t("proxyRolledBy", { hostNick: diceProxyNick })}
             </span>
           )}
           {isDice && diceMeta?.psy ? (
-            // Psychology hidden roll: header shows eye icon + "仅 KP 可见" + the
+            // Psychology hidden roll: header shows eye icon + the rule's "仅 <主持人> 可见" + the
             // descriptive content line ("守秘人对 苏雨 进行心理学检定"). Replaces
             // both the regular visibility badge and the command echo.
             <span className="dice-psy-header inline-flex items-center gap-1 text-[11px] text-text-dim">
               <Icons.Eye className="w-3 h-3" />
-              {t("visKpOnly")} · <span className="dice-psy-desc">{content}</span>
+              {t("visKpOnly", { host: hostLabel })} · <span className="dice-psy-desc">{content}</span>
             </span>
           ) : (
             <>
