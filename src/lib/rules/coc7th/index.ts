@@ -30,6 +30,7 @@ import { resolveCocStat } from "@/lib/coc-stats";
 import type {
   AiRuleHints,
   AttributeKeySpec,
+  CharacterStatus,
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
@@ -70,6 +71,9 @@ const capabilities: RuleCapabilities = {
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"],
   resourceBars: COC_RESOURCE_BARS,
   attributeKeys: COC_ATTRIBUTE_KEYS,
+  // Only 幸运 joins the hover card — the other 8 attributes belong to the
+  // full sheet, not a 208px tooltip.
+  statusAttributeKeys: [{ key: "luck", labelKey: "luck" }],
   defaultRollExpression: "1d100",
   requiresStoredTarget: true,
   hasRoleLevel: false,
@@ -113,6 +117,20 @@ export const coc7thRule: RuleModule = {
     if (mpCur !== undefined) recomputed.mp_current = mpCur;
 
     return { ...sheet, cocDerived: recomputed };
+  },
+
+  readStatus(sheet: CharacterData): CharacterStatus {
+    const d = sheet.cocDerived;
+    if (!d) return { resources: {} };
+    return {
+      resources: {
+        hp:  { current: d.hp_current ?? d.hp,   max: d.hpMax  },
+        san: { current: d.san_current ?? d.san, max: d.sanMax },
+        mp:  { current: d.mp_current ?? d.mp,   max: d.mpMax  },
+      },
+      // 幸运 lives on the attribute bag but is mirrored into cocDerived.
+      attributes: { luck: d.luck },
+    };
   },
 
   routeStat(name: string): StatRoute {

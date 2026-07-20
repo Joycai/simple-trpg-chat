@@ -58,6 +58,7 @@ description: >
 | `rcUsageKey?` | `string` | `parseRcArgs` 返 null 时的用法错误 i18n key(`messages.commands`,默认 `rcUsageError`;dnd5e=`d20RcUsage`;triangle=`taRcNotSupported` 用于"本规则不支持 .rc") |
 | `capabilities` | `RuleCapabilities` | 见 §3。**驱动所有 UI/host-action/AI 门控的唯一来源** |
 | `initCharacter()` | `→ CharacterData` | 新成员加入时的初始角色卡(COC=9 属性+衍生;basic=`{ruleTemplate:'basic'}`) |
+| `readStatus(sheet)` | `→ CharacterStatus` | 把本规则自己的数据袋(`cocDerived`/`d20Sheet`/`taSheet`/`shSheet`…)摊平成 `{resources:{key:{current,max?}}, derived?, attributes?, attributeGrades?}`,键与 capabilities 对齐。聊天头像悬浮窗(`ResourceStatusTooltip.tsx`)唯一的数据源;无结构化角色卡的规则返回 `{resources:{}}` |
 | `computeDerived(sheet)` | `→ CharacterData` | 属性改动后重算衍生 + 保留 player-set 当前值(HP/SAN/MP 钳到新上限)。basic 实现为 identity |
 | `routeStat(name)` | `→ StatRoute` | `.st <name> <val>` 的路由决策:`{kind:"skill"\|"attribute"\|"resource", canonical, key?}`。COC 走 `resolveCocStat`;basic 一律返 `{kind:"skill"}` |
 | `canonicalStatName(name)` | `→ string` | 显示名归一(`san → 理智值`)。basic 是 identity |
@@ -90,7 +91,7 @@ description: >
 ```ts
 interface RuleCapabilities {
   hostLabelKey: string;                        // 本规则对主持人的称呼,i18n key 在 messages.hostLabels(coc7th=kp;dnd5e=dm;triangle=manager;shouhun/basic=gm)
-  playerLabelKey: string;                      // 本规则对玩家的称呼,i18n key 在 messages.playerLabels(coc7th=investigator;shouhun=soulHunter;其余=player);UI 经 host-label.tsx 的 usePlayerLabel() 读取
+  playerLabelKey: string;                      // 本规则对玩家的称呼,i18n key 在 messages.playerLabels(coc7th=investigator;dnd5e=adventurer;triangle=agent;shouhun=soulHunter;basic=player);UI 经 host-label.tsx 的 usePlayerLabel() 读取
   hasSanity: boolean;                          // SAN 资源 + .sc 命令 + requestSanCheckAction 守卫
   hasPsychologyRoll: boolean;                  // psychologyHiddenRollAction 守卫 + TopBar 心理学暗骰菜单项
   hasManaPoints: boolean;                      // MP 资源条渲染
@@ -98,6 +99,7 @@ interface RuleCapabilities {
   supportedCommands: string[];                 // .sc 的命令门控就读这个
   resourceBars: { key, labelKey, style? }[];   // 角色卡预置资源条;style:"counter" 渲染为无上限计数器(默认 "bar" 为 当前/上限 条)
   attributeKeys: { key, labelKey }[];          // 角色卡属性宫格(basic=空;COC=9;5e=8;triangle=9)
+  statusAttributeKeys?: { key, labelKey }[];   // 属性里适合塞进头像悬浮窗的少数几个(coc7th=幸运;shouhun=3 项基础属性);key 必须是 attributeKeys 里已有的,labelKey 可另选更短的文案。省略=悬浮窗只显示资源+衍生
   derivedStats?: { key, labelKey }[];          // 角色卡属性宫格后的只读衍生卡(shouhun=术法强度);值由 CharacterPanel 按规则现算传入 AttributesTab 的 derivedValues
   defaultRollExpression: string;               // 空参数 .r/.rd 的默认骰(COC/basic=1d100;5e=1d20;triangle=6d4)
   requiresStoredTarget: boolean;               // .rc 查不到值时是否报 STAT_NOT_SET(COC/basic=true;5e/triangle=false)
@@ -182,7 +184,7 @@ export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e'] as const;
 
 ### Step 5 — 主持人/玩家称呼(`hostLabelKey` / `playerLabelKey`)
 
-每套规则都要声明房间里怎么称呼主持人**和玩家**(两者机制完全对称:capability 必填 key + `messages.hostLabels`/`messages.playerLabels` 文案 + `rules.test.ts` 里各自 describe 块的 `EXPECTED` 映射;玩家称呼现有 key:`player` 玩家、`investigator` 调查员、`soulHunter` 狩魂者,泛用规则复用 `player`)。以主持人为例,三处缺一不可:
+每套规则都要声明房间里怎么称呼主持人**和玩家**(两者机制完全对称:capability 必填 key + `messages.hostLabels`/`messages.playerLabels` 文案 + `rules.test.ts` 里各自 describe 块的 `EXPECTED` 映射;玩家称呼现有 key:`player` 玩家、`investigator` 调查员、`adventurer` 冒险者、`agent` 特工、`soulHunter` 狩魂者,泛用规则复用 `player`)。以主持人为例,三处缺一不可:
 
 1. **文案**——`messages/zh.json` 和 `messages/en.json` 的 `hostLabels` 里挑一个已有 key,或加一个新的:
 
@@ -228,6 +230,7 @@ UI 侧不用改:所有提到主持人的房间内组件都已通过 `src/compone
 - `src/app/actions/export.ts` —— 走 `rule.exportSnapshot()`
 - `src/components/room/RoomTopBar.tsx` —— 检定下拉读 `checkMenuModes`
 - `src/components/room/character/AttributesTab.tsx` —— 资源条/属性宫格读 capabilities
+- `src/components/room/chat/ResourceStatusTooltip.tsx` —— 头像悬浮窗读 capabilities + `rule.readStatus()`(图标映射在 `character/resource-visuals.ts`,按资源 key 查,查不到用主色兜底)
 - `src/components/room/RoomSettings.tsx` / `LobbyClient.tsx` —— 下拉项来自 `listRules()`
 - `src/lib/ai_agent.ts` —— 系统提示走 `rule.describeForAI()`,enum 走 `listRuleIds()`
 

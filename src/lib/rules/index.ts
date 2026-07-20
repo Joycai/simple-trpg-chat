@@ -1,6 +1,7 @@
 export type {
   AiRuleHints,
   AttributeKeySpec,
+  CharacterStatus,
   CheckMenuMode,
   CheckRequest,
   CheckResult,

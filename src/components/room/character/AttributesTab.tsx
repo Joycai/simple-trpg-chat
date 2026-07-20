@@ -2,23 +2,9 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Heart, Eye, Droplet, Plus, Trash2, X, Check, Minus, Award, AlertTriangle, Sparkles } from "lucide-react";
+import { Plus, Trash2, X, Check, Minus } from "lucide-react";
 import { getRule } from "@/lib/rules";
-
-/**
- * Icon mapping for rule-declared resource bars. The rule's capabilities only
- * declare keys + i18n labels (it's a pure module with no React deps); this
- * client-only map picks the visual. Unknown keys fall back to the primary
- * color + no icon, so new rules don't require a code change to render.
- */
-const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string }> = {
-  hp:  { Icon: Heart,   color: "var(--theme-danger)" },
-  san: { Icon: Eye,     color: "var(--theme-ai)" },
-  mp:  { Icon: Droplet, color: "var(--theme-primary)" },
-  commendations: { Icon: Award,         color: "var(--theme-accent)" },
-  reprimands:    { Icon: AlertTriangle, color: "var(--theme-danger)" },
-  mana:          { Icon: Sparkles,      color: "var(--theme-ai)" },
-};
+import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
 
 type CustomItem = { name: string; value: number; max?: number };
 
@@ -123,7 +109,7 @@ export function AttributesTab({
           const visual = RESOURCE_ICON[r.iconKey];
           const Icon = visual?.Icon;
           const icon = Icon ? <Icon className="w-4 h-4" fill={r.iconKey === "hp" ? "currentColor" : undefined} /> : undefined;
-          const color = visual?.color ?? "var(--theme-primary)";
+          const color = visual?.color ?? DEFAULT_RESOURCE_COLOR;
           if (r.style === "counter") {
             return (
               <CounterCard key={r.iconKey} label={t(r.labelKey)} icon={icon} color={color}

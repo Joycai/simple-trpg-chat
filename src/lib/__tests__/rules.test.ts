@@ -1238,11 +1238,12 @@ describe("hostLabelKey", () => {
 
 describe("playerLabelKey", () => {
   // Same contract as hostLabelKey: the rule decides what its players are
-  // called (COC 调查员, 狩魂者 狩魂者), everything else stays 玩家/Player.
+  // called (COC 调查员, 5e 冒险者, Triangle 特工, 狩魂者 狩魂者); only rules
+  // without a title of their own fall back to 玩家/Player.
   const EXPECTED: Record<string, string> = {
     coc7th: "investigator",
-    dnd5e: "player",
-    triangle: "player",
+    dnd5e: "adventurer",
+    triangle: "agent",
     shouhun: "soulHunter",
     basic: "player",
   };
@@ -1268,6 +1269,8 @@ describe("playerLabelKey", () => {
       expect(enLabels[key], `en.playerLabels.${key}`).toBeTruthy();
     }
     expect(zhLabels.investigator).toBe("调查员");
+    expect(zhLabels.adventurer).toBe("冒险者");
+    expect(zhLabels.agent).toBe("特工");
     expect(zhLabels.soulHunter).toBe("狩魂者");
     expect(zhLabels.player).toBe("玩家");
   });
@@ -1291,5 +1294,84 @@ describe("capabilities.derivedStats", () => {
     const enChar = (en.default as { character: Record<string, string> }).character;
     expect(zhChar.shSpellStrength).toBe("术法强度");
     expect(enChar.shSpellStrength).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readStatus (聊天头像悬浮窗读取角色卡)
+// ---------------------------------------------------------------------------
+
+describe("readStatus", () => {
+  it("每套规则返回的资源键都是它自己声明的 resourceBars 键", () => {
+    // The hover card iterates `capabilities.resourceBars` and looks each key
+    // up in `readStatus().resources` — a key mismatch silently blanks a bar.
+    for (const rule of listRules()) {
+      const status = rule.readStatus(rule.initCharacter());
+      const declared = rule.capabilities.resourceBars.map(r => r.key).sort();
+      expect(Object.keys(status.resources).sort(), rule.id).toEqual(declared);
+    }
+  });
+
+  it("空/异规则角色卡不会抛错,返回空资源", () => {
+    for (const rule of listRules()) {
+      expect(rule.readStatus({ ruleTemplate: "basic" }), rule.id).toEqual({ resources: {} });
+    }
+  });
+
+  it("COC 读出 HP/SAN/MP 当前值与上限,以及幸运", () => {
+    const sheet = coc7thRule.initCharacter();
+    sheet.cocDerived!.hp_current = 3;
+    const derived = computeCocDerived(COC_DEFAULT_ATTRIBUTES);
+    const status = coc7thRule.readStatus(sheet);
+    expect(status.resources.hp).toEqual({ current: 3, max: derived.hpMax });
+    expect(status.resources.san).toEqual({ current: derived.san, max: derived.sanMax });
+    expect(status.resources.mp).toEqual({ current: derived.mp, max: derived.mpMax });
+    expect(status.attributes).toEqual({ luck: derived.luck });
+  });
+
+  it("d20 读出 HP,current 缺省时回落到上限", () => {
+    const sheet: CharacterData = { ruleTemplate: "dnd5e", d20Sheet: { hpMax: 12 } };
+    expect(dnd5eRule.readStatus(sheet).resources.hp).toEqual({ current: 12, max: 12 });
+    sheet.d20Sheet!.hp_current = 5;
+    expect(dnd5eRule.readStatus(sheet).resources.hp).toEqual({ current: 5, max: 12 });
+  });
+
+  it("Triangle 的嘉奖/处分是无上限计数器", () => {
+    const sheet: CharacterData = { ruleTemplate: "triangle", taSheet: { commendations: 2, reprimands: 1 } };
+    const status = triangleRule.readStatus(sheet);
+    expect(status.resources.commendations).toEqual({ current: 2 });
+    expect(status.resources.reprimands).toEqual({ current: 1 });
+    expect(status.resources.commendations.max).toBeUndefined();
+  });
+
+  it("狩魂者现算上限、术法强度与属性评级", () => {
+    const sheet = shouhunRule.initCharacter();
+    sheet.shAttributes = { phy: 5, wis: 7, soul: 3 };
+    const derived = computeShDerived(sheet.shAttributes);
+    const status = shouhunRule.readStatus(sheet);
+    expect(status.resources.hp.max).toBe(derived.hpMax);
+    expect(status.resources.mana.max).toBe(derived.manaMax);
+    expect(status.derived).toEqual({ spellStrength: derived.spellStrength });
+    expect(status.attributes).toEqual({ phy: 5, wis: 7, soul: 3 });
+    expect(status.attributeGrades).toEqual({
+      phy: shGradeLabel(5), wis: shGradeLabel(7), soul: shGradeLabel(3),
+    });
+  });
+
+  it("statusAttributeKeys 只引用本规则已声明的属性,且 label 有文案", async () => {
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    const zhChar = (zh.default as { character: Record<string, string> }).character;
+    const enChar = (en.default as { character: Record<string, string> }).character;
+    for (const rule of listRules()) {
+      const declared = rule.capabilities.attributeKeys.map(a => a.key);
+      for (const spec of rule.capabilities.statusAttributeKeys ?? []) {
+        expect(declared, `${rule.id}.${spec.key}`).toContain(spec.key);
+        expect(zhChar[spec.labelKey], `zh.character.${spec.labelKey}`).toBeTruthy();
+        expect(enChar[spec.labelKey], `en.character.${spec.labelKey}`).toBeTruthy();
+      }
+    }
   });
 });

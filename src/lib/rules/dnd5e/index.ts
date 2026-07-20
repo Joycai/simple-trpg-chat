@@ -20,6 +20,7 @@ import { resolveD20Stat } from "@/lib/d20-stats";
 import type {
   AiRuleHints,
   AttributeKeySpec,
+  CharacterStatus,
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
@@ -47,7 +48,7 @@ const D20_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "dm",
-  playerLabelKey: "player",
+  playerLabelKey: "adventurer",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,
@@ -94,6 +95,12 @@ export const dnd5eRule: RuleModule = {
     const clamped = clampHp(sheet.d20Sheet);
     if (clamped === sheet.d20Sheet) return sheet;
     return { ...sheet, d20Sheet: clamped };
+  },
+
+  readStatus(sheet: CharacterData): CharacterStatus {
+    const d = sheet.d20Sheet;
+    if (!d || typeof d.hpMax !== "number") return { resources: {} };
+    return { resources: { hp: { current: d.hp_current ?? d.hpMax, max: d.hpMax } } };
   },
 
   routeStat(name: string): StatRoute {
