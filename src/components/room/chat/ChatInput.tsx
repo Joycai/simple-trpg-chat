@@ -25,15 +25,14 @@ interface ChatInputProps {
   readOnly?: boolean;
   /** Custom notice shown when readOnly (defaults to the frozen-room notice). */
   readOnlyNotice?: string;
+  /** Rule-driven quick-insert command chips shown above the input (capabilities.quickRolls). */
+  quickCommands?: ReadonlyArray<string>;
 }
 
 // Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
 const IMAGE_MAX_BYTES = 1024 * 1024;
 
-// Quick-insert command chips shown above the input.
-const QUICK_COMMANDS = [".rc 侦查", ".sc 1/1d6", ".rd100"];
-
-export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice }: ChatInputProps) {
+export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice, quickCommands = [] }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
@@ -112,7 +111,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     // not on server success — a failed roll is still worth retrying via chip.
     if (isRollCommand(trimmed)) {
       const normalized = normalizeRollCommand(trimmed);
-      if (!QUICK_COMMANDS.includes(normalized)) recordRollCommand(roomId, normalized);
+      if (!quickCommands.includes(normalized)) recordRollCommand(roomId, normalized);
     }
 
 
@@ -352,7 +351,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
 
       {/* Quick command chips */}
       <div className="flex flex-wrap items-center gap-1.5 mb-2">
-        {QUICK_COMMANDS.map((cmd) => (
+        {quickCommands.map((cmd) => (
           <button
             key={cmd}
             type="button"
@@ -364,7 +363,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         ))}
         {/* Recent roll history — filtered against the static chips so stale
             stored values can never render a duplicate. */}
-        {recentRolls.filter((cmd) => !QUICK_COMMANDS.includes(cmd)).map((cmd) => (
+        {recentRolls.filter((cmd) => !quickCommands.includes(cmd)).map((cmd) => (
           <button
             key={`recent-${cmd}`}
             type="button"

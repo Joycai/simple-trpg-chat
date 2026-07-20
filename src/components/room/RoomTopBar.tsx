@@ -380,7 +380,7 @@ export function RoomTopBar({
                       </div>
                   )}
                 </div>
-              ) : (
+              ) : checkMenuModes.length === 1 ? (
                 /* Single-mode rule (basic): a single direct 发起检定 button. */
                 <button
                   onClick={() => setCheckMode(checkMode === "check" ? null : "check")}
@@ -390,7 +390,7 @@ export function RoomTopBar({
                 >
                   <Icons.Crosshair className="w-[18px] h-[18px]" />
                 </button>
-              )}
+              ) : null /* No-check rule (triangle): hide the button entirely. */}
               <button
                 onClick={() => setShowItemManager(!showItemManager)}
                 className={`${iconBtn} ${showItemManager ? iconPrimaryActive : iconPrimaryIdle}`}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Heart, Eye, Droplet, Plus, Trash2, X, Check } from "lucide-react";
+import { Heart, Eye, Droplet, Plus, Trash2, X, Check, Minus, Award, AlertTriangle } from "lucide-react";
 import { getRule } from "@/lib/rules";
 
 /**
@@ -15,6 +15,8 @@ const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string }> = {
   hp:  { Icon: Heart,   color: "var(--theme-danger)" },
   san: { Icon: Eye,     color: "var(--theme-ai)" },
   mp:  { Icon: Droplet, color: "var(--theme-primary)" },
+  commendations: { Icon: Award,         color: "var(--theme-accent)" },
+  reprimands:    { Icon: AlertTriangle, color: "var(--theme-danger)" },
 };
 
 type CustomItem = { name: string; value: number; max?: number };
@@ -72,6 +74,7 @@ export function AttributesTab({
   const predefined = cap.resourceBars.map(spec => ({
     labelKey: spec.labelKey,
     iconKey: spec.key,
+    style: spec.style ?? "bar",
     current: currentResources[spec.key] ?? 0,
     max: resourceMaxes[spec.key] ?? 0,
     onChange: (v: number) => onResourceChange(spec.key, v),
@@ -116,10 +119,16 @@ export function AttributesTab({
         {predefined.map(r => {
           const visual = RESOURCE_ICON[r.iconKey];
           const Icon = visual?.Icon;
+          const icon = Icon ? <Icon className="w-4 h-4" fill={r.iconKey === "hp" ? "currentColor" : undefined} /> : undefined;
+          const color = visual?.color ?? "var(--theme-primary)";
+          if (r.style === "counter") {
+            return (
+              <CounterCard key={r.iconKey} label={t(r.labelKey)} icon={icon} color={color}
+                value={r.current} editable={canEditResources} onChange={r.onChange} />
+            );
+          }
           return (
-            <ResourceCard key={r.iconKey} label={t(r.labelKey)}
-              icon={Icon ? <Icon className="w-4 h-4" fill={r.iconKey === "hp" ? "currentColor" : undefined} /> : undefined}
-              color={visual?.color ?? "var(--theme-primary)"}
+            <ResourceCard key={r.iconKey} label={t(r.labelKey)} icon={icon} color={color}
               current={r.current} max={r.max} editable={canEditResources}
               maxEditable={resourceMaxEditable && !!r.onMax}
               onCurrent={r.onChange}
@@ -210,6 +219,36 @@ function ResourceCard({ label, icon, color, current, max, editable, maxEditable,
           <input type="number" value={max} disabled={!maxEditable}
             onChange={e => onMax?.(num(e.target.value))} className={inputCls} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Unbounded counter resource (ResourceBarSpec.style === "counter") — a value
+ * with −/+ steppers, no max and no fill bar. Used by accumulating resources
+ * like Triangle Agency's commendations/reprimands.
+ */
+function CounterCard({ label, icon, color, value, editable, onChange }: {
+  label: string; icon?: React.ReactNode; color: string; value: number;
+  editable: boolean; onChange: (v: number) => void;
+}) {
+  const inputCls = "w-full px-3 py-2 bg-input-bg border border-input-border rounded-theme text-text text-lg font-bold font-mono text-center outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary disabled:opacity-70";
+  const stepCls = "flex items-center justify-center w-9 h-9 rounded-theme border border-border bg-surface-alt text-text-muted hover:bg-primary/10 hover:text-primary transition cursor-pointer disabled:opacity-40 disabled:cursor-default shrink-0";
+  return (
+    <div className="rounded-theme border border-border bg-surface-alt/40 p-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="flex items-center gap-1.5 font-bold text-sm" style={{ color: `rgb(${color})` }}>{icon}{label}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => onChange(Math.max(0, value - 1))} disabled={!editable} aria-label="-1" className={stepCls}>
+          <Minus className="w-4 h-4" />
+        </button>
+        <input type="number" value={value} disabled={!editable}
+          onChange={e => onChange(num(e.target.value))} className={inputCls} />
+        <button type="button" onClick={() => onChange(value + 1)} disabled={!editable} aria-label="+1" className={stepCls}>
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

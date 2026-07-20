@@ -14,6 +14,7 @@
 import { basicRule } from "./basic";
 import { coc7thRule } from "./coc7th";
 import { dnd5eRule } from "./dnd5e";
+import { triangleRule } from "./triangle";
 import type { RuleModule } from "./types";
 
 const REGISTRY = new Map<string, RuleModule>();
@@ -32,6 +33,7 @@ function register(rule: RuleModule): void {
 register(basicRule);
 register(coc7thRule);
 register(dnd5eRule);
+register(triangleRule);
 
 export const DEFAULT_RULE_ID = "basic";
 

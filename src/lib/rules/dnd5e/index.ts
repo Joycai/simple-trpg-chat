@@ -57,6 +57,7 @@ const capabilities: RuleCapabilities = {
   defaultRollExpression: "1d20",
   requiresStoredTarget: false,
   hasRoleLevel: true,
+  quickRolls: [".rd20", ".rc 力量+2 15"],
 };
 
 /** HP clamp helper — the only "derived" calculation in v1. */
@@ -73,6 +74,7 @@ export const dnd5eRule: RuleModule = {
   id: "dnd5e",
   labelKey: "ruleTemplateDnd5e",
   hintKey: "ruleTemplateDnd5eHint",
+  rcUsageKey: "d20RcUsage",
   capabilities,
 
   initCharacter(): CharacterData {

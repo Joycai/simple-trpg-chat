@@ -24,6 +24,8 @@ interface ChatAreaProps {
   readOnly: boolean;
   /** Custom notice shown in place of the input when readOnly (defaults to the frozen-room notice). */
   readOnlyNotice?: string;
+  /** Rule-driven quick-insert command chips shown above the input (capabilities.quickRolls). */
+  quickCommands: ReadonlyArray<string>;
   onViewCharacter: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (tab: "public" | number) => void;
   onCheckRequest: (messageId: number, skillName: string) => void;
@@ -44,7 +46,7 @@ interface ChatAreaProps {
 export function ChatArea({
   scrollRef, onScroll, tabMessages, players, userId, isHost, roomId, hostId,
   typingBots, activeTab, showScrollButton, scrollToBottom, dmConversations,
-  mentionTargets, readOnly, readOnlyNotice, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onWithdrawTimeline, onSendMessage,
+  mentionTargets, readOnly, readOnlyNotice, quickCommands, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onWithdrawTimeline, onSendMessage,
 }: ChatAreaProps) {
   const t = useTranslations("room");
 
@@ -124,7 +126,7 @@ export function ChatArea({
               <button onClick={() => onStartDM("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
             </div>
           )}
-          <ChatInput onSendMessage={onSendMessage} roomId={roomId} mentions={mentionTargets} readOnly={readOnly} readOnlyNotice={readOnlyNotice} />
+          <ChatInput onSendMessage={onSendMessage} roomId={roomId} mentions={mentionTargets} readOnly={readOnly} readOnlyNotice={readOnlyNotice} quickCommands={quickCommands} />
         </div>
       </div>
     </div>

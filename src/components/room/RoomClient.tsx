@@ -647,6 +647,7 @@ export function RoomClient({
           mentionTargets={mentionTargets}
           readOnly={readOnly}
           readOnlyNotice={isObserver ? t("observerNotice") : undefined}
+          quickCommands={ruleCapabilities.quickRolls}
           onViewCharacter={handleViewPlayerCard}
           onStartDM={handleTabChange}
           onCheckRequest={handleCheckRequest}

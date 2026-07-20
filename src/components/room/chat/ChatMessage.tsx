@@ -133,6 +133,8 @@ type DiceDetailJson = {
   sum?: number;
   results?: number[];
   keptRolls?: number[];
+  /** Die face to accent per-die (stamped at roll time from the rule's `highlightDieFace`). */
+  highlightFace?: number;
   command?: string;
   check?: { skillName: string; target: number; success: boolean; grade?: DiceGrade };
   sanityCheck?: {
@@ -295,11 +297,33 @@ function DiceResultDisplay({
       : null;
   const keptLabel = t("keptLabel") || "保留";
 
+  // Per-die rendering with face highlighting (Triangle Agency accents every
+  // 3). Only when the detail carries `highlightFace` — all other rules keep
+  // the exact joined-string output below.
+  const highlightFace = typeof d.highlightFace === "number" ? d.highlightFace : null;
+
   return (
     <>
       <span className="dice-formula">
         {rawNotation}
-        {showResults && ` [${d.results!.join(", ")}]`}
+        {showResults && highlightFace !== null ? (
+          <>
+            {" ["}
+            {d.results!.map((r, i) => (
+              <span key={i}>
+                {i > 0 && ", "}
+                {r === highlightFace ? (
+                  <span className="dice-face-hit text-accent font-bold">▲{r}</span>
+                ) : (
+                  r
+                )}
+              </span>
+            ))}
+            {"]"}
+          </>
+        ) : (
+          showResults && ` [${d.results!.join(", ")}]`
+        )}
         {keptRolls && (
           <span className="dice-kept">({keptLabel}[{keptRolls.join(", ")}])</span>
         )}

@@ -229,3 +229,17 @@ export interface RuleCapabilities {
 | UI 注册表 = "每规则一个组件" | 接受为有界成本；共享原子件复用，逻辑层仍纯模块化 |
 | 角色卡 JSON 残留未知 `ruleTemplate` | `getRule` 未知 id 回退 `DEFAULT_RULE_ID`，向后兼容 |
 | 删 `dice_rules` 为破坏性变更 | 拆 Phase 6 独立 PR，延后一个发布周期 |
+
+---
+
+## 八、落地后增补(Triangle Agency,2026-07)
+
+Triangle Agency(`triangle`)作为第 4 套规则落地时,为覆盖"骰池数成功面 + 无上限计数器资源"扩展了三个纯数据 capability 字段(全部由规则模块声明,引擎/UI 保持无规则分支):
+
+| 字段 | 语义 | 消费方 |
+| --- | --- | --- |
+| `quickRolls: string[]` | 聊天输入框上方的快捷命令 chips,替代原 `ChatInput.tsx` 内硬编码的 `QUICK_COMMANDS` 常量(顺带修复了 basic/dnd5e 房间显示 `.sc` chip 的错位) | `RoomClient → ChatArea → ChatInput` |
+| `highlightDieFace?: number` | 掷骰时由 `formatDiceRollMessage` 写入单项掷骰 detail 的 `highlightFace` 字段;渲染器据此逐骰标亮该面(triangle=3,渲染为 `▲3` + `.dice-face-hit` 主题钩子)。复合表达式 detail 无逐骰数据,不支持(已知限制) | `commands.ts` 掷骰路径 + `ChatMessage.tsx` |
+| `ResourceBarSpec.style?: "bar"\|"counter"` | `"counter"` 渲染为无上限计数器卡(数值 + ±步进,无填充条);默认 `"bar"` 不变 | `AttributesTab.tsx`(新 `CounterCard`) |
+
+另有 `RuleModule.rcUsageKey?: string`:`parseRcArgs` 返 null 时的用法错误 i18n key,吸收了原引擎里 `rule.id === "dnd5e"` 的分支;triangle 用它说明"本规则不支持 .rc"。`checkMenuModes: []` 现在会隐藏 TopBar 检定按钮(原先空数组仍渲染单按钮)。
