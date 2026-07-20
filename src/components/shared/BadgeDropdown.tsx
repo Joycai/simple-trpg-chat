@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 
 /**
@@ -8,6 +9,12 @@ import { Check, ChevronDown, type LucideIcon } from "lucide-react";
  * pickers. Trigger collapses/expands with a flat-bottom border that seams into
  * the menu; each row has a letter/icon badge, label, and optional description.
  * The active row gets a left vertical bar, tint, and trailing check.
+ *
+ * The menu is portaled to `document.body` and positioned `fixed` against the
+ * trigger's viewport rect — every call site lives inside a scrollable panel
+ * (create-room modal, RoomSettings, BotManager…) which would otherwise clip an
+ * absolutely-positioned menu. It flips above the trigger when the space below
+ * runs out, and caps its own height so it never overflows the viewport.
  *
  * The `tone` knob swaps the highlight palette (primary = crimson, accent = gold)
  * so call sites pick whichever the surrounding UX uses without per-component
@@ -36,6 +43,22 @@ interface BadgeDropdownProps {
   tone?: Tone;
   disabled?: boolean;
   className?: string;
+}
+
+/** Below this much room under the trigger, the menu flips above it. */
+const MIN_MENU_SPACE = 180;
+const LIST_MAX_HEIGHT = 288; // matches the previous `max-h-72`
+const MIN_LIST_HEIGHT = 120;
+const MENU_HEADER_HEIGHT = 44;
+const VIEWPORT_GUTTER = 8;
+
+interface MenuPos {
+  left: number;
+  width: number;
+  top?: number;
+  bottom?: number;
+  listMaxHeight: number;
+  dropUp: boolean;
 }
 
 const TONE: Record<Tone, {
@@ -77,13 +100,50 @@ export function BadgeDropdown({
 }: BadgeDropdownProps) {
   const selected = items.find((it) => it.id === value) ?? items[0];
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<MenuPos | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const T = TONE[tone];
+
+  // Measure the trigger while the menu is open, and keep following it — any
+  // ancestor scroll (capture phase) or viewport resize moves the anchor.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom - VIEWPORT_GUTTER;
+      const spaceAbove = r.top - VIEWPORT_GUTTER;
+      const dropUp = spaceBelow < MIN_MENU_SPACE && spaceAbove > spaceBelow;
+      const available = dropUp ? spaceAbove : spaceBelow;
+      setPos({
+        left: r.left,
+        width: r.width,
+        top: dropUp ? undefined : r.bottom,
+        bottom: dropUp ? window.innerHeight - r.top : undefined,
+        listMaxHeight: Math.max(MIN_LIST_HEIGHT, Math.min(LIST_MAX_HEIGHT, available - MENU_HEADER_HEIGHT)),
+        dropUp,
+      });
+    };
+    measure();
+    window.addEventListener("scroll", measure, { capture: true, passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, { capture: true });
+      window.removeEventListener("resize", measure);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The menu lives outside rootRef (portal), so it needs its own hit test —
+      // otherwise mousedown would unmount the row before its click fires.
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -108,6 +168,7 @@ export function BadgeDropdown({
       {name && <input type="hidden" name={name} value={value} />}
 
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         disabled={disabled}
@@ -116,7 +177,7 @@ export function BadgeDropdown({
         onClick={() => !disabled && setOpen((v) => !v)}
         className={`w-full flex items-center gap-2.5 px-2.5 py-2 bg-input-bg border text-sm text-text cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed ${
           open
-            ? `${T.triggerOpen} ring-[3px] rounded-t-theme rounded-b-none`
+            ? `${T.triggerOpen} ring-[3px] ${pos?.dropUp ? "rounded-b-theme rounded-t-none" : "rounded-t-theme rounded-b-none"}`
             : "border-input-border hover:border-text-muted rounded-theme"
         }`}
       >
@@ -125,15 +186,19 @@ export function BadgeDropdown({
         <ChevronDown className={`w-4 h-4 shrink-0 text-text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && (
+      {open && pos && createPortal(
         <div
+          ref={menuRef}
           role="listbox"
-          className={`absolute left-0 right-0 top-full z-30 bg-surface border ${T.menuBorder} border-t-0 rounded-b-theme overflow-hidden shadow-[var(--theme-card-shadow)]`}
+          style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom }}
+          className={`fixed z-[110] bg-surface border ${T.menuBorder} ${
+            pos.dropUp ? "border-b-0 rounded-t-theme" : "border-t-0 rounded-b-theme"
+          } overflow-hidden shadow-[var(--theme-card-shadow)]`}
         >
           <div className="px-3 py-2 text-[11px] uppercase tracking-wider text-text-dim border-b border-border/60 bg-surface-alt/40">
             {headerText} · {items.length}
           </div>
-          <ul className="max-h-72 overflow-y-auto py-1">
+          <ul className="overflow-y-auto py-1" style={{ maxHeight: pos.listMaxHeight }}>
             {items.map((item) => {
               const active = item.id === value;
               return (
@@ -165,7 +230,8 @@ export function BadgeDropdown({
               );
             })}
           </ul>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
