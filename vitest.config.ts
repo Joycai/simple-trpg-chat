@@ -4,7 +4,12 @@ import path from "path";
 export default defineConfig({
   test: {
     environment: "node",
-    exclude: ["tests/e2e/**", ".next/**", "node_modules/**"],
+    exclude: [
+      "tests/e2e/**",
+      ".next/**",
+      "node_modules/**",
+      "**/.claude/**",
+    ],
   },
   resolve: {
     alias: {
