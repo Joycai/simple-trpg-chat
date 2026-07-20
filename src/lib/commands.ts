@@ -397,6 +397,12 @@ async function handleSetSkill(
         sheet = null;
       }
     }
+    // A member who has never opened the character panel has no sheet yet.
+    // Seed one (same shape initCharacterAction persists) so the writes below
+    // land instead of being silently dropped while chat reports success.
+    if (member && !sheet) {
+      sheet = rule.initCharacter();
+    }
   }
 
   const summaryParts: string[] = [];

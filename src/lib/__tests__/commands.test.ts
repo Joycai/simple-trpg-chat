@@ -390,6 +390,54 @@ describe("Commands - .st COC routing", () => {
   });
 });
 
+describe("Commands - .st on a fresh member (no sheet yet)", () => {
+  beforeEach(() => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th" }];
+          }
+          if (table === roomMembers) {
+            // Member exists but never opened the character panel.
+            return [{ characterData: null }];
+          }
+          return [];
+        })
+      }))
+    });
+  });
+
+  it("seeds a sheet via rule.initCharacter() and persists the attribute write", async () => {
+    const updateSpy = vi.spyOn(db, "update");
+    updateSpy.mockClear();
+
+    const result = await executeCommand(1, 1, ".st 力量50");
+    expect(result.success).toBe(true);
+    expect(updateSpy).toHaveBeenCalledWith(roomMembers);
+
+    const setFn = updateSpy.mock.results[0].value.set;
+    const written = JSON.parse(setFn.mock.calls[0][0].characterData);
+    expect(written.ruleTemplate).toBe("coc7th");
+    expect(written.cocAttributes.str).toBe(50);
+    updateSpy.mockRestore();
+  });
+
+  it("persists a resource write on a fresh sheet", async () => {
+    const updateSpy = vi.spyOn(db, "update");
+    updateSpy.mockClear();
+
+    const result = await executeCommand(1, 1, ".st 理智值40");
+    expect(result.success).toBe(true);
+    expect(updateSpy).toHaveBeenCalledWith(roomMembers);
+
+    const setFn = updateSpy.mock.results[0].value.set;
+    const written = JSON.parse(setFn.mock.calls[0][0].characterData);
+    expect(written.ruleTemplate).toBe("coc7th");
+    updateSpy.mockRestore();
+  });
+});
+
 describe("Commands - unknown command suggestions", () => {
   it("suggests the nearest command for a close typo", async () => {
     const result = await executeCommand(1, 1, ".halp");
