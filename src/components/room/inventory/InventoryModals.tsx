@@ -9,7 +9,7 @@ import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
-import { useHostLabel } from "@/components/shared/host-label";
+import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 import {
   formatContent, typeIcon, typeColorClass, typeActiveClass,
   sourceKey, visibilityKey, relationKey, categoryKey, relationBadgeClass,
@@ -57,6 +57,7 @@ export function CreateEditModal({
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
+  const playerLabel = usePlayerLabel();
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   /** Source file the user picked, handed to the cropper. Null = cropper closed. */
@@ -178,7 +179,7 @@ export function CreateEditModal({
               <div>
                 <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("sourceLabel")}</label>
                 <div className="flex flex-wrap gap-2">
-                  {([["kp", t("sourceKp", { host: hostLabel })], ["player", t("sourcePlayer")], ["system", t("sourceSystem")]] as const).map(([v, label]) => (
+                  {([["kp", t("sourceKp", { host: hostLabel })], ["player", t("sourcePlayer", { player: playerLabel })], ["system", t("sourceSystem")]] as const).map(([v, label]) => (
                     <button key={v} type="button" onClick={() => onMetaChange({ ...meta, source: v })} className={pillCls(source === v, "border-ai bg-ai text-white")}>{label}</button>
                   ))}
                 </div>
@@ -188,7 +189,7 @@ export function CreateEditModal({
             {/* Character — relationship */}
             {itemType === "character" && (
               <div>
-                <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("relationLabel")}</label>
+                <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("relationLabel", { player: playerLabel })}</label>
                 <div className="flex flex-wrap gap-2">
                   {([["ally", t("relationAlly"), "border-success bg-success text-white"],
                      ["neutral", t("relationNeutral"), "border-accent bg-accent text-accent-foreground"],
@@ -343,6 +344,7 @@ export function DistributeModal({
 }: DistributeModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
+  const playerLabel = usePlayerLabel();
 
   const distItem = roomItems.find(it => it.id === distributeItemId);
   const otherPlayers = players.filter(p => p.id !== userId);
@@ -368,7 +370,7 @@ export function DistributeModal({
 
           <div className="flex items-center gap-2 text-text-dim text-[11px] my-3">
             <span className="h-px bg-border flex-1"></span>
-            <span>{t("selectMultipleHint")}</span>
+            <span>{t("selectMultipleHint", { player: playerLabel })}</span>
             <span className="h-px bg-border flex-1"></span>
           </div>
 
@@ -430,6 +432,7 @@ export function DetailModal({
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
+  const playerLabel = usePlayerLabel();
   const [previewOpen, setPreviewOpen] = useState(false);
   const typeLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
   const TypeIcon = typeIcon[detailItem.type];
@@ -476,7 +479,7 @@ export function DetailModal({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {type === "info" && (
-                <span className="inline-flex items-center text-xs font-bold px-3 py-1 rounded-full bg-ai text-white">{t(sourceKey[mSource], { host: hostLabel })}</span>
+                <span className="inline-flex items-center text-xs font-bold px-3 py-1 rounded-full bg-ai text-white">{t(sourceKey[mSource], { host: hostLabel, player: playerLabel })}</span>
               )}
               {type === "character" && (
                 <span className={`inline-flex items-center text-xs font-bold px-3 py-1 rounded-full border ${relationBadgeClass[mRelation]}`}>{t(relationKey[mRelation])}</span>
@@ -635,6 +638,7 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
+  const playerLabel = usePlayerLabel();
   const TypeIcon = typeIcon[item.type];
   const typeLabel = (s: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[s] || s);
 
@@ -649,7 +653,7 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
 
   // Item summary meta line: 类型 [· 来源/关系] [· 类别 · ×数量].
   const metaParts = [typeLabel(item.type)];
-  if (item.type === "info" && item.source) metaParts.push(t(sourceKey[item.source], { host: hostLabel }));
+  if (item.type === "info" && item.source) metaParts.push(t(sourceKey[item.source], { host: hostLabel, player: playerLabel }));
   if (item.type === "character" && item.relation) metaParts.push(t(relationKey[item.relation]));
   if (item.type === "item") { metaParts.push(t(categoryKey[item.category || "tool"])); metaParts.push(`×${item.quantity ?? 1}`); }
   const metaLine = metaParts.join(" · ");
@@ -681,7 +685,7 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-text-dim font-medium">{t("shareTo")}</span>
             {selectableIds.length > 0 && (
-              <button onClick={() => setSelected(allSelected ? [] : selectableIds)} className="text-xs font-bold text-primary hover:text-primary-hover cursor-pointer">{t("shareSelectAll")}</button>
+              <button onClick={() => setSelected(allSelected ? [] : selectableIds)} className="text-xs font-bold text-primary hover:text-primary-hover cursor-pointer">{t("shareSelectAll", { player: playerLabel })}</button>
             )}
           </div>
 

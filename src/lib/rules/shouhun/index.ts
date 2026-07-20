@@ -41,6 +41,7 @@ import { resolveShStat } from "@/lib/sh-stats";
 import type {
   AiRuleHints,
   AttributeKeySpec,
+  CharacterStatus,
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
@@ -110,6 +111,8 @@ const capabilities: RuleCapabilities = {
   // 术法强度 (= ⌊智慧/2⌋) is surfaced as a read-only derived card in the
   // character sheet; the value comes from `computeShDerived`, never storage.
   derivedStats: [{ key: "spellStrength", labelKey: "shSpellStrength" }],
+  // Only 3 attributes, so all of them fit the chat avatar hover card.
+  statusAttributeKeys: SH_ATTRIBUTE_KEYS,
   defaultRollExpression: "1d20",
   // x/y are player-typed, so a check never needs a stored room_skills value.
   requiresStoredTarget: false,
@@ -171,6 +174,26 @@ export const shouhunRule: RuleModule = {
       ...sheet,
       shAttributes: attrs,
       shSheet: clampSheetToDerived(attrs, sheet.shSheet),
+    };
+  },
+
+  readStatus(sheet: CharacterData): CharacterStatus {
+    const attrs = sheet.shAttributes;
+    if (!attrs) return { resources: {} };
+    // Maxes and 术法强度 are never persisted — derive them on read.
+    const derived = computeShDerived(attrs);
+    return {
+      resources: {
+        hp:   { current: sheet.shSheet?.hp_current   ?? derived.hpMax,   max: derived.hpMax   },
+        mana: { current: sheet.shSheet?.mana_current ?? derived.manaMax, max: derived.manaMax },
+      },
+      derived: { spellStrength: derived.spellStrength },
+      attributes: { phy: attrs.phy, wis: attrs.wis, soul: attrs.soul },
+      attributeGrades: {
+        phy: shGradeLabel(attrs.phy),
+        wis: shGradeLabel(attrs.wis),
+        soul: shGradeLabel(attrs.soul),
+      },
     };
   },
 

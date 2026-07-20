@@ -168,10 +168,12 @@ export interface RuleCapabilities {
   hostLabelKey: string;
   /**
    * i18n key under `messages.playerLabels` for what this system calls the
-   * people playing — COC 7th says 调查员/Investigator, 狩魂者 says 狩魂者/
-   * Soul Hunter, everything else falls back to the generic 玩家/Player.
+   * people playing — COC 7th says 调查员/Investigator, DnD 5e says 冒险者/
+   * Adventurer, Triangle Agency says 特工/Agent, 狩魂者 says 狩魂者/Soul
+   * Hunter, everything else falls back to the generic 玩家/Player.
    * Room-scoped surfaces that name the player role (member list role tag,
-   * member count badge) read this instead of hardcoding a title.
+   * host check dialog, inventory distribution modals, lobby member count)
+   * read this instead of hardcoding a title.
    */
   playerLabelKey: string;
   /** Renders SAN bar; enables `.sc` and host `requestSanCheckAction`. */
@@ -194,6 +196,14 @@ export interface RuleCapabilities {
    * computed by the sheet UI from the rule's derive helper, never persisted.
    */
   derivedStats?: ReadonlyArray<AttributeKeySpec>;
+  /**
+   * Attributes compact enough to also show in the chat avatar hover card
+   * (狩魂者 shows its 3 base attributes; COC shows only 幸运). Keys match
+   * `attributeKeys`, but the label may differ — the hover card is tight, so
+   * a rule can point at a shorter i18n key than the sheet grid uses. Omit to
+   * keep the hover card to resources and derived stats only.
+   */
+  statusAttributeKeys?: ReadonlyArray<AttributeKeySpec>;
   /**
    * `.rd`/`.r` default dice expression when player supplies no args.
    * COC/basic: `"1d100"`; DnD 5e: `"1d20"`.
@@ -244,6 +254,32 @@ export interface RuleCapabilities {
 }
 
 // ---------------------------------------------------------------------------
+// Read-only sheet status (chat avatar hover card)
+// ---------------------------------------------------------------------------
+
+/**
+ * Flattened, display-ready snapshot of a sheet's live numbers, keyed by the
+ * capability keys the rule already declares (`resourceBars`, `derivedStats`,
+ * `statusAttributeKeys`). Each rule owns the mapping because each stores its
+ * numbers in a different bag (`cocDerived` / `d20Sheet` / `taSheet` / …), so
+ * read-only surfaces can render any rule without branching on the rule id.
+ */
+export interface CharacterStatus {
+  /**
+   * Current value (and max, for `"bar"`-style resources) per `resourceBars`
+   * key. A key the sheet has no data for is simply omitted — the renderer
+   * skips that bar rather than showing a zero.
+   */
+  resources: Record<string, { current: number; max?: number }>;
+  /** Value per `derivedStats` key. Computed on read, never persisted. */
+  derived?: Record<string, number>;
+  /** Value per `statusAttributeKeys` entry. */
+  attributes?: Record<string, number>;
+  /** Optional short badge rendered next to an attribute (狩魂者 E..SSS+ grade). */
+  attributeGrades?: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
 // AI helper payload
 // ---------------------------------------------------------------------------
 
@@ -288,6 +324,12 @@ export interface RuleModule {
    * (COC re-clamps `hp_current` / `san_current` / `mp_current` to new maxes).
    */
   computeDerived(sheet: CharacterData): CharacterData;
+  /**
+   * Read the sheet's live numbers into the generic `CharacterStatus` shape
+   * for read-only surfaces (the chat avatar hover card). Rules without a
+   * structured sheet (basic) return `{ resources: {} }`.
+   */
+  readStatus(sheet: CharacterData): CharacterStatus;
 
   // ----- Stat resolution ----------------------------------------------------
 

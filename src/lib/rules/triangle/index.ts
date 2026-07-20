@@ -20,6 +20,7 @@ import { resolveTaStat } from "@/lib/ta-stats";
 import type {
   AiRuleHints,
   AttributeKeySpec,
+  CharacterStatus,
   ResourceBarSpec,
   RuleCapabilities,
   RuleModule,
@@ -46,7 +47,7 @@ const TA_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
 
 const capabilities: RuleCapabilities = {
   hostLabelKey: "manager",
-  playerLabelKey: "player",
+  playerLabelKey: "agent",
   hasSanity: false,
   hasPsychologyRoll: false,
   hasManaPoints: false,
@@ -80,6 +81,18 @@ export const triangleRule: RuleModule = {
   computeDerived(sheet: CharacterData): CharacterData {
     // Nothing derived — qualifications and counters are all free-set.
     return sheet;
+  },
+
+  readStatus(sheet: CharacterData): CharacterStatus {
+    const d = sheet.taSheet;
+    if (!d) return { resources: {} };
+    // Counters have no max — the renderer shows a bare value for these.
+    return {
+      resources: {
+        commendations: { current: d.commendations ?? 0 },
+        reprimands: { current: d.reprimands ?? 0 },
+      },
+    };
   },
 
   routeStat(name: string): StatRoute {

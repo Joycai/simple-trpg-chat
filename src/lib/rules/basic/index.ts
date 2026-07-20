@@ -15,6 +15,7 @@ import { rollDie } from "@/lib/utils";
 import type { CharacterData } from "@/lib/character-types";
 import type {
   AiRuleHints,
+  CharacterStatus,
   CheckRequest,
   CheckResult,
   RuleCapabilities,
@@ -52,6 +53,12 @@ export const basicRule: RuleModule = {
   // No derived state — basic sheets are free-form.
   computeDerived(sheet: CharacterData): CharacterData {
     return sheet;
+  },
+
+  // No preset resources: a basic sheet's numbers are all customAttributes,
+  // which read-only surfaces render generically.
+  readStatus(): CharacterStatus {
+    return { resources: {} };
   },
 
   routeStat(name: string): StatRoute {

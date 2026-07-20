@@ -11,7 +11,7 @@ import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import Link from "next/link";
 import { DEFAULT_RULE_ID } from "@/lib/rules";
-import { useHostLabelResolver } from "@/components/shared/host-label";
+import { useHostLabelResolver, usePlayerLabelResolver } from "@/components/shared/host-label";
 
 /** Shared input/select styling for the create-room modal (rainglass spec). */
 const FIELD_CLS =
@@ -36,9 +36,11 @@ interface LobbyClientProps {
 
 export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId }: LobbyClientProps) {
   const t = useTranslations("lobby");
-  // Room cards label the owner with whatever that room's rule template calls
-  // the host (KP / DM / 经理 / 主持人), so the lobby matches the room itself.
+  // Room cards label the owner and the member count with whatever that room's
+  // rule template calls the host (KP / DM / 经理 / 主持人) and the players
+  // (调查员 / 冒险者 / 特工 / …), so the lobby matches the room itself.
   const hostLabelOf = useHostLabelResolver();
+  const playerLabelOf = usePlayerLabelResolver();
   const tc = useTranslations("createRoom");
   const locale = useLocale();
   const [showCreate, setShowCreate] = useState(false);
@@ -333,7 +335,10 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
 
                 {isJoined && !isOwner && (
                   <p className="text-xs text-text-muted mb-3">
-                    {t("investigatorCount", { count: memberCounts[room.id] ?? 0 })}
+                    {t("playerCount", {
+                      player: playerLabelOf((room as { ruleTemplate?: string | null }).ruleTemplate),
+                      count: memberCounts[room.id] ?? 0,
+                    })}
                   </p>
                 )}
 
