@@ -17,6 +17,7 @@
 import type { CharacterData, TaQualities, TaSheet } from "@/lib/character-types";
 import { TA_DEFAULT_QUALITIES } from "@/lib/character-types";
 import { resolveTaStat } from "@/lib/ta-stats";
+import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -93,6 +94,32 @@ export const triangleRule: RuleModule = {
         reprimands: { current: d.reprimands ?? 0 },
       },
     };
+  },
+
+  /**
+   * Accepts `taQualities` + `taSheet`, the two fields `describeForAI`
+   * declares. Qualifications are free-set bookkeeping that never modifies a
+   * roll, so 0–99 is just a sanity bound. The counters are unbounded by design
+   * but still capped at 999 — a GM awarding a four-digit commendation count is
+   * the model hallucinating, not play.
+   */
+  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData {
+    const out = { ...sheet };
+
+    const quals = clampAttributes(patch.taQualities, TA_ATTRIBUTE_KEYS, 0, 99, 0);
+    if (quals) {
+      out.taQualities = { ...(out.taQualities ?? TA_DEFAULT_QUALITIES), ...quals } as TaQualities;
+    }
+
+    if (patch.taSheet && typeof patch.taSheet === "object") {
+      const incoming = patch.taSheet as Record<string, unknown>;
+      const meta: TaSheet = { ...(out.taSheet ?? {}) };
+      if (incoming.commendations !== undefined) meta.commendations = clampInt(incoming.commendations, 0, 999, 0);
+      if (incoming.reprimands !== undefined) meta.reprimands = clampInt(incoming.reprimands, 0, 999, 0);
+      out.taSheet = meta;
+    }
+
+    return out;
   },
 
   routeStat(name: string): StatRoute {

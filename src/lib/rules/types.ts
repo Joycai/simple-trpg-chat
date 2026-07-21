@@ -338,6 +338,22 @@ export interface RuleModule {
    * structured sheet (basic) return `{ resources: {} }`.
    */
   readStatus(sheet: CharacterData): CharacterStatus;
+  /**
+   * Merge an untrusted sheet patch (the AI bot's `set_character_card` tool
+   * arguments) into `sheet`, returning a new sheet.
+   *
+   * The keys a rule accepts here are exactly the ones it advertised in
+   * `describeForAI().sheetToolSchemaFields` — declaring a field to the model
+   * and then handling it are two halves of the same contract, so they live in
+   * the same module. When the AI layer branched on the rule id instead, the
+   * two rules added later advertised `taQualities` / `shAttributes` to the LLM
+   * and had them silently dropped on write.
+   *
+   * The model is not trusted: implementations must whitelist keys and clamp
+   * every number to a sane range. Rules without a structured sheet (basic)
+   * return `sheet` unchanged. Callers still run `computeDerived` afterwards.
+   */
+  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData;
 
   // ----- Stat resolution ----------------------------------------------------
 

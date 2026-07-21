@@ -33,7 +33,10 @@ interface ExportCharacterSnapshot {
 
 interface ExportRoomData {
   roomName: string;
+  /** Raw rule id, kept for machine consumers of the JSON export. */
   ruleTemplate: string;
+  /** Translated rule name for the human-readable markdown export. */
+  ruleTemplateLabel: string;
   theme: string;
   exportTime: string;
   timeline: ExportTimelineItem[];
@@ -132,9 +135,16 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
     } catch { /* skip */ }
   }
 
+  // The rule names itself — every registered ruleset has a `labelKey` under
+  // `messages.export`, asserted by rules.test.ts, so a new ruleset shows its
+  // own name here instead of silently falling back to "通用 d100".
+  const tExport = await getTranslations("export");
+  const roomRule = getRuleForRoom(room as { ruleTemplate?: string | null });
+
   return {
     roomName: room.name,
     ruleTemplate: (room as { ruleTemplate?: string }).ruleTemplate || "basic",
+    ruleTemplateLabel: tExport(roomRule.labelKey as Parameters<typeof tExport>[0]),
     theme: room.theme || "default",
     exportTime: new Date().toISOString(),
     timeline,

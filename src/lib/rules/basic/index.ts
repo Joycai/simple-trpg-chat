@@ -64,6 +64,13 @@ export const basicRule: RuleModule = {
     return { resources: {} };
   },
 
+  // `describeForAI` advertises no rule-specific sheet fields, so there is
+  // nothing rule-owned for the bot to patch. The generic parts of the sheet
+  // (name/age/bio/customAttributes) are handled by the caller.
+  applySheetPatch(sheet: CharacterData): CharacterData {
+    return sheet;
+  },
+
   routeStat(name: string): StatRoute {
     return { kind: "skill", canonical: name.trim() };
   },

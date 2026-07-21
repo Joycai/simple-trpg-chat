@@ -38,6 +38,7 @@ import {
   type ShSheet,
 } from "@/lib/character-types";
 import { resolveShStat } from "@/lib/sh-stats";
+import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -195,6 +196,37 @@ export const shouhunRule: RuleModule = {
         soul: shGradeLabel(attrs.soul),
       },
     };
+  },
+
+  /**
+   * Accepts `shAttributes` + `shSheet`, the two fields `describeForAI`
+   * declares. Attributes are strictly 1–9 (the E..SSS+ grade ladder has no
+   * rungs outside that), so the clamp here is the rulebook, not a guard rail.
+   * Currents are clamped against maxes derived from the *patched* attributes —
+   * raising 体魄 and healing to the new max in one tool call has to work.
+   */
+  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData {
+    const out = { ...sheet };
+
+    const attrs = clampAttributes(patch.shAttributes, SH_ATTRIBUTE_KEYS, 1, 9, 3);
+    if (attrs) {
+      out.shAttributes = { ...(out.shAttributes ?? SH_DEFAULT_ATTRIBUTES), ...attrs } as ShAttributes;
+    }
+
+    if (patch.shSheet && typeof patch.shSheet === "object") {
+      const incoming = patch.shSheet as Record<string, unknown>;
+      const derived = computeShDerived(out.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
+      const meta: ShSheet = { ...(out.shSheet ?? {}) };
+      if (incoming.hp_current !== undefined) {
+        meta.hp_current = clampInt(incoming.hp_current, 0, derived.hpMax, derived.hpMax);
+      }
+      if (incoming.mana_current !== undefined) {
+        meta.mana_current = clampInt(incoming.mana_current, 0, derived.manaMax, derived.manaMax);
+      }
+      out.shSheet = meta;
+    }
+
+    return out;
   },
 
   routeStat(name: string): StatRoute {
