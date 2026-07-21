@@ -6,6 +6,8 @@ import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import { useClickOutside } from "@/lib/useClickOutside";
 import { Icons } from "@/components/shared/icons";
 import { useHostLabel } from "@/components/shared/host-label";
+import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/character/resource-visuals";
+import type { StatusEntry } from "@/lib/rules";
 
 interface DMConversation {
   userId: number;
@@ -16,8 +18,8 @@ interface DMConversation {
   isBotDisabled?: boolean;
   isProviderError?: boolean;
   isOnline?: boolean;
-  hp?: number;
-  maxHp?: number;
+  /** The rule's headline number for this member (null → no bar at all). */
+  vital?: StatusEntry | null;
   avatar?: string | null;
   avatarColor?: string | null;
 }
@@ -53,6 +55,7 @@ export function ConversationPanel({
   resizing = false,
 }: ConversationPanelProps) {
   const t = useTranslations("room");
+  const tChar = useTranslations("character");
   const hostLabel = useHostLabel();
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -165,11 +168,19 @@ export function ConversationPanel({
       {/* Member list — avatar + name + HP bar + action dropdown */}
       <div className="flex-1 overflow-y-auto" style={{ padding: 8, display: "flex", flexDirection: "column", gap: 3 }}>
         {dmConversations.map(conv => {
-          const hpPct = conv.hp != null && conv.maxHp
-            ? Math.max(0, Math.min(100, (conv.hp / conv.maxHp) * 100))
+          // Bots have no sheet; everyone else shows their rule's primary vital
+          // — a fill bar when it has a max, a bare count when it doesn't
+          // (Triangle's 嘉奖), and nothing at all when the sheet is empty.
+          const vital = conv.isBot ? null : conv.vital ?? null;
+          const hasBar = vital != null && vital.max != null && vital.max > 0;
+          const vitalPct = hasBar
+            ? Math.max(0, Math.min(100, (vital.current / vital.max!) * 100))
             : 100;
-          const hasHp = !conv.isBot && conv.hp != null && conv.maxHp != null;
-          const hpColor = hpPct > 60 ? "rgb(var(--theme-success))" : hpPct > 30 ? "#f59e0b" : "rgb(var(--theme-danger))";
+          const visual = vital ? RESOURCE_ICON[vital.key] : undefined;
+          const vitalColor = hasBar && (visual?.ratioTone ?? vital.key === "hp")
+            ? (vitalPct > 60 ? "rgb(var(--theme-success))" : vitalPct > 30 ? "#f59e0b" : "rgb(var(--theme-danger))")
+            : `rgb(${visual?.color ?? DEFAULT_RESOURCE_COLOR})`;
+          const VitalIcon = vital && vital.key !== "hp" ? visual?.Icon : undefined;
           const isSelf = conv.userId === userId;
           const isHostMember = conv.userId === hostId;
           const isDropdownOpen = openDropdown === conv.userId;
@@ -230,15 +241,20 @@ export function ConversationPanel({
                   {conv.isBot && (
                     <span className="text-[8px] font-bold text-ai border border-ai/40 rounded px-1 leading-[1.4] shrink-0">BOT</span>
                   )}
-                  {hasHp && (
-                    <span className="ml-auto font-mono text-[10px] shrink-0" style={{ color: hpColor }}>
-                      {conv.hp}/{conv.maxHp}
+                  {vital && (
+                    <span
+                      className="ml-auto font-mono text-[10px] shrink-0 inline-flex items-center gap-0.5"
+                      style={{ color: vitalColor }}
+                      title={vital.labelKey ? tChar(vital.labelKey) : vital.label}
+                    >
+                      {VitalIcon && <VitalIcon className="w-2.5 h-2.5" />}
+                      {hasBar ? `${vital.current}/${vital.max}` : vital.current}
                     </span>
                   )}
                 </div>
-                {!conv.isBot && (
+                {hasBar && (
                   <div style={{ height: 3, borderRadius: 2, background: "rgb(var(--theme-border))", marginTop: 4 }}>
-                    <div style={{ width: `${hpPct}%`, height: "100%", borderRadius: 2, background: hpColor, transition: "width 300ms var(--ease-emphasized)" }} />
+                    <div style={{ width: `${vitalPct}%`, height: "100%", borderRadius: 2, background: vitalColor, transition: "width 300ms var(--ease-emphasized)" }} />
                   </div>
                 )}
               </div>

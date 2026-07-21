@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { Info, Sparkles } from "lucide-react";
 import { type CharacterData } from "@/lib/character-types";
 import { useTranslations } from "next-intl";
-import { getRule } from "@/lib/rules";
+import { getRule, readStatusEntries } from "@/lib/rules";
 import { RESOURCE_ICON, DERIVED_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/character/resource-visuals";
 
 interface ResourceStatusTooltipProps {
@@ -26,8 +26,10 @@ function ratioColor(pct: number): string {
  * `statusAttributeKeys`) and `rule.readStatus()` flattens its own sheet bag
  * into those keys. Adding a rule therefore needs no change here: COC shows
  * HP/SAN/MP + 幸运, 狩魂者 shows HP/灵力值 + 术法强度 + graded attributes,
- * d20 shows HP, Triangle shows its two counters. Custom attributes the
- * player typed themselves render underneath for every rule.
+ * d20 shows HP + AC, Triangle shows its two counters, and basic — which has
+ * no presets — shows only custom attributes. Custom attributes the player
+ * typed themselves render underneath for every rule (`statusCustomLimit`
+ * caps how many).
  */
 export function ResourceStatusTooltip({
   loading,
@@ -46,12 +48,8 @@ export function ResourceStatusTooltip({
 
   // A bar/counter renders only when the rule actually returned a value for
   // its key — an uninitialized sheet shows "unavailable" rather than zeros.
-  const resources = status
-    ? cap.resourceBars.flatMap(spec => {
-        const v = status.resources[spec.key];
-        return v ? [{ spec, ...v }] : [];
-      })
-    : [];
+  // Custom attributes come back already truncated to the rule's own limit.
+  const { resources, custom: customAttrs } = readStatusEntries(charData);
   const derived = status?.derived
     ? (cap.derivedStats ?? []).flatMap(spec => {
         const v = status.derived?.[spec.key];
@@ -66,7 +64,6 @@ export function ResourceStatusTooltip({
           : [];
       })
     : [];
-  const customAttrs = charData?.customAttributes ?? [];
 
   const hasStatus = !loading && (
     resources.length > 0 || derived.length > 0 || attributes.length > 0 || customAttrs.length > 0
@@ -99,17 +96,17 @@ export function ResourceStatusTooltip({
               fill; "counter" style (Triangle's 嘉奖/处分) is a bare value. */}
           {resources.length > 0 && (
             <div className="flex flex-col gap-2">
-              {resources.map(({ spec, current, max }) => {
-                const visual = RESOURCE_ICON[spec.key];
+              {resources.map(({ key, labelKey, label, current, max }) => {
+                const visual = RESOURCE_ICON[key];
                 const Icon = visual?.Icon;
-                const isCounter = (spec.style ?? "bar") === "counter" || max === undefined;
+                const isCounter = max === undefined;
                 const pct = max && max > 0 ? Math.min(100, (current / max) * 100) : 0;
                 const color = visual?.ratioTone ? ratioColor(pct) : visual?.color ?? DEFAULT_RESOURCE_COLOR;
                 return (
-                  <div key={spec.key}>
+                  <div key={key}>
                     <div className="flex justify-between text-[10px] text-text-muted mb-0.5 font-medium">
                       <span className="inline-flex items-center gap-1">
-                        {Icon && <Icon className="w-3 h-3" />} {tChar(spec.labelKey)}
+                        {Icon && <Icon className="w-3 h-3" />} {labelKey ? tChar(labelKey) : label}
                       </span>
                       <span className={`font-mono ${isCounter ? "font-bold text-text" : ""}`}>
                         {isCounter ? current : `${current}/${max}`}
@@ -170,11 +167,11 @@ export function ResourceStatusTooltip({
           {customAttrs.length > 0 && (
             <div className="flex flex-col gap-1.5">
               {customAttrs.map((attr) => (
-                <div key={attr.name} className="flex flex-col gap-0.5">
+                <div key={attr.key} className="flex flex-col gap-0.5">
                   <div className="flex justify-between text-[10px] text-text-muted font-medium">
-                    <span className="inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> {attr.name}</span>
+                    <span className="inline-flex items-center gap-1"><Sparkles className="w-3 h-3" /> {attr.label}</span>
                     <span className="font-mono">
-                      {attr.value}
+                      {attr.current}
                       {attr.max !== undefined && `/${attr.max}`}
                     </span>
                   </div>
@@ -183,7 +180,7 @@ export function ResourceStatusTooltip({
                       <div
                         className="h-full rounded-full bg-primary transition-all duration-300"
                         style={{
-                          width: `${Math.min(100, (attr.value / attr.max) * 100)}%`,
+                          width: `${Math.min(100, (attr.current / attr.max) * 100)}%`,
                         }}
                       />
                     </div>

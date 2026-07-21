@@ -34,6 +34,9 @@ const capabilities: RuleCapabilities = {
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
   resourceBars: [],
   attributeKeys: [],
+  // No preset resources at all, so the hover card is entirely player-defined
+  // custom attributes — capped at the first two to stay a glance.
+  statusCustomLimit: 2,
   defaultRollExpression: "1d100",
   requiresStoredTarget: true,
   hasRoleLevel: false,
