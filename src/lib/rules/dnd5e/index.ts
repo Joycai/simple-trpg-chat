@@ -57,6 +57,9 @@ const capabilities: RuleCapabilities = {
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
   resourceBars: D20_RESOURCE_BARS,
   attributeKeys: D20_ATTRIBUTE_KEYS,
+  // AC is the one number a d20 table asks for constantly ("what's your AC?"),
+  // so it joins HP on the hover card; the six abilities stay on the sheet.
+  statusAttributeKeys: [{ key: "ac", labelKey: "ac" }],
   defaultRollExpression: "1d20",
   requiresStoredTarget: false,
   hasRoleLevel: true,
@@ -99,8 +102,15 @@ export const dnd5eRule: RuleModule = {
 
   readStatus(sheet: CharacterData): CharacterStatus {
     const d = sheet.d20Sheet;
-    if (!d || typeof d.hpMax !== "number") return { resources: {} };
-    return { resources: { hp: { current: d.hp_current ?? d.hpMax, max: d.hpMax } } };
+    const ac = sheet.d20Attributes?.ac;
+    return {
+      // HP needs a max to draw a bar; AC is independent of it, so a sheet with
+      // only attributes filled in still contributes its AC.
+      resources: d && typeof d.hpMax === "number"
+        ? { hp: { current: d.hp_current ?? d.hpMax, max: d.hpMax } }
+        : {},
+      attributes: typeof ac === "number" ? { ac } : undefined,
+    };
   },
 
   routeStat(name: string): StatRoute {

@@ -205,6 +205,14 @@ export interface RuleCapabilities {
    */
   statusAttributeKeys?: ReadonlyArray<AttributeKeySpec>;
   /**
+   * How many player-defined `customAttributes` compact status surfaces (the
+   * chat avatar hover card) may show. Rules with their own preset resources
+   * leave this undefined and show all of them; `basic` has no presets at all,
+   * so its status card is *only* custom attributes and caps at the first 2 to
+   * stay a glance rather than a second character sheet.
+   */
+  statusCustomLimit?: number;
+  /**
    * `.rd`/`.r` default dice expression when player supplies no args.
    * COC/basic: `"1d100"`; DnD 5e: `"1d20"`.
    */

@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
-import { getRuleForRoom } from "@/lib/rules";
+import { getRuleForRoom, primaryVital, type StatusEntry } from "@/lib/rules";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
@@ -90,7 +90,9 @@ export function RoomClient({
   const [unreadItems, setUnreadItems] = useState(0);
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
-  const [characterResources, setCharacterResources] = useState<Map<number, { hp_current: number; hpMax: number }>>(new Map());
+  // Live overrides pushed by SSE, keyed by userId — one entry per member,
+  // holding the rule's primary vital (HP where the rule has one).
+  const [characterResources, setCharacterResources] = useState<Map<number, StatusEntry>>(new Map());
   const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
   const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
   const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
@@ -179,15 +181,13 @@ export function RoomClient({
         const u = p.users || p.user;
         const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
         const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
-        const cocDerived = charData?.cocDerived;
         return {
           id: (u?.id || p.user_id) ?? 0,
           nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
           isBot: !!u?.isBot,
           isBotDisabled,
           isProviderError,
-          hp: cocDerived?.hp_current ?? cocDerived?.hp ?? undefined as number | undefined,
-          maxHp: cocDerived?.hpMax ?? undefined as number | undefined,
+          vital: primaryVital(charData),
           avatar: p.room_members?.avatar ?? null,
           avatarColor: p.room_members?.avatarColor ?? null,
         };
@@ -206,8 +206,7 @@ export function RoomClient({
         isBotDisabled: p.isBotDisabled,
         isProviderError: p.isProviderError,
         isOnline: onlineUserIds.has(p.id),
-        hp: liveRes?.hp_current ?? p.hp,
-        maxHp: liveRes?.hpMax ?? p.maxHp,
+        vital: liveRes ?? p.vital,
         avatar: p.avatar,
         avatarColor: p.avatarColor,
       };

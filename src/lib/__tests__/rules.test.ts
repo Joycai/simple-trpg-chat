@@ -8,7 +8,7 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 import { rollDie } from "@/lib/utils";
-import { basicRule, coc7thRule, dnd5eRule, shouhunRule, triangleRule, getRule, listRules, listRuleIds, DEFAULT_RULE_ID } from "@/lib/rules";
+import { basicRule, coc7thRule, dnd5eRule, shouhunRule, triangleRule, getRule, listRules, listRuleIds, primaryVital, readStatusEntries, DEFAULT_RULE_ID } from "@/lib/rules";
 import {
   COC_DEFAULT_ATTRIBUTES,
   D20_DEFAULT_ATTRIBUTES,
@@ -1373,5 +1373,88 @@ describe("readStatus", () => {
         expect(enChar[spec.labelKey], `en.character.${spec.labelKey}`).toBeTruthy();
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Compact status surfaces (hover card + member list)
+// ---------------------------------------------------------------------------
+
+describe("status-view", () => {
+  it("d20 悬浮窗给出 HP 条与 AC", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "dnd5e",
+      d20Sheet: { hpMax: 12, hp_current: 9 },
+      d20Attributes: { ...D20_DEFAULT_ATTRIBUTES, ac: 16 },
+    };
+    expect(readStatusEntries(sheet).resources).toEqual([
+      { key: "hp", labelKey: "hp", current: 9, max: 12, style: "bar" },
+    ]);
+    expect(dnd5eRule.readStatus(sheet).attributes).toEqual({ ac: 16 });
+  });
+
+  it("d20 只填了属性也能显示 AC(没有 HP 条)", () => {
+    const sheet: CharacterData = { ruleTemplate: "dnd5e", d20Attributes: D20_DEFAULT_ATTRIBUTES };
+    expect(readStatusEntries(sheet).resources).toEqual([]);
+    expect(dnd5eRule.readStatus(sheet).attributes).toEqual({ ac: D20_DEFAULT_ATTRIBUTES.ac });
+  });
+
+  it("Triangle 两个计数器都出现,且不带上限", () => {
+    const sheet: CharacterData = { ruleTemplate: "triangle", taSheet: { commendations: 3, reprimands: 1 } };
+    const { resources } = readStatusEntries(sheet);
+    expect(resources.map(r => r.key)).toEqual(["commendations", "reprimands"]);
+    expect(resources.every(r => r.style === "counter" && r.max === undefined)).toBe(true);
+  });
+
+  it("basic 只显示靠前的两个自定义属性", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "basic",
+      customAttributes: [
+        { name: "弹药", value: 6, max: 10 },
+        { name: "士气", value: 2 },
+        { name: "第三个", value: 1 },
+      ],
+    };
+    const { resources, custom } = readStatusEntries(sheet);
+    expect(resources).toEqual([]);
+    expect(custom.map(c => c.label)).toEqual(["弹药", "士气"]);
+    expect(custom[0]).toMatchObject({ current: 6, max: 10, style: "bar" });
+    expect(custom[1]).toMatchObject({ current: 2, max: undefined, style: "counter" });
+  });
+
+  it("有上限的规则不裁剪自定义属性", () => {
+    const sheet = coc7thRule.initCharacter();
+    sheet.customAttributes = [
+      { name: "a", value: 1 }, { name: "b", value: 2 }, { name: "c", value: 3 },
+    ];
+    expect(readStatusEntries(sheet).custom).toHaveLength(3);
+  });
+
+  it("成员列表优先取 HP,没有 HP 取第一个资源,再没有取第一个自定义属性", () => {
+    const coc = coc7thRule.initCharacter();
+    coc.cocDerived!.hp_current = 4;
+    expect(primaryVital(coc)).toMatchObject({ key: "hp", current: 4 });
+
+    expect(primaryVital({ ruleTemplate: "dnd5e", d20Sheet: { hpMax: 8 } }))
+      .toMatchObject({ key: "hp", current: 8, max: 8 });
+
+    const sh = shouhunRule.initCharacter();
+    sh.shAttributes = { phy: 5, wis: 5, soul: 5 };
+    expect(primaryVital(sh)?.key).toBe("hp");
+
+    // 无 HP 的规则 → 第一个声明的资源
+    expect(primaryVital({ ruleTemplate: "triangle", taSheet: { commendations: 2, reprimands: 7 } }))
+      .toMatchObject({ key: "commendations", current: 2, max: undefined });
+
+    // 无预设资源的规则 → 第一个自定义属性
+    expect(primaryVital({ ruleTemplate: "basic", customAttributes: [{ name: "弹药", value: 6, max: 10 }] }))
+      .toMatchObject({ label: "弹药", current: 6, max: 10 });
+  });
+
+  it("没有任何数据时不显示(返回 null)", () => {
+    expect(primaryVital(null)).toBeNull();
+    expect(primaryVital({ ruleTemplate: "basic" })).toBeNull();
+    expect(primaryVital({ ruleTemplate: "dnd5e" })).toBeNull();
+    expect(primaryVital({ ruleTemplate: "triangle" })).toBeNull();
   });
 });

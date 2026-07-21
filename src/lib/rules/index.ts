@@ -17,3 +17,5 @@ export { dnd5eRule } from "./dnd5e";
 export { shouhunRule } from "./shouhun";
 export { triangleRule } from "./triangle";
 export { getRule, getRuleForRoom, listRules, listRuleIds, DEFAULT_RULE_ID } from "./registry";
+export type { StatusEntries, StatusEntry } from "./status-view";
+export { primaryVital, readStatusEntries } from "./status-view";

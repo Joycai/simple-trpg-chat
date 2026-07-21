@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { markDMReadAction } from "@/app/actions/room";
 import { canSee, isAudience, countsAsDmUnread } from "@/lib/messaging/audience";
 import type { Message, ConnectionStatus, TypingBots } from "@/components/room/types";
+import type { StatusEntry } from "@/lib/rules";
 
 interface UseRoomEventsParams {
   roomId: number;
@@ -18,7 +19,7 @@ interface UseRoomEventsParams {
   setTypingBots: React.Dispatch<React.SetStateAction<TypingBots>>;
   setInventoryRefreshKey: React.Dispatch<React.SetStateAction<number>>;
   setOnlineUserIds: React.Dispatch<React.SetStateAction<Set<number>>>;
-  setCharacterResources: React.Dispatch<React.SetStateAction<Map<number, { hp_current: number; hpMax: number }>>>;
+  setCharacterResources: React.Dispatch<React.SetStateAction<Map<number, StatusEntry>>>;
 }
 
 /* Owns the room's single SSE connection: subscribes to /api/rooms/[id]/events,
@@ -112,12 +113,15 @@ export function useRoomEvents({
             return;
           }
           if (data.type === "character_updated") {
+            // `vital` is whatever the room's rule considers this character's
+            // headline number (see lib/rules/status-view). It is null when the
+            // sheet has nothing to show — drop the stale entry in that case.
             const uid = data.userId as number;
-            const hpCurrent = data.hp_current as number;
-            const hpMax = data.hpMax as number;
+            const vital = data.vital as StatusEntry | null;
             setCharacterResources((prev) => {
               const next = new Map(prev);
-              next.set(uid, { hp_current: hpCurrent, hpMax });
+              if (vital) next.set(uid, vital);
+              else next.delete(uid);
               return next;
             });
             return;

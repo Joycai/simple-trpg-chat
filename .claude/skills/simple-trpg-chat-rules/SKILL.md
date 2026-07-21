@@ -58,7 +58,7 @@ description: >
 | `rcUsageKey?` | `string` | `parseRcArgs` 返 null 时的用法错误 i18n key(`messages.commands`,默认 `rcUsageError`;dnd5e=`d20RcUsage`;triangle=`taRcNotSupported` 用于"本规则不支持 .rc") |
 | `capabilities` | `RuleCapabilities` | 见 §3。**驱动所有 UI/host-action/AI 门控的唯一来源** |
 | `initCharacter()` | `→ CharacterData` | 新成员加入时的初始角色卡(COC=9 属性+衍生;basic=`{ruleTemplate:'basic'}`) |
-| `readStatus(sheet)` | `→ CharacterStatus` | 把本规则自己的数据袋(`cocDerived`/`d20Sheet`/`taSheet`/`shSheet`…)摊平成 `{resources:{key:{current,max?}}, derived?, attributes?, attributeGrades?}`,键与 capabilities 对齐。聊天头像悬浮窗(`ResourceStatusTooltip.tsx`)唯一的数据源;无结构化角色卡的规则返回 `{resources:{}}` |
+| `readStatus(sheet)` | `→ CharacterStatus` | 把本规则自己的数据袋(`cocDerived`/`d20Sheet`/`taSheet`/`shSheet`…)摊平成 `{resources:{key:{current,max?}}, derived?, attributes?, attributeGrades?}`,键与 capabilities 对齐。所有只读状态面板(头像悬浮窗、成员列表)的唯一数据源,经 `src/lib/rules/status-view.ts` 的 `readStatusEntries()` / `primaryVital()` 摊平后消费;无结构化角色卡的规则返回 `{resources:{}}` |
 | `computeDerived(sheet)` | `→ CharacterData` | 属性改动后重算衍生 + 保留 player-set 当前值(HP/SAN/MP 钳到新上限)。basic 实现为 identity |
 | `routeStat(name)` | `→ StatRoute` | `.st <name> <val>` 的路由决策:`{kind:"skill"\|"attribute"\|"resource", canonical, key?}`。COC 走 `resolveCocStat`;basic 一律返 `{kind:"skill"}` |
 | `canonicalStatName(name)` | `→ string` | 显示名归一(`san → 理智值`)。basic 是 identity |
@@ -99,7 +99,8 @@ interface RuleCapabilities {
   supportedCommands: string[];                 // .sc 的命令门控就读这个
   resourceBars: { key, labelKey, style? }[];   // 角色卡预置资源条;style:"counter" 渲染为无上限计数器(默认 "bar" 为 当前/上限 条)
   attributeKeys: { key, labelKey }[];          // 角色卡属性宫格(basic=空;COC=9;5e=8;triangle=9)
-  statusAttributeKeys?: { key, labelKey }[];   // 属性里适合塞进头像悬浮窗的少数几个(coc7th=幸运;shouhun=3 项基础属性);key 必须是 attributeKeys 里已有的,labelKey 可另选更短的文案。省略=悬浮窗只显示资源+衍生
+  statusAttributeKeys?: { key, labelKey }[];   // 属性里适合塞进头像悬浮窗的少数几个(coc7th=幸运;dnd5e=AC;shouhun=3 项基础属性);key 必须是 attributeKeys 里已有的,labelKey 可另选更短的文案。省略=悬浮窗只显示资源+衍生
+  statusCustomLimit?: number;                  // 紧凑状态面板最多显示几个玩家自定义属性(basic=2,因为它没有任何预置资源);省略=全部
   derivedStats?: { key, labelKey }[];          // 角色卡属性宫格后的只读衍生卡(shouhun=术法强度);值由 CharacterPanel 按规则现算传入 AttributesTab 的 derivedValues
   defaultRollExpression: string;               // 空参数 .r/.rd 的默认骰(COC/basic=1d100;5e=1d20;triangle=6d4)
   requiresStoredTarget: boolean;               // .rc 查不到值时是否报 STAT_NOT_SET(COC/basic=true;5e/triangle=false)
@@ -231,6 +232,7 @@ UI 侧不用改:所有提到主持人的房间内组件都已通过 `src/compone
 - `src/components/room/RoomTopBar.tsx` —— 检定下拉读 `checkMenuModes`
 - `src/components/room/character/AttributesTab.tsx` —— 资源条/属性宫格读 capabilities
 - `src/components/room/chat/ResourceStatusTooltip.tsx` —— 头像悬浮窗读 capabilities + `rule.readStatus()`(图标映射在 `character/resource-visuals.ts`,按资源 key 查,查不到用主色兜底)
+- `src/components/room/chat/ConversationPanel.tsx` —— 成员列表那条只显示**一个**数值:`primaryVital()`(有 HP 的规则取 HP,否则取第一个声明资源,再否则取第一个自定义属性,都没有就整条不渲染)
 - `src/components/room/RoomSettings.tsx` / `LobbyClient.tsx` —— 下拉项来自 `listRules()`
 - `src/lib/ai_agent.ts` —— 系统提示走 `rule.describeForAI()`,enum 走 `listRuleIds()`
 

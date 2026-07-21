@@ -18,7 +18,7 @@ import {
   computeShDerived,
 } from "@/lib/character-types";
 import { rebuildSheetForRule } from "@/lib/character-sheet";
-import { getRule, getRuleForRoom } from "@/lib/rules";
+import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
 
 /** Verify that a user is a member of a room. Returns userId on success.
  *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
@@ -424,9 +424,6 @@ export async function updateResourcesAction(
     ? JSON.parse(targetMember.characterData)
     : { ruleTemplate: "basic" };
 
-  let broadcastHp: number | undefined;
-  let broadcastHpMax: number | undefined;
-
   if (charData.ruleTemplate === "dnd5e") {
     // d20: HP lives on d20Sheet (current + max are both editable here).
     const meta: D20Sheet = { ...(charData.d20Sheet ?? {}) };
@@ -439,8 +436,6 @@ export async function updateResourcesAction(
       if (typeof meta.hpMax !== "number") meta.hpMax = meta.hp_current;
     }
     charData.d20Sheet = meta;
-    broadcastHp = meta.hp_current;
-    broadcastHpMax = meta.hpMax;
   } else if (charData.ruleTemplate === "shouhun") {
     // 狩魂者: only currents persist on shSheet; maxes derive from attributes.
     const derived = computeShDerived(charData.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
@@ -452,8 +447,6 @@ export async function updateResourcesAction(
       meta.mana_current = Math.max(0, Math.min(resources.mana_current, derived.manaMax));
     }
     charData.shSheet = meta;
-    broadcastHp = meta.hp_current ?? derived.hpMax;
-    broadcastHpMax = derived.hpMax;
   } else {
     // COC / basic: HP/SAN/MP on cocDerived.
     if (!charData.cocDerived) {
@@ -468,8 +461,6 @@ export async function updateResourcesAction(
     if (resources.mp_current !== undefined) {
       charData.cocDerived.mp_current = Math.max(0, Math.min(resources.mp_current, charData.cocDerived.mpMax));
     }
-    broadcastHp = charData.cocDerived.hp_current ?? charData.cocDerived.hp;
-    broadcastHpMax = charData.cocDerived.hpMax;
   }
 
   await db.update(roomMembers)
@@ -479,11 +470,13 @@ export async function updateResourcesAction(
       eq(roomMembers.userId, targetUserId)
     ));
 
+  // The member list shows whatever the rule calls this character's primary
+  // vital (HP where it exists, else the first resource/custom attribute), so
+  // broadcast that entry rather than an HP pair only COC-likes can fill.
   broadcastToRoom(roomId, {
     type: "character_updated",
     userId: targetUserId,
-    hp_current: broadcastHp,
-    hpMax: broadcastHpMax,
+    vital: primaryVital(charData),
   });
 
   revalidatePath(`/rooms/${roomId}`);
