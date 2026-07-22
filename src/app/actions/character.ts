@@ -9,13 +9,9 @@ import { broadcastToRoom } from "@/lib/events";
 import {
   type CharacterData,
   type CocAttributes,
-  type D20Sheet,
-  type ShSheet,
   type CustomAttribute,
   COC_DEFAULT_ATTRIBUTES,
-  SH_DEFAULT_ATTRIBUTES,
   computeCocDerived,
-  computeShDerived,
 } from "@/lib/character-types";
 import { rebuildSheetForRule } from "@/lib/character-sheet";
 import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
@@ -420,48 +416,15 @@ export async function updateResourcesAction(
     ));
   if (!targetMember) throw new Error("Target user is not a member of this room");
 
-  const charData: CharacterData = targetMember.characterData
+  let charData: CharacterData = targetMember.characterData
     ? JSON.parse(targetMember.characterData)
     : { ruleTemplate: "basic" };
 
-  if (charData.ruleTemplate === "dnd5e") {
-    // d20: HP lives on d20Sheet (current + max are both editable here).
-    const meta: D20Sheet = { ...(charData.d20Sheet ?? {}) };
-    if (resources.hpMax !== undefined) {
-      meta.hpMax = Math.max(0, resources.hpMax);
-    }
-    if (resources.hp_current !== undefined) {
-      const cap = typeof meta.hpMax === "number" ? meta.hpMax : resources.hp_current;
-      meta.hp_current = Math.max(0, Math.min(resources.hp_current, cap));
-      if (typeof meta.hpMax !== "number") meta.hpMax = meta.hp_current;
-    }
-    charData.d20Sheet = meta;
-  } else if (charData.ruleTemplate === "shouhun") {
-    // 狩魂者: only currents persist on shSheet; maxes derive from attributes.
-    const derived = computeShDerived(charData.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
-    const meta: ShSheet = { ...(charData.shSheet ?? {}) };
-    if (resources.hp_current !== undefined) {
-      meta.hp_current = Math.max(0, Math.min(resources.hp_current, derived.hpMax));
-    }
-    if (resources.mana_current !== undefined) {
-      meta.mana_current = Math.max(0, Math.min(resources.mana_current, derived.manaMax));
-    }
-    charData.shSheet = meta;
-  } else {
-    // COC / basic: HP/SAN/MP on cocDerived.
-    if (!charData.cocDerived) {
-      charData.cocDerived = { hp: 0, hpMax: 0, san: 0, sanMax: 0, mp: 0, mpMax: 0, mov: 0, db: "0", build: 0, luck: 0 };
-    }
-    if (resources.hp_current !== undefined) {
-      charData.cocDerived.hp_current = Math.max(0, Math.min(resources.hp_current, charData.cocDerived.hpMax));
-    }
-    if (resources.san_current !== undefined) {
-      charData.cocDerived.san_current = Math.max(0, Math.min(resources.san_current, charData.cocDerived.sanMax));
-    }
-    if (resources.mp_current !== undefined) {
-      charData.cocDerived.mp_current = Math.max(0, Math.min(resources.mp_current, charData.cocDerived.mpMax));
-    }
-  }
+  // Each rule owns where its resources live and how they clamp (d20 → d20Sheet
+  // with editable max; 狩魂者 → shSheet, maxes derived; COC → cocDerived; basic/
+  // triangle → no structured resources). The action just forwards the whole
+  // patch — this replaced a `ruleTemplate === "…"` chain.
+  charData = getRule(charData.ruleTemplate).applyResourcePatch(charData, resources);
 
   await db.update(roomMembers)
     .set({ characterData: JSON.stringify(charData) })

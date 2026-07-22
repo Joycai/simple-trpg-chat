@@ -42,7 +42,10 @@ export { THEME_MODES, type ThemeMode } from '@/themes/types';
  * IMPORTANT: must stay in lockstep with the rule registry in
  * `@/lib/rules/registry.ts`. When adding a new rule (e.g. `dnd5e`),
  * register it in the registry AND append it here so the schema-level
- * validators in `src/app/actions/room.ts` accept it.
+ * validators in `src/app/actions/room.ts` accept it. This list is kept literal
+ * (not derived from `listRuleIds()`) so the schema layer stays free of any
+ * dependency on the rules subsystem; a drift-guard test in
+ * `src/lib/__tests__/rules.test.ts` fails if the two ever diverge.
  */
 export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e', 'triangle', 'shouhun'] as const;
 export type RuleTemplate = (typeof RULE_TEMPLATES)[number];

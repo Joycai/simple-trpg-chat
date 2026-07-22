@@ -303,6 +303,26 @@ export interface AiRuleHints {
 }
 
 // ---------------------------------------------------------------------------
+// Batch resource edit (host/player resource panel)
+// ---------------------------------------------------------------------------
+
+/**
+ * A batch resource edit from the character panel / host adjust dialog. This is
+ * the union of every rule's resource fields; each rule's `applyResourcePatch`
+ * consumes the keys it owns and ignores the rest. Keeping it a flat superset
+ * lets the server action stay rule-agnostic — it forwards the whole patch and
+ * lets the module decide where each number lands and how it clamps.
+ */
+export interface ResourcePatch {
+  hp_current?: number;
+  /** Editable max (d20 HP). Rules with derived maxes ignore it. */
+  hpMax?: number;
+  san_current?: number;
+  mp_current?: number;
+  mana_current?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Module interface
 // ---------------------------------------------------------------------------
 
@@ -373,6 +393,17 @@ export interface RuleModule {
   /** Roll, compare, grade — the rule fully owns the dice mechanic. */
   resolveCheck(req: CheckRequest): CheckResult;
 
+  /**
+   * Optional: how the rule reads a *plain* dice roll (`.rd`/`.r`, not a check).
+   * Lets the AI agent react idiomatically to a raw result — COC recognizes
+   * 01–05 / 96–100 on a single 1d100; basic adds a "CoC-cultural" hint. Returns
+   * a short human-readable evaluation string, or `null` when the roll carries
+   * no special meaning for this system. Rules that omit it read every roll as
+   * plain. This is where the crit/fumble knowledge lives, so the engine and AI
+   * never branch on the rule id.
+   */
+  naturalGrade?(roll: number, faces: number, count: number): string | null;
+
   // ----- `.rc` argument parsing --------------------------------------------
 
   /**
@@ -422,6 +453,15 @@ export interface RuleModule {
     route: Extract<StatRoute, { kind: "attribute" } | { kind: "resource" }>,
     value: number,
   ): { sheet: CharacterData; finalValue: number };
+
+  /**
+   * Apply a batch resource edit (the character panel's HP/SAN/MP/mana steppers,
+   * or a host adjusting another player's bars) to the sheet, clamping every
+   * field the rule owns to its max. This is the single dispatch point that used
+   * to live as a `ruleTemplate === "…"` chain inside `updateResourcesAction`.
+   * Rules without structured resources (basic) return `sheet` unchanged.
+   */
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData;
 
   // ----- Export / AI integration -------------------------------------------
 

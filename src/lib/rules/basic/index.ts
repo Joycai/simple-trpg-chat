@@ -139,6 +139,22 @@ export const basicRule: RuleModule = {
     return { sheet, finalValue: value };
   },
 
+  // Basic has no structured resources — nothing to apply.
+  applyResourcePatch(sheet: CharacterData): CharacterData {
+    return sheet;
+  },
+
+  // Plain-roll reading for the AI agent: basic has no crit/fumble grading, but
+  // keeps the "CoC-cultural" hint so the LLM reacts idiomatically to 1/100 on a
+  // raw d100 (moved verbatim out of ai_agent.ts's rule-id branch).
+  naturalGrade(roll: number, faces: number, count: number): string | null {
+    if (faces === 100 && count === 1) {
+      if (roll === 100) return "Fumble (大失败) in CoC rules (though current room uses basic rules)";
+      if (roll === 1) return "Critical Success (大成功) in CoC rules (though current room uses basic rules)";
+    }
+    return null;
+  },
+
   exportSnapshot(): Record<string, unknown> {
     return {};
   },

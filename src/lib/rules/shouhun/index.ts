@@ -46,6 +46,7 @@ import type {
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
+  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -330,6 +331,20 @@ export const shouhunRule: RuleModule = {
     meta[`${route.key}_current` as keyof ShSheet] = finalValue;
     data.shSheet = meta;
     return { sheet: data, finalValue };
+  },
+
+  // Batch resource edit — only currents persist; maxes derive from attributes.
+  // Moved verbatim out of updateResourcesAction's shouhun branch.
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
+    const derived = computeShDerived(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
+    const meta: ShSheet = { ...(sheet.shSheet ?? {}) };
+    if (patch.hp_current !== undefined) {
+      meta.hp_current = Math.max(0, Math.min(patch.hp_current, derived.hpMax));
+    }
+    if (patch.mana_current !== undefined) {
+      meta.mana_current = Math.max(0, Math.min(patch.mana_current, derived.manaMax));
+    }
+    return { ...sheet, shSheet: meta };
   },
 
   resolveCheck(req: CheckRequest): CheckResult {

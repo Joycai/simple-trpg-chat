@@ -25,6 +25,7 @@ import type {
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
+  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -242,6 +243,21 @@ export const dnd5eRule: RuleModule = {
       return { sheet: data, finalValue: meta.hp_current };
     }
     return { sheet: data, finalValue: value };
+  },
+
+  // Batch resource edit — d20 HP lives on d20Sheet with an editable max.
+  // Moved verbatim out of updateResourcesAction's dnd5e branch.
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
+    const meta: D20Sheet = { ...(sheet.d20Sheet ?? {}) };
+    if (patch.hpMax !== undefined) {
+      meta.hpMax = Math.max(0, patch.hpMax);
+    }
+    if (patch.hp_current !== undefined) {
+      const cap = typeof meta.hpMax === "number" ? meta.hpMax : patch.hp_current;
+      meta.hp_current = Math.max(0, Math.min(patch.hp_current, cap));
+      if (typeof meta.hpMax !== "number") meta.hpMax = meta.hp_current;
+    }
+    return { ...sheet, d20Sheet: meta };
   },
 
   resolveCheck(req: CheckRequest): CheckResult {

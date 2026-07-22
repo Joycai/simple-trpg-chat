@@ -785,10 +785,14 @@ async function handleSanityCheck(
 /** Read the current sanity value: character sheet current → base → legacy room_skills. */
 async function readCurrentSanity(roomId: number, userId: number): Promise<number | null> {
   const data = await getCharacterData(roomId, userId);
-  if (data?.ruleTemplate === "coc7th") {
-    const d = data.cocDerived;
-    const cur = d?.san_current ?? d?.san;
-    if (typeof cur === "number") return cur;
+  if (data) {
+    // Sanity is a rule capability, not a COC hardcode: any rule that declares
+    // `hasSanity` exposes it through readStatus().resources.san.
+    const rule = getRuleForRoom(data);
+    if (rule.capabilities.hasSanity) {
+      const cur = rule.readStatus(data).resources.san?.current;
+      if (typeof cur === "number") return cur;
+    }
   }
   const [sanSkill] = await db.select().from(roomSkills).where(
     and(

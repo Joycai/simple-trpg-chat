@@ -74,3 +74,14 @@ export function usePlayerLabelFor(ruleTemplate: string | null | undefined): stri
 export function usePlayerLabel(): string {
   return usePlayerLabelFor(useContext(RuleTemplateContext));
 }
+
+/**
+ * Resolver for the rule template's own display label (the dropdown label under
+ * `messages.rooms`, e.g. COC 7th / DnD 5e / Triangle Agency / 狩魂者). For
+ * many-room lists like the lobby grid, so a room card badges its system by
+ * label instead of hardcoding a single rule id.
+ */
+export function useRuleLabelResolver(): (ruleTemplate: string | null | undefined) => string {
+  const t = useTranslations("rooms");
+  return (ruleTemplate) => t(getRule(ruleTemplate).labelKey);
+}

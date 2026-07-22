@@ -167,6 +167,12 @@ export const triangleRule: RuleModule = {
     return { sheet: data, finalValue: stored };
   },
 
+  // Triangle's only resources are unbounded counters set via `.st`; the
+  // character panel's HP/SAN/mana resource patch never targets this rule.
+  applyResourcePatch(sheet: CharacterData): CharacterData {
+    return sheet;
+  },
+
   exportSnapshot(sheet: CharacterData): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     if (sheet.taSheet) {
