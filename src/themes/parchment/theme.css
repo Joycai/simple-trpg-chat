@@ -497,3 +497,250 @@
 [data-theme="parchment"][data-mode="light"] .parchment-hero-badge-ring {
   border-color: rgba(140, 90, 35, 0.4);
 }
+
+/* ============================================================
+   Tier 3 — 游戏消息组件：检定结果深度主题化
+   移植自 shrine，全部走本主题(羊皮纸)自己的 --theme-* token；仅把 shrine 的
+   暖色高光 tint 换成中性。覆盖：骰子/检定气泡(.chat-bubble-dice)、
+   理智检定卡(.sc-card)、行内成败徽章(.dice-result-grade)。
+   ============================================================ */
+
+/* ---- 骰子气泡 — 非理智（普通掷骰 / 技能检定 / 大成功 / 大失败）---- */
+[data-theme="parchment"] .chat-bubble-dice {
+  font-family: var(--theme-font-display);
+}
+[data-theme="parchment"] .chat-bubble-dice .dice-formula {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+  font-weight: 400;
+}
+[data-theme="parchment"] .chat-bubble-dice .dice-value {
+  font-family: var(--theme-font-mono);
+  font-size: 1.6em;
+  font-weight: 500;
+  line-height: 1;
+  color: rgb(var(--theme-text));
+  letter-spacing: 0.02em;
+}
+[data-theme="parchment"] .chat-bubble-dice .dice-target {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+}
+/* 技能名高亮 — accent 色 */
+[data-theme="parchment"] .chat-bubble-dice .dice-skill {
+  color: rgb(var(--theme-accent));
+  font-weight: 500;
+  font-family: var(--theme-font-display);
+  font-size: 0.95em;
+  margin-right: 2px;
+}
+/* 前导图标圆章 — accent 实心（准心） */
+[data-theme="parchment"] .chat-bubble-dice .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-accent-foreground));
+  border: 1px solid rgb(var(--theme-accent-hover));
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22),
+              0 1px 3px rgba(0, 0, 0, 0.45);
+}
+[data-theme="parchment"] .chat-bubble-dice .dice-icon svg {
+  width: 14px;
+  height: 14px;
+}
+[data-theme="parchment"] .chat-bubble-dice[data-roll-kind="check"] .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-accent-foreground));
+  border-color: rgb(var(--theme-accent-hover));
+}
+
+/* 暗骰（audience=self）— 虚线气泡 + 中性图标 */
+[data-theme="parchment"] .chat-bubble-dice[data-audience="self"] {
+  border-style: dashed;
+}
+[data-theme="parchment"] .chat-bubble-dice[data-audience="self"] .dice-icon {
+  background: rgb(var(--theme-surface-alt));
+  color: rgb(var(--theme-text-muted));
+  border-color: rgb(var(--theme-border));
+  box-shadow: none;
+}
+/* 心理学暗骰（data-psy=true）— ai 色图标 */
+[data-theme="parchment"] .chat-bubble-dice[data-psy="true"] .dice-icon {
+  background: rgb(var(--theme-ai));
+  color: rgb(var(--theme-ai-foreground));
+  border-color: rgb(var(--theme-ai-hover));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18),
+              0 1px 3px rgba(0, 0, 0, 0.45);
+}
+[data-theme="parchment"] .chat-bubble-dice[data-psy="true"] .dice-skill {
+  color: rgb(var(--theme-ai));
+}
+[data-theme="parchment"] .dice-psy-header {
+  font-family: var(--theme-font-display);
+  letter-spacing: 0.03em;
+}
+[data-theme="parchment"] .dice-psy-desc {
+  color: rgb(var(--theme-text-muted));
+}
+
+/* 大成功 — 整条气泡 success 满铺 + 前导 ✓ 图标 + 亮值 */
+[data-theme="parchment"] .chat-bubble-dice[data-grade="critical"] {
+  background: rgb(var(--theme-success) / 0.16);
+  border-color: rgb(var(--theme-success) / 0.55);
+}
+[data-theme="parchment"] .chat-bubble-dice[data-grade="critical"] .dice-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-success));
+}
+[data-theme="parchment"] .chat-bubble-dice[data-grade="critical"] .dice-value {
+  color: rgb(var(--theme-success));
+}
+
+/* 大失败 — 整条气泡 danger 满铺 + 前导 ✗ 图标 */
+[data-theme="parchment"] .chat-bubble-dice[data-grade="fumble"] {
+  background: rgb(var(--theme-danger) / 0.16);
+  border-color: rgb(var(--theme-danger) / 0.55);
+}
+[data-theme="parchment"] .chat-bubble-dice[data-grade="fumble"] .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border-color: rgb(var(--theme-danger));
+}
+[data-theme="parchment"] .chat-bubble-dice[data-grade="fumble"] .dice-value {
+  color: rgb(var(--theme-danger));
+}
+
+/* ---- 理智检定卡（.sc）— 气泡内嵌平铺，卡片自带内边距 ---- */
+[data-theme="parchment"] .chat-bubble-dice[data-roll-kind="sanity"] {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  font-family: var(--theme-font-display);
+}
+[data-theme="parchment"] .sc-card {
+  background: rgb(var(--theme-dice-card-bg));
+  border: 1px solid rgb(var(--theme-dice-card-border));
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 320px;
+}
+[data-theme="parchment"] .sc-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgb(var(--theme-border));
+}
+[data-theme="parchment"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-danger));
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+[data-theme="parchment"] .sc-card-title {
+  flex: 1;
+  color: rgb(var(--theme-text));
+  font-weight: 500;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+[data-theme="parchment"] .sc-card-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: rgb(var(--theme-text));
+}
+[data-theme="parchment"] .sc-card-summary .dice-formula {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+}
+[data-theme="parchment"] .sc-card-summary .dice-value {
+  font-family: var(--theme-font-mono);
+  font-size: 1.45em;
+  font-weight: 500;
+  color: rgb(var(--theme-text));
+}
+[data-theme="parchment"] .sc-card-summary .dice-target {
+  font-family: var(--theme-font-mono);
+  font-size: 0.85em;
+  color: rgb(var(--theme-text-dim));
+}
+[data-theme="parchment"] .sc-card-body {
+  margin: 0;
+  padding: 10px 12px 12px;
+  display: grid;
+  grid-template-columns: minmax(56px, auto) 1fr;
+  column-gap: 18px;
+  row-gap: 6px;
+  font-size: 0.85rem;
+  color: rgb(var(--theme-text));
+}
+[data-theme="parchment"] .sc-card-row {
+  display: contents;
+}
+[data-theme="parchment"] .sc-card-row dt {
+  color: rgb(var(--theme-text-muted));
+  font-family: var(--theme-font-display);
+}
+[data-theme="parchment"] .sc-card-row dd {
+  margin: 0;
+  font-family: var(--theme-font-mono);
+  color: rgb(var(--theme-text));
+}
+/* 疯狂附属 — 卡下方满宽警示条 */
+[data-theme="parchment"] .sc-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgb(var(--theme-danger) / 0.15);
+  border: 1px solid rgb(var(--theme-danger) / 0.55);
+  color: rgb(var(--theme-danger));
+  font-family: var(--theme-font-display);
+  font-size: 0.82rem;
+}
+
+/* ---- 行内成败徽章（success / failure / critical / fumble）---- */
+[data-theme="parchment"] .dice-result-skill {
+  color: rgb(var(--theme-accent));
+  font-weight: 500;
+}
+[data-theme="parchment"] .dice-result-grade-icon {
+  display: none;
+}
+[data-theme="parchment"] .dice-result-grade {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 2px;
+  font-family: var(--theme-font-display);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+[data-theme="parchment"] .dice-result-grade[data-grade="success"],
+[data-theme="parchment"] .dice-result-grade[data-grade="critical"] {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+}
+[data-theme="parchment"] .dice-result-grade[data-grade="failure"] {
+  background: rgb(var(--theme-text-muted));
+  color: rgb(var(--theme-surface));
+}
+[data-theme="parchment"] .dice-result-grade[data-grade="fumble"] {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+}
+
