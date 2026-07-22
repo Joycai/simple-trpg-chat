@@ -1583,6 +1583,22 @@ describe("labelKey", () => {
     }
   });
 
+  // Regression: useRuleLabelResolver (lobby room-card badge) reads labelKey from
+  // the `createRoom` namespace. A missing key throws next-intl MISSING_MESSAGE at
+  // render, not a silent fallback — so every rule's label must exist there.
+  it("每套规则的 labelKey 在 zh/en 的 createRoom 文案里都有值", async () => {
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    const zhCreate = (zh.default as { createRoom: Record<string, string> }).createRoom;
+    const enCreate = (en.default as { createRoom: Record<string, string> }).createRoom;
+    for (const rule of listRules()) {
+      expect(zhCreate[rule.labelKey], `zh.createRoom.${rule.labelKey}`).toBeTruthy();
+      expect(enCreate[rule.labelKey], `en.createRoom.${rule.labelKey}`).toBeTruthy();
+    }
+  });
+
   it("labelKey 互不相同(否则两套规则在下拉框里同名)", () => {
     const keys = listRules().map(r => r.labelKey);
     expect(new Set(keys).size).toBe(keys.length);
