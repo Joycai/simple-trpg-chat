@@ -18,14 +18,14 @@
  */
 
 import { rollDie } from "@/lib/utils";
+import type { CharacterData } from "@/lib/character-types";
 import {
   COC_DEFAULT_ATTRIBUTES,
   COC_MAX_SANITY,
   computeCocDerived,
-  type CharacterData,
   type CocAttributes,
   type CocDerived,
-} from "@/lib/character-types";
+} from "./sheet";
 import { resolveCocStat } from "./stats";
 import { clampAttributes } from "../patch-utils";
 import type {
@@ -377,7 +377,3 @@ export const coc7thRule: RuleModule = {
     };
   },
 };
-
-// Re-exported so other rule-aware code doesn't need a direct dep on
-// character-types when it only cares about the SAN cap.
-export { COC_MAX_SANITY };

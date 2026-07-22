@@ -8,16 +8,17 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 import { rollDie } from "@/lib/utils";
-import { basicRule, coc7thRule, dnd5eRule, shouhunRule, triangleRule, getRule, listRules, listRuleIds, primaryVital, readStatusEntries, DEFAULT_RULE_ID } from "@/lib/rules";
 import {
+  basicRule, coc7thRule, dnd5eRule, shouhunRule, triangleRule,
+  getRule, listRules, listRuleIds, primaryVital, readStatusEntries, DEFAULT_RULE_ID,
   COC_DEFAULT_ATTRIBUTES,
   D20_DEFAULT_ATTRIBUTES,
   TA_DEFAULT_QUALITIES,
   computeCocDerived,
   computeShDerived,
   shGradeLabel,
-  type CharacterData,
-} from "@/lib/character-types";
+} from "@/lib/rules";
+import type { CharacterData } from "@/lib/character-types";
 import { RULE_TEMPLATES } from "@/db/schema";
 
 const mockRollDie = rollDie as unknown as ReturnType<typeof vi.fn>;

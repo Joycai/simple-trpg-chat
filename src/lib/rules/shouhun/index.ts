@@ -28,15 +28,15 @@
  */
 
 import { rollDie } from "@/lib/utils";
+import type { CharacterData } from "@/lib/character-types";
 import {
   SH_DEFAULT_ATTRIBUTES,
   clampShAttr,
   computeShDerived,
   shGradeLabel,
-  type CharacterData,
   type ShAttributes,
   type ShSheet,
-} from "@/lib/character-types";
+} from "./sheet";
 import { resolveShStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
