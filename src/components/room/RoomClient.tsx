@@ -667,6 +667,7 @@ export function RoomClient({
           readOnly={readOnly}
           readOnlyNotice={isObserver ? t("observerNotice") : undefined}
           quickCommands={ruleCapabilities.quickRolls}
+          defaultRollExpression={ruleCapabilities.defaultRollExpression}
           onViewCharacter={handleViewPlayerCard}
           onStartDM={handleTabChange}
           onCheckRequest={handleCheckRequest}

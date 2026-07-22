@@ -27,12 +27,14 @@ interface ChatInputProps {
   readOnlyNotice?: string;
   /** Rule-driven quick-insert command chips shown above the input (capabilities.quickRolls). */
   quickCommands?: ReadonlyArray<string>;
+  /** Active rule's default dice (capabilities.defaultRollExpression) — seeds the 🎲 panel. */
+  defaultRollExpression?: string;
 }
 
 // Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
 const IMAGE_MAX_BYTES = 1024 * 1024;
 
-export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice, quickCommands = [] }: ChatInputProps) {
+export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice, quickCommands = [], defaultRollExpression }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
@@ -268,6 +270,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           <DiceRoller
             onRoll={handleDiceRoll}
             onClose={() => setShowDice(false)}
+            defaultExpression={defaultRollExpression}
           />
         </div>
       )}

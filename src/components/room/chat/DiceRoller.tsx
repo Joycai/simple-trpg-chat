@@ -3,18 +3,47 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
+import { parseLeadingDice } from "@/lib/roll-command";
 
 const DICE_FACES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
+const MAX_COUNT = 20;
+
+/** Fallback selection when the room's rule has no usable default expression. */
+const FALLBACK_DIE = 20;
+const FALLBACK_COUNT = 1;
+
+/**
+ * Resolve the panel's opening selection from the active rule's
+ * `defaultRollExpression`. The parsed die must be one the panel actually
+ * offers (`DICE_FACES`); anything else (or a missing expression) falls back to
+ * 1d20 so the control never opens on a face it can't render.
+ */
+function initialSelection(defaultExpression?: string): { die: number; count: number } {
+  const parsed = parseLeadingDice(defaultExpression, MAX_COUNT);
+  if (parsed && DICE_FACES.includes(parsed.faces)) {
+    return { die: parsed.faces, count: parsed.count };
+  }
+  return { die: FALLBACK_DIE, count: FALLBACK_COUNT };
+}
 
 interface DiceRollerProps {
   onRoll: (content: string, diceDetail: string) => void;
   onClose: () => void;
+  /**
+   * The active room rule's `capabilities.defaultRollExpression` (e.g. "1d100",
+   * "1d20", "6d4"). Seeds the initial die + count so the panel opens matching
+   * the ruleset. Absent ⇒ the legacy 1d20 default.
+   */
+  defaultExpression?: string;
 }
 
-export function DiceRoller({ onRoll, onClose }: DiceRollerProps) {
+export function DiceRoller({ onRoll, onClose, defaultExpression }: DiceRollerProps) {
   const t = useTranslations("dice");
-  const [selectedDie, setSelectedDie] = useState(20);
-  const [count, setCount] = useState(1);
+  // Read once on mount. The panel is conditionally rendered by its parent, so
+  // it remounts on each open — every open re-seeds from the current rule.
+  const [initial] = useState(() => initialSelection(defaultExpression));
+  const [selectedDie, setSelectedDie] = useState(initial.die);
+  const [count, setCount] = useState(initial.count);
   const [isPrivate, setIsPrivate] = useState(false);
 
   const handleRoll = () => {

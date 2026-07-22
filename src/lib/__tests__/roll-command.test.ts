@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isRollCommand, normalizeRollCommand, pushRecent } from "@/lib/roll-command";
+import { isRollCommand, normalizeRollCommand, parseLeadingDice, pushRecent } from "@/lib/roll-command";
 
 describe("isRollCommand", () => {
   it.each([
@@ -70,4 +70,30 @@ describe("pushRecent", () => {
     pushRecent(list, ".r3d6");
     expect(list).toEqual([".rd100"]);
   });
+});
+
+describe("parseLeadingDice", () => {
+  it.each([
+    ["1d100", { count: 1, faces: 100 }], // COC / basic
+    ["1d20", { count: 1, faces: 20 }], // DnD 5e / 狩魂者
+    ["6d4", { count: 6, faces: 4 }], // Triangle Agency
+    ["2D6", { count: 2, faces: 6 }], // uppercase D
+  ])("parses rule default %s", (input, expected) => {
+    expect(parseLeadingDice(input as string)).toEqual(expected);
+  });
+
+  it("reads only the leading NdM term of a compound expression", () => {
+    expect(parseLeadingDice("3d6k2+2d20")).toEqual({ count: 3, faces: 6 });
+  });
+
+  it("clamps the count to maxCount", () => {
+    expect(parseLeadingDice("99d4", 20)).toEqual({ count: 20, faces: 4 });
+  });
+
+  it.each([null, undefined, "", "no dice here", "0d6", "1d0"])(
+    "returns null for unusable input %s",
+    (input) => {
+      expect(parseLeadingDice(input as string | null | undefined)).toBeNull();
+    },
+  );
 });

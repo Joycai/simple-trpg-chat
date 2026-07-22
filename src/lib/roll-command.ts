@@ -37,3 +37,29 @@ export function normalizeRollCommand(input: string): string {
 export function pushRecent(list: readonly string[], cmd: string, max = 5): string[] {
   return [cmd, ...list.filter((c) => c !== cmd)].slice(0, max);
 }
+
+/**
+ * Parse the leading `NdM` term of a roll expression into a dice-panel
+ * selection. Fed the active rule's `capabilities.defaultRollExpression`
+ * ("1d100" for COC, "1d20" for DnD 5e / 狩魂者, "6d4" for Triangle Agency) so
+ * the 🎲 panel opens pre-set to whatever the room's ruleset rolls by default.
+ *
+ * Only the first `NdM` term is read — a rule whose default is a compound
+ * expression still yields a sensible single-die starting point. Returns
+ * `null` when no `NdM` term is present (or the count/faces are non-positive),
+ * letting the caller keep its own fallback. `count` is clamped to 1..`maxCount`.
+ */
+export function parseLeadingDice(
+  expression: string | null | undefined,
+  maxCount = 20,
+): { count: number; faces: number } | null {
+  if (!expression) return null;
+  const m = /(\d+)\s*[dD]\s*(\d+)/.exec(expression);
+  if (!m) return null;
+  const rawCount = parseInt(m[1], 10);
+  const faces = parseInt(m[2], 10);
+  if (!Number.isFinite(rawCount) || !Number.isFinite(faces) || rawCount < 1 || faces < 1) {
+    return null;
+  }
+  return { count: Math.min(maxCount, Math.max(1, rawCount)), faces };
+}
