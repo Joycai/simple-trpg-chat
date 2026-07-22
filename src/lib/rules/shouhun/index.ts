@@ -199,6 +199,18 @@ export const shouhunRule: RuleModule = {
     };
   },
 
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const attrs = { ...(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
+    for (const { key } of SH_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") attrs[key as keyof ShAttributes] = values[key];
+    }
+    return { ...sheet, shAttributes: attrs };
+  },
+
   /**
    * Accepts `shAttributes` + `shSheet`, the two fields `describeForAI`
    * declares. Attributes are strictly 1–9 (the E..SSS+ grade ladder has no

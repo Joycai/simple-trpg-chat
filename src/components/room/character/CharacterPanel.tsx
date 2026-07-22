@@ -612,7 +612,7 @@ export function CharacterPanel({
               currentResources={currentResources}
               resourceMaxes={effectiveResourceMaxes}
               onResourceChange={handleResourceChange}
-              resourceMaxEditable={ruleTemplate === "dnd5e" && !readOnly}
+              resourceMaxEditable={!!ruleCap.resourceMaxEditable && !readOnly}
               onResourceMaxChange={handleResourceMaxChange}
               attributeValues={attributeValues}
               derivedValues={shDerived ? { spellStrength: shDerived.spellStrength } : undefined}
@@ -712,23 +712,15 @@ function buildAttributeValues(
   ta?: TaQualities,
   sh?: ShAttributes,
 ): Record<string, number> {
-  if (ruleTemplate === "coc7th") {
-    const src = coc || COC_DEFAULT_ATTRIBUTES;
-    return { ...src };
-  }
-  if (ruleTemplate === "dnd5e") {
-    const src = d20 || D20_DEFAULT_ATTRIBUTES;
-    return { ...src };
-  }
-  if (ruleTemplate === "triangle") {
-    const src = ta || TA_DEFAULT_QUALITIES;
-    return { ...src };
-  }
-  if (ruleTemplate === "shouhun") {
-    const src = sh || SH_DEFAULT_ATTRIBUTES;
-    return { ...src };
-  }
-  return {};
+  // The rule owns which bag its attributes live in; the panel just asks for a
+  // flat record. (Was a coc7th/dnd5e/triangle/shouhun if-chain.)
+  return getRule(ruleTemplate).readAttributes({
+    ruleTemplate,
+    cocAttributes: coc,
+    d20Attributes: d20,
+    taQualities: ta,
+    shAttributes: sh,
+  });
 }
 
 /** Read back a COC attributes object from the generic record (only valid keys). */

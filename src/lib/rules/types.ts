@@ -230,6 +230,13 @@ export interface RuleCapabilities {
    */
   hasRoleLevel: boolean;
   /**
+   * When true, the character panel lets players edit a resource bar's MAX
+   * inline. d20 HP has no auto-derivation, so its max is free-set; rules with
+   * derived maxes (COC / 狩魂者) leave this false — their max moves with the
+   * attributes. Absent ⇒ false.
+   */
+  resourceMaxEditable?: boolean;
+  /**
    * Quick-insert command chips rendered above the chat input, in order.
    * Each entry is a full command string (e.g. `".rd100"`, `".r 6d4"`).
    */
@@ -358,6 +365,22 @@ export interface RuleModule {
    * structured sheet (basic) return `{ resources: {} }`.
    */
   readStatus(sheet: CharacterData): CharacterStatus;
+  /**
+   * Read the rule's attribute bag into a flat record keyed by
+   * `capabilities.attributeKeys[*].key` — the shape the character panel's
+   * generic attribute grid edits. Missing values fall back to the rule's
+   * defaults; rules without structured attributes (basic) return `{}`. This is
+   * the read half that lets the panel stop reaching into `cocAttributes` /
+   * `d20Attributes` / … by name.
+   */
+  readAttributes(sheet: CharacterData): Record<string, number>;
+  /**
+   * Merge an edited attribute record (from the panel grid) back into the rule's
+   * attribute bag, whitelisting to `attributeKeys` and returning a new sheet.
+   * Rules without structured attributes (basic) return `sheet` unchanged.
+   * Callers run `computeDerived` afterwards to refresh derived values.
+   */
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData;
   /**
    * Merge an untrusted sheet patch (the AI bot's `set_character_card` tool
    * arguments) into `sheet`, returning a new sheet.

@@ -65,6 +65,8 @@ const capabilities: RuleCapabilities = {
   defaultRollExpression: "1d20",
   requiresStoredTarget: false,
   hasRoleLevel: true,
+  // HP max is free-set (no auto-derivation), so the panel lets players edit it.
+  resourceMaxEditable: true,
   quickRolls: [".rd20", ".rc 力量+2 15"],
 };
 
@@ -113,6 +115,18 @@ export const dnd5eRule: RuleModule = {
         : {},
       attributes: typeof ac === "number" ? { ac } : undefined,
     };
+  },
+
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const attrs = { ...(sheet.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
+    for (const { key } of D20_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") attrs[key as keyof D20Attributes] = values[key];
+    }
+    return { ...sheet, d20Attributes: attrs };
   },
 
   /**

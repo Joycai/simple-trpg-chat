@@ -135,6 +135,18 @@ export const coc7thRule: RuleModule = {
     };
   },
 
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.cocAttributes ?? COC_DEFAULT_ATTRIBUTES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const attrs = { ...(sheet.cocAttributes ?? COC_DEFAULT_ATTRIBUTES) };
+    for (const { key } of COC_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") attrs[key as keyof CocAttributes] = values[key];
+    }
+    return { ...sheet, cocAttributes: attrs };
+  },
+
   /**
    * Accepts the one field `describeForAI` declares: `cocAttributes`.
    * 0–99 is the COC 7th percentile range; 50 is the average human, which is

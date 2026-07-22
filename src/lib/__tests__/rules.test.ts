@@ -1658,3 +1658,50 @@ describe("rules/applyResourcePatch", () => {
     expect(triangleRule.applyResourcePatch(ta, { hp_current: 5 })).toBe(ta);
   });
 });
+
+// ---------------------------------------------------------------------------
+// readAttributes / writeAttributes — generic attribute grid <-> rule bag
+// ---------------------------------------------------------------------------
+
+describe("rules/readAttributes + writeAttributes", () => {
+  it("COC round-trips its 9 attributes through the generic record", () => {
+    const sheet: CharacterData = { ruleTemplate: "coc7th", cocAttributes: { ...COC_DEFAULT_ATTRIBUTES, str: 70, luck: 45 } };
+    const rec = coc7thRule.readAttributes(sheet);
+    expect(rec.str).toBe(70);
+    expect(rec.luck).toBe(45);
+    expect(Object.keys(rec).sort()).toEqual(coc7thRule.capabilities.attributeKeys.map(k => k.key).sort());
+    const written = coc7thRule.writeAttributes(sheet, { ...rec, str: 55, bogus: 999 });
+    expect(written.cocAttributes!.str).toBe(55);
+    expect((written.cocAttributes as unknown as Record<string, number>).bogus).toBeUndefined(); // unknown key dropped
+    expect(sheet.cocAttributes!.str).toBe(70); // input not mutated
+  });
+
+  it("uninitialized sheets read the rule defaults", () => {
+    expect(coc7thRule.readAttributes({ ruleTemplate: "coc7th" })).toEqual({ ...COC_DEFAULT_ATTRIBUTES });
+    expect(dnd5eRule.readAttributes({ ruleTemplate: "dnd5e" })).toEqual({ ...D20_DEFAULT_ATTRIBUTES });
+    expect(triangleRule.readAttributes({ ruleTemplate: "triangle" })).toEqual({ ...TA_DEFAULT_QUALITIES });
+  });
+
+  it("each rule reads exactly the keys it declares in attributeKeys", () => {
+    for (const rule of [coc7thRule, dnd5eRule, triangleRule, shouhunRule]) {
+      const rec = rule.readAttributes(rule.initCharacter());
+      expect(Object.keys(rec).sort()).toEqual(rule.capabilities.attributeKeys.map(k => k.key).sort());
+    }
+  });
+
+  it("d20 / 狩魂者 / triangle write back into their own bag", () => {
+    const d20 = dnd5eRule.writeAttributes({ ruleTemplate: "dnd5e" }, { ac: 18, str: 16 });
+    expect(d20.d20Attributes!.ac).toBe(18);
+    expect(d20.d20Attributes!.str).toBe(16);
+    const sh = shouhunRule.writeAttributes({ ruleTemplate: "shouhun" }, { phy: 7 });
+    expect(sh.shAttributes!.phy).toBe(7);
+    const ta = triangleRule.writeAttributes({ ruleTemplate: "triangle" }, { empathy: 4 });
+    expect(ta.taQualities!.empathy).toBe(4);
+  });
+
+  it("basic has no structured attributes", () => {
+    expect(basicRule.readAttributes({ ruleTemplate: "basic" })).toEqual({});
+    const s: CharacterData = { ruleTemplate: "basic" };
+    expect(basicRule.writeAttributes(s, { foo: 1 })).toBe(s);
+  });
+});

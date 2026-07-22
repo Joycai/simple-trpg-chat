@@ -96,6 +96,18 @@ export const triangleRule: RuleModule = {
     };
   },
 
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.taQualities ?? TA_DEFAULT_QUALITIES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const quals = { ...(sheet.taQualities ?? TA_DEFAULT_QUALITIES) };
+    for (const { key } of TA_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") quals[key as keyof TaQualities] = values[key];
+    }
+    return { ...sheet, taQualities: quals };
+  },
+
   /**
    * Accepts `taQualities` + `taSheet`, the two fields `describeForAI`
    * declares. Qualifications are free-set bookkeeping that never modifies a

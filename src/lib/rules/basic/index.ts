@@ -64,6 +64,14 @@ export const basicRule: RuleModule = {
     return { resources: {} };
   },
 
+  // No structured attributes — a basic sheet's numbers are all custom.
+  readAttributes(): Record<string, number> {
+    return {};
+  },
+  writeAttributes(sheet: CharacterData): CharacterData {
+    return sheet;
+  },
+
   // `describeForAI` advertises no rule-specific sheet fields, so there is
   // nothing rule-owned for the bot to patch. The generic parts of the sheet
   // (name/age/bio/customAttributes) are handled by the caller.
