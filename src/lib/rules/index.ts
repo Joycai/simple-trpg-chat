@@ -6,6 +6,7 @@ export type {
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
+  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,

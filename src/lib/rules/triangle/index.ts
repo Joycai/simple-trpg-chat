@@ -16,7 +16,7 @@
 
 import type { CharacterData, TaQualities, TaSheet } from "@/lib/character-types";
 import { TA_DEFAULT_QUALITIES } from "@/lib/character-types";
-import { resolveTaStat } from "@/lib/ta-stats";
+import { resolveTaStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
@@ -96,6 +96,18 @@ export const triangleRule: RuleModule = {
     };
   },
 
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.taQualities ?? TA_DEFAULT_QUALITIES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const quals = { ...(sheet.taQualities ?? TA_DEFAULT_QUALITIES) };
+    for (const { key } of TA_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") quals[key as keyof TaQualities] = values[key];
+    }
+    return { ...sheet, taQualities: quals };
+  },
+
   /**
    * Accepts `taQualities` + `taSheet`, the two fields `describeForAI`
    * declares. Qualifications are free-set bookkeeping that never modifies a
@@ -165,6 +177,12 @@ export const triangleRule: RuleModule = {
     meta[route.key as keyof TaSheet] = stored;
     data.taSheet = meta;
     return { sheet: data, finalValue: stored };
+  },
+
+  // Triangle's only resources are unbounded counters set via `.st`; the
+  // character panel's HP/SAN/mana resource patch never targets this rule.
+  applyResourcePatch(sheet: CharacterData): CharacterData {
+    return sheet;
   },
 
   exportSnapshot(sheet: CharacterData): Record<string, unknown> {

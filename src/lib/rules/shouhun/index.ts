@@ -37,7 +37,7 @@ import {
   type ShAttributes,
   type ShSheet,
 } from "@/lib/character-types";
-import { resolveShStat } from "@/lib/sh-stats";
+import { resolveShStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
@@ -46,6 +46,7 @@ import type {
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
+  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -118,6 +119,8 @@ const capabilities: RuleCapabilities = {
   // x/y are player-typed, so a check never needs a stored room_skills value.
   requiresStoredTarget: false,
   hasRoleLevel: false,
+  // HP/mana currents live on shSheet and are host-adjustable via action.
+  resourceCurrentsViaAction: true,
   // Three chips that teach the rule's own syntax at a glance:
   // named check / named check with 时髦骰 / nameless `.r` shorthand.
   quickRolls: [".rc 侦查+2 10", ".rc 侦查+2+1 12", ".r+2+1 12"],
@@ -188,7 +191,9 @@ export const shouhunRule: RuleModule = {
         hp:   { current: sheet.shSheet?.hp_current   ?? derived.hpMax,   max: derived.hpMax   },
         mana: { current: sheet.shSheet?.mana_current ?? derived.manaMax, max: derived.manaMax },
       },
-      derived: { spellStrength: derived.spellStrength },
+      // spellStrength drives the derived-stat card; spiritSense is surfaced for
+      // the character panel's footer (not a `derivedStats` grid entry).
+      derived: { spellStrength: derived.spellStrength, spiritSense: derived.spiritSense },
       attributes: { phy: attrs.phy, wis: attrs.wis, soul: attrs.soul },
       attributeGrades: {
         phy: shGradeLabel(attrs.phy),
@@ -196,6 +201,18 @@ export const shouhunRule: RuleModule = {
         soul: shGradeLabel(attrs.soul),
       },
     };
+  },
+
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const attrs = { ...(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
+    for (const { key } of SH_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") attrs[key as keyof ShAttributes] = values[key];
+    }
+    return { ...sheet, shAttributes: attrs };
   },
 
   /**
@@ -330,6 +347,20 @@ export const shouhunRule: RuleModule = {
     meta[`${route.key}_current` as keyof ShSheet] = finalValue;
     data.shSheet = meta;
     return { sheet: data, finalValue };
+  },
+
+  // Batch resource edit — only currents persist; maxes derive from attributes.
+  // Moved verbatim out of updateResourcesAction's shouhun branch.
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
+    const derived = computeShDerived(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
+    const meta: ShSheet = { ...(sheet.shSheet ?? {}) };
+    if (patch.hp_current !== undefined) {
+      meta.hp_current = Math.max(0, Math.min(patch.hp_current, derived.hpMax));
+    }
+    if (patch.mana_current !== undefined) {
+      meta.mana_current = Math.max(0, Math.min(patch.mana_current, derived.manaMax));
+    }
+    return { ...sheet, shSheet: meta };
   },
 
   resolveCheck(req: CheckRequest): CheckResult {

@@ -7,8 +7,7 @@ import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction,
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CocAttributes, D20Attributes, D20Sheet, ShAttributes, ShSheet, TaQualities, TaSheet } from "@/lib/character-types";
-import { COC_DEFAULT_ATTRIBUTES, D20_DEFAULT_ATTRIBUTES, SH_DEFAULT_ATTRIBUTES, TA_DEFAULT_QUALITIES, computeCocDerived, computeShDerived, shGradeLabel } from "@/lib/character-types";
+import type { CharacterData, CocAttributes, D20Attributes, D20Sheet, ShAttributes, ShSheet, TaQualities, TaSheet } from "@/lib/character-types";
 import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
@@ -17,7 +16,7 @@ import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
-import { getRule } from "@/lib/rules";
+import { getRule, DEFAULT_RULE_ID, type ResourcePatch } from "@/lib/rules";
 
 interface CharacterPanelProps {
   roomId: number;
@@ -117,7 +116,8 @@ export function CharacterPanel({
   useEffect(() => {
     if (readOnly) return;
     if (initDone) return;
-    if (roomRuleTemplate === "basic" || !roomRuleTemplate) {
+    // The default rule (basic) has no structured sheet to initialize.
+    if (roomRuleTemplate === DEFAULT_RULE_ID || !roomRuleTemplate) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitDone(true);
       return;
@@ -141,52 +141,27 @@ export function CharacterPanel({
   // Custom attributes / resources (a custom item with `max` set renders as a resource bar)
   const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
 
-  // For COC, derived (hpMax/sanMax/mpMax) is computed from attributes; for
-  // d20 it's free-set on d20Sheet. We rebuild on every render so attribute
-  // edits in the panel immediately move the bar denominators.
-  const cocDerived = ruleTemplate === "coc7th"
-    ? computeCocDerived(attributeValuesAsCocAttrs(attributeValues))
-    : null;
-  // 狩魂者: maxes derive from the 3 attributes; recomputed per render so
-  // attribute edits move the bar denominators immediately (same as COC).
-  const shDerived = ruleTemplate === "shouhun"
-    ? computeShDerived(attributeValuesAsShAttrs(attributeValues))
-    : null;
-  const resourceMaxes: Record<string, number> =
-    ruleTemplate === "dnd5e"
-      ? { hp: charData.d20Sheet?.hpMax ?? 10 }
-      : ruleTemplate === "triangle"
-        ? {} // counters have no max
-        : shDerived
-          ? { hp: shDerived.hpMax, mana: shDerived.manaMax }
-          : cocDerived
-            ? { hp: cocDerived.hpMax, san: cocDerived.sanMax, mp: cocDerived.mpMax }
-            : {};
+  // Draft the rule's live status from the currently-edited attributes so the
+  // bar denominators + derived footer move as the player edits, without the
+  // panel knowing whether a max is derived (COC/狩魂者) or free-set (d20).
+  // Rebuilt each render (was per-rule computeCocDerived / computeShDerived).
+  const draftStatus = draftStatusFor(ruleTemplate, charData, attributeValues);
+  // Rule-provided derived stats (狩魂者 术法强度 / 灵识); undefined for others.
+  const derivedValues = draftStatus.derived;
+  const resourceMaxes: Record<string, number> = {};
+  for (const bar of ruleCap.resourceBars) {
+    const r = draftStatus.resources[bar.key];
+    if (r && (bar.style ?? "bar") !== "counter" && r.max !== undefined) {
+      resourceMaxes[bar.key] = r.max;
+    }
+  }
 
-  // Resource current values — generic Record keyed by resource key.
-  const [currentResources, setCurrentResources] = useState<Record<string, number>>(() => {
-    const out: Record<string, number> = {};
-    if (ruleTemplate === "dnd5e") {
-      out.hp = charData.d20Sheet?.hp_current ?? charData.d20Sheet?.hpMax ?? 10;
-      return out;
-    }
-    if (ruleTemplate === "triangle") {
-      out.commendations = charData.taSheet?.commendations ?? 0;
-      out.reprimands = charData.taSheet?.reprimands ?? 0;
-      return out;
-    }
-    if (ruleTemplate === "shouhun") {
-      const d = computeShDerived(attributeValuesAsShAttrs(attributeValues));
-      out.hp = charData.shSheet?.hp_current ?? d.hpMax;
-      out.mana = charData.shSheet?.mana_current ?? d.manaMax;
-      return out;
-    }
-    const d = computeCocDerived(attributeValuesAsCocAttrs(attributeValues));
-    out.hp = charData.cocDerived?.hp_current ?? d.hp;
-    out.san = charData.cocDerived?.san_current ?? d.san;
-    out.mp = charData.cocDerived?.mp_current ?? d.mp;
-    return out;
-  });
+  // Resource current values — generic Record keyed by resource key. Seeded from
+  // the rule's own status snapshot (current = stored value, defaulting to max),
+  // which subsumes the old per-rule current-value branches.
+  const [currentResources, setCurrentResources] = useState<Record<string, number>>(() =>
+    currentsFromStatus(ruleTemplate, draftStatusFor(ruleTemplate, charData, attributeValues))
+  );
 
   // Skills
   const [skills, setSkills] = useState<SkillItem[]>([]);
@@ -232,28 +207,12 @@ export function CharacterPanel({
     setOccupation(cd.occupation || "");
     setAge(cd.age ?? "");
     setCustomAttrs(cd.customAttributes || []);
-    if (rt === "dnd5e") {
+    // Resource currents come from the rule's own status snapshot; role/level
+    // only for rules that expose them. (Was a dnd5e/triangle/shouhun/coc chain.)
+    setCurrentResources(currentsFromStatus(rt, draftStatusFor(rt, cd, attrs)));
+    if (getRule(rt).capabilities.hasRoleLevel) {
       setD20Role(cd.d20Sheet?.role ?? "");
       setD20Level(cd.d20Sheet?.level ?? "");
-      setCurrentResources({ hp: cd.d20Sheet?.hp_current ?? cd.d20Sheet?.hpMax ?? 10 });
-    } else if (rt === "triangle") {
-      setCurrentResources({
-        commendations: cd.taSheet?.commendations ?? 0,
-        reprimands: cd.taSheet?.reprimands ?? 0,
-      });
-    } else if (rt === "shouhun") {
-      const d = computeShDerived(attributeValuesAsShAttrs(attrs));
-      setCurrentResources({
-        hp: cd.shSheet?.hp_current ?? d.hpMax,
-        mana: cd.shSheet?.mana_current ?? d.manaMax,
-      });
-    } else {
-      const d = computeCocDerived(attributeValuesAsCocAttrs(attrs));
-      setCurrentResources({
-        hp: cd.cocDerived?.hp_current ?? d.hp,
-        san: cd.cocDerived?.san_current ?? d.san,
-        mp: cd.cocDerived?.mp_current ?? d.mp,
-      });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [characterData, ruleTemplate]);
@@ -285,50 +244,49 @@ export function CharacterPanel({
         occupation: occupation.trim() || undefined,
         age: age === "" ? undefined : Number(age),
       };
-      if (ruleTemplate === "coc7th") {
-        await saveCharacterDataAction(roomId, {
-          ...basePayload,
-          cocAttributes: attributeValuesAsCocAttrs(attributeValues),
-        });
-        await updateResourcesAction(roomId, targetUserId || userId, {
-          hp_current: currentResources.hp ?? 0,
-          san_current: currentResources.san ?? 0,
-          mp_current: currentResources.mp ?? 0,
-        });
-      } else if (ruleTemplate === "dnd5e") {
-        await saveCharacterDataAction(roomId, {
-          ...basePayload,
-          d20Attributes: attributeValuesAsD20Attrs(attributeValues),
+      const rule = getRule(ruleTemplate);
+      const cap = rule.capabilities;
+
+      // Attribute bag → sheet patch (rule owns which bag), plus role/level for
+      // rules that expose them. (Was a coc7th/dnd5e/triangle/shouhun if-chain.)
+      let sheetPatch = rule.writeAttributes({ ruleTemplate }, attributeValues);
+      if (cap.hasRoleLevel) {
+        sheetPatch = {
+          ...sheetPatch,
           d20Sheet: {
+            ...(sheetPatch.d20Sheet ?? {}),
             role: d20Role.trim() || undefined,
             level: d20Level === "" ? undefined : Number(d20Level),
-            hpMax: resourceMaxes.hp,
-            hp_current: currentResources.hp ?? 0,
           },
-        });
-      } else if (ruleTemplate === "triangle") {
-        await saveCharacterDataAction(roomId, {
-          ...basePayload,
-          taQualities: attributeValuesAsTaQualities(attributeValues),
-          taSheet: {
-            commendations: currentResources.commendations ?? 0,
-            reprimands: currentResources.reprimands ?? 0,
-          },
-        });
-      } else if (ruleTemplate === "shouhun") {
-        // Two-step like COC: attributes on the caller's own sheet, currents
-        // via updateResourcesAction so a GM can adjust another player's bars.
-        await saveCharacterDataAction(roomId, {
-          ...basePayload,
-          shAttributes: attributeValuesAsShAttrs(attributeValues),
-        });
-        await updateResourcesAction(roomId, targetUserId || userId, {
-          hp_current: currentResources.hp ?? 0,
-          mana_current: currentResources.mana ?? 0,
-        });
+        };
+      }
+
+      // Standard resource currents (+ editable HP max for d20).
+      const resPatch: ResourcePatch = {
+        hp_current: currentResources.hp ?? 0,
+        san_current: currentResources.san ?? 0,
+        mp_current: currentResources.mp ?? 0,
+        mana_current: currentResources.mana ?? 0,
+        hpMax: cap.resourceMaxEditable ? resourceMaxes.hp : undefined,
+      };
+
+      if (cap.resourceCurrentsViaAction) {
+        // COC / 狩魂者: attributes on the caller's own sheet, currents via
+        // updateResourcesAction so a host can adjust another player's bars.
+        await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
+        await updateResourcesAction(roomId, targetUserId || userId, resPatch);
       } else {
-        // basic — no rule-specific shape; save just the generic fields.
-        await saveCharacterDataAction(roomId, basePayload);
+        // d20 / triangle / basic: currents bundle into the player's own sheet —
+        // standard resources via applyResourcePatch, counters via applyStatWrite.
+        let full = rule.applyResourcePatch({ ...sheetPatch, ruleTemplate }, resPatch);
+        for (const bar of cap.resourceBars) {
+          if ((bar.style ?? "bar") !== "counter") continue;
+          const v = currentResources[bar.key];
+          if (v !== undefined) {
+            full = rule.applyStatWrite(full, { kind: "resource", key: bar.key, canonical: bar.key }, v).sheet;
+          }
+        }
+        await saveCharacterDataAction(roomId, { ...basePayload, ...full });
       }
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
@@ -341,46 +299,43 @@ export function CharacterPanel({
   };
 
   // Footer "导出" — downloads a readable text summary of the sheet (client-side).
+  // Driven entirely by capabilities + the rule's status snapshot, so a new rule
+  // exports with no edit here (was a coc7th/dnd5e/triangle/shouhun if-chain).
   const handleExport = () => {
     const lines = [`${t("title")} · ${nickname}`, ""];
-    if (ruleTemplate === "coc7th") {
-      lines.push(
-        `${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`,
-        `${t("san")}: ${currentResources.san ?? 0}/${resourceMaxes.san ?? 0}`,
-        `${t("mp")}: ${currentResources.mp ?? 0}/${resourceMaxes.mp ?? 0}`,
-        ""
-      );
-      lines.push(t("baseAttributes") + ":");
-      ruleCap.attributeKeys.forEach(({ key }) =>
-        lines.push(`  ${key.toUpperCase()}: ${attributeValues[key] ?? 0}`));
-    } else if (ruleTemplate === "dnd5e") {
+
+    // Role / level (only rules that expose them).
+    if (ruleCap.hasRoleLevel) {
       if (d20Role) lines.push(`${t("role")}: ${d20Role}`);
       if (d20Level !== "") lines.push(`${t("level")}: ${d20Level}`);
-      lines.push(`${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`, "");
-      lines.push(t("baseAttributes") + ":");
-      ruleCap.attributeKeys.forEach(({ key }) =>
-        lines.push(`  ${key.toUpperCase()}: ${attributeValues[key] ?? 0}`));
-    } else if (ruleTemplate === "triangle") {
-      lines.push(
-        `${t("commendations")}: ${currentResources.commendations ?? 0}`,
-        `${t("reprimands")}: ${currentResources.reprimands ?? 0}`,
-        ""
-      );
-      lines.push(t("baseAttributes") + ":");
-      ruleCap.attributeKeys.forEach(({ key, labelKey }) =>
-        lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0}`));
-    } else if (ruleTemplate === "shouhun") {
-      lines.push(
-        `${t("hp")}: ${currentResources.hp ?? 0}/${resourceMaxes.hp ?? 0}`,
-        `${t("shMana")}: ${currentResources.mana ?? 0}/${resourceMaxes.mana ?? 0}`,
-        `${t("shSpellStrength")}: ${shDerived?.spellStrength ?? 0}`,
-        `${t("shSpiritSense")}: ${shDerived?.spiritSense ?? 0}`,
-        ""
-      );
-      lines.push(t("baseAttributes") + ":");
-      ruleCap.attributeKeys.forEach(({ key, labelKey }) =>
-        lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0} (${shGradeLabel(attributeValues[key] ?? 1)})`));
     }
+
+    // Resource bars: `current/max` for bars, bare value for counters.
+    for (const bar of ruleCap.resourceBars) {
+      const cur = currentResources[bar.key] ?? 0;
+      lines.push((bar.style ?? "bar") === "counter"
+        ? `${t(bar.labelKey)}: ${cur}`
+        : `${t(bar.labelKey)}: ${cur}/${resourceMaxes[bar.key] ?? 0}`);
+    }
+
+    // Derived stats (e.g. 狩魂者 术法强度) + 灵识 footer value, if the rule has them.
+    for (const d of ruleCap.derivedStats ?? []) {
+      lines.push(`${t(d.labelKey)}: ${derivedValues?.[d.key] ?? 0}`);
+    }
+    if (derivedValues?.spiritSense !== undefined) {
+      lines.push(`${t("shSpiritSense")}: ${derivedValues.spiritSense}`);
+    }
+
+    // Attributes, with the rule's grade badge appended when it has one.
+    if (ruleCap.attributeKeys.length) {
+      lines.push("", t("baseAttributes") + ":");
+      const grades = draftStatus.attributeGrades;
+      ruleCap.attributeKeys.forEach(({ key, labelKey }) => {
+        const g = grades?.[key];
+        lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0}${g ? ` (${g})` : ""}`);
+      });
+    }
+
     if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
     if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
     const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
@@ -612,10 +567,10 @@ export function CharacterPanel({
               currentResources={currentResources}
               resourceMaxes={effectiveResourceMaxes}
               onResourceChange={handleResourceChange}
-              resourceMaxEditable={ruleTemplate === "dnd5e" && !readOnly}
+              resourceMaxEditable={!!ruleCap.resourceMaxEditable && !readOnly}
               onResourceMaxChange={handleResourceMaxChange}
               attributeValues={attributeValues}
-              derivedValues={shDerived ? { spellStrength: shDerived.spellStrength } : undefined}
+              derivedValues={derivedValues}
               onUpdateAttr={updateAttr}
               customAttrs={customAttrs}
               onAddCustom={addCustom}
@@ -623,9 +578,9 @@ export function CharacterPanel({
               onRemoveCustom={removeCustomAttr}
             />
           )}
-          {activeTab === "attributes" && shDerived && (
+          {activeTab === "attributes" && derivedValues?.spiritSense !== undefined && (
             <p className="mt-3 text-xs text-text-dim text-center">
-              {t("shSpiritSense")}: {shDerived.spiritSense} · {t("shSpiritSenseHint")}
+              {t("shSpiritSense")}: {derivedValues.spiritSense} · {t("shSpiritSenseHint")}
             </p>
           )}
 
@@ -701,6 +656,29 @@ function parseCharData(json?: string | null): Record<string, unknown> {
 }
 
 /**
+ * Draft the active rule's live status from the currently-edited attribute
+ * values: writeAttributes → computeDerived → readStatus. Gives the panel a
+ * generic `{ resources: { current, max }, derived }` snapshot so the resource
+ * bars, their denominators, and the derived footer stop calling
+ * computeCocDerived / computeShDerived by name (was a per-rule if-chain).
+ */
+function draftStatusFor(ruleTemplate: string, sheet: unknown, attributeValues: Record<string, number>) {
+  const rule = getRule(ruleTemplate);
+  const base = { ...(sheet as CharacterData), ruleTemplate };
+  return rule.readStatus(rule.computeDerived(rule.writeAttributes(base, attributeValues)));
+}
+
+/** Pull the current value for each of a rule's resource bars from a status snapshot. */
+function currentsFromStatus(ruleTemplate: string, status: { resources: Record<string, { current: number; max?: number }> }): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const bar of getRule(ruleTemplate).capabilities.resourceBars) {
+    const r = status.resources[bar.key];
+    if (r) out[bar.key] = r.current;
+  }
+  return out;
+}
+
+/**
  * Build the generic `attributeValues: Record<string, number>` record fed to
  * AttributesTab from rule-specific attribute bags. COC → cocAttributes;
  * d20 → d20Attributes; basic → empty.
@@ -712,64 +690,17 @@ function buildAttributeValues(
   ta?: TaQualities,
   sh?: ShAttributes,
 ): Record<string, number> {
-  if (ruleTemplate === "coc7th") {
-    const src = coc || COC_DEFAULT_ATTRIBUTES;
-    return { ...src };
-  }
-  if (ruleTemplate === "dnd5e") {
-    const src = d20 || D20_DEFAULT_ATTRIBUTES;
-    return { ...src };
-  }
-  if (ruleTemplate === "triangle") {
-    const src = ta || TA_DEFAULT_QUALITIES;
-    return { ...src };
-  }
-  if (ruleTemplate === "shouhun") {
-    const src = sh || SH_DEFAULT_ATTRIBUTES;
-    return { ...src };
-  }
-  return {};
+  // The rule owns which bag its attributes live in; the panel just asks for a
+  // flat record. (Was a coc7th/dnd5e/triangle/shouhun if-chain.)
+  return getRule(ruleTemplate).readAttributes({
+    ruleTemplate,
+    cocAttributes: coc,
+    d20Attributes: d20,
+    taQualities: ta,
+    shAttributes: sh,
+  });
 }
 
-/** Read back a COC attributes object from the generic record (only valid keys). */
-function attributeValuesAsCocAttrs(values: Record<string, number>): CocAttributes {
-  const keys: (keyof CocAttributes)[] = ["str","con","siz","dex","app","int","pow","edu","luck"];
-  const out = { ...COC_DEFAULT_ATTRIBUTES };
-  keys.forEach(k => {
-    if (typeof values[k] === "number") out[k] = values[k];
-  });
-  return out;
-}
-
-/** Read back a D20 attributes object from the generic record. */
-function attributeValuesAsD20Attrs(values: Record<string, number>): D20Attributes {
-  const keys: (keyof D20Attributes)[] = ["str","dex","con","int","wis","cha","pb","ac"];
-  const out = { ...D20_DEFAULT_ATTRIBUTES };
-  keys.forEach(k => {
-    if (typeof values[k] === "number") out[k] = values[k];
-  });
-  return out;
-}
-
-/** Read back a 狩魂者 attributes object from the generic record. */
-function attributeValuesAsShAttrs(values: Record<string, number>): ShAttributes {
-  const keys: (keyof ShAttributes)[] = ["phy", "wis", "soul"];
-  const out = { ...SH_DEFAULT_ATTRIBUTES };
-  keys.forEach(k => {
-    if (typeof values[k] === "number") out[k] = values[k];
-  });
-  return out;
-}
-
-/** Read back a Triangle Agency qualities object from the generic record. */
-function attributeValuesAsTaQualities(values: Record<string, number>): TaQualities {
-  const keys: (keyof TaQualities)[] = [
-    "attentiveness","duplicity","dynamism","empathy","initiative",
-    "persistence","presence","professionalism","subtlety",
-  ];
-  const out = { ...TA_DEFAULT_QUALITIES };
-  keys.forEach(k => {
-    if (typeof values[k] === "number") out[k] = values[k];
-  });
-  return out;
-}
+// Attribute record ↔ each rule's bag now lives in the rule modules
+// (readAttributes / writeAttributes); the panel no longer owns per-rule
+// conversion helpers.

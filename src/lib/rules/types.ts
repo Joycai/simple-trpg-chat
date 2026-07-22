@@ -230,6 +230,22 @@ export interface RuleCapabilities {
    */
   hasRoleLevel: boolean;
   /**
+   * When true, the character panel lets players edit a resource bar's MAX
+   * inline. d20 HP has no auto-derivation, so its max is free-set; rules with
+   * derived maxes (COC / 狩魂者) leave this false — their max moves with the
+   * attributes. Absent ⇒ false.
+   */
+  resourceMaxEditable?: boolean;
+  /**
+   * When true, the character panel persists resource *current* values through
+   * `updateResourcesAction` (which targets a specific member, so a host can
+   * adjust another player's bars) rather than bundling them into the player's
+   * own sheet save. COC / 狩魂者 store currents in a derived/separate bag and set
+   * this; d20 (HP inline on d20Sheet) and Triangle (counters on taSheet) leave
+   * it false and save currents as part of their own sheet. Absent ⇒ false.
+   */
+  resourceCurrentsViaAction?: boolean;
+  /**
    * Quick-insert command chips rendered above the chat input, in order.
    * Each entry is a full command string (e.g. `".rd100"`, `".r 6d4"`).
    */
@@ -303,6 +319,26 @@ export interface AiRuleHints {
 }
 
 // ---------------------------------------------------------------------------
+// Batch resource edit (host/player resource panel)
+// ---------------------------------------------------------------------------
+
+/**
+ * A batch resource edit from the character panel / host adjust dialog. This is
+ * the union of every rule's resource fields; each rule's `applyResourcePatch`
+ * consumes the keys it owns and ignores the rest. Keeping it a flat superset
+ * lets the server action stay rule-agnostic — it forwards the whole patch and
+ * lets the module decide where each number lands and how it clamps.
+ */
+export interface ResourcePatch {
+  hp_current?: number;
+  /** Editable max (d20 HP). Rules with derived maxes ignore it. */
+  hpMax?: number;
+  san_current?: number;
+  mp_current?: number;
+  mana_current?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Module interface
 // ---------------------------------------------------------------------------
 
@@ -339,6 +375,22 @@ export interface RuleModule {
    */
   readStatus(sheet: CharacterData): CharacterStatus;
   /**
+   * Read the rule's attribute bag into a flat record keyed by
+   * `capabilities.attributeKeys[*].key` — the shape the character panel's
+   * generic attribute grid edits. Missing values fall back to the rule's
+   * defaults; rules without structured attributes (basic) return `{}`. This is
+   * the read half that lets the panel stop reaching into `cocAttributes` /
+   * `d20Attributes` / … by name.
+   */
+  readAttributes(sheet: CharacterData): Record<string, number>;
+  /**
+   * Merge an edited attribute record (from the panel grid) back into the rule's
+   * attribute bag, whitelisting to `attributeKeys` and returning a new sheet.
+   * Rules without structured attributes (basic) return `sheet` unchanged.
+   * Callers run `computeDerived` afterwards to refresh derived values.
+   */
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData;
+  /**
    * Merge an untrusted sheet patch (the AI bot's `set_character_card` tool
    * arguments) into `sheet`, returning a new sheet.
    *
@@ -372,6 +424,17 @@ export interface RuleModule {
 
   /** Roll, compare, grade — the rule fully owns the dice mechanic. */
   resolveCheck(req: CheckRequest): CheckResult;
+
+  /**
+   * Optional: how the rule reads a *plain* dice roll (`.rd`/`.r`, not a check).
+   * Lets the AI agent react idiomatically to a raw result — COC recognizes
+   * 01–05 / 96–100 on a single 1d100; basic adds a "CoC-cultural" hint. Returns
+   * a short human-readable evaluation string, or `null` when the roll carries
+   * no special meaning for this system. Rules that omit it read every roll as
+   * plain. This is where the crit/fumble knowledge lives, so the engine and AI
+   * never branch on the rule id.
+   */
+  naturalGrade?(roll: number, faces: number, count: number): string | null;
 
   // ----- `.rc` argument parsing --------------------------------------------
 
@@ -422,6 +485,15 @@ export interface RuleModule {
     route: Extract<StatRoute, { kind: "attribute" } | { kind: "resource" }>,
     value: number,
   ): { sheet: CharacterData; finalValue: number };
+
+  /**
+   * Apply a batch resource edit (the character panel's HP/SAN/MP/mana steppers,
+   * or a host adjusting another player's bars) to the sheet, clamping every
+   * field the rule owns to its max. This is the single dispatch point that used
+   * to live as a `ruleTemplate === "…"` chain inside `updateResourcesAction`.
+   * Rules without structured resources (basic) return `sheet` unchanged.
+   */
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData;
 
   // ----- Export / AI integration -------------------------------------------
 

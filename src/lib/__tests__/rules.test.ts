@@ -18,6 +18,7 @@ import {
   shGradeLabel,
   type CharacterData,
 } from "@/lib/character-types";
+import { RULE_TEMPLATES } from "@/db/schema";
 
 const mockRollDie = rollDie as unknown as ReturnType<typeof vi.fn>;
 
@@ -49,6 +50,15 @@ describe("rules/registry", () => {
     expect(ids).toContain("coc7th");
     expect(ids).toContain("dnd5e");
     expect(listRules().length).toBe(ids.length);
+  });
+
+  // Drift guard: the DB-level `RULE_TEMPLATES` validator array is maintained by
+  // hand (schema.ts stays dependency-free and must not import the rules
+  // subsystem), so this test fails the moment a rule is registered without
+  // being added there — catching the exact "remember to sync" footgun the
+  // registry comment warns about.
+  it("schema RULE_TEMPLATES stays in sync with the registry", () => {
+    expect([...RULE_TEMPLATES].sort()).toEqual([...listRuleIds()].sort());
   });
 });
 
@@ -1351,7 +1361,7 @@ describe("readStatus", () => {
     const status = shouhunRule.readStatus(sheet);
     expect(status.resources.hp.max).toBe(derived.hpMax);
     expect(status.resources.mana.max).toBe(derived.manaMax);
-    expect(status.derived).toEqual({ spellStrength: derived.spellStrength });
+    expect(status.derived).toEqual({ spellStrength: derived.spellStrength, spiritSense: derived.spiritSense });
     expect(status.attributes).toEqual({ phy: 5, wis: 7, soul: 3 });
     expect(status.attributeGrades).toEqual({
       phy: shGradeLabel(5), wis: shGradeLabel(7), soul: shGradeLabel(3),
@@ -1576,5 +1586,143 @@ describe("labelKey", () => {
   it("labelKey 互不相同(否则两套规则在下拉框里同名)", () => {
     const keys = listRules().map(r => r.labelKey);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// naturalGrade — plain-roll reading moved out of ai_agent.ts's rule-id branch
+// ---------------------------------------------------------------------------
+
+describe("rules/naturalGrade", () => {
+  it("COC reads 01–05 as crit and 96–100 as fumble on a single d100", () => {
+    expect(coc7thRule.naturalGrade!(1, 100, 1)).toBe("Critical Success (大成功)");
+    expect(coc7thRule.naturalGrade!(5, 100, 1)).toBe("Critical Success (大成功)");
+    expect(coc7thRule.naturalGrade!(96, 100, 1)).toBe("Fumble (大失败)");
+    expect(coc7thRule.naturalGrade!(100, 100, 1)).toBe("Fumble (大失败)");
+    expect(coc7thRule.naturalGrade!(50, 100, 1)).toBeNull();
+    // Only single-die d100 rolls carry the reading.
+    expect(coc7thRule.naturalGrade!(1, 100, 2)).toBeNull();
+    expect(coc7thRule.naturalGrade!(1, 20, 1)).toBeNull();
+  });
+
+  it("basic keeps only the CoC-cultural hint on exact 1 / 100", () => {
+    expect(basicRule.naturalGrade!(100, 100, 1)).toContain("Fumble");
+    expect(basicRule.naturalGrade!(1, 100, 1)).toContain("Critical Success");
+    expect(basicRule.naturalGrade!(5, 100, 1)).toBeNull();
+    expect(basicRule.naturalGrade!(96, 100, 1)).toBeNull();
+  });
+
+  it("rules with no special reading omit or return null", () => {
+    expect(dnd5eRule.naturalGrade?.(1, 20, 1) ?? null).toBeNull();
+    expect(shouhunRule.naturalGrade?.(1, 20, 1) ?? null).toBeNull();
+    expect(triangleRule.naturalGrade?.(3, 4, 6) ?? null).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyResourcePatch — batch resource edit moved out of updateResourcesAction
+// ---------------------------------------------------------------------------
+
+describe("rules/applyResourcePatch", () => {
+  it("COC clamps HP/SAN/MP current to their maxes on cocDerived", () => {
+    const sheet: CharacterData = {
+      ruleTemplate: "coc7th",
+      cocDerived: { hp: 10, hpMax: 10, san: 60, sanMax: 99, mp: 8, mpMax: 8, mov: 8, db: "0", build: 0, luck: 50 },
+    };
+    const out = coc7thRule.applyResourcePatch(sheet, { hp_current: 999, san_current: 40, mp_current: -5 });
+    expect(out.cocDerived!.hp_current).toBe(10); // clamped to hpMax
+    expect(out.cocDerived!.san_current).toBe(40);
+    expect(out.cocDerived!.mp_current).toBe(0); // floored at 0
+    expect(sheet.cocDerived!.hp_current).toBeUndefined(); // input not mutated in place
+  });
+
+  it("d20 keeps an editable hpMax and clamps current to it", () => {
+    const sheet: CharacterData = { ruleTemplate: "dnd5e", d20Sheet: { hpMax: 20, hp_current: 20 } };
+    const out = dnd5eRule.applyResourcePatch(sheet, { hpMax: 12, hp_current: 30 });
+    expect(out.d20Sheet!.hpMax).toBe(12);
+    expect(out.d20Sheet!.hp_current).toBe(12);
+  });
+
+  it("狩魂者 derives maxes from attributes and clamps currents to them", () => {
+    const sheet: CharacterData = { ruleTemplate: "shouhun", shAttributes: { phy: 4, wis: 3, soul: 3 }, shSheet: {} };
+    const derived = computeShDerived(sheet.shAttributes!);
+    const out = shouhunRule.applyResourcePatch(sheet, { hp_current: 999, mana_current: 999 });
+    expect(out.shSheet!.hp_current).toBe(derived.hpMax);
+    expect(out.shSheet!.mana_current).toBe(derived.manaMax);
+  });
+
+  it("basic and triangle have no structured resources — sheet unchanged", () => {
+    const basic: CharacterData = { ruleTemplate: "basic" };
+    expect(basicRule.applyResourcePatch(basic, { hp_current: 5 })).toBe(basic);
+    const ta: CharacterData = { ruleTemplate: "triangle", taSheet: { commendations: 1, reprimands: 0 } };
+    expect(triangleRule.applyResourcePatch(ta, { hp_current: 5 })).toBe(ta);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readAttributes / writeAttributes — generic attribute grid <-> rule bag
+// ---------------------------------------------------------------------------
+
+describe("rules/readAttributes + writeAttributes", () => {
+  it("COC round-trips its 9 attributes through the generic record", () => {
+    const sheet: CharacterData = { ruleTemplate: "coc7th", cocAttributes: { ...COC_DEFAULT_ATTRIBUTES, str: 70, luck: 45 } };
+    const rec = coc7thRule.readAttributes(sheet);
+    expect(rec.str).toBe(70);
+    expect(rec.luck).toBe(45);
+    expect(Object.keys(rec).sort()).toEqual(coc7thRule.capabilities.attributeKeys.map(k => k.key).sort());
+    const written = coc7thRule.writeAttributes(sheet, { ...rec, str: 55, bogus: 999 });
+    expect(written.cocAttributes!.str).toBe(55);
+    expect((written.cocAttributes as unknown as Record<string, number>).bogus).toBeUndefined(); // unknown key dropped
+    expect(sheet.cocAttributes!.str).toBe(70); // input not mutated
+  });
+
+  it("uninitialized sheets read the rule defaults", () => {
+    expect(coc7thRule.readAttributes({ ruleTemplate: "coc7th" })).toEqual({ ...COC_DEFAULT_ATTRIBUTES });
+    expect(dnd5eRule.readAttributes({ ruleTemplate: "dnd5e" })).toEqual({ ...D20_DEFAULT_ATTRIBUTES });
+    expect(triangleRule.readAttributes({ ruleTemplate: "triangle" })).toEqual({ ...TA_DEFAULT_QUALITIES });
+  });
+
+  it("each rule reads exactly the keys it declares in attributeKeys", () => {
+    for (const rule of [coc7thRule, dnd5eRule, triangleRule, shouhunRule]) {
+      const rec = rule.readAttributes(rule.initCharacter());
+      expect(Object.keys(rec).sort()).toEqual(rule.capabilities.attributeKeys.map(k => k.key).sort());
+    }
+  });
+
+  it("d20 / 狩魂者 / triangle write back into their own bag", () => {
+    const d20 = dnd5eRule.writeAttributes({ ruleTemplate: "dnd5e" }, { ac: 18, str: 16 });
+    expect(d20.d20Attributes!.ac).toBe(18);
+    expect(d20.d20Attributes!.str).toBe(16);
+    const sh = shouhunRule.writeAttributes({ ruleTemplate: "shouhun" }, { phy: 7 });
+    expect(sh.shAttributes!.phy).toBe(7);
+    const ta = triangleRule.writeAttributes({ ruleTemplate: "triangle" }, { empathy: 4 });
+    expect(ta.taQualities!.empathy).toBe(4);
+  });
+
+  it("basic has no structured attributes", () => {
+    expect(basicRule.readAttributes({ ruleTemplate: "basic" })).toEqual({});
+    const s: CharacterData = { ruleTemplate: "basic" };
+    expect(basicRule.writeAttributes(s, { foo: 1 })).toBe(s);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Panel-driving capability flags (resourceMaxEditable / resourceCurrentsViaAction)
+// ---------------------------------------------------------------------------
+
+describe("rules/panel capability flags", () => {
+  it("only d20 exposes an editable resource max", () => {
+    expect(dnd5eRule.capabilities.resourceMaxEditable).toBe(true);
+    for (const r of [coc7thRule, shouhunRule, triangleRule, basicRule]) {
+      expect(r.capabilities.resourceMaxEditable ?? false).toBe(false);
+    }
+  });
+
+  it("COC / 狩魂者 persist currents via the host-capable action; others inline", () => {
+    expect(coc7thRule.capabilities.resourceCurrentsViaAction).toBe(true);
+    expect(shouhunRule.capabilities.resourceCurrentsViaAction).toBe(true);
+    for (const r of [dnd5eRule, triangleRule, basicRule]) {
+      expect(r.capabilities.resourceCurrentsViaAction ?? false).toBe(false);
+    }
   });
 });

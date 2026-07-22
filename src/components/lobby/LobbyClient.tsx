@@ -11,7 +11,7 @@ import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import Link from "next/link";
 import { DEFAULT_RULE_ID } from "@/lib/rules";
-import { useHostLabelResolver, usePlayerLabelResolver } from "@/components/shared/host-label";
+import { useHostLabelResolver, usePlayerLabelResolver, useRuleLabelResolver } from "@/components/shared/host-label";
 
 /** Shared input/select styling for the create-room modal (rainglass spec). */
 const FIELD_CLS =
@@ -41,6 +41,9 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
   // (调查员 / 冒险者 / 特工 / …), so the lobby matches the room itself.
   const hostLabelOf = useHostLabelResolver();
   const playerLabelOf = usePlayerLabelResolver();
+  // Room card system badge — resolves any room's rule to its own label instead
+  // of hardcoding a single rule id.
+  const ruleLabelOf = useRuleLabelResolver();
   const tc = useTranslations("createRoom");
   const locale = useLocale();
   const [showCreate, setShowCreate] = useState(false);
@@ -311,9 +314,13 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-bold text-text truncate">{room.name}</h3>
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    {(room as { ruleTemplate?: string }).ruleTemplate === "coc7th" && (
-                      <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-flex items-center gap-0.5"><Icons.Skull className="w-3 h-3" /> COC 7th</span>
-                    )}
+                    {(() => {
+                      const rt = (room as { ruleTemplate?: string | null }).ruleTemplate;
+                      if (!rt || rt === DEFAULT_RULE_ID) return null;
+                      return (
+                        <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-flex items-center gap-0.5"><Icons.Dices className="w-3 h-3" /> {ruleLabelOf(rt)}</span>
+                      );
+                    })()}
                     <span className="text-[10px] text-text-muted bg-surface-alt px-2 py-0.5 rounded">
                       #{room.id}
                     </span>

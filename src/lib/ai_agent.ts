@@ -630,29 +630,12 @@ export async function runAgent(
               diceDetail: detail,
             });
 
-            // Crit/fumble bounds belong to the rule. The COC module recognizes
-            // them on raw 1d100 rolls; basic adds a "CoC-cultural" hint that
-            // helps the LLM react idiomatically. Other rules contribute no
-            // evaluation here — they'll plug in via a future
-            // `rule.naturalGrade(roll, faces)` hook when needed.
+            // Crit/fumble bounds belong to the rule: the module decides what a
+            // plain roll means for its system via `naturalGrade` (COC reads
+            // 01–05 / 96–100 on a raw 1d100; basic adds a "CoC-cultural" hint;
+            // other rules return null). The engine never branches on rule id.
             const rollRule = getRuleForRoom(room || {});
-
-            let evaluation = undefined;
-            if (faces === 100 && count === 1) {
-              if (rollRule.id === "coc7th") {
-                if (sum <= 5) {
-                  evaluation = "Critical Success (大成功)";
-                } else if (sum >= 96) {
-                  evaluation = "Fumble (大失败)";
-                }
-              } else if (rollRule.id === "basic") {
-                if (sum === 100) {
-                  evaluation = "Fumble (大失败) in CoC rules (though current room uses basic rules)";
-                } else if (sum === 1) {
-                  evaluation = "Critical Success (大成功) in CoC rules (though current room uses basic rules)";
-                }
-              }
-            }
+            const evaluation = rollRule.naturalGrade?.(sum, faces, count) ?? undefined;
 
             result = {
               success: true,

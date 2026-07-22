@@ -26,7 +26,7 @@ import {
   type CocAttributes,
   type CocDerived,
 } from "@/lib/character-types";
-import { resolveCocStat } from "@/lib/coc-stats";
+import { resolveCocStat } from "./stats";
 import { clampAttributes } from "../patch-utils";
 import type {
   AiRuleHints,
@@ -35,6 +35,7 @@ import type {
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
+  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -78,6 +79,8 @@ const capabilities: RuleCapabilities = {
   defaultRollExpression: "1d100",
   requiresStoredTarget: true,
   hasRoleLevel: false,
+  // HP/SAN/MP currents live on cocDerived and are host-adjustable via action.
+  resourceCurrentsViaAction: true,
   quickRolls: [".rc 侦查", ".sc 1/1d6", ".rd100"],
 };
 
@@ -132,6 +135,18 @@ export const coc7thRule: RuleModule = {
       // 幸运 lives on the attribute bag but is mirrored into cocDerived.
       attributes: { luck: d.luck },
     };
+  },
+
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.cocAttributes ?? COC_DEFAULT_ATTRIBUTES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const attrs = { ...(sheet.cocAttributes ?? COC_DEFAULT_ATTRIBUTES) };
+    for (const { key } of COC_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") attrs[key as keyof CocAttributes] = values[key];
+    }
+    return { ...sheet, cocAttributes: attrs };
   },
 
   /**
@@ -286,6 +301,36 @@ export const coc7thRule: RuleModule = {
     d[`${resKey}_current`] = finalValue;
     data.cocDerived = derived;
     return { sheet: data, finalValue };
+  },
+
+  // Batch resource edit (HP/SAN/MP steppers). Hosts the cocDerived clamping
+  // that used to live in updateResourcesAction's COC/basic else-branch.
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
+    const data = { ...sheet };
+    const derived: CocDerived = data.cocDerived
+      ? { ...data.cocDerived }
+      : { hp: 0, hpMax: 0, san: 0, sanMax: 0, mp: 0, mpMax: 0, mov: 0, db: "0", build: 0, luck: 0 };
+    if (patch.hp_current !== undefined) {
+      derived.hp_current = Math.max(0, Math.min(patch.hp_current, derived.hpMax));
+    }
+    if (patch.san_current !== undefined) {
+      derived.san_current = Math.max(0, Math.min(patch.san_current, derived.sanMax));
+    }
+    if (patch.mp_current !== undefined) {
+      derived.mp_current = Math.max(0, Math.min(patch.mp_current, derived.mpMax));
+    }
+    data.cocDerived = derived;
+    return data;
+  },
+
+  // Plain-roll reading for the AI agent: COC 7th crit/fumble bounds on a raw
+  // 1d100 (moved verbatim out of ai_agent.ts's rule-id branch).
+  naturalGrade(roll: number, faces: number, count: number): string | null {
+    if (faces === 100 && count === 1) {
+      if (roll <= 5) return "Critical Success (大成功)";
+      if (roll >= 96) return "Fumble (大失败)";
+    }
+    return null;
   },
 
   exportSnapshot(sheet: CharacterData): Record<string, unknown> {

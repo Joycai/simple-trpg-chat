@@ -373,7 +373,7 @@ describe("Commands - .st COC routing", () => {
   });
 
   it("treats 外貌 / 魅力 / app as the same attribute", async () => {
-    const { resolveCocStat } = await import("@/lib/coc-stats");
+    const { resolveCocStat } = await import("@/lib/rules/coc7th/stats");
     expect(resolveCocStat("外貌").canonical).toBe(resolveCocStat("魅力").canonical);
     expect(resolveCocStat("app").canonical).toBe(resolveCocStat("外貌").canonical);
     const r = resolveCocStat("魅力");

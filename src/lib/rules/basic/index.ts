@@ -64,6 +64,14 @@ export const basicRule: RuleModule = {
     return { resources: {} };
   },
 
+  // No structured attributes — a basic sheet's numbers are all custom.
+  readAttributes(): Record<string, number> {
+    return {};
+  },
+  writeAttributes(sheet: CharacterData): CharacterData {
+    return sheet;
+  },
+
   // `describeForAI` advertises no rule-specific sheet fields, so there is
   // nothing rule-owned for the bot to patch. The generic parts of the sheet
   // (name/age/bio/customAttributes) are handled by the caller.
@@ -137,6 +145,22 @@ export const basicRule: RuleModule = {
   // future call site reaches here, return the input unchanged.
   applyStatWrite(sheet, _route, value) {
     return { sheet, finalValue: value };
+  },
+
+  // Basic has no structured resources — nothing to apply.
+  applyResourcePatch(sheet: CharacterData): CharacterData {
+    return sheet;
+  },
+
+  // Plain-roll reading for the AI agent: basic has no crit/fumble grading, but
+  // keeps the "CoC-cultural" hint so the LLM reacts idiomatically to 1/100 on a
+  // raw d100 (moved verbatim out of ai_agent.ts's rule-id branch).
+  naturalGrade(roll: number, faces: number, count: number): string | null {
+    if (faces === 100 && count === 1) {
+      if (roll === 100) return "Fumble (大失败) in CoC rules (though current room uses basic rules)";
+      if (roll === 1) return "Critical Success (大成功) in CoC rules (though current room uses basic rules)";
+    }
+    return null;
   },
 
   exportSnapshot(): Record<string, unknown> {

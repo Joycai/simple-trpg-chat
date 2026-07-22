@@ -16,7 +16,7 @@
 import { rollDie } from "@/lib/utils";
 import type { CharacterData, D20Attributes, D20Sheet } from "@/lib/character-types";
 import { D20_DEFAULT_ATTRIBUTES } from "@/lib/character-types";
-import { resolveD20Stat } from "@/lib/d20-stats";
+import { resolveD20Stat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
@@ -25,6 +25,7 @@ import type {
   CheckRequest,
   CheckResult,
   ResourceBarSpec,
+  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -64,6 +65,8 @@ const capabilities: RuleCapabilities = {
   defaultRollExpression: "1d20",
   requiresStoredTarget: false,
   hasRoleLevel: true,
+  // HP max is free-set (no auto-derivation), so the panel lets players edit it.
+  resourceMaxEditable: true,
   quickRolls: [".rd20", ".rc 力量+2 15"],
 };
 
@@ -112,6 +115,18 @@ export const dnd5eRule: RuleModule = {
         : {},
       attributes: typeof ac === "number" ? { ac } : undefined,
     };
+  },
+
+  readAttributes(sheet: CharacterData): Record<string, number> {
+    return { ...(sheet.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
+  },
+
+  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
+    const attrs = { ...(sheet.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
+    for (const { key } of D20_ATTRIBUTE_KEYS) {
+      if (typeof values[key] === "number") attrs[key as keyof D20Attributes] = values[key];
+    }
+    return { ...sheet, d20Attributes: attrs };
   },
 
   /**
@@ -242,6 +257,21 @@ export const dnd5eRule: RuleModule = {
       return { sheet: data, finalValue: meta.hp_current };
     }
     return { sheet: data, finalValue: value };
+  },
+
+  // Batch resource edit — d20 HP lives on d20Sheet with an editable max.
+  // Moved verbatim out of updateResourcesAction's dnd5e branch.
+  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
+    const meta: D20Sheet = { ...(sheet.d20Sheet ?? {}) };
+    if (patch.hpMax !== undefined) {
+      meta.hpMax = Math.max(0, patch.hpMax);
+    }
+    if (patch.hp_current !== undefined) {
+      const cap = typeof meta.hpMax === "number" ? meta.hpMax : patch.hp_current;
+      meta.hp_current = Math.max(0, Math.min(patch.hp_current, cap));
+      if (typeof meta.hpMax !== "number") meta.hpMax = meta.hp_current;
+    }
+    return { ...sheet, d20Sheet: meta };
   },
 
   resolveCheck(req: CheckRequest): CheckResult {
