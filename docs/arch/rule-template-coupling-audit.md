@@ -146,21 +146,24 @@
 - `db/schema.ts` `RULE_TEMPLATES`：保留字面量（schema 层保持零依赖），改以 `rules.test.ts` 的**漂移守卫测试**防止与注册表脱节。
 - 新增 `naturalGrade` / `applyResourcePatch` 全规则单测。
 
-**P0 —— CharacterPanel 起步（commit `ac05b83`）**
+**P0 —— CharacterPanel 完全解耦（commits `ac05b83` / `3f8aa19`）**
 
 - `RuleModule.readAttributes(sheet)` / `writeAttributes(sheet, values)`：属性宫格通用 `Record` ↔ 各规则属性袋的读写（按 `attributeKeys` 白名单），全规则单测。
-- `CharacterPanel.buildAttributeValues`：4 路 `ruleTemplate ===` if-chain 收敛为一次 `readAttributes()` 委派。
-- 新增 `capabilities.resourceMaxEditable`（d20 自由设定 HP 上限），面板据此驱动可编辑上限，替换 `ruleTemplate === "dnd5e"`。
+- `buildAttributeValues`：4 路 if-chain 收敛为一次 `readAttributes()` 委派。
+- **资源上限 / 当前值 / 衍生页脚**：统一由 `draftStatusFor()`（`writeAttributes → computeDerived → readStatus`）产出，删除面板内 `computeCocDerived`/`computeShDerived` 的 per-rule 直接调用；`spiritSense` 经 shouhun `readStatus.derived` 暴露。
+- **`handleSaveAll`**：`writeAttributes` 建属性袋 + `hasRoleLevel` 处理角色/等级 + `applyResourcePatch`/`applyStatWrite` 落资源；currents 落库路径由新增能力位 `resourceCurrentsViaAction`（coc/狩魂 走 `updateResourcesAction` 可改他人，d20/triangle 直存自身 sheet）驱动，取代 rule-id 分支。
+- **`handleExport`**：完全由 `capabilities.{resourceBars,derivedStats,attributeKeys}` + `readStatus().attributeGrades` 驱动，新规则零改动即可导出。
+- 新增能力位 `resourceMaxEditable`（d20）/ `resourceCurrentsViaAction`（coc/狩魂）；删除死代码 `attributeValuesAsXxx` 与 `computeXxxDerived` import；init 守卫改用 `DEFAULT_RULE_ID`。
+- 新增 `readAttributes`/`writeAttributes`/`applyResourcePatch`/`naturalGrade` 与能力位断言的单测（本次共 +12 测试用例）。
 
-至此公共代码的规则 id 硬编码分支：`CharacterPanel.tsx` 由 24 → **19**；其余公共文件（ai_agent / character.ts / commands / lobby / schema）已降为 **0**。
+**至此公共代码（`src/lib/rules/` 之外）的 `ruleTemplate === "<id>"` 硬编码分支：CharacterPanel 由 24 → 0，全仓 → 0。** 剩余的字面量比较仅为 `=== DEFAULT_RULE_ID`（常量，属已解耦形态）。
 
-### ⏳ 待完成（建议在能运行前端的会话中验证后落地）
+> ⚠️ 行为变更（一处，可见）：COC / d20 的**导出文本**属性标签由 `KEY.toUpperCase()`（如 `STR: 70`）改为翻译名 `t(labelKey)`（如 `力量: 70`），与 triangle / 狩魂者 统一。若产品需要保留旧的大写 key 形式，可在各规则 `attributeKeys` 增设导出专用 label 或加一个 `exportLabel` 能力位。
 
-均集中在 `CharacterPanel.tsx`，且与「实时资源派生 / server action 落库语义 / 导出文本格式」强耦合，盲改有数据或可见输出回归风险，故留待可 `pnpm dev` 目视验证的一趟：
+### ⏳ 待完成
 
-1. **资源上限/当前值派生**（`cocDerived`/`shDerived` 直接调用，行 ~147–189、235–259）：改走 `writeAttributes → computeDerived → readStatus`；需先补齐 `readStatus` 覆盖 `spiritSense` 等展示字段，并处理 d20 未初始化 sheet 的 `hpMax ?? 10` 缺省差异。
-2. **`handleSaveAll`**（4 分支，行 ~288–318）：coc/狩魂 走 `updateResourcesAction`（可改他人）、d20/triangle 直存 sheet（仅自己）——落库语义不同，需统一保存契约后再用 `writeAttributes` + `applyResourcePatch` + `hasRoleLevel` 通用化。
-3. **`handleExport`**（4 分支，行 ~346–372）：可由 `capabilities.{resourceBars,attributeKeys,derivedStats}` + `readStatus().attributeGrades` 驱动；注意 COC/d20 现用 `KEY.toUpperCase()`、triangle/狩魂用 `t(labelKey)`，统一会改变 COC 导出标签（需产品确认）。
-4. **`P1` 数据模型下沉**：`character-types.ts` 的 per-rule 属性接口 / 默认值 / `compute*Derived` 迁入各 `rules/<name>/`；面板与 action 停止直接 import。波及面广，建议独立 PR。
+- **`P1` 数据模型下沉**（独立 PR）：`character-types.ts` 的 per-rule 属性接口 / 默认值 / `compute*Derived` 迁入各 `rules/<name>/`，`lib/{coc,d20,ta,sh}-stats.ts` 一并归位；公共层只留通用 `CharacterData` 骨架 + 规则数据槽。波及类型面广，建议在能跑 `pnpm dev` 目视回归的独立 PR 中进行。
 
-> 已就位的 `readAttributes` / `writeAttributes` / `applyResourcePatch` / `naturalGrade` / `resourceMaxEditable` 为上述 4 项提供了落地所需的规则侧接口。
+### 建议的验证（合并前）
+
+代码层已全绿（`tsc` 0 错、`lint` 0 问题、`pnpm test` 除 `encryption.test.ts` 环境依赖项外全通过）。但角色面板为交互组件，合并前建议 `pnpm dev` 手测四条路径：**COC / d20 / Triangle / 狩魂者** 各自的（1）属性编辑 → 资源条分母随动，（2）保存后刷新值正确，（3）宿主为他人调整 HP/理智，（4）导出 .txt 内容无误。
