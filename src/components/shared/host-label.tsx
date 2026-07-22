@@ -76,12 +76,16 @@ export function usePlayerLabel(): string {
 }
 
 /**
- * Resolver for the rule template's own display label (the dropdown label under
- * `messages.rooms`, e.g. COC 7th / DnD 5e / Triangle Agency / 狩魂者). For
- * many-room lists like the lobby grid, so a room card badges its system by
- * label instead of hardcoding a single rule id.
+ * Resolver for the rule template's own display label (e.g. COC 7th / DnD 5e /
+ * Triangle Agency / 狩魂者). For many-room lists like the lobby grid, so a room
+ * card badges its system by label instead of hardcoding a single rule id.
+ *
+ * `labelKey` (`ruleTemplateCoc7th` …) is defined under the `createRoom`,
+ * `roomSettings`, and `export` namespaces — NOT a `rooms` namespace (which does
+ * not exist). We read it from `createRoom`, the same namespace RuleTemplateSelect
+ * resolves against in the create-room dialog.
  */
 export function useRuleLabelResolver(): (ruleTemplate: string | null | undefined) => string {
-  const t = useTranslations("rooms");
+  const t = useTranslations("createRoom");
   return (ruleTemplate) => t(getRule(ruleTemplate).labelKey);
 }

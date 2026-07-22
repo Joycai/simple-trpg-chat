@@ -345,7 +345,11 @@ export interface ResourcePatch {
 export interface RuleModule {
   /** Stable id persisted in `rooms.rule_template`. */
   readonly id: string;
-  /** i18n key under `messages.rooms` for the dropdown label. */
+  /**
+   * i18n key for the rule's display name. Defined under the `createRoom`,
+   * `roomSettings`, and `export` namespaces (there is no `rooms` namespace);
+   * resolve it against whichever of those the call site already uses.
+   */
   readonly labelKey: string;
   /** Optional i18n key for the dropdown hint line. */
   readonly hintKey?: string;
