@@ -27,7 +27,7 @@ description: >
 
 现有 5 套:`basic`(通用 d100)、`coc7th`、`dnd5e`(d20)、`triangle`(Triangle Agency, 6d4 数 3)、`shouhun`(狩魂者, d20+加骰/时髦骰)。
 
-§5 记录了目前**尚未**做到零分支的位置——它们是真实的、有原因的例外,不是待清理的遗留。
+**当前状态(PR #176 之后):公共代码(`src/lib/rules/` 之外)已无任何 `ruleTemplate === "<id>"` 硬编码分支——包括曾经最重的 `CharacterPanel.tsx`(24 处已全部收敛)。** §5 记录了这次是怎么做到的、以及唯一剩下的结构性欠债(类型层的数据模型下沉,属独立 PR)。审计与修复过程见 `docs/arch/rule-template-coupling-audit.md`。
 
 ---
 
@@ -35,16 +35,18 @@ description: >
 
 | 路径 | 作用 |
 | --- | --- |
-| `src/lib/rules/types.ts` | 全部接口契约:`RuleModule` / `RuleCapabilities` / `CheckRequest` / `CheckResult` / `ModifierTerm` / `CharacterStatus` / `StatRoute` / `VisualGrade` / `AiRuleHints` |
+| `src/lib/rules/types.ts` | 全部接口契约:`RuleModule` / `RuleCapabilities` / `CheckRequest` / `CheckResult` / `ModifierTerm` / `CharacterStatus` / `StatRoute` / `ResourcePatch` / `VisualGrade` / `AiRuleHints` |
 | `src/lib/rules/registry.ts` | `getRule` / `getRuleForRoom` / `listRules` / `listRuleIds` / `DEFAULT_RULE_ID`;模块注册位置 |
 | `src/lib/rules/index.ts` | barrel —— 所有外部代码从 `@/lib/rules` 导入,**不要**深链到子路径 |
 | `src/lib/rules/status-view.ts` | `readStatusEntries()` / `primaryVital()`:把 `readStatus()` 摊平成可渲染条目。头像悬浮窗和成员列表共用,**React-free**(server action 也 import 它) |
 | `src/lib/rules/patch-utils.ts` | `clampInt` / `clampAttributes`:`applySheetPatch` 消毒 LLM 输入的共享实现 |
 | `src/lib/rules/{basic,coc7th,dnd5e,triangle,shouhun}/index.ts` | 5 个规则模块 |
-| `src/components/shared/host-label.tsx` | `useHostLabel()` / `useHostLabelResolver()` / `usePlayerLabel()` —— 解析 `hostLabelKey` / `playerLabelKey` 的唯一入口 |
+| `src/lib/rules/{coc7th,dnd5e,triangle,shouhun}/stats.ts` | 各规则的 `.st` 名称→属性/资源解析器(`resolveCocStat` 等)。**PR #176 从 `src/lib/{coc,d20,ta,sh}-stats.ts` 迁到规则目录内**,使每套规则物理自包含;只被自己的 `index.ts` import |
+| `src/components/shared/host-label.tsx` | `useHostLabel()` / `useHostLabelResolver()` / `usePlayerLabel()` / `useRuleLabelResolver()` —— 解析 `hostLabelKey` / `playerLabelKey` / 规则 `labelKey` 的唯一入口(大厅房间徽标经 `useRuleLabelResolver` 渲染,不再硬编码 coc7th) |
+| `src/components/room/character/CharacterPanel.tsx` | 可编辑角色卡面板。**PR #176 后完全能力位驱动、零 rule-id 分支**:属性宫格走 `read/writeAttributes`,资源上限/当前值/衍生页脚走 `draftStatusFor()`(见 §5) |
 | `src/components/room/character/resource-visuals.ts` | `RESOURCE_ICON` / `DERIVED_ICON`:client-only 的 key→图标/颜色映射。未命中的 key 用主色兜底,所以新规则**不必**改这里 |
 | `src/components/room/character/CharacterRuleGate.tsx` | 房间规则与成员角色卡不匹配时的重建引导(主持人切规则会触发) |
-| `src/lib/__tests__/rules.test.ts` | 193 个用例。新规则上线必须补等量边界覆盖 |
+| `src/lib/__tests__/rules.test.ts` | 209 个用例。新规则上线必须补等量边界覆盖 |
 | `src/db/schema.ts` | `RULE_TEMPLATES` 常量数组(**必须**与注册表同步)+ `rooms.rule_template` 列 |
 
 `diceRules` 列已在 PR #125 删除。规则配置只有 `rule_template` 一个数据源,不要重新引入双字段。
@@ -53,7 +55,7 @@ description: >
 
 ## 2. `RuleModule` 接口
 
-共 **17 个成员**(5 个元数据 + 12 个方法/可选方法)。`coc7th/index.ts` 和 `shouhun/index.ts` 是最完整的两个范例——前者字段最全,后者用到了最多可选钩子。
+共 **22 个成员**(5 个元数据 + 15 个必填方法 + 2 个可选方法)。`coc7th/index.ts` 和 `shouhun/index.ts` 是最完整的两个范例——前者字段最全,后者用到了最多可选钩子。
 
 ### 元数据
 
@@ -72,6 +74,7 @@ description: >
 | `initCharacter()` | 新成员加入时的初始角色卡 |
 | `computeDerived(sheet)` | 属性改动后重算衍生值,并保留 player-set 当前值(钳到新上限)。basic 是 identity |
 | `readStatus(sheet)` | 把本规则的数据袋(`cocDerived`/`d20Sheet`/`taSheet`/`shSheet`)摊平成 `CharacterStatus`,键与 capabilities 对齐。无结构化角色卡的规则返 `{resources:{}}` |
+| `readAttributes(sheet)` / `writeAttributes(sheet, values)` | 属性宫格通用 `Record<string,number>` ↔ 各规则属性袋(按 `attributeKeys` 白名单)。让**可编辑**角色卡面板不再按名字读写 `cocAttributes`/`d20Attributes`。basic 返 `{}` / 原样。PR #176 新增 |
 | `applySheetPatch(sheet, patch)` | 合并 **AI bot 的 `set_character_card` 参数**。白名单 + 钳位,用 `patch-utils` 的助手。接受的键 = `describeForAI().sheetToolSchemaFields` 声明的键——**声明和消费必须成对**,否则模型照 schema 调用而写入被静默丢弃(这正是 triangle/狩魂者 曾经踩的坑) |
 | `routeStat(name)` | `.st <name> <val>` 路由:`{kind:"skill"\|"attribute"\|"resource", canonical, key?}` |
 | `canonicalStatName(name)` | 显示名归一(`san → 理智值`)。无别名的返回原值 |
@@ -79,6 +82,7 @@ description: >
 | `resolveCheck(req)` | **核心**:掷什么骰、加什么调整、比较方向、大成功/失败判定全归规则。`rollDie()` 必须在此内部调用 |
 | `parseRcArgs(args)` | 本规则的 `.rc` 语法解析。返 null = 用法错误 |
 | `applyStatWrite(sheet, route, value)` | `.st` 落到 attribute/resource 时的唯一 dispatch 点。引擎不认识任何规则专属键 |
+| `applyResourcePatch(sheet, patch)` | 批量资源当前值(HP/SAN/MP/mana + d20 可编辑 hpMax)的落库入口。`ResourcePatch` 是各规则资源字段的并集,规则只取自己认识的键并钳位。`updateResourcesAction` 与角色卡保存共用;取代了原来 `updateResourcesAction` 里的 dnd5e/shouhun/coc 三分支。basic/triangle 无标准资源返原样(triangle 计数器仍走 `applyStatWrite`)。PR #176 新增 |
 | `exportSnapshot(sheet)` | 导出快照 + AI 的 `my_character` 工具共用的"这张卡值得汇报什么" |
 | `describeForAI()` | `{rulesPrompt, sheetToolSchemaFields}`:bot 系统提示片段 + `set_character_card` 的 schema 片段 |
 
@@ -87,6 +91,7 @@ description: >
 | 方法 | 谁在用 |
 | --- | --- |
 | `parseQuickCheckArgs?(args)` | 把 `.r <args>` 认领成简写检定。在通用表达式解析**之前**被调用;返 null 则回落为普通掷骰。狩魂者 用它实现 `.r+x±y [DC]` |
+| `naturalGrade?(roll, faces, count)` | 普通掷骰(`.rd`/`.r`,非检定)的文化/机制解读,供 AI bot 反应。COC 认 1d100 的 01–05/96–100,basic 给 CoC 文化提示(1/100),其余省略(返 null)。取代 `ai_agent.ts` 里原本的 `id === "coc7th"/"basic"` 分支。PR #176 新增 |
 
 ### `CheckRequest` → `CheckResult`
 
@@ -141,6 +146,8 @@ interface CheckResult {
 | `defaultRollExpression` | `string` | 空参数 `.r`/`.rd` 的默认骰(coc7th/basic=1d100, dnd5e/shouhun=1d20, triangle=6d4) |
 | `requiresStoredTarget` | `boolean` | `.rc` 查不到值时是否报 STAT_NOT_SET(coc7th/basic=true, 其余=false) |
 | `hasRoleLevel` | `boolean` | 角色卡是否显示 role/level 字段(仅 dnd5e) |
+| `resourceMaxEditable?` | `boolean` | 角色卡资源条上限是否可手动编辑(HP 无自动派生的规则=dnd5e)。派生上限的规则(coc7th/shouhun)不设,上限随属性动。PR #176 新增 |
+| `resourceCurrentsViaAction?` | `boolean` | 保存资源当前值时走 `updateResourcesAction`(可改他人,coc7th/shouhun)还是并进本人整卡保存(dnd5e HP 内联、triangle 计数器)。`CharacterPanel.handleSaveAll` 据此选路径,取代原本的 rule-id 分支。PR #176 新增 |
 | `quickRolls` | `string[]` | 聊天输入框上方的快捷命令 chips |
 | `highlightDieFace?` | `number` | 写入 `diceDetail.highlightFace`,渲染器逐骰标亮该面(triangle=3) |
 | `checkRequestOptions?` | 见下 | **主持人发起检定的整个交互流程** |
@@ -178,7 +185,7 @@ checkRequestOptions?: {
 
 ### Step 1 — 模块文件
 
-`src/lib/rules/<id>/index.ts`,实现 §2 的 17 个成员。TypeScript 会逼你填齐必填项;**最容易漏的是 `parseRcArgs`、`applyStatWrite`、`applySheetPatch`** 这三个不在"元数据"直觉里的方法。
+`src/lib/rules/<id>/index.ts`,实现 §2 的 22 个成员。TypeScript 会逼你填齐必填项;**最容易漏的是 `parseRcArgs`、`applyStatWrite`、`applySheetPatch`、`readAttributes`/`writeAttributes`、`applyResourcePatch`** 这几个不在"元数据"直觉里的方法。若规则有 `.st` 别名/属性/资源路由,新建 `src/lib/rules/<id>/stats.ts` 写解析器(抄 `coc7th/stats.ts`),只被本模块 import。
 
 ### Step 2 — 注册
 
@@ -227,27 +234,41 @@ UI 侧不用改。
 
 ### 不需要改的地方(验证抽象成立)
 
-`commands.ts`(命令引擎)、`actions/room.ts`(主持人动作 + 检定请求)、`actions/export.ts`、`actions/bot.ts`、`ai_agent.ts`(系统提示 + sheet 工具)、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx` 的下拉、`resource-visuals.ts`。
+`commands.ts`(命令引擎)、`actions/room.ts`(主持人动作 + 检定请求)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai_agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
 
-如果你发现必须改上面某个文件才能让新规则工作,先回头检查模块定义——大概率是某个 capability 没填或 `readStatus` 没摊平对。**确实**表达不了再扩 `RuleCapabilities`(纯数据),而不是加 id 分支。
+**只要模块把 22 个成员实现全、capabilities 填对,以上文件一律零改动**——这是本次(PR #176)把 CharacterPanel 的 24 处分支全部收敛后达成的验收状态。如果你发现必须改上面某个文件才能让新规则工作,先回头检查模块定义:大概率是某个 capability 没填、`readStatus`/`readAttributes` 没摊平对、或某个新方法(`writeAttributes`/`applyResourcePatch`)没实现。**确实**表达不了再扩 `RuleCapabilities`(纯数据),而不是加 id 分支。
 
 ---
 
-## 5. 已知的 rule-id 分支(4 个文件,30 处)
+## 5. 解耦现状(PR #176 后)——曾经的分支怎么没的
 
-这些是当前真实存在的例外。前两个有明确原因,后两个是**待补的抽象缺口**——碰到相关工作时顺手推进,不要当成既定风格模仿。
+历史:重构前有 4 个文件、约 30 处 `ruleTemplate === "<id>"` 分支(最重的是 CharacterPanel 24 处)。**PR #176 已把公共代码里的 rule-id 分支全部收敛为 0**——下表是每个旧分支点现在靠什么表达,是"新规则为什么不用改这些文件"的具体答案。
 
-| 位置 | 现状 | 性质 |
-| --- | --- | --- |
-| `components/room/character/CharacterPanel.tsx`(24 处:L120/147-158/169-178/235-244/288-318/346-372/615/715-727) | `useEffect` 初始化、`cocDerived`/`shDerived` 现算、`currentResources` 初值、`handleSaveAll`、`handleExport`、`resourceMaxEditable`、`buildAttributeValues` 各按 ruleTemplate 分支 | **刻意保留**。每套规则的属性包/资源字段结构不同(`cocAttributes+cocDerived` / `d20Attributes+d20Sheet` / `taQualities+taSheet` / `shAttributes+shSheet`),可编辑面板要把它们摊平成通用 Record 再存回。只读面板已经统一走 `readStatus()`;可编辑面板要统一需要一个"写"侧的对称抽象(类似 `applyStatWrite` 但面向整卡),目前还没做。新规则在这几处各加一个分支 |
-| `components/lobby/LobbyClient.tsx:314` | `ruleTemplate === "coc7th"` 时显示 Skull 徽章 | **刻意保留**。规则专属装饰图标,capabilities 不适合放 UI 装饰元数据。要做的话按 `resource-visuals.ts` 的模式建一个 client-only 的 id→图标 map |
-| `lib/ai_agent.ts:642` | `rollRule.id === "coc7th"/"basic"` 决定 1d100 裸骰的大成功/大失败评语 | **待补钩子**。代码注释已写明未来接口是 `rule.naturalGrade(roll, faces)`。目前只有 COC 系有"裸骰吉凶"概念,所以还没抽 |
-| `lib/commands.ts:788` `readCurrentSanity` | `data?.ruleTemplate === "coc7th"` 才读 `cocDerived.san_current` | **可收敛**。只被 `.sc` 调用,而 `.sc` 已被 `supportedCommands` 门控到 COC,所以不会错;但形式上应改成读 `readStatus(sheet).resources.san` |
-| `app/actions/character.ts:427/439` | `updateResourcesAction` 按 dnd5e/shouhun/其余 分支写资源当前值 | **可收敛**,与 CharacterPanel 是同一个"写侧抽象缺失"问题 |
+| 旧分支点 | 现在靠什么 |
+| --- | --- |
+| `CharacterPanel` 属性宫格读写(`buildAttributeValues` / `attributeValuesAsXxx`) | `rule.readAttributes(sheet)` / `writeAttributes(sheet, record)` —— 通用 `Record<string,number>` ↔ 各规则属性袋 |
+| `CharacterPanel` 资源上限 / 当前值 / 衍生页脚(`computeCocDerived`/`computeShDerived` 直调) | 面板本地 `draftStatusFor()` = `writeAttributes → computeDerived → readStatus`,一次产出 `{resources:{current,max}, derived}`;`spiritSense` 也经 `shouhun.readStatus().derived` 暴露 |
+| `CharacterPanel` `handleSaveAll` 四分支 | `writeAttributes` 建袋 + `capabilities.hasRoleLevel`(role/level)+ `applyResourcePatch`/`applyStatWrite`(资源);落库路径由 `capabilities.resourceCurrentsViaAction` 决定(coc/狩魂→`updateResourcesAction` 可改他人;d20/triangle→并进本人整卡) |
+| `CharacterPanel` `handleExport` 四分支 | `capabilities.{resourceBars,derivedStats,attributeKeys}` + `readStatus().attributeGrades` 全驱动 |
+| `CharacterPanel` `resourceMaxEditable` / init 守卫 | `capabilities.resourceMaxEditable`;init 守卫用 `DEFAULT_RULE_ID` 常量比较 |
+| `LobbyClient` coc7th 骷髅徽标 | `useRuleLabelResolver()`(host-label.tsx)对任意非默认规则渲染其 `labelKey` |
+| `ai_agent.ts` 1d100 裸骰吉凶 | `rule.naturalGrade(roll, faces, count)` |
+| `commands.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
+| `character.ts` `updateResourcesAction` 三分支 | `rule.applyResourcePatch(sheet, patch)` 单行委派 |
+| `lib/{coc,d20,ta,sh}-stats.ts` 散落公共 lib | 迁进 `rules/<id>/stats.ts`,每套规则物理自包含 |
 
-同一文件里 `saveCharacterDataAction` / `updateCocAttributesAction` 仍用 inline `computeCocDerived` 而非 `rule.computeDerived`:两者的 `san_current` 保留时机不同,合并会改 export 快照中 `.san` 的边角值。
+### 唯一剩下的结构性欠债(不是 rule-id 分支)
 
-剩余几个 `<select>` 也是"刻意不迁"——见 `src/components/shared/ThemedSelect.tsx` 的 carve-out 注释。
+**`character-types.ts` 仍集中定义各规则的属性/资源接口、默认值与 `compute*Derived`**(`CocAttributes`/`D20Sheet`/`ShAttributes`… + `computeCocDerived`/`computeShDerived`/`clampShAttr`)。这是**类型层**的集中,不是运行时 id 分支——`CharacterData` 用可选字段承载各规则数据袋。彻底下沉(把这些迁进各 `rules/<id>/`、`CharacterData` 只留通用骨架 + 规则数据槽)需要动很多 `.cocDerived.hp` 式取值处、且要起前端回归,**留作独立 PR(审计文档 §六 的 P1)**,不在 #176 内。
+
+### 仍"刻意不迁"的
+
+- 几个 `<select>` 的 carve-out —— 见 `src/components/shared/ThemedSelect.tsx` 注释。
+- `saveCharacterDataAction` 已走 `rule.computeDerived`;但注意各规则 `computeDerived` 对 `san_current` 等当前值的保留/钳位时机不同,改动 `computeDerived` 会影响 export 快照里的边角值,有测试锁定。
+
+### #176 引入的一处可见行为变更
+
+COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名(`力量: 70`),与 triangle/狩魂者 统一(`handleExport` 现用 `t(labelKey)`)。要恢复旧形式,给 `attributeKeys` 加导出专用 label 或新增 `exportLabel` 能力位。
 
 ---
 
@@ -261,6 +282,7 @@ UI 侧不用改。
 6. **导出的房间信息标着别的规则名** —— 检查 `messages.export` 里有没有你的 `labelKey`。
 7. **假设 `room.diceRules`** —— 该列已删,`getRuleForRoom` 签名是 `{ ruleTemplate?: string | null }`。
 8. **"修正" `coc7th.resolveCheck` 的 grade 判定** —— grade=critical / passed=false 的边角是设计意图,测试锁定了。
+9. **以为 `labelKey` 在 `messages.rooms` 命名空间** —— **没有 `rooms` 命名空间**。规则 `labelKey`(`ruleTemplateCoc7th`…)在 `createRoom` / `roomSettings` / `export` 三处。用 `useTranslations("rooms")` 解析会在渲染时抛 next-intl `MISSING_MESSAGE`(非静默兜底)。`useRuleLabelResolver` 读 `createRoom`;`rules.test.ts` 现有两条用例分别守 `export` 与 `createRoom` 命名空间。
 
 ---
 
@@ -268,5 +290,6 @@ UI 侧不用改。
 
 - `src/lib/rules/coc7th/index.ts` — 字段最全的模块
 - `src/lib/rules/shouhun/index.ts` — 用到最多可选钩子(`parseQuickCheckArgs`、`checkRequestOptions`、`derivedStats`、`attributeGrades`)
-- `src/lib/__tests__/rules.test.ts` — 193 个用例,新规则请覆盖等量边界
-- `docs/arch/rule-template-system.md` / `docs/arch/rule-template-refactor.md` — 重构前分析与方案
+- `src/lib/__tests__/rules.test.ts` — 209 个用例,新规则请覆盖等量边界
+- `docs/arch/rule-template-coupling-audit.md` — **PR #176 的耦合审计 + 修复计划 + 剩余 P1**(最新)
+- `docs/arch/rule-template-system.md` / `docs/arch/rule-template-refactor.md` — 重构前分析与方案(历史)

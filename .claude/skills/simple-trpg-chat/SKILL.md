@@ -15,7 +15,7 @@ description: >-
 | **Bot (AI Agent)** | Bot-as-User: `is_bot=true` + `botConfigJson`. 8 tools. Triggered by @mention. LLM via `ai_providers` table (AES-256-GCM encrypted keys). |
 | **Message Audience Router** | Central visibility model in `src/lib/messaging/`. Two orthogonal dims: `audience` (WHO: `everyone`/`self`/`recipient` target-only/`directed` actor+target/`dm`/`gm`) + `channelUserId` (WHERE: null=public, else the DM it renders in). Senders call `dispatchMessage({ audience, channelPartnerId? })`; consumers use `canSee` / `channelOf` / `countsAsDmUnread` / `messageVisibilityWhere`. No scattered `isPrivate`/type sniffing. |
 | **DM/Private Chat** | `audience='dm'` between two users. `room_dm_reads` tracks unread per pair. Rendered in left-sidebar tab. |
-| **Character** | `room_members.character_data` JSON. COC 7th: 8 core attrs + derived (HP/SAN/MP). Skills in separate `room_skills`, synced for sanity. |
+| **Character** | `room_members.character_data` JSON, shape varies by the room's **rule template** (basic / coc7th / dnd5e / triangle / shouhun). Skills in separate `room_skills`. Rule behavior (attributes, checks, resources, AI sheet) is a pluggable `RuleModule` — see the **`simple-trpg-chat-rules`** skill before touching anything rule-related. |
 | **AI Import** | Host pastes raw text → LLM splits → batch import into `inventory_items` + `clue_cards`. |
 | **AI Points** | Non-admin usage of shared providers deducts from `users.aiPoints`. Logged in `ai_point_logs`. |
 
