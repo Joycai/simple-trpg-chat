@@ -7,7 +7,7 @@ import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction,
 import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CharacterData, CocAttributes, D20Attributes, D20Sheet, ShAttributes, ShSheet, TaQualities, TaSheet } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character-types";
 import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
@@ -16,7 +16,11 @@ import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
-import { getRule, DEFAULT_RULE_ID, type ResourcePatch } from "@/lib/rules";
+import {
+  getRule, DEFAULT_RULE_ID, type ResourcePatch,
+  type CocAttributes, type D20Attributes, type D20Sheet,
+  type ShAttributes, type ShSheet, type TaQualities, type TaSheet,
+} from "@/lib/rules";
 
 interface CharacterPanelProps {
   roomId: number;

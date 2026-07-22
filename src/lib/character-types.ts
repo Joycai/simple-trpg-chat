@@ -1,43 +1,22 @@
 /**
- * Character Sheet Data Types
+ * Character Sheet Data Types — the generic `CharacterData` shell shared by every
+ * ruleset.
  *
- * Structured character_data JSON stored in room_members.character_data.
- * Supports COC 7th, basic, and DnD 5e (d20) rule templates.
+ * Each ruleset's own attribute/resource types, defaults and derivation helpers
+ * now live next to its module in `src/lib/rules/<id>/sheet.ts` (COC 7th, d20,
+ * Triangle, 狩魂者). This file keeps only the rule-agnostic skeleton and
+ * type-imports each rule's bag types for `CharacterData`'s optional fields.
+ *
+ * These are **type-only** imports (erased at build), so there is no runtime
+ * dependency on the rules subsystem and no import cycle — the sheet files are
+ * self-contained leaves. External code should import a rule's sheet helpers
+ * from the `@/lib/rules` barrel rather than reaching into a sub-path.
  */
 
-// ============================================================
-// COC 7th Attributes
-// ============================================================
-
-/** COC 7th standard attributes */
-export interface CocAttributes {
-  str: number;   // Strength (3D6 * 5)
-  con: number;   // Constitution (3D6 * 5)
-  siz: number;   // Size (2D6+6 * 5)
-  dex: number;   // Dexterity (3D6 * 5)
-  app: number;   // Appearance (3D6 * 5)
-  int: number;   // Intelligence (2D6+6 * 5)
-  pow: number;   // Power (3D6 * 5)
-  edu: number;   // Education (2D6+6 * 5)
-  luck: number;  // Luck (3D6 * 5) — mutable during play
-}
-
-/** Derived values computed from attributes */
-export interface CocDerived {
-  hp: number;      // Hit Points ((CON+SIZ)/10)
-  hpMax: number;
-  hp_current?: number; // Current HP (if adjusted)
-  san: number;     // Sanity (POW)
-  sanMax: number;
-  san_current?: number; // Current Sanity (if adjusted)
-  mp: number;      // Magic Points (POW/5)
-  mpMax: number;
-  mp_current?: number; // Current MP (if adjusted)
-  mov: number;     // Movement Rate
-  db: string;      // Damage Bonus
-  build: number;   // Build
-  luck: number;    // Luck (3D6 * 5)
-}
+import type { CocAttributes, CocDerived } from "@/lib/rules/coc7th/sheet";
+import type { D20Attributes, D20Sheet } from "@/lib/rules/dnd5e/sheet";
+import type { TaQualities, TaSheet } from "@/lib/rules/triangle/sheet";
+import type { ShAttributes, ShSheet } from "@/lib/rules/shouhun/sheet";
 
 // ============================================================
 // Generic Character Sheet
@@ -64,150 +43,6 @@ export interface ResourceBar {
 // Character Data Root
 // ============================================================
 
-// ============================================================
-// DnD 5e (d20) Attributes
-// ============================================================
-
-/**
- * D20 attributes. All 8 are free-set numbers — the rule does NO derivation
- * (per v1 design: no auto ability-mod, no auto AC, no auto pb-from-level).
- * Players control everything via `.st <name> <val>` or the character panel.
- */
-export interface D20Attributes {
-  str: number;
-  dex: number;
-  con: number;
-  int: number;
-  wis: number;
-  cha: number;
-  pb: number;    // Proficiency bonus (free-set)
-  ac: number;    // Armor class (free-set)
-}
-
-/**
- * D20 sheet meta + resources. Role/level are free-text/free-number display
- * fields (no class system in v1). HP is the only resource bar.
- */
-export interface D20Sheet {
-  role?: string;       // Character role / class (free text)
-  level?: number;      // Character level (free-set)
-  hpMax?: number;
-  hp_current?: number;
-}
-
-export const D20_DEFAULT_ATTRIBUTES: D20Attributes = {
-  str: 10, dex: 10, con: 10,
-  int: 10, wis: 10, cha: 10,
-  pb: 2, ac: 10,
-};
-
-// ============================================================
-// Triangle Agency Qualifications
-// ============================================================
-
-/**
- * Triangle Agency's 9 Qualifications. Free-set numbers with no derivation —
- * checks in this system are always 6d4 counting 3s, so the values are
- * reference bookkeeping (e.g. Quality Assurance counts), not roll modifiers.
- */
-export interface TaQualities {
-  attentiveness: number;
-  duplicity: number;
-  dynamism: number;
-  empathy: number;
-  initiative: number;
-  persistence: number;
-  presence: number;
-  professionalism: number;
-  subtlety: number;
-}
-
-/**
- * Triangle Agency sheet meta. Commendations/reprimands are unbounded
- * accumulating counters (no `*Max` pair — they render as counter cards,
- * not fill bars).
- */
-export interface TaSheet {
-  commendations?: number;
-  reprimands?: number;
-}
-
-export const TA_DEFAULT_QUALITIES: TaQualities = {
-  attentiveness: 0, duplicity: 0, dynamism: 0,
-  empathy: 0, initiative: 0, persistence: 0,
-  presence: 0, professionalism: 0, subtlety: 0,
-};
-
-// ============================================================
-// Shouhun (狩魂者) Attributes
-// ============================================================
-
-/**
- * 狩魂者's 3 base attributes, each 1..9 (E → SSS+). Everything else —
- * strength tiers, HP, mana, 灵识 — derives from these three numbers.
- */
-export interface ShAttributes {
-  phy: number;   // 体魄
-  wis: number;   // 智慧
-  soul: number;  // 心魂
-}
-
-/**
- * 狩魂者 sheet meta. Only current resource values are stored — the maxes are
- * always derived from attributes via `computeShDerived` and never persisted.
- */
-export interface ShSheet {
-  hp_current?: number;
-  mana_current?: number;
-}
-
-/** Derived values for 狩魂者. Strength tiers are ⌊attr/2⌋ per the rulebook. */
-export interface ShDerived {
-  phyStrength: number;     // 体魄强度
-  spellStrength: number;   // 术法强度 (from 智慧)
-  psychicStrength: number; // 灵能力强度 (from 心魂)
-  hpMax: number;           // 5 + 体魄强度
-  manaMax: number;         // 5 + 智慧×2 + 心魂
-  spiritSense: number;     // 灵识 = 三属性之和 (point-buy reference, not enforced)
-}
-
-/** 属性 1..9 → 等级 E..SSS+ (index = attr - 1). */
-export const SH_GRADE_LABELS = ["E", "D", "C", "B", "A", "S", "SS", "SSS", "SSS+"] as const;
-
-export const SH_DEFAULT_ATTRIBUTES: ShAttributes = { phy: 3, wis: 3, soul: 3 };
-
-/** Clamp a 狩魂者 attribute into its legal 1..9 range. */
-export function clampShAttr(v: number): number {
-  return Math.min(9, Math.max(1, Math.floor(v)));
-}
-
-/** Letter grade for an attribute value (clamped to the legal range first). */
-export function shGradeLabel(value: number): string {
-  return SH_GRADE_LABELS[clampShAttr(value) - 1];
-}
-
-/** Compute 狩魂者 derived values from attributes. */
-export function computeShDerived(attrs: ShAttributes): ShDerived {
-  const phy = clampShAttr(attrs.phy);
-  const wis = clampShAttr(attrs.wis);
-  const soul = clampShAttr(attrs.soul);
-  const phyStrength = Math.floor(phy / 2);
-  const spellStrength = Math.floor(wis / 2);
-  const psychicStrength = Math.floor(soul / 2);
-  return {
-    phyStrength,
-    spellStrength,
-    psychicStrength,
-    hpMax: 5 + phyStrength,
-    manaMax: 5 + wis * 2 + soul,
-    spiritSense: phy + wis + soul,
-  };
-}
-
-// ============================================================
-// Character Data Root
-// ============================================================
-
 export interface CharacterData {
   /** Display info */
   name?: string;
@@ -216,8 +51,8 @@ export interface CharacterData {
   bio?: string;          // Backstory / description
   avatarUrl?: string;    // Reserved
 
-  /** Rule-specific data */
-  ruleTemplate: string;  // 'basic' | 'coc7th' | 'dnd5e' | 'triangle'
+  /** Rule id — resolves to a RuleModule via `getRule` */
+  ruleTemplate: string;  // 'basic' | 'coc7th' | 'dnd5e' | 'triangle' | 'shouhun'
 
   /** COC 7th attributes (only when ruleTemplate = 'coc7th') */
   cocAttributes?: CocAttributes;
@@ -251,47 +86,4 @@ export interface CharacterData {
 
   /** Skills reference (managed via room_skills table) */
   skillIds?: number[];
-}
-
-// ============================================================
-// COC 7th Defaults
-// ============================================================
-
-export const COC_DEFAULT_ATTRIBUTES: CocAttributes = {
-  str: 50, con: 50, siz: 50, dex: 50,
-  app: 50, int: 50, pow: 50, edu: 50, luck: 50,
-};
-
-/**
- * COC 7th: maximum Sanity is always 99 (reduced only by Cthulhu Mythos, which we don't
- * track here). POW only sets the *starting* SAN value, never the cap.
- */
-export const COC_MAX_SANITY = 99;
-
-/** Compute COC 7th derived values from attributes */
-export function computeCocDerived(attrs: CocAttributes): CocDerived {
-  const hp = Math.floor((attrs.con + attrs.siz) / 10);
-  const san = attrs.pow;
-  const mp = Math.floor(attrs.pow / 5);
-  const strPlusSiz = attrs.str + attrs.siz;
-
-  let db = "0";
-  let build = 0;
-  if (strPlusSiz >= 2 && strPlusSiz <= 64) { db = "-2"; build = -2; }
-  else if (strPlusSiz <= 84) { db = "-1"; build = -1; }
-  else if (strPlusSiz <= 124) { db = "0"; build = 0; }
-  else if (strPlusSiz <= 164) { db = "+1D4"; build = 1; }
-  else if (strPlusSiz <= 204) { db = "+1D6"; build = 2; }
-  else {
-    const steps = Math.floor((strPlusSiz - 205) / 80) + 3;
-    db = `+${steps - 1}D6`;
-    build = steps;
-  }
-
-  // MOV based on DEX+SIZ
-  let mov = 8;
-  if (attrs.dex < attrs.siz && attrs.str < attrs.siz) mov = 7;
-  else if (attrs.dex > attrs.siz && attrs.str > attrs.siz) mov = 9;
-
-  return { hp, hpMax: hp, san, sanMax: COC_MAX_SANITY, mp, mpMax: mp, mov, db, build, luck: attrs.luck };
 }

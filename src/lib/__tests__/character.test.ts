@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCocDerived, type CocAttributes } from "../character-types";
+import { computeCocDerived, type CocAttributes } from "@/lib/rules";
 
 describe("Character - COC 7th derived values", () => {
   it("should calculate correct HP, SAN, and MP", () => {

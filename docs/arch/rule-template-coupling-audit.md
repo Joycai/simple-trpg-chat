@@ -160,9 +160,13 @@
 
 > ⚠️ 行为变更（一处，可见）：COC / d20 的**导出文本**属性标签由 `KEY.toUpperCase()`（如 `STR: 70`）改为翻译名 `t(labelKey)`（如 `力量: 70`），与 triangle / 狩魂者 统一。若产品需要保留旧的大写 key 形式，可在各规则 `attributeKeys` 增设导出专用 label 或加一个 `exportLabel` 能力位。
 
-### ⏳ 待完成
+### ✅ P1 数据模型下沉（已完成，`refactor/rule-sheet-types` 分支）
 
-- **`P1` 数据模型下沉**（独立 PR）：`character-types.ts` 的 per-rule 属性接口 / 默认值 / `compute*Derived` 迁入各 `rules/<name>/`，`lib/{coc,d20,ta,sh}-stats.ts` 一并归位；公共层只留通用 `CharacterData` 骨架 + 规则数据槽。波及类型面广，建议在能跑 `pnpm dev` 目视回归的独立 PR 中进行。
+各规则的属性/资源接口、默认值与 `compute*Derived` 已迁入各 `rules/<id>/sheet.ts`（`coc7th/sheet.ts` 含 `CocAttributes`/`CocDerived`/`COC_DEFAULT_ATTRIBUTES`/`COC_MAX_SANITY`/`computeCocDerived`；d20/triangle/shouhun 同理）。`character-types.ts` 现只剩通用骨架（`CharacterData`/`CustomAttribute`/`ResourceBar`），对各规则接口只做 `import type`（编译期擦除，无运行时依赖、无循环）。各 sheet 符号经 `@/lib/rules` barrel 再导出供外部消费。`lib/{coc,d20,ta,sh}-stats.ts` 已在 PR #176 归位到 `rules/<id>/stats.ts`。
+
+采用的是**保类型安全**的方案：`CharacterData` 仍带各规则的可选强类型字段（`cocAttributes?: CocAttributes` 等），因此所有 `.cocDerived.hp` 式取值处零改动；加新规则时 `character-types.ts` 仍需加一行 `import type` + 一个可选字段，但已从"承载全部 per-rule 逻辑"退化为"只引类型"。若日后要连这一行也去掉（改成 `ruleData?: Record<string,unknown>` 泛型槽），会牺牲取值处的类型安全、需改大量消费点，收益不高，暂不做。
+
+至此审计列出的 8 处残余耦合全部收敛。
 
 ### 建议的验证（合并前）
 

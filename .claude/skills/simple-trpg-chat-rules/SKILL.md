@@ -27,7 +27,7 @@ description: >
 
 现有 5 套:`basic`(通用 d100)、`coc7th`、`dnd5e`(d20)、`triangle`(Triangle Agency, 6d4 数 3)、`shouhun`(狩魂者, d20+加骰/时髦骰)。
 
-**当前状态(PR #176 之后):公共代码(`src/lib/rules/` 之外)已无任何 `ruleTemplate === "<id>"` 硬编码分支——包括曾经最重的 `CharacterPanel.tsx`(24 处已全部收敛)。** §5 记录了这次是怎么做到的、以及唯一剩下的结构性欠债(类型层的数据模型下沉,属独立 PR)。审计与修复过程见 `docs/arch/rule-template-coupling-audit.md`。
+**当前状态(PR #176 之后):公共代码(`src/lib/rules/` 之外)已无任何 `ruleTemplate === "<id>"` 硬编码分支——包括曾经最重的 `CharacterPanel.tsx`(24 处已全部收敛)。** §5 记录了这次是怎么做到的。数据模型下沉(各规则 sheet 类型/默认值/derive 迁入 `rules/<id>/sheet.ts`)也已在 `refactor/rule-sheet-types` 完成。审计与修复过程见 `docs/arch/rule-template-coupling-audit.md`。
 
 ---
 
@@ -42,6 +42,8 @@ description: >
 | `src/lib/rules/patch-utils.ts` | `clampInt` / `clampAttributes`:`applySheetPatch` 消毒 LLM 输入的共享实现 |
 | `src/lib/rules/{basic,coc7th,dnd5e,triangle,shouhun}/index.ts` | 5 个规则模块 |
 | `src/lib/rules/{coc7th,dnd5e,triangle,shouhun}/stats.ts` | 各规则的 `.st` 名称→属性/资源解析器(`resolveCocStat` 等)。**PR #176 从 `src/lib/{coc,d20,ta,sh}-stats.ts` 迁到规则目录内**,使每套规则物理自包含;只被自己的 `index.ts` import |
+| `src/lib/rules/{coc7th,dnd5e,triangle,shouhun}/sheet.ts` | 各规则的角色卡数据模型:属性/资源接口 + 默认值 + `compute*Derived`。**`refactor/rule-sheet-types` 从 `character-types.ts` 迁来**,自包含(不 import `character-types`);经 barrel 再导出。见 §5 |
+| `src/lib/character-types.ts` | **只剩通用骨架**:`CharacterData` / `CustomAttribute` / `ResourceBar`;对各规则 sheet 接口只 `import type`(无运行时耦合) |
 | `src/components/shared/host-label.tsx` | `useHostLabel()` / `useHostLabelResolver()` / `usePlayerLabel()` / `useRuleLabelResolver()` —— 解析 `hostLabelKey` / `playerLabelKey` / 规则 `labelKey` 的唯一入口(大厅房间徽标经 `useRuleLabelResolver` 渲染,不再硬编码 coc7th) |
 | `src/components/room/character/CharacterPanel.tsx` | 可编辑角色卡面板。**PR #176 后完全能力位驱动、零 rule-id 分支**:属性宫格走 `read/writeAttributes`,资源上限/当前值/衍生页脚走 `draftStatusFor()`(见 §5) |
 | `src/components/room/character/resource-visuals.ts` | `RESOURCE_ICON` / `DERIVED_ICON`:client-only 的 key→图标/颜色映射。未命中的 key 用主色兜底,所以新规则**不必**改这里 |
@@ -185,7 +187,7 @@ checkRequestOptions?: {
 
 ### Step 1 — 模块文件
 
-`src/lib/rules/<id>/index.ts`,实现 §2 的 22 个成员。TypeScript 会逼你填齐必填项;**最容易漏的是 `parseRcArgs`、`applyStatWrite`、`applySheetPatch`、`readAttributes`/`writeAttributes`、`applyResourcePatch`** 这几个不在"元数据"直觉里的方法。若规则有 `.st` 别名/属性/资源路由,新建 `src/lib/rules/<id>/stats.ts` 写解析器(抄 `coc7th/stats.ts`),只被本模块 import。
+`src/lib/rules/<id>/index.ts`,实现 §2 的 22 个成员。TypeScript 会逼你填齐必填项;**最容易漏的是 `parseRcArgs`、`applyStatWrite`、`applySheetPatch`、`readAttributes`/`writeAttributes`、`applyResourcePatch`** 这几个不在"元数据"直觉里的方法。规则自己的角色卡数据模型(属性/资源接口 + 默认值 + `compute*Derived`)放 `src/lib/rules/<id>/sheet.ts`(抄 `coc7th/sheet.ts`;自包含,不 import `character-types`),再在 barrel `rules/index.ts` 加一行 `export ... from "./<id>/sheet"`,并给 `CharacterData` 加一个 `import type` + 可选字段。若规则有 `.st` 别名/属性/资源路由,再建 `src/lib/rules/<id>/stats.ts` 写解析器(抄 `coc7th/stats.ts`),只被本模块 import。
 
 ### Step 2 — 注册
 
@@ -257,9 +259,11 @@ UI 侧不用改。
 | `character.ts` `updateResourcesAction` 三分支 | `rule.applyResourcePatch(sheet, patch)` 单行委派 |
 | `lib/{coc,d20,ta,sh}-stats.ts` 散落公共 lib | 迁进 `rules/<id>/stats.ts`,每套规则物理自包含 |
 
-### 唯一剩下的结构性欠债(不是 rule-id 分支)
+### 数据模型下沉(已完成,`refactor/rule-sheet-types`)
 
-**`character-types.ts` 仍集中定义各规则的属性/资源接口、默认值与 `compute*Derived`**(`CocAttributes`/`D20Sheet`/`ShAttributes`… + `computeCocDerived`/`computeShDerived`/`clampShAttr`)。这是**类型层**的集中,不是运行时 id 分支——`CharacterData` 用可选字段承载各规则数据袋。彻底下沉(把这些迁进各 `rules/<id>/`、`CharacterData` 只留通用骨架 + 规则数据槽)需要动很多 `.cocDerived.hp` 式取值处、且要起前端回归,**留作独立 PR(审计文档 §六 的 P1)**,不在 #176 内。
+各规则的属性/资源接口、默认值与 `compute*Derived` **已迁进各 `rules/<id>/sheet.ts`**(`coc7th/sheet.ts` = `CocAttributes`/`CocDerived`/`COC_DEFAULT_ATTRIBUTES`/`COC_MAX_SANITY`/`computeCocDerived`;`dnd5e`/`triangle`/`shouhun` 同理)。`character-types.ts` 现只剩通用骨架(`CharacterData`/`CustomAttribute`/`ResourceBar`),对各规则接口只做 **`import type`**(编译期擦除→无运行时依赖、无循环:sheet 文件是叶子,不 import `character-types`)。sheet 符号经 `@/lib/rules` barrel 再导出;外部代码从 barrel 拿(如 `import { computeCocDerived, type CocAttributes } from "@/lib/rules"`),规则模块自己从 `./sheet` 拿。
+
+采用**保类型安全**方案:`CharacterData` 仍带各规则可选强类型字段(`cocAttributes?: CocAttributes`…),所以 `.cocDerived.hp` 式取值处零改动;加新规则仍要在 `character-types.ts` 加一行 `import type` + 一个可选字段,但只是"引类型"不是"塞逻辑"。想连这行都去掉(改 `ruleData?: Record<string,unknown>` 泛型槽)会牺牲取值处类型安全、动大量消费点,收益低,不做。至此审计的 8 处残余耦合全部收敛。
 
 ### 仍"刻意不迁"的
 

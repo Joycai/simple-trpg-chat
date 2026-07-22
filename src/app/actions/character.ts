@@ -8,13 +8,13 @@ import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/events";
 import {
   type CharacterData,
-  type CocAttributes,
   type CustomAttribute,
-  COC_DEFAULT_ATTRIBUTES,
-  computeCocDerived,
 } from "@/lib/character-types";
 import { rebuildSheetForRule } from "@/lib/character-sheet";
-import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
+import {
+  getRule, getRuleForRoom, primaryVital,
+  COC_DEFAULT_ATTRIBUTES, computeCocDerived, type CocAttributes,
+} from "@/lib/rules";
 
 /** Verify that a user is a member of a room. Returns userId on success.
  *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
