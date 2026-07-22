@@ -71,6 +71,7 @@ const capabilities: RuleCapabilities = {
   hasManaPoints: true,
   checkMenuModes: ["check", "psychology", "sancheck"],
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"],
+  helpEntryIds: ["stCoc", "rcD100", "rdr", "rh", "sc", "help"],
   resourceBars: COC_RESOURCE_BARS,
   attributeKeys: COC_ATTRIBUTE_KEYS,
   // Only 幸运 joins the hover card — the other 8 attributes belong to the

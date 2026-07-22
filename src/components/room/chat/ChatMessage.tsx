@@ -13,7 +13,7 @@ import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
 import type { Audience } from "@/lib/messaging/audience";
-import { useHostLabel } from "@/components/shared/host-label";
+import { useHostLabel, useRoomRule } from "@/components/shared/host-label";
 
 // Stable `useSyncExternalStore` callbacks. The store never changes, so subscribe
 // is a no-op; the snapshot pair gives us a "true on client / false on server"
@@ -889,18 +889,28 @@ function ReceiptPill({
   );
 }
 
-/** Help card: structured 2-column command reference. Reads `helpEntries` via t.raw. */
+/**
+ * Help card: structured 2-column command reference. The room's rule picks its
+ * rows via `capabilities.helpEntryIds`, each id keying into the
+ * `commands.helpEntries` i18n map — so every room documents exactly the
+ * commands (and syntax) its rule honors.
+ */
 function HelpCard({ visSelfLabel }: { visSelfLabel: string }) {
   const t = useTranslations("commands");
+  const rule = useRoomRule();
   let title = "Command Help";
   try { title = t("helpTitle"); } catch { /* fallback */ }
-  let entries: Array<{ cmd: string; desc: string }> = [];
+  let entries: Array<{ id: string; cmd: string; desc: string }> = [];
   try {
     const raw = (t as unknown as { raw: (k: string) => unknown }).raw("helpEntries");
-    if (Array.isArray(raw)) {
-      entries = raw.filter((e): e is { cmd: string; desc: string } =>
-        !!e && typeof (e as { cmd?: unknown }).cmd === "string" && typeof (e as { desc?: unknown }).desc === "string"
-      );
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const map = raw as Record<string, { cmd?: unknown; desc?: unknown } | undefined>;
+      entries = rule.capabilities.helpEntryIds.flatMap((id) => {
+        const e = map[id];
+        return e && typeof e.cmd === "string" && typeof e.desc === "string"
+          ? [{ id, cmd: e.cmd, desc: e.desc }]
+          : [];
+      });
     }
   } catch { /* missing — leave entries empty */ }
 
@@ -915,8 +925,8 @@ function HelpCard({ visSelfLabel }: { visSelfLabel: string }) {
       </div>
       {entries.length > 0 && (
         <dl className="help-card-list grid grid-cols-[minmax(140px,max-content)_1fr] gap-x-4 gap-y-1 text-xs m-0">
-          {entries.map((e, i) => (
-            <div key={i} className="help-card-row contents">
+          {entries.map((e) => (
+            <div key={e.id} className="help-card-row contents">
               <dt className="font-theme-mono text-text">{e.cmd}</dt>
               <dd className="text-text-muted m-0">{e.desc}</dd>
             </div>

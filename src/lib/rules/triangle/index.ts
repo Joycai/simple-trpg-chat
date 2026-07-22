@@ -55,6 +55,7 @@ const capabilities: RuleCapabilities = {
   // No check menu at all — v1 has no `.rc`; rolls are plain `.r 6d4`.
   checkMenuModes: [],
   supportedCommands: ["help", "st", "rh", "rd", "r"],
+  helpEntryIds: ["st", "taR", "rdr", "rh", "help"],
   resourceBars: TA_RESOURCE_BARS,
   attributeKeys: TA_ATTRIBUTE_KEYS,
   defaultRollExpression: "6d4",

@@ -215,8 +215,10 @@ export async function executeCommand(
 
   // --- .help ---
   if (cmd === "help") {
-    // Content is a flat fallback; the client renders the structured table from
-    // `commands.helpTitle` + `commands.helpEntries` i18n keys when system_kind === 'help'.
+    // Content is a flat fallback; when system_kind === 'help' the client
+    // renders the structured table by mapping the room rule's
+    // `capabilities.helpEntryIds` over the `commands.helpEntries` i18n map,
+    // so each rule template documents exactly the commands it honors.
     const helpText = t("helpTitle");
     const vis = visibilityFor(ctx, userId, "self");
     const msg = await emitCommandMessage(roomId, userId, helpText, "system", vis, undefined, "help");

@@ -100,7 +100,7 @@ function parseXyGroup(group: string): { modifierExpression?: string } | null {
 }
 
 const capabilities: RuleCapabilities = {
-  hostLabelKey: "gm",
+  hostLabelKey: "dh",
   playerLabelKey: "soulHunter",
   hasSanity: false,
   hasPsychologyRoll: false,
@@ -108,6 +108,7 @@ const capabilities: RuleCapabilities = {
   checkMenuModes: ["check"],
   // No `.sc` — 狩魂者 has no sanity mechanic.
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcSh", "rQuickSh", "rdr", "rh", "help"],
   resourceBars: SH_RESOURCE_BARS,
   attributeKeys: SH_ATTRIBUTE_KEYS,
   // 术法强度 (= ⌊智慧/2⌋) is surfaced as a read-only derived card in the

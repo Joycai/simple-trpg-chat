@@ -32,6 +32,7 @@ const capabilities: RuleCapabilities = {
   checkMenuModes: ["check"],
   // Same command surface as today minus `.sc` (which is gated to COC).
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcD100", "rdr", "rh", "help"],
   resourceBars: [],
   attributeKeys: [],
   // No preset resources at all, so the hover card is entirely player-defined

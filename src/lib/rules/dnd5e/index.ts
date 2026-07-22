@@ -57,6 +57,7 @@ const capabilities: RuleCapabilities = {
   checkMenuModes: ["check"],
   // No `.sc` — d20 has no sanity. `.st/.rc/.ra/.rh/.rd/.r` all supported.
   supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcD20", "rdr", "rh", "help"],
   resourceBars: D20_RESOURCE_BARS,
   attributeKeys: D20_ATTRIBUTE_KEYS,
   // AC is the one number a d20 table asks for constantly ("what's your AC?"),

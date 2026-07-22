@@ -19,11 +19,14 @@
  *  - `useHostLabelFor(ruleTemplate)` / `usePlayerLabelFor(ruleTemplate)` take
  *    the id explicitly, for surfaces outside a room that still render
  *    per-room labels (the lobby room cards).
+ *
+ * `useRoomRule()` exposes the room's whole resolved rule module for deep
+ * components that need capabilities beyond the labels (the `.help` card).
  */
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { getRule } from "@/lib/rules";
+import { getRule, type RuleModule } from "@/lib/rules";
 
 const RuleTemplateContext = createContext<string | null | undefined>(undefined);
 
@@ -35,6 +38,15 @@ export function RuleTemplateProvider({
   children: ReactNode;
 }) {
   return <RuleTemplateContext.Provider value={ruleTemplate}>{children}</RuleTemplateContext.Provider>;
+}
+
+/**
+ * The surrounding room's resolved rule module (default rule outside a
+ * provider / for unknown ids). For deep room components that need more than
+ * the labels — e.g. the `.help` card maps `capabilities.helpEntryIds`.
+ */
+export function useRoomRule(): RuleModule {
+  return getRule(useContext(RuleTemplateContext));
 }
 
 /**

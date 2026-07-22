@@ -186,6 +186,14 @@ export interface RuleCapabilities {
   checkMenuModes: ReadonlyArray<CheckMenuMode>;
   /** Whitelist of chat commands the rule honors (`help`, `st`, `rc`, `ra`, `rh`, `rd`, `r`, `sc`). */
   supportedCommands: ReadonlyArray<string>;
+  /**
+   * Ordered rows of the `.help` card. Each id keys into the
+   * `commands.helpEntries` i18n map ({cmd, desc} objects), so every room
+   * documents exactly the commands — and the syntax — its rule honors
+   * (d20 `.rc` vs d100 `.rc`, 狩魂者's `.r+x±y` shorthand, Triangle's
+   * "count the 3s" guidance). Keep in lockstep with `supportedCommands`.
+   */
+  helpEntryIds: ReadonlyArray<string>;
   /** Predefined resource bars rendered in the character sheet. */
   resourceBars: ReadonlyArray<ResourceBarSpec>;
   /** Predefined attribute grid rendered in the character sheet. */
