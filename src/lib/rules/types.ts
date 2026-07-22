@@ -237,6 +237,15 @@ export interface RuleCapabilities {
    */
   resourceMaxEditable?: boolean;
   /**
+   * When true, the character panel persists resource *current* values through
+   * `updateResourcesAction` (which targets a specific member, so a host can
+   * adjust another player's bars) rather than bundling them into the player's
+   * own sheet save. COC / 狩魂者 store currents in a derived/separate bag and set
+   * this; d20 (HP inline on d20Sheet) and Triangle (counters on taSheet) leave
+   * it false and save currents as part of their own sheet. Absent ⇒ false.
+   */
+  resourceCurrentsViaAction?: boolean;
+  /**
    * Quick-insert command chips rendered above the chat input, in order.
    * Each entry is a full command string (e.g. `".rd100"`, `".r 6d4"`).
    */

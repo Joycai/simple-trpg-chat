@@ -1361,7 +1361,7 @@ describe("readStatus", () => {
     const status = shouhunRule.readStatus(sheet);
     expect(status.resources.hp.max).toBe(derived.hpMax);
     expect(status.resources.mana.max).toBe(derived.manaMax);
-    expect(status.derived).toEqual({ spellStrength: derived.spellStrength });
+    expect(status.derived).toEqual({ spellStrength: derived.spellStrength, spiritSense: derived.spiritSense });
     expect(status.attributes).toEqual({ phy: 5, wis: 7, soul: 3 });
     expect(status.attributeGrades).toEqual({
       phy: shGradeLabel(5), wis: shGradeLabel(7), soul: shGradeLabel(3),
@@ -1703,5 +1703,26 @@ describe("rules/readAttributes + writeAttributes", () => {
     expect(basicRule.readAttributes({ ruleTemplate: "basic" })).toEqual({});
     const s: CharacterData = { ruleTemplate: "basic" };
     expect(basicRule.writeAttributes(s, { foo: 1 })).toBe(s);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Panel-driving capability flags (resourceMaxEditable / resourceCurrentsViaAction)
+// ---------------------------------------------------------------------------
+
+describe("rules/panel capability flags", () => {
+  it("only d20 exposes an editable resource max", () => {
+    expect(dnd5eRule.capabilities.resourceMaxEditable).toBe(true);
+    for (const r of [coc7thRule, shouhunRule, triangleRule, basicRule]) {
+      expect(r.capabilities.resourceMaxEditable ?? false).toBe(false);
+    }
+  });
+
+  it("COC / 狩魂者 persist currents via the host-capable action; others inline", () => {
+    expect(coc7thRule.capabilities.resourceCurrentsViaAction).toBe(true);
+    expect(shouhunRule.capabilities.resourceCurrentsViaAction).toBe(true);
+    for (const r of [dnd5eRule, triangleRule, basicRule]) {
+      expect(r.capabilities.resourceCurrentsViaAction ?? false).toBe(false);
+    }
   });
 });

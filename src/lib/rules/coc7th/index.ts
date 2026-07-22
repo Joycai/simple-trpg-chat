@@ -79,6 +79,8 @@ const capabilities: RuleCapabilities = {
   defaultRollExpression: "1d100",
   requiresStoredTarget: true,
   hasRoleLevel: false,
+  // HP/SAN/MP currents live on cocDerived and are host-adjustable via action.
+  resourceCurrentsViaAction: true,
   quickRolls: [".rc 侦查", ".sc 1/1d6", ".rd100"],
 };
 

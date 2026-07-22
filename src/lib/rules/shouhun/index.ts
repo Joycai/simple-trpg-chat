@@ -119,6 +119,8 @@ const capabilities: RuleCapabilities = {
   // x/y are player-typed, so a check never needs a stored room_skills value.
   requiresStoredTarget: false,
   hasRoleLevel: false,
+  // HP/mana currents live on shSheet and are host-adjustable via action.
+  resourceCurrentsViaAction: true,
   // Three chips that teach the rule's own syntax at a glance:
   // named check / named check with 时髦骰 / nameless `.r` shorthand.
   quickRolls: [".rc 侦查+2 10", ".rc 侦查+2+1 12", ".r+2+1 12"],
@@ -189,7 +191,9 @@ export const shouhunRule: RuleModule = {
         hp:   { current: sheet.shSheet?.hp_current   ?? derived.hpMax,   max: derived.hpMax   },
         mana: { current: sheet.shSheet?.mana_current ?? derived.manaMax, max: derived.manaMax },
       },
-      derived: { spellStrength: derived.spellStrength },
+      // spellStrength drives the derived-stat card; spiritSense is surfaced for
+      // the character panel's footer (not a `derivedStats` grid entry).
+      derived: { spellStrength: derived.spellStrength, spiritSense: derived.spiritSense },
       attributes: { phy: attrs.phy, wis: attrs.wis, soul: attrs.soul },
       attributeGrades: {
         phy: shGradeLabel(attrs.phy),
