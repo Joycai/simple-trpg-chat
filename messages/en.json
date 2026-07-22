@@ -1133,16 +1133,19 @@
   },
   "commands": {
     "helpTitle": "Command Help",
-    "helpEntries": [
-      { "cmd": ".st [Name] [Value]", "desc": "Set skill / attribute / resource (batch: .st Spot50 Listen60; STR / Sanity etc. write to the COC character sheet)" },
-      { "cmd": ".rc [Skill] [Value]", "desc": "Skill check (d100 vs target; trailing value gives a one-off check that is not persisted)" },
-      { "cmd": ".ra", "desc": "Same as .rc" },
-      { "cmd": ".rdN / .r expr", "desc": "Roll dice (e.g. .rd100, .r 2d6+3)" },
-      { "cmd": ".rh expr", "desc": "Hidden roll (only you can see it)" },
-      { "cmd": ".sc Success/Failure", "desc": "Sanity check (COC 7th rooms only)" },
-      { "cmd": ".help", "desc": "Show this help" }
-    ],
-    "helpText": "{title}\n{entries}",
+    "helpEntries": {
+      "st": { "cmd": ".st [Name] [Value]", "desc": "Set skill / attribute / resource (batch: .st Spot50 Listen60)" },
+      "stCoc": { "cmd": ".st [Name] [Value]", "desc": "Set skill / attribute / resource (batch: .st Spot50 Listen60; STR / Sanity etc. write to the character sheet)" },
+      "rcD100": { "cmd": ".rc / .ra [Skill] [Value]", "desc": "Skill check (d100 vs target; trailing value gives a one-off check that is not persisted)" },
+      "rcD20": { "cmd": ".rc / .ra name[±mod] [DC]", "desc": "d20 check (1d20+mod vs DC; mods may embed dice, e.g. .rc str+3 15, .rc athletics+1+1d6 12; DC defaults to 10, space before DC required)" },
+      "rcSh": { "cmd": ".rc / .ra name[+bonus[±style]] [DC]", "desc": "Soul Hunter check (1d20+bonus d4s vs DC, e.g. .rc scout+3 12; bonus 0-20, style -3..+3, DC defaults to 10)" },
+      "rQuickSh": { "cmd": ".r+bonus[±style] [DC]", "desc": "Nameless quick check — shorthand for .rc (e.g. .r+2+1 12)" },
+      "taR": { "cmd": ".r 6d4", "desc": "Triangle Agency has no .rc checks — roll 6d4 and count the dice showing 3; each 3 is a success" },
+      "rdr": { "cmd": ".rdN / .r expr", "desc": "Roll dice (e.g. .rd100, .r 2d6+3)" },
+      "rh": { "cmd": ".rh expr", "desc": "Hidden roll (only you can see it)" },
+      "sc": { "cmd": ".sc Success/Failure", "desc": "Sanity check (e.g. .sc 1/1d6; sanity is written back to the sheet)" },
+      "help": { "cmd": ".help", "desc": "Show this help" }
+    },
     "unknownCommand": "Unknown command. Type .help for available commands.",
     "unknownCommandGuess": "Unknown command. Did you mean {guess}? Type .help for available commands.",
     "stUsageError": "Format error. Correct usage: .st Spot 50",

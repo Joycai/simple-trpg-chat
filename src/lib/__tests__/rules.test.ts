@@ -1325,6 +1325,66 @@ describe("playerLabelKey", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Help card rows (每套规则的 .help 卡片条目)
+// ---------------------------------------------------------------------------
+
+describe("helpEntryIds", () => {
+  // The `.help` card documents exactly the commands the room's rule honors —
+  // each id keys into the `commands.helpEntries` i18n map. Pin the per-rule
+  // row lists so a syntax change (or a new rule) can't silently show players
+  // the wrong command reference.
+  const EXPECTED: Record<string, string[]> = {
+    coc7th: ["stCoc", "rcD100", "rdr", "rh", "sc", "help"],
+    basic: ["st", "rcD100", "rdr", "rh", "help"],
+    dnd5e: ["st", "rcD20", "rdr", "rh", "help"],
+    shouhun: ["st", "rcSh", "rQuickSh", "rdr", "rh", "help"],
+    triangle: ["st", "taR", "rdr", "rh", "help"],
+  };
+
+  it("每套规则都声明了预期的帮助条目", () => {
+    for (const rule of listRules()) {
+      expect(rule.capabilities.helpEntryIds, rule.id).toEqual(EXPECTED[rule.id]);
+    }
+    // Guards against a new rule silently skipping the mapping above.
+    expect([...listRuleIds()].sort()).toEqual(Object.keys(EXPECTED).sort());
+  });
+
+  it("条目 id 在 zh/en 两份文案的 helpEntries 里都存在", async () => {
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    type HelpEntryMap = Record<string, { cmd?: string; desc?: string } | undefined>;
+    const zhEntries = (zh.default as { commands: { helpEntries: HelpEntryMap } }).commands.helpEntries;
+    const enEntries = (en.default as { commands: { helpEntries: HelpEntryMap } }).commands.helpEntries;
+    for (const rule of listRules()) {
+      for (const id of rule.capabilities.helpEntryIds) {
+        for (const [locale, entries] of [["zh", zhEntries], ["en", enEntries]] as const) {
+          const entry = entries[id];
+          expect(entry?.cmd, `${locale}.commands.helpEntries.${id}.cmd`).toBeTruthy();
+          expect(entry?.desc, `${locale}.commands.helpEntries.${id}.desc`).toBeTruthy();
+        }
+      }
+    }
+  });
+
+  it("帮助条目与 supportedCommands 保持一致", () => {
+    for (const rule of listRules()) {
+      const ids = rule.capabilities.helpEntryIds;
+      const commands = rule.capabilities.supportedCommands;
+      // Every rule documents `.help` itself.
+      expect(ids, rule.id).toContain("help");
+      // `.sc` row appears iff the rule honors `.sc` (COC 7th only).
+      expect(ids.includes("sc"), rule.id).toBe(commands.includes("sc"));
+      // Rules without `.rc` (Triangle) must not document any rc syntax.
+      if (!commands.includes("rc")) {
+        expect(ids.some((id) => id.startsWith("rc")), rule.id).toBe(false);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Derived stat cards (角色卡只读衍生属性)
 // ---------------------------------------------------------------------------
 
