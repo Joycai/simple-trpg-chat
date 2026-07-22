@@ -1249,7 +1249,7 @@ describe("hostLabelKey", () => {
     coc7th: "kp",
     dnd5e: "dm",
     triangle: "manager",
-    shouhun: "gm",
+    shouhun: "dh",
     basic: "gm",
   };
 
@@ -1276,6 +1276,7 @@ describe("hostLabelKey", () => {
     expect(zhLabels.kp).toBe("KP");
     expect(zhLabels.dm).toBe("DM");
     expect(zhLabels.manager).toBe("经理");
+    expect(zhLabels.dh).toBe("DH");
     expect(zhLabels.gm).toBe("主持人");
   });
 });

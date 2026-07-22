@@ -100,7 +100,7 @@ function parseXyGroup(group: string): { modifierExpression?: string } | null {
 }
 
 const capabilities: RuleCapabilities = {
-  hostLabelKey: "gm",
+  hostLabelKey: "dh",
   playerLabelKey: "soulHunter",
   hasSanity: false,
   hasPsychologyRoll: false,
