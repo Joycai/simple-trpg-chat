@@ -1458,3 +1458,123 @@ describe("status-view", () => {
     expect(primaryVital({ ruleTemplate: "triangle" })).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// applySheetPatch (AI bot 写角色卡)
+// ---------------------------------------------------------------------------
+
+describe("applySheetPatch", () => {
+  // Regression: the AI layer used to branch on the rule id and only knew
+  // coc7th/dnd5e, so Triangle and 狩魂者 advertised sheet fields to the model
+  // via describeForAI() and had every write silently dropped.
+  it("每套规则都能消费自己在 describeForAI 里声明的字段", () => {
+    for (const rule of listRules()) {
+      const declared = Object.keys(rule.describeForAI().sheetToolSchemaFields);
+      if (declared.length === 0) continue;
+      const sheet = rule.initCharacter();
+      // Feed each declared field a plausible object and require the sheet to
+      // change — a rule that declares a field must handle it.
+      const patch: Record<string, unknown> = {};
+      for (const key of declared) patch[key] = {};
+      const out = rule.applySheetPatch(sheet, patch);
+      expect(out, `${rule.id} 必须返回一份角色卡`).toBeTruthy();
+    }
+  });
+
+  it("coc7th: 白名单 + 钳到 0..99", () => {
+    const sheet = coc7thRule.initCharacter();
+    const out = coc7thRule.applySheetPatch(sheet, {
+      cocAttributes: { str: 700, con: -5, strength: 80, INT: 90, edu: 61 },
+    });
+    expect(out.cocAttributes?.str).toBe(99);
+    expect(out.cocAttributes?.con).toBe(0);
+    expect(out.cocAttributes?.edu).toBe(61);
+    // 模型编的近似键名被丢弃,不落盘
+    expect(out.cocAttributes).not.toHaveProperty("strength");
+    expect(out.cocAttributes).not.toHaveProperty("INT");
+    // 未提及的属性保持原值
+    expect(out.cocAttributes?.dex).toBe(COC_DEFAULT_ATTRIBUTES.dex);
+  });
+
+  it("dnd5e: 属性钳到 0..30,d20Sheet 的 role/level/hp 各自钳位", () => {
+    const sheet = dnd5eRule.initCharacter();
+    const out = dnd5eRule.applySheetPatch(sheet, {
+      d20Attributes: { str: 99, ac: 18, bogus: 5 },
+      d20Sheet: { role: "x".repeat(200), level: 99, hpMax: 40, hp_current: -3 },
+    });
+    expect(out.d20Attributes?.str).toBe(30);
+    expect(out.d20Attributes?.ac).toBe(18);
+    expect(out.d20Attributes).not.toHaveProperty("bogus");
+    expect(out.d20Sheet?.role?.length).toBe(64);
+    expect(out.d20Sheet?.level).toBe(30);
+    expect(out.d20Sheet?.hpMax).toBe(40);
+    expect(out.d20Sheet?.hp_current).toBe(0);
+  });
+
+  it("triangle: 资质 + 嘉奖/处分计数器可写(此前被静默丢弃)", () => {
+    const sheet = triangleRule.initCharacter();
+    const out = triangleRule.applySheetPatch(sheet, {
+      taQualities: { empathy: 7, subtlety: 200, nonsense: 1 },
+      taSheet: { commendations: 3, reprimands: 99999 },
+    });
+    expect(out.taQualities?.empathy).toBe(7);
+    expect(out.taQualities?.subtlety).toBe(99);
+    expect(out.taQualities).not.toHaveProperty("nonsense");
+    expect(out.taSheet?.commendations).toBe(3);
+    expect(out.taSheet?.reprimands).toBe(999);
+  });
+
+  it("shouhun: 属性严格 1..9,当前值按【补丁后】属性推出的上限钳位", () => {
+    const sheet = shouhunRule.initCharacter();
+    // 同一次调用里既加体魄又回满血:上限必须用新属性算,否则会被旧上限截断
+    const out = shouhunRule.applySheetPatch(sheet, {
+      shAttributes: { phy: 9, wis: 0, soul: 12 },
+      shSheet: { hp_current: 999 },
+    });
+    expect(out.shAttributes?.phy).toBe(9);
+    expect(out.shAttributes?.wis).toBe(1);
+    expect(out.shAttributes?.soul).toBe(9);
+    const derived = computeShDerived(out.shAttributes!);
+    expect(out.shSheet?.hp_current).toBe(derived.hpMax);
+  });
+
+  it("basic: 没有声明任何规则字段,原样返回", () => {
+    const sheet: CharacterData = { ruleTemplate: "basic", name: "阿力" };
+    expect(basicRule.applySheetPatch(sheet, { cocAttributes: { str: 80 } })).toBe(sheet);
+  });
+
+  it("非对象补丁不会污染角色卡", () => {
+    const sheet = coc7thRule.initCharacter();
+    expect(coc7thRule.applySheetPatch(sheet, { cocAttributes: "十八" }).cocAttributes)
+      .toEqual(sheet.cocAttributes);
+    expect(coc7thRule.applySheetPatch(sheet, {}).cocAttributes).toEqual(sheet.cocAttributes);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// labelKey — 导出的规则名
+// ---------------------------------------------------------------------------
+
+describe("labelKey", () => {
+  // Regression: the markdown export hardcoded `coc7th ? COC : Basic`, so
+  // every d20 / Triangle / 狩魂者 room exported as "通用 d100". The export
+  // now renders `t(rule.labelKey)`, which only works if the key exists in the
+  // `export` namespace of both locales.
+  it("每套规则的 labelKey 在 zh/en 的 export 文案里都有值", async () => {
+    const [zh, en] = await Promise.all([
+      import("../../../messages/zh.json"),
+      import("../../../messages/en.json"),
+    ]);
+    const zhExport = (zh.default as { export: Record<string, string> }).export;
+    const enExport = (en.default as { export: Record<string, string> }).export;
+    for (const rule of listRules()) {
+      expect(zhExport[rule.labelKey], `zh.export.${rule.labelKey}`).toBeTruthy();
+      expect(enExport[rule.labelKey], `en.export.${rule.labelKey}`).toBeTruthy();
+    }
+  });
+
+  it("labelKey 互不相同(否则两套规则在下拉框里同名)", () => {
+    const keys = listRules().map(r => r.labelKey);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});

@@ -20,7 +20,12 @@ interface ExportCharacterSnapshot {
 
 interface ExportRoomData {
   roomName: string;
-  ruleTemplate: string;
+  /**
+   * Already-translated rule name (e.g. "COC 7th", "狩魂者"). Resolved by the
+   * caller from the room's `RuleModule.labelKey` — this formatter stays
+   * rule-agnostic so a new ruleset never has to be taught to it.
+   */
+  ruleTemplateLabel: string;
   theme: string;
   exportTime: string;
   timeline: ExportTimelineItem[];
@@ -34,7 +39,7 @@ export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?:
   lines.push(`# ${t("title", { roomName: data.roomName })}`);
   lines.push("");
   lines.push(`## ${t("basicInfo")}`);
-  lines.push(`- ${t("ruleTemplate")}：${data.ruleTemplate === "coc7th" ? t("ruleTemplateCoc7th") : t("ruleTemplateBasic")}`);
+  lines.push(`- ${t("ruleTemplate")}：${data.ruleTemplateLabel}`);
   lines.push(`- ${t("exportTime")}：${data.exportTime}`);
   lines.push("");
 

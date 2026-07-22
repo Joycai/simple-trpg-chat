@@ -10,7 +10,7 @@ import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { executeCommand } from "@/lib/commands";
 import { z } from "zod";
 import type { CharacterData } from "@/lib/character-types";
-import { getRuleForRoom, listRules, listRuleIds } from "@/lib/rules";
+import { clampInt, getRuleForRoom, listRules, listRuleIds } from "@/lib/rules";
 import { validateApiEndpoint } from "@/lib/url-guard";
 
 // Zod Schema for Bot Config Validation (R17)
@@ -904,11 +904,17 @@ export async function runAgent(
                 eq(roomSkills.roomId, roomId),
                 eq(roomSkills.userId, botUserId)
               ));
-            const charData = memberInfo?.characterData ? JSON.parse(memberInfo.characterData) : null;
+            const charData: CharacterData | null = memberInfo?.characterData
+              ? JSON.parse(memberInfo.characterData)
+              : null;
+            // `exportSnapshot` is each rule's own answer to "what on this sheet
+            // is worth reporting?" — reading `cocAttributes`/`cocDerived`
+            // directly handed a d20 or Triangle bot two nulls and no way to
+            // learn its own stats.
+            const sheetRule = getRuleForRoom(room || {});
             result = {
               hasCharacterSheet: !!charData,
-              attributes: charData?.cocAttributes || null,
-              derived: charData?.cocDerived || null,
+              sheet: charData ? sheetRule.exportSnapshot(charData) : null,
               skills: skills.map(s => ({ name: s.skillName, value: s.skillValue })),
               customAttributes: charData?.customAttributes || [],
             };
@@ -925,12 +931,7 @@ export async function runAgent(
               ? JSON.parse(memberInfo.characterData)
               : { ruleTemplate: args.ruleTemplate || "basic" };
 
-            // Resolve the rule early so we can use its declared attribute
-            // whitelist below — keys not listed by the rule are dropped (the
-            // model occasionally invents non-canonical names like "strength"
-            // or "STR" that would otherwise persist as garbage on the sheet).
             const sheetRule = getRuleForRoom(room || { ruleTemplate: args.ruleTemplate as string | undefined });
-            const allowedAttrKeys = new Set(sheetRule.capabilities.attributeKeys.map(k => k.key));
 
             // Cap customAttributes — the schema is `{name, value, max?}[]` and
             // the model has no legitimate reason to emit dozens of them. Pre-
@@ -949,45 +950,12 @@ export async function runAgent(
               ...(trimmedCustom !== undefined ? { customAttributes: trimmedCustom } : {}),
             };
 
-            // The model is not trusted to stay within bounds — clamp numeric
-            // inputs so it can't write negative or absurd stats into the sheet.
-            const clampInt = (v: unknown, min: number, max: number, fallback: number) => {
-              const n = Math.round(Number(v));
-              return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
-            };
-
-            if (merged.ruleTemplate === "coc7th") {
-              if (args.cocAttributes && typeof args.cocAttributes === "object") {
-                const base = merged.cocAttributes || { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 };
-                const clamped: Record<string, number> = {};
-                for (const [k, v] of Object.entries(args.cocAttributes as Record<string, unknown>)) {
-                  if (!allowedAttrKeys.has(k)) continue;
-                  clamped[k] = clampInt(v, 0, 99, 50);
-                }
-                merged.cocAttributes = { ...base, ...clamped };
-              }
-            } else if (merged.ruleTemplate === "dnd5e") {
-              if (args.d20Attributes && typeof args.d20Attributes === "object") {
-                const base = merged.d20Attributes || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, pb: 2, ac: 10 };
-                const clamped: Record<string, number> = {};
-                for (const [k, v] of Object.entries(args.d20Attributes as Record<string, unknown>)) {
-                  if (!allowedAttrKeys.has(k)) continue;
-                  // Abilities + AC reasonable up to 30; pb usually 2–6 but
-                  // accept up to 10 for homebrew. Lower bound 0 in all cases.
-                  clamped[k] = clampInt(v, 0, 30, 10);
-                }
-                merged.d20Attributes = { ...base, ...clamped };
-              }
-              if (args.d20Sheet && typeof args.d20Sheet === "object") {
-                const incoming = args.d20Sheet as Record<string, unknown>;
-                const meta = { ...(merged.d20Sheet ?? {}) };
-                if (typeof incoming.role === "string") meta.role = incoming.role.slice(0, 64);
-                if (incoming.level !== undefined) meta.level = clampInt(incoming.level, 1, 30, 1);
-                if (incoming.hpMax !== undefined) meta.hpMax = clampInt(incoming.hpMax, 0, 999, 10);
-                if (incoming.hp_current !== undefined) meta.hp_current = clampInt(incoming.hp_current, 0, 999, 0);
-                merged.d20Sheet = meta;
-              }
-            }
+            // The model is not trusted to stay within bounds, and only the
+            // rule knows its own storage bag and legal ranges — so the rule
+            // that advertised these fields in `describeForAI` is also the one
+            // that validates them. Branching on the rule id here is what left
+            // Triangle and 狩魂者 writes silently dropped.
+            Object.assign(merged, sheetRule.applySheetPatch(merged, args as Record<string, unknown>));
 
             // Always run derivation through the rule so future computed
             // fields (e.g. COC cocDerived recomputation, d20 HP clamp) stay

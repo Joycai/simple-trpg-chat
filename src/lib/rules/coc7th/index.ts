@@ -27,6 +27,7 @@ import {
   type CocDerived,
 } from "@/lib/character-types";
 import { resolveCocStat } from "@/lib/coc-stats";
+import { clampAttributes } from "../patch-utils";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -130,6 +131,22 @@ export const coc7thRule: RuleModule = {
       },
       // 幸运 lives on the attribute bag but is mirrored into cocDerived.
       attributes: { luck: d.luck },
+    };
+  },
+
+  /**
+   * Accepts the one field `describeForAI` declares: `cocAttributes`.
+   * 0–99 is the COC 7th percentile range; 50 is the average human, which is
+   * the least surprising value to fall back to when the model sends garbage.
+   * HP/SAN/MP are not patchable — they derive from these, and `computeDerived`
+   * recomputes them after this returns.
+   */
+  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData {
+    const clamped = clampAttributes(patch.cocAttributes, COC_ATTRIBUTE_KEYS, 0, 99, 50);
+    if (!clamped) return sheet;
+    return {
+      ...sheet,
+      cocAttributes: { ...(sheet.cocAttributes ?? COC_DEFAULT_ATTRIBUTES), ...clamped },
     };
   },
 

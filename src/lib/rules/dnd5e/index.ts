@@ -17,6 +17,7 @@ import { rollDie } from "@/lib/utils";
 import type { CharacterData, D20Attributes, D20Sheet } from "@/lib/character-types";
 import { D20_DEFAULT_ATTRIBUTES } from "@/lib/character-types";
 import { resolveD20Stat } from "@/lib/d20-stats";
+import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -111,6 +112,34 @@ export const dnd5eRule: RuleModule = {
         : {},
       attributes: typeof ac === "number" ? { ac } : undefined,
     };
+  },
+
+  /**
+   * Accepts `d20Attributes` + `d20Sheet`, the two fields `describeForAI`
+   * declares. Abilities and AC top out at 30 (well past the 20 cap so homebrew
+   * still fits); pb is bounded by the same range rather than 2–6 for the same
+   * reason. Level 1–30 and HP 0–999 are similarly generous — the point is to
+   * reject nonsense, not to enforce the rulebook.
+   */
+  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData {
+    const out = { ...sheet };
+
+    const attrs = clampAttributes(patch.d20Attributes, D20_ATTRIBUTE_KEYS, 0, 30, 10);
+    if (attrs) {
+      out.d20Attributes = { ...(out.d20Attributes ?? D20_DEFAULT_ATTRIBUTES), ...attrs };
+    }
+
+    if (patch.d20Sheet && typeof patch.d20Sheet === "object") {
+      const incoming = patch.d20Sheet as Record<string, unknown>;
+      const meta: D20Sheet = { ...(out.d20Sheet ?? {}) };
+      if (typeof incoming.role === "string") meta.role = incoming.role.slice(0, 64);
+      if (incoming.level !== undefined) meta.level = clampInt(incoming.level, 1, 30, 1);
+      if (incoming.hpMax !== undefined) meta.hpMax = clampInt(incoming.hpMax, 0, 999, 10);
+      if (incoming.hp_current !== undefined) meta.hp_current = clampInt(incoming.hp_current, 0, 999, 0);
+      out.d20Sheet = meta;
+    }
+
+    return out;
   },
 
   routeStat(name: string): StatRoute {
