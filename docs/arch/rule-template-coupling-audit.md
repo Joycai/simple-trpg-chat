@@ -128,3 +128,39 @@
 **验收标准（对齐 refactor 文档的验收口径）**：审计后除 `registry.ts` / `rules/<name>/` 外，公共代码对 `ruleTemplate === "<id>"` 的字面分支应降为 **0**（`getRule()` 委派与 `capabilities` 读取不算）。
 
 **每步验证**：`npx tsc --noEmit` + `pnpm test`（现基线：类型 0 错，测试 394/395 通过；余 1 为 `encryption.test.ts` 的环境依赖失败，与规则无关）。前端交互项在本地 `pnpm dev` 手测。
+
+---
+
+## 六、修复进度（分支 `refactor/rule-template-decoupling`）
+
+> 更新时间：2026-07-22。以下按提交记录反映实际落地情况。所有已落地项均通过 `tsc --noEmit` + `pnpm test` + `pnpm lint`（基线：类型 0 错，测试全绿，仅 `encryption.test.ts` 一项环境依赖失败与本次无关）。
+
+### ✅ 已完成
+
+**P2 / P3 —— 消费端泄漏（commit `6945022`）**
+
+- `RuleModule.naturalGrade(roll, faces, count)`：把 `ai_agent.ts` 的掷骰大成功/大失败评级从 `id === "coc7th"/"basic"` 分支移入 coc7th / basic 模块；引擎改为 `rule.naturalGrade?.(...)`。
+- `RuleModule.applyResourcePatch(sheet, patch)` + `ResourcePatch` 类型：把 `updateResourcesAction` 的 dnd5e / shouhun / coc 资源钳制三分支移入各模块；action 改为单行委派。
+- `commands.ts` `readCurrentSanity`：改读 `capabilities.hasSanity` + `readStatus().resources.san`，删除 `coc7th` 硬编码。
+- `LobbyClient` 房间卡片徽标：新增 `useRuleLabelResolver`，对任意非 basic 规则用其 `labelKey` 渲染，替换 `coc7th` 骷髅硬编码。
+- `db/schema.ts` `RULE_TEMPLATES`：保留字面量（schema 层保持零依赖），改以 `rules.test.ts` 的**漂移守卫测试**防止与注册表脱节。
+- 新增 `naturalGrade` / `applyResourcePatch` 全规则单测。
+
+**P0 —— CharacterPanel 起步（commit `ac05b83`）**
+
+- `RuleModule.readAttributes(sheet)` / `writeAttributes(sheet, values)`：属性宫格通用 `Record` ↔ 各规则属性袋的读写（按 `attributeKeys` 白名单），全规则单测。
+- `CharacterPanel.buildAttributeValues`：4 路 `ruleTemplate ===` if-chain 收敛为一次 `readAttributes()` 委派。
+- 新增 `capabilities.resourceMaxEditable`（d20 自由设定 HP 上限），面板据此驱动可编辑上限，替换 `ruleTemplate === "dnd5e"`。
+
+至此公共代码的规则 id 硬编码分支：`CharacterPanel.tsx` 由 24 → **19**；其余公共文件（ai_agent / character.ts / commands / lobby / schema）已降为 **0**。
+
+### ⏳ 待完成（建议在能运行前端的会话中验证后落地）
+
+均集中在 `CharacterPanel.tsx`，且与「实时资源派生 / server action 落库语义 / 导出文本格式」强耦合，盲改有数据或可见输出回归风险，故留待可 `pnpm dev` 目视验证的一趟：
+
+1. **资源上限/当前值派生**（`cocDerived`/`shDerived` 直接调用，行 ~147–189、235–259）：改走 `writeAttributes → computeDerived → readStatus`；需先补齐 `readStatus` 覆盖 `spiritSense` 等展示字段，并处理 d20 未初始化 sheet 的 `hpMax ?? 10` 缺省差异。
+2. **`handleSaveAll`**（4 分支，行 ~288–318）：coc/狩魂 走 `updateResourcesAction`（可改他人）、d20/triangle 直存 sheet（仅自己）——落库语义不同，需统一保存契约后再用 `writeAttributes` + `applyResourcePatch` + `hasRoleLevel` 通用化。
+3. **`handleExport`**（4 分支，行 ~346–372）：可由 `capabilities.{resourceBars,attributeKeys,derivedStats}` + `readStatus().attributeGrades` 驱动；注意 COC/d20 现用 `KEY.toUpperCase()`、triangle/狩魂用 `t(labelKey)`，统一会改变 COC 导出标签（需产品确认）。
+4. **`P1` 数据模型下沉**：`character-types.ts` 的 per-rule 属性接口 / 默认值 / `compute*Derived` 迁入各 `rules/<name>/`；面板与 action 停止直接 import。波及面广，建议独立 PR。
+
+> 已就位的 `readAttributes` / `writeAttributes` / `applyResourcePatch` / `naturalGrade` / `resourceMaxEditable` 为上述 4 项提供了落地所需的规则侧接口。
