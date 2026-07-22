@@ -16,7 +16,7 @@
 import { rollDie } from "@/lib/utils";
 import type { CharacterData, D20Attributes, D20Sheet } from "@/lib/character-types";
 import { D20_DEFAULT_ATTRIBUTES } from "@/lib/character-types";
-import { resolveD20Stat } from "@/lib/d20-stats";
+import { resolveD20Stat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,

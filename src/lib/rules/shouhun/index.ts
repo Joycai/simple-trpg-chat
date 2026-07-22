@@ -37,7 +37,7 @@ import {
   type ShAttributes,
   type ShSheet,
 } from "@/lib/character-types";
-import { resolveShStat } from "@/lib/sh-stats";
+import { resolveShStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,

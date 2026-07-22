@@ -26,7 +26,7 @@ import {
   type CocAttributes,
   type CocDerived,
 } from "@/lib/character-types";
-import { resolveCocStat } from "@/lib/coc-stats";
+import { resolveCocStat } from "./stats";
 import { clampAttributes } from "../patch-utils";
 import type {
   AiRuleHints,

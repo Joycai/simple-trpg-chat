@@ -16,7 +16,7 @@
 
 import type { CharacterData, TaQualities, TaSheet } from "@/lib/character-types";
 import { TA_DEFAULT_QUALITIES } from "@/lib/character-types";
-import { resolveTaStat } from "@/lib/ta-stats";
+import { resolveTaStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
