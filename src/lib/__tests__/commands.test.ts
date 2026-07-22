@@ -488,3 +488,44 @@ describe("Commands - formatDiceRollMessage highlightFace stamping", () => {
     expect(detail.keptRolls).toHaveLength(2);
   });
 });
+
+// The `terms` array powers the structured chat renderer (Sample 1: per-term
+// count highlight + kept/dropped dice). It must appear on BOTH single-term and
+// compound detail, carry keep + keptRolls, and encode constants compactly.
+describe("Commands - formatDiceRollMessage structured `terms`", () => {
+  const t = (key: string) => key;
+
+  it("emits a single dice term with count/faces/rolls (no keep key when absent)", () => {
+    const res = parseAndRollExpression("2d6", t);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 2d6");
+    const detail = JSON.parse(diceDetail);
+    expect(detail.terms).toHaveLength(1);
+    const term = detail.terms[0];
+    expect(term).toMatchObject({ sign: "+", count: 2, faces: 6 });
+    expect(term.rolls).toHaveLength(2);
+    expect(term.keptRolls).toHaveLength(2);
+    expect(term).not.toHaveProperty("keep");
+  });
+
+  it("carries keep + a shorter keptRolls for kN keep-highest terms", () => {
+    const res = parseAndRollExpression("3d100k2", t);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 3d100k2");
+    const term = JSON.parse(diceDetail).terms[0];
+    expect(term.keep).toBe(2);
+    expect(term.rolls).toHaveLength(3);
+    expect(term.keptRolls).toHaveLength(2);
+  });
+
+  it("emits one entry per term for compound expressions, with signs and a constant", () => {
+    const res = parseAndRollExpression("3d100k2+2d20-1d6+5", t);
+    const { diceDetail } = formatDiceRollMessage(res.notation, res.terms, res.totalSum, t, ".r 3d100k2+2d20-1d6+5");
+    const detail = JSON.parse(diceDetail);
+    expect(detail.results).toEqual([]); // compound keeps results empty…
+    expect(detail.terms).toHaveLength(4); // …but the structured terms are present
+    expect(detail.terms[0]).toMatchObject({ sign: "+", count: 3, faces: 100, keep: 2 });
+    expect(detail.terms[1]).toMatchObject({ sign: "+", count: 2, faces: 20 });
+    expect(detail.terms[2]).toMatchObject({ sign: "-", count: 1, faces: 6 });
+    expect(detail.terms[3]).toEqual({ sign: "+", constant: 5 });
+    expect(detail.terms[3]).not.toHaveProperty("faces");
+  });
+});

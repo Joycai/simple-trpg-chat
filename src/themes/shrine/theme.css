@@ -852,8 +852,8 @@
   color: rgb(var(--theme-danger));
 }
 
-/* ---- Sanity card (.sc) — flat embed inside bubble, owns its own paddings ---- */
-[data-theme="shrine"] .chat-bubble-dice[data-roll-kind="sanity"] {
+/* ---- Card layouts (.sc/pool/check) — flat embed inside bubble, own paddings ---- */
+[data-theme="shrine"] .chat-bubble-dice[data-layout="card"] {
   background: transparent;
   border: none;
   padding: 0;
@@ -875,15 +875,28 @@
   border-bottom: 1px solid rgb(var(--theme-border));
 }
 [data-theme="shrine"] .sc-card-header .dice-icon {
-  background: rgb(var(--theme-danger));
-  color: rgb(var(--theme-primary-foreground));
-  border: 1px solid rgb(var(--theme-danger));
   border-radius: 6px;
   width: 28px;
   height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+/* Sanity → 朱红填充；TA pool → 苔绿填充（成功色）；狩魂 check → 鎏金填充 */
+[data-theme="shrine"] [data-card="sanity"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-danger));
+}
+[data-theme="shrine"] [data-card="pool"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-success));
+}
+[data-theme="shrine"] [data-card="breakdown"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-accent));
 }
 [data-theme="shrine"] .sc-card-title {
   flex: 1;
@@ -949,6 +962,55 @@
   color: rgb(var(--theme-danger));
   font-family: var(--theme-font-display);
   font-size: 0.82rem;
+}
+
+/* ---- 样例 1 · 行内结构化掷骰（骰子数鎏金 · kept 朱红 · 弃置淡化） ---- */
+[data-theme="shrine"] .dice-count {
+  color: rgb(var(--theme-accent));
+  font-weight: 600;
+}
+[data-theme="shrine"] .dice-kept-hit {
+  color: rgb(var(--theme-danger));
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--theme-danger) / 0.45);
+  text-underline-offset: 2px;
+}
+[data-theme="shrine"] .dice-drop {
+  color: rgb(var(--theme-text-dim));
+  opacity: 0.7;
+}
+
+/* ---- 样例 2 · TA 数「3」卡片 ---- */
+[data-theme="shrine"] .pool-success-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-family: var(--theme-font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: rgb(var(--theme-success) / 0.16);
+  color: rgb(var(--theme-success));
+  border: 1px solid rgb(var(--theme-success) / 0.4);
+}
+[data-theme="shrine"] .pool-success-chip[data-zero="true"] {
+  background: rgb(var(--theme-danger) / 0.16);
+  color: rgb(var(--theme-danger));
+  border-color: rgb(var(--theme-danger) / 0.4);
+}
+[data-theme="shrine"] .pool-success {
+  color: rgb(var(--theme-success));
+  font-weight: 600;
+}
+[data-theme="shrine"] .dice-face-hit {
+  color: rgb(var(--theme-success));
+  font-weight: 700;
+}
+
+/* ---- 样例 3 · 狩魂检定卡（技能名鎏金高亮 · 成功等级鎏金） ---- */
+[data-theme="shrine"] .check-card-skill {
+  color: rgb(var(--theme-accent));
 }
 
 /* ---- Inventory dispatch pill — host's distribution / share / update log ----

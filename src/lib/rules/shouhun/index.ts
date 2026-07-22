@@ -393,6 +393,18 @@ export const shouhunRule: RuleModule = {
       notation += modifier > 0 ? `+${modifier}` : `${modifier}`;
     }
 
+    // Structured breakdown for the card renderer: base d20 + 加骰(d4 pool) +
+    // 时髦骰(d6 pool). Split the engine-rolled modifier terms by face.
+    let bonus: { count: number; rolls: number[]; sum: number } | null = null;
+    let style: { count: number; rolls: number[]; sum: number } | null = null;
+    for (const term of req.modifierTerms ?? []) {
+      if (term.isConstant) continue;
+      const signed = term.sign === "-" ? -term.sum : term.sum;
+      if (term.faces === 4) bonus = { count: term.count, rolls: [...term.rolls], sum: signed };
+      else if (term.faces === 6) style = { count: term.count, rolls: [...term.rolls], sum: signed };
+    }
+    const breakdown = { base: roll, bonus, style };
+
     return {
       skillName: req.skillName,
       notation,
@@ -420,6 +432,10 @@ export const shouhunRule: RuleModule = {
           successLevel: successLevel ?? null,
           // Per-die breakdown shown in place of the plain notation.
           rollDisplay,
+          // Structured breakdown → the chat renderer draws a 狩魂 card
+          // (base d20 / 加骰 / 时髦骰 / 合计 / 成功等级). Its presence is the
+          // data-driven signal for the card layout (no rule-id branch there).
+          breakdown,
         },
       },
     };

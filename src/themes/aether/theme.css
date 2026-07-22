@@ -622,7 +622,7 @@
 }
 
 /* ---- 理智检定卡（.sc）— 气泡内嵌平铺，卡片自带内边距 ---- */
-[data-theme="aether"] .chat-bubble-dice[data-roll-kind="sanity"] {
+[data-theme="aether"] .chat-bubble-dice[data-layout="card"] {
   background: transparent;
   border: none;
   padding: 0;
@@ -644,15 +644,27 @@
   border-bottom: 1px solid rgb(var(--theme-border));
 }
 [data-theme="aether"] .sc-card-header .dice-icon {
-  background: rgb(var(--theme-danger));
-  color: rgb(var(--theme-primary-foreground));
-  border: 1px solid rgb(var(--theme-danger));
   border-radius: 6px;
   width: 28px;
   height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+[data-theme="aether"] [data-card="sanity"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-danger));
+}
+[data-theme="aether"] [data-card="pool"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-success));
+}
+[data-theme="aether"] [data-card="breakdown"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-accent));
 }
 [data-theme="aether"] .sc-card-title {
   flex: 1;

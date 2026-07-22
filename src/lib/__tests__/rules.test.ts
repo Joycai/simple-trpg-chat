@@ -1199,6 +1199,43 @@ describe("shouhunRule.resolveCheck — per-die breakdown (rollDisplay)", () => {
     const check = (r.detail as { check: Record<string, unknown> }).check;
     expect(check.rollDisplay).toBe("d20[10]");
   });
+
+  // The `check.breakdown` object is the data-driven signal for the 狩魂 card:
+  // base d20 + 加骰(d4 pool) + 时髦骰(d6 pool), split out of modifierTerms.
+  it("splits modifierTerms into a base/加骰/时髦骰 breakdown", () => {
+    mockRollDie.mockReturnValueOnce(14);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null,
+      explicitTarget: 12, modifierValue: 9, modifierTerms: TERMS_2D4_1D6,
+    });
+    const check = (r.detail as { check: Record<string, unknown> }).check;
+    expect(check.breakdown).toEqual({
+      base: 14,
+      bonus: { count: 2, rolls: [3, 4], sum: 7 },
+      style: { count: 1, rolls: [2], sum: 2 },
+    });
+  });
+
+  it("carries a negative sum on the 时髦骰 for subtracted d6 pools", () => {
+    mockRollDie.mockReturnValueOnce(15);
+    const r = shouhunRule.resolveCheck({
+      skillName: "侦查", target: 0, sheet: null,
+      modifierValue: -4,
+      modifierTerms: [{ sign: "-", count: 2, faces: 6, rolls: [1, 3], sum: 4, isConstant: false }],
+    });
+    const bd = (r.detail as { check: { breakdown: { base: number; bonus: unknown; style: { sum: number } } } }).check.breakdown;
+    expect(bd.base).toBe(15);
+    expect(bd.bonus).toBeNull();
+    expect(bd.style.sum).toBe(-4);
+  });
+
+  it("leaves bonus/style null for a plain d20 check", () => {
+    mockRollDie.mockReturnValueOnce(10);
+    const r = shouhunRule.resolveCheck({ skillName: "侦查", target: 0, sheet: null });
+    expect((r.detail as { check: { breakdown: unknown } }).check.breakdown).toEqual({
+      base: 10, bonus: null, style: null,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

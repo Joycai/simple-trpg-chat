@@ -128,12 +128,28 @@ function parseDiceMeta(diceDetail: string | null | undefined): {
   }
 }
 
+/** One evaluated term of a dice expression, persisted so the renderer can
+ *  highlight each term's dice count and (for kN rolls) the kept dice. */
+type DiceTerm =
+  | { sign: "+" | "-"; constant: number }
+  | { sign: "+" | "-"; count: number; faces: number; keep?: number; rolls: number[]; keptRolls: number[] };
+
+/** 狩魂者 structured breakdown for the card renderer. */
+type ShBreakdown = {
+  base: number;
+  bonus: { count: number; rolls: number[]; sum: number } | null;
+  style: { count: number; rolls: number[]; sum: number } | null;
+};
+
 type DiceDetailJson = {
   notation?: string;
   dice?: string;
   sum?: number;
   results?: number[];
   keptRolls?: number[];
+  /** Structured per-term breakdown (count / faces / rolls / kept), for both
+   *  single and compound expressions. Absent on messages predating this. */
+  terms?: DiceTerm[];
   /** Die face to accent per-die (stamped at roll time from the rule's `highlightDieFace`). */
   highlightFace?: number;
   command?: string;
@@ -146,6 +162,8 @@ type DiceDetailJson = {
     successLevel?: number | null;
     /** Rule-authored per-die breakdown (e.g. `d20[14] + 2d4[3, 4]`); shown in place of the notation. */
     rollDisplay?: string;
+    /** 狩魂者 structured breakdown → triggers the 狩魂 card layout. */
+    breakdown?: ShBreakdown;
   };
   sanityCheck?: {
     oldSanity: number;
@@ -162,6 +180,17 @@ function getRollKind(d: DiceDetailJson): RollKind {
   if (d.sanityCheck) return "sanity";
   if (d.check) return "check";
   return "plain";
+}
+
+/** Which card layout (if any) this dice message renders as. Data-driven — a
+ *  structured payload picks the layout, never a rule id: `sanityCheck` → COC
+ *  理智卡; `check.breakdown` → 狩魂卡; `highlightFace` (a plain pool roll such
+ *  as Triangle Agency's 6d4) → pool 数成功卡. */
+function diceCardType(d: DiceDetailJson): "sanity" | "breakdown" | "pool" | null {
+  if (d.sanityCheck) return "sanity";
+  if (d.check?.breakdown) return "breakdown";
+  if (typeof d.highlightFace === "number") return "pool";
+  return null;
 }
 
 /** d100 single-die check results pad to two digits per the design (`03` not `3`).
@@ -211,6 +240,147 @@ function DiceResultGrade({
       <span className="dice-result-grade-icon" aria-hidden><Icon className="w-3 h-3 inline-block" />{" "}</span>
       <span className="dice-result-grade-label">{t(grade)}</span>
     </span>
+  );
+}
+
+type DiceTFn = (key: string, opts?: Record<string, string | number | Date>) => string;
+
+/** Kept-dice positions for a kN term, matched as a multiset against `keptRolls`
+ *  (so duplicate faces resolve correctly). null when it isn't a keep roll. */
+function keptIndexSet(term: Extract<DiceTerm, { count: number }>): Set<number> | null {
+  if (term.keep == null || !Array.isArray(term.keptRolls) || term.keptRolls.length >= term.rolls.length) {
+    return null;
+  }
+  const pool = [...term.keptRolls];
+  const set = new Set<number>();
+  term.rolls.forEach((v, i) => {
+    const j = pool.indexOf(v);
+    if (j >= 0) { pool.splice(j, 1); set.add(i); }
+  });
+  return set;
+}
+
+/** Sample 1 — inline plain roll: each term's dice **count** is highlighted, and
+ *  for kN rolls the **kept** dice are picked out inside the [ ] array (dropped
+ *  dice dimmed). Replaces the old "(保留[…])" trailer. */
+function StructuredRoll({ terms, sum, isD100 }: { terms: DiceTerm[]; sum: number | undefined; isD100: boolean }) {
+  return (
+    <>
+      <span className="dice-formula">
+        {terms.map((term, ti) => {
+          const lead = ti === 0 ? (term.sign === "-" ? "-" : "") : ` ${term.sign} `;
+          if ("constant" in term) return <span key={ti}>{lead}{term.constant}</span>;
+          const kept = keptIndexSet(term);
+          return (
+            <span key={ti}>
+              {lead}
+              <span className="dice-count text-accent font-semibold">{term.count}</span>d{term.faces}
+              {term.keep != null ? `k${term.keep}` : ""}
+              {" ["}
+              {term.rolls.map((r, ri) => (
+                <span key={ri}>
+                  {ri > 0 ? ", " : ""}
+                  {kept
+                    ? kept.has(ri)
+                      ? <span className="dice-kept-hit text-primary font-semibold underline decoration-primary/40 underline-offset-2">{r}</span>
+                      : <span className="dice-drop text-text-dim opacity-70">{r}</span>
+                    : r}
+                </span>
+              ))}
+              {"]"}
+            </span>
+          );
+        })}
+        {" = "}
+      </span>
+      <span className="dice-value">{isD100 ? padD100(sum) : sum}</span>
+    </>
+  );
+}
+
+/** Sample 2 — pool roll counting a target face (Triangle Agency's 6d4 → 数「3」).
+ *  Card shows dice faces, success count, chaos (non-hits), and a qualitative
+ *  result. Driven by `highlightFace`, so it stays rule-agnostic. */
+function PoolCard({ d, face, t }: { d: DiceDetailJson; face: number; t: DiceTFn }) {
+  const firstTerm = d.terms?.find((x): x is Extract<DiceTerm, { count: number }> => "count" in x);
+  const rolls = firstTerm?.rolls ?? d.results ?? [];
+  const notation = firstTerm ? `${firstTerm.count}d${firstTerm.faces}` : (d.notation ?? "");
+  const successes = rolls.filter((r) => r === face).length;
+  const chaos = rolls.length - successes;
+  const resultText = successes === 0 ? t("taResultTrouble") : successes >= 3 ? t("taResultExceptional") : t("taResultDone");
+  return (
+    <div className="pool-card sc-card bg-dice-card-bg border border-dice-card-border rounded-theme overflow-hidden min-w-[280px]">
+      <div className="pool-card-header sc-card-header flex items-center gap-2.5 px-3 py-2 border-b border-border">
+        <span className="dice-icon inline-flex items-center justify-center w-7 h-7 rounded-theme bg-primary/10 text-primary border border-primary/30 shrink-0">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M12 4.5L19.5 18.5L4.5 18.5Z" /></svg>
+        </span>
+        <span className="dice-skill sc-card-title flex-1 font-semibold text-sm">{t("taRollTitle")}</span>
+        <span
+          className={`pool-success-chip inline-block px-2 py-0.5 rounded text-xs font-semibold border ${
+            successes === 0 ? "bg-danger/15 text-danger border-danger/30" : "bg-success/15 text-success border-success/30"
+          }`}
+          data-zero={successes === 0 ? "true" : undefined}
+        >
+          {t("taSuccessChip", { count: successes })}
+        </span>
+      </div>
+      <dl className="pool-card-body sc-card-body grid grid-cols-[minmax(56px,auto)_1fr] gap-x-4 gap-y-1 px-3 py-2 text-xs m-0">
+        <div className="sc-card-row contents">
+          <dt className="text-text-muted">{t("taDiceRow")} {notation}</dt>
+          <dd className="font-theme-mono text-text m-0">
+            {"["}
+            {rolls.map((r, i) => (
+              <span key={i}>{i > 0 ? " " : ""}{r === face ? <span className="dice-face-hit text-success font-bold">{r}</span> : r}</span>
+            ))}
+            {"]"}
+          </dd>
+        </div>
+        <div className="sc-card-row contents"><dt className="text-text-muted">{t("taSuccessRow", { face })}</dt><dd className="font-theme-mono m-0"><span className="pool-success text-success font-semibold">{successes}</span></dd></div>
+        <div className="sc-card-row contents"><dt className="text-text-muted">{t("taChaosRow", { face })}</dt><dd className="font-theme-mono text-text m-0">{chaos}</dd></div>
+        <div className="sc-card-row contents"><dt className="text-text-muted">{t("taResultRow")}</dt><dd className="text-text-muted m-0">{resultText}</dd></div>
+      </dl>
+    </div>
+  );
+}
+
+/** Sample 3 — 狩魂者 d20 + 加骰(d4) + 时髦骰(d6) → breakdown card. Skill name is
+ *  highlighted when set (falls back to a plain "检定"). Driven by
+ *  `check.breakdown`. */
+function ShBreakdownCard({ d, t }: { d: DiceDetailJson; t: DiceTFn }) {
+  const c = d.check!;
+  const bd = c.breakdown!;
+  const finalGrade: Exclude<DiceGrade, "none"> = c.grade && c.grade !== "none" ? c.grade : c.success ? "success" : "failure";
+  const skill = c.skillName?.trim();
+  const totalParts: string[] = [String(bd.base)];
+  if (bd.bonus) totalParts.push(bd.bonus.sum >= 0 ? `+ ${bd.bonus.sum}` : `- ${-bd.bonus.sum}`);
+  if (bd.style) totalParts.push(bd.style.sum >= 0 ? `+ ${bd.style.sum}` : `- ${-bd.style.sum}`);
+  return (
+    <div className="check-card sc-card bg-dice-card-bg border border-dice-card-border rounded-theme overflow-hidden min-w-[300px]">
+      <div className="check-card-header sc-card-header flex items-center gap-2.5 px-3 py-2 border-b border-border">
+        <span className="dice-icon inline-flex items-center justify-center w-7 h-7 rounded-theme bg-accent/10 text-accent border border-accent/30 shrink-0">
+          <Icons.Target className="w-4 h-4" />
+        </span>
+        <span className={`dice-skill sc-card-title flex-1 font-semibold text-sm${skill ? " check-card-skill text-accent" : ""}`}>{skill || t("shRollTitle")}</span>
+        <span className="sc-card-summary inline-flex items-baseline gap-1 font-theme-mono">
+          <span className="dice-value text-base font-semibold">{d.sum}</span>
+          <span className="dice-target text-text-dim text-xs"> / {c.target}</span>
+        </span>
+        <DiceResultGrade grade={finalGrade} t={t} />
+      </div>
+      <dl className="check-card-body sc-card-body grid grid-cols-[minmax(64px,auto)_1fr] gap-x-4 gap-y-1 px-3 py-2 text-xs m-0">
+        <div className="sc-card-row contents"><dt className="text-text-muted">{t("shBaseRow")} d20</dt><dd className="font-theme-mono text-text m-0">{bd.base}</dd></div>
+        {bd.bonus && (
+          <div className="sc-card-row contents"><dt className="text-text-muted">{t("shBonusRow")} {bd.bonus.count}d4</dt><dd className="font-theme-mono text-text m-0">[{bd.bonus.rolls.join(", ")}] <span className="text-text-muted">{t("shSumUnit", { sum: bd.bonus.sum })}</span></dd></div>
+        )}
+        {bd.style && (
+          <div className="sc-card-row contents"><dt className="text-text-muted">{t("shStyleRow")} {bd.style.count}d6</dt><dd className="font-theme-mono text-text m-0">[{bd.style.rolls.join(", ")}] <span className="text-text-muted">{t("shSumUnit", { sum: bd.style.sum })}</span></dd></div>
+        )}
+        <div className="sc-card-row contents"><dt className="text-text-muted">{t("shTotalRow")}</dt><dd className="font-theme-mono text-text m-0">{totalParts.join(" ")} = {d.sum}</dd></div>
+        {typeof c.successLevel === "number" && (
+          <div className="sc-card-row contents"><dt className="text-text-muted">{t("shLevelRow")}</dt><dd className="font-theme-mono text-accent font-semibold m-0">{c.successLevel}</dd></div>
+        )}
+      </dl>
+    </div>
   );
 }
 
@@ -286,7 +456,8 @@ function DiceResultDisplay({
   const isD100Check = !!d.check;
 
   if (d.check) {
-    const { skillName, target, success, grade, successLevel, rollDisplay } = d.check;
+    const { skillName, target, success, grade, successLevel, rollDisplay, breakdown } = d.check;
+    if (breakdown) return <ShBreakdownCard d={d} t={t} />;
     const finalGrade: Exclude<DiceGrade, "none"> =
       grade && grade !== "none" ? grade : success ? "success" : "failure";
     return (
@@ -319,28 +490,22 @@ function DiceResultDisplay({
   // the exact joined-string output below.
   const highlightFace = typeof d.highlightFace === "number" ? d.highlightFace : null;
 
+  // Sample 2 — a pool roll counting a target face renders as a card.
+  if (highlightFace !== null) return <PoolCard d={d} face={highlightFace} t={t} />;
+
+  // Sample 1 — a structured multi-term roll highlights per-term counts and
+  // picks out kept/dropped dice inline (replacing the old "(保留[…])" trailer).
+  if (Array.isArray(d.terms) && d.terms.length > 0) {
+    return <StructuredRoll terms={d.terms} sum={d.sum} isD100={isD100Check} />;
+  }
+
+  // Back-compat fallback for legacy messages that carry neither `terms` nor
+  // `highlightFace` (pre-structured detail): joined results + optional kept trailer.
   return (
     <>
       <span className="dice-formula">
         {rawNotation}
-        {showResults && highlightFace !== null ? (
-          <>
-            {" ["}
-            {d.results!.map((r, i) => (
-              <span key={i}>
-                {i > 0 && ", "}
-                {r === highlightFace ? (
-                  <span className="dice-face-hit text-accent font-bold">▲{r}</span>
-                ) : (
-                  r
-                )}
-              </span>
-            ))}
-            {"]"}
-          </>
-        ) : (
-          showResults && ` [${d.results!.join(", ")}]`
-        )}
+        {showResults && ` [${d.results!.join(", ")}]`}
         {keptRolls && (
           <span className="dice-kept">({keptLabel}[{keptRolls.join(", ")}])</span>
         )}
@@ -1235,6 +1400,7 @@ export const ChatMessage = memo(function ChatMessage({
   // of the bubble: echo into the header line, kind onto a data-attr for theming.
   let diceCommandEcho: string | null = null;
   let diceRollKind: RollKind = "plain";
+  let diceCardKind: "sanity" | "breakdown" | "pool" | null = null;
   let diceProxyNick: string | null = null;
   if (isDice && diceDetail) {
     try {
@@ -1243,6 +1409,7 @@ export const ChatMessage = memo(function ChatMessage({
         diceCommandEcho = d.command.trim();
       }
       diceRollKind = getRollKind(d);
+      diceCardKind = diceCardType(d);
       if (typeof d.proxiedByNickname === "string" && d.proxiedByNickname) {
         diceProxyNick = d.proxiedByNickname;
       }
@@ -1421,13 +1588,16 @@ export const ChatMessage = memo(function ChatMessage({
           data-grade={isDice ? diceMeta?.grade : undefined}
           data-kind={isDice ? diceMeta?.kind : undefined}
           data-roll-kind={isDice ? diceRollKind : undefined}
+          data-layout={isDice ? (diceCardKind ? "card" : "inline") : undefined}
+          data-card={isDice ? (diceCardKind ?? undefined) : undefined}
           data-audience={isDice ? (audience ?? "everyone") : undefined}
           data-insanity={isDice && diceMeta?.insanity ? "true" : undefined}
           data-psy={isDice && diceMeta?.psy ? "true" : undefined}
         >
           {isDice ? (
-            diceRollKind === "sanity" ? (
-              // Sanity card renders its own header/body/warning — no outer flex/icon wrapper.
+            diceCardKind !== null ? (
+              // Card layouts (理智 / 狩魂 / pool) render their own header/body —
+              // no outer flex/icon wrapper.
               <DiceResultDisplay diceDetail={diceDetail || content} fallback={content} t={t} />
             ) : (
               <div className="dice-bubble flex items-center gap-2 flex-wrap">
