@@ -622,7 +622,7 @@
 }
 
 /* ---- 理智检定卡（.sc）— 气泡内嵌平铺，卡片自带内边距 ---- */
-[data-theme="aether"] .chat-bubble-dice[data-roll-kind="sanity"] {
+[data-theme="aether"] .chat-bubble-dice[data-layout="card"] {
   background: transparent;
   border: none;
   padding: 0;
@@ -644,15 +644,27 @@
   border-bottom: 1px solid rgb(var(--theme-border));
 }
 [data-theme="aether"] .sc-card-header .dice-icon {
-  background: rgb(var(--theme-danger));
-  color: rgb(var(--theme-primary-foreground));
-  border: 1px solid rgb(var(--theme-danger));
   border-radius: 6px;
   width: 28px;
   height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+[data-theme="aether"] [data-card="sanity"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-danger));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-danger));
+}
+[data-theme="aether"] [data-card="pool"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-success));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-success));
+}
+[data-theme="aether"] [data-card="breakdown"] .sc-card-header .dice-icon {
+  background: rgb(var(--theme-accent));
+  color: rgb(var(--theme-primary-foreground));
+  border: 1px solid rgb(var(--theme-accent));
 }
 [data-theme="aether"] .sc-card-title {
   flex: 1;
@@ -718,6 +730,50 @@
   color: rgb(var(--theme-danger));
   font-family: var(--theme-font-display);
   font-size: 0.82rem;
+}
+
+/* ---- 掷骰展示增强：行内结构化 + TA/狩魂 卡片元素 ---- */
+[data-theme="aether"] .dice-count {
+  color: rgb(var(--theme-accent));
+  font-weight: 600;
+}
+[data-theme="aether"] .dice-kept-hit {
+  color: rgb(var(--theme-primary));
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--theme-primary) / 0.4);
+  text-underline-offset: 2px;
+}
+[data-theme="aether"] .dice-drop {
+  color: rgb(var(--theme-text-dim));
+  opacity: 0.7;
+}
+[data-theme="aether"] .pool-success-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-family: var(--theme-font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgb(var(--theme-success) / 0.16);
+  color: rgb(var(--theme-success));
+  border: 1px solid rgb(var(--theme-success) / 0.4);
+}
+[data-theme="aether"] .pool-success-chip[data-zero="true"] {
+  background: rgb(var(--theme-danger) / 0.16);
+  color: rgb(var(--theme-danger));
+  border-color: rgb(var(--theme-danger) / 0.4);
+}
+[data-theme="aether"] .pool-success {
+  color: rgb(var(--theme-success));
+  font-weight: 600;
+}
+[data-theme="aether"] .dice-face-hit {
+  color: rgb(var(--theme-success));
+  font-weight: 700;
+}
+[data-theme="aether"] .check-card-skill {
+  color: rgb(var(--theme-accent));
 }
 
 /* ---- 行内成败徽章（success / failure / critical / fumble）---- */

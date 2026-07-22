@@ -1019,6 +1019,22 @@ export function formatDiceRollMessage(
   rawCommand?: string,
   highlightFace?: number
 ): { content: string; diceDetail: string } {
+  // Structured, per-term breakdown persisted so the chat renderer can highlight
+  // each term's dice count and (for kN rolls) which dice were kept — without
+  // re-parsing the display string. Covers single AND compound expressions.
+  const detailTerms = terms.map((tm) =>
+    tm.type === "constant"
+      ? { sign: tm.sign, constant: tm.sum }
+      : {
+          sign: tm.sign,
+          count: tm.count,
+          faces: tm.faces,
+          ...(tm.keep !== undefined ? { keep: tm.keep } : {}),
+          rolls: tm.rolls,
+          keptRolls: tm.keptRolls,
+        },
+  );
+
   // If there's only one term and it's a dice term
   if (terms.length === 1 && terms[0].type === "dice") {
     const term = terms[0];
@@ -1035,6 +1051,7 @@ export function formatDiceRollMessage(
       sum: totalSum,
       results: term.rolls,
       keptRolls: term.keptRolls,
+      terms: detailTerms,
       ...(highlightFace !== undefined ? { highlightFace } : {}),
       command: rawCommand,
     });
@@ -1086,6 +1103,7 @@ export function formatDiceRollMessage(
     notation: displayStr,
     sum: totalSum,
     results: [],
+    terms: detailTerms,
     command: rawCommand,
   });
 
