@@ -928,6 +928,7 @@
     "distributeAll": "🌐 Distribute to All",
     "selectMultipleHint": "Or select multiple {player}:",
     "distributeConfirm": "Confirm Distribute ({count})",
+    "distributeKpConfirm": "\"{title}\" is currently {host}-only. Distributing will make it visible to all. Continue?",
     "distributeHistory": "Distribution History",
     "emptyHistory": "No records yet",
     "logShared": "Shared",

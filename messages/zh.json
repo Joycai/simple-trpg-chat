@@ -928,6 +928,7 @@
     "distributeAll": "🌐 全员发放",
     "selectMultipleHint": "或选择多名{player}",
     "distributeConfirm": "确认发放 ({count})",
+    "distributeKpConfirm": "「{title}」当前为仅{host}可见，发放后将变为全体可见。确定发放吗？",
     "distributeHistory": "发放历史",
     "emptyHistory": "暂无记录",
     "logShared": "共享",
