@@ -4,19 +4,18 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import {
-  NOTEBOOK_CATEGORIES,
   mentionQueryAt,
-  type NotebookCategory,
   type NotebookLinkEntity,
   NOTE_TITLE_MAX,
 } from "@/lib/notebook";
-import { CATEGORY_META, entityMeta, type Note } from "./notebook-helpers";
+import { colorMeta, entityMeta, type Category, type Note } from "./notebook-helpers";
 
 interface NotebookEditorProps {
   note: Note | null; // null = create
+  categories: Category[];
   entities: NotebookLinkEntity[];
   onCancel: () => void;
-  onSave: (input: { title: string; content: string; category: NotebookCategory }) => Promise<void>;
+  onSave: (input: { title: string; content: string; categoryId: number | null }) => Promise<void>;
 }
 
 const MAX_SUGGESTIONS = 6;
@@ -26,15 +25,13 @@ const MAX_SUGGESTIONS = 6;
  * textarea. Typing `@` opens a backpack picker (driven by `mentionQueryAt`);
  * picking an entry inserts its plain `@标题` token followed by a space.
  */
-export function NotebookEditor({ note, entities, onCancel, onSave }: NotebookEditorProps) {
+export function NotebookEditor({ note, categories, entities, onCancel, onSave }: NotebookEditorProps) {
   const t = useTranslations("notebook");
   const tCommon = useTranslations("common");
 
   const [title, setTitle] = useState(note?.title ?? "");
-  const [category, setCategory] = useState<NotebookCategory>(
-    (NOTEBOOK_CATEGORIES as readonly string[]).includes(note?.category ?? "")
-      ? (note!.category as NotebookCategory)
-      : "misc"
+  const [categoryId, setCategoryId] = useState<number | null>(
+    note && categories.some((c) => c.id === note.categoryId) ? note.categoryId : null
   );
   const [content, setContent] = useState(note?.content ?? "");
   const [saving, setSaving] = useState(false);
@@ -141,7 +138,7 @@ export function NotebookEditor({ note, entities, onCancel, onSave }: NotebookEdi
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      await onSave({ title: title.trim(), content, category });
+      await onSave({ title: title.trim(), content, categoryId });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : tCommon("error"));
     } finally {
@@ -182,23 +179,38 @@ export function NotebookEditor({ note, entities, onCancel, onSave }: NotebookEdi
           className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-lg font-bold text-text font-theme-display outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent/50"
         />
 
-        {/* Category chips */}
+        {/* Category chips — the user's own categories, tinted by label color */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-text-muted shrink-0">{t("categoryLabel")}</span>
-          {NOTEBOOK_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              aria-pressed={category === cat}
-              className={`px-3 py-1 rounded-full border text-xs font-bold transition cursor-pointer ${
-                category === cat
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "text-text-muted border-border hover:text-text hover:bg-surface-alt"
-              }`}
-            >
-              {t(CATEGORY_META[cat].labelKey)}
-            </button>
-          ))}
+          <button
+            onClick={() => setCategoryId(null)}
+            aria-pressed={categoryId === null}
+            className={`px-3 py-1 rounded-full border text-xs font-bold transition cursor-pointer ${
+              categoryId === null
+                ? "text-text border-text-muted bg-surface-alt"
+                : "text-text-muted border-border hover:text-text hover:bg-surface-alt"
+            }`}
+          >
+            {t("uncategorized")}
+          </button>
+          {categories.map((cat) => {
+            const meta = colorMeta(cat.color);
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setCategoryId(cat.id)}
+                aria-pressed={categoryId === cat.id}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold transition cursor-pointer ${
+                  categoryId === cat.id
+                    ? meta.chipOn
+                    : "text-text-muted border-border hover:text-text hover:bg-surface-alt"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta.dot}`} />
+                {cat.name}
+              </button>
+            );
+          })}
         </div>
 
         {/* Toolbar */}

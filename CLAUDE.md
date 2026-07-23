@@ -52,7 +52,7 @@ src/
 │   ├── login/
 │   └── rooms/[id]/
 ├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 20-table schema, seed
+├── db/                        # Drizzle client, 21-table schema, seed
 ├── lib/                       # 15 utility/service modules
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
@@ -70,7 +70,7 @@ For deep dives into specific systems, see `docs/`:
 
 | Topic | File |
 | ----- | ---- |
-| Database — 20 tables, schema, relations | `docs/arch/database.md` |
+| Database — 21 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
 | Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
@@ -135,7 +135,7 @@ Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图
 
 ### Notebook (记事本)
 
-Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Documents belong to one of 4 fixed categories (`clue` 线索整理 / `relation` 人物关系 / `timeline` 时间线 / `misc` 杂记), support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. Core: `src/lib/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Table: `notebook_notes`.
+Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. Core: `src/lib/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
 
 ### Invite-Code Registration
 

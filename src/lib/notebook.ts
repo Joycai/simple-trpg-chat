@@ -10,11 +10,19 @@
  * backpack, so a deleted item automatically degrades to plain text.
  */
 
-export const NOTEBOOK_CATEGORIES = ['clue', 'relation', 'timeline', 'misc'] as const;
-export type NotebookCategory = (typeof NOTEBOOK_CATEGORIES)[number];
+/**
+ * The 7 predefined label colors a category can pick from. Stored as keys in
+ * notebook_categories.color; each key maps to theme-token classes client-side
+ * (COLOR_META in notebook-helpers), so labels recolor with the active theme.
+ */
+export const NOTEBOOK_COLORS = ['primary', 'accent', 'success', 'warning', 'danger', 'ai', 'neutral'] as const;
+export type NotebookColor = (typeof NOTEBOOK_COLORS)[number];
 
 export const NOTE_TITLE_MAX = 100;
 export const NOTE_CONTENT_MAX = 20_000;
+export const CATEGORY_NAME_MAX = 20;
+/** Per user per room — enough for real use, low enough to stop runaway growth. */
+export const CATEGORY_MAX_COUNT = 12;
 
 /** A linkable backpack entry, as surfaced to the @-picker and the renderer. */
 export interface NotebookLinkEntity {

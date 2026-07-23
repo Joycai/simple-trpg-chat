@@ -5,11 +5,13 @@ import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { useClickOutside } from "@/lib/useClickOutside";
-import { extractMentions, type NotebookCategory, type NotebookLinkEntity } from "@/lib/notebook";
-import { CATEGORY_META, MentionChip, formatNoteDateTime, type Note } from "./notebook-helpers";
+import { extractMentions, type NotebookLinkEntity } from "@/lib/notebook";
+import { CategoryChip, MentionChip, formatNoteDateTime, type Category, type Note } from "./notebook-helpers";
 
 interface NotebookViewerProps {
   note: Note;
+  /** Resolved category record (null = uncategorized). */
+  category: Category | null;
   entities: NotebookLinkEntity[];
   readOnly: boolean;
   onEdit: () => void;
@@ -20,14 +22,13 @@ interface NotebookViewerProps {
 
 /** Read view of a note: header (title / category / edited-at / actions),
  *  markdown body with @-mention chips, and a footer listing linked entries. */
-export function NotebookViewer({ note, entities, readOnly, onEdit, onDelete, onBack }: NotebookViewerProps) {
+export function NotebookViewer({ note, category, entities, readOnly, onEdit, onDelete, onBack }: NotebookViewerProps) {
   const t = useTranslations("notebook");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   const links = useMemo(() => extractMentions(note.content, entities), [note.content, entities]);
-  const catMeta = CATEGORY_META[note.category as NotebookCategory] ?? CATEGORY_META.misc;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -73,10 +74,7 @@ export function NotebookViewer({ note, entities, readOnly, onEdit, onDelete, onB
           )}
         </div>
         <div className="flex items-center gap-2.5 mt-2 text-xs text-text-muted">
-          <span className="notebook-cat-chip inline-flex items-center gap-1 border border-accent/40 text-accent rounded-full px-2.5 py-0.5 font-bold">
-            <catMeta.Icon className="w-3 h-3" />
-            {t(catMeta.labelKey)}
-          </span>
+          <CategoryChip category={category} uncategorizedLabel={t("uncategorized")} />
           <span className="font-theme-mono">{formatNoteDateTime(note.updatedAt)} {t("edited")}</span>
         </div>
       </div>

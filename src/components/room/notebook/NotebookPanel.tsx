@@ -4,17 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
-import { getMyNotesAction, createNoteAction, updateNoteAction, deleteNoteAction } from "@/app/actions/notebook";
+import {
+  getMyNotebookAction,
+  createNoteAction,
+  updateNoteAction,
+  deleteNoteAction,
+  createCategoryAction,
+  updateCategoryAction,
+  deleteCategoryAction,
+} from "@/app/actions/notebook";
 import { getMyInventory } from "@/app/actions/inventory";
 import {
-  NOTEBOOK_CATEGORIES,
   extractMentions,
   highlightSegments,
   searchNotes,
-  type NotebookCategory,
+  type NotebookColor,
   type NotebookLinkEntity,
 } from "@/lib/notebook";
-import { CATEGORY_META, formatNoteDate, type Note } from "./notebook-helpers";
+import { CategoryChip, formatNoteDate, type Category, type Note } from "./notebook-helpers";
+import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryList";
 import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
 
@@ -23,8 +31,6 @@ interface NotebookPanelProps {
   onClose: () => void;
   readOnly?: boolean;
 }
-
-type CategoryFilter = "all" | NotebookCategory;
 
 /** Highlight helper for search results. */
 function Highlighted({ text, query }: { text: string; query: string }) {
@@ -41,9 +47,10 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 
 /**
  * 记事本 — per-user-per-room private notebook drawer. Notes load on open (no
- * SSE: nothing here is visible to anyone else). Left pane = search + category
- * nav + note list; right pane = viewer. A non-empty search replaces the panes
- * with a full-width result list; editing replaces them with the editor.
+ * SSE: nothing here is visible to anyone else). Left pane = search + editable
+ * category nav (user categories with one of 7 label colors) + note list;
+ * right pane = viewer. A non-empty search replaces the panes with a
+ * full-width result list; editing replaces them with the editor.
  */
 export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPanelProps) {
   const t = useTranslations("notebook");
@@ -51,22 +58,24 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [entities, setEntities] = useState<NotebookLinkEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ note: Note | null } | null>(null);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<CategoryFilter>("all");
+  const [filter, setFilter] = useState<CategoryFilter>("all");
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
       try {
-        const [myNotes, inventory] = await Promise.all([
-          getMyNotesAction(roomId),
+        const [notebook, inventory] = await Promise.all([
+          getMyNotebookAction(roomId),
           getMyInventory(roomId),
         ]);
-        setNotes(myNotes as Note[]);
+        setNotes(notebook.notes as Note[]);
+        setCategories(notebook.categories as Category[]);
         // Backpack entries → linkable entities (dedupe by item id: shared
         // copies of the same item may produce several distributions).
         const seen = new Set<number>();
@@ -85,6 +94,7 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
   }, [roomId]);
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
+  const categoryOf = (id: number | null) => categories.find((c) => c.id === id) ?? null;
 
   const linkCounts = useMemo(() => {
     const counts = new Map<number, number>();
@@ -93,20 +103,28 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
   }, [notes, entities]);
 
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const n of notes) counts[n.category] = (counts[n.category] ?? 0) + 1;
+    const counts = new Map<number | null, number>();
+    for (const n of notes) counts.set(n.categoryId, (counts.get(n.categoryId) ?? 0) + 1);
     return counts;
   }, [notes]);
 
-  const listNotes = category === "all" ? notes : notes.filter((n) => n.category === category);
+  const listNotes =
+    filter === "all" ? notes
+    : filter === "uncat" ? notes.filter((n) => n.categoryId === null)
+    : notes.filter((n) => n.categoryId === filter);
+  const filterLabel =
+    filter === "all" ? t("catAll")
+    : filter === "uncat" ? t("uncategorized")
+    : categoryOf(filter)?.name ?? "";
   const results = useMemo(() => searchNotes(notes, query), [notes, query]);
 
   const reload = async () => {
-    const myNotes = await getMyNotesAction(roomId);
-    setNotes(myNotes as Note[]);
+    const notebook = await getMyNotebookAction(roomId);
+    setNotes(notebook.notes as Note[]);
+    setCategories(notebook.categories as Category[]);
   };
 
-  const handleSave = async (input: { title: string; content: string; category: NotebookCategory }) => {
+  const handleSave = async (input: { title: string; content: string; categoryId: number | null }) => {
     const saved = editing?.note
       ? await updateNoteAction(roomId, editing.note.id, input)
       : await createNoteAction(roomId, input);
@@ -126,27 +144,33 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
     }
   };
 
+  const wrapCategoryError = async (fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+      await reload();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : tCommon("error"));
+      throw err;
+    }
+  };
+
+  const handleCategoryCreate = (input: { name: string; color: NotebookColor }) =>
+    wrapCategoryError(() => createCategoryAction(roomId, input));
+
+  const handleCategoryUpdate = (id: number, input: { name: string; color: NotebookColor }) =>
+    wrapCategoryError(() => updateCategoryAction(roomId, id, input));
+
+  const handleCategoryDelete = async (category: Category) => {
+    const count = categoryCounts.get(category.id) ?? 0;
+    if (!confirm(t("deleteCategoryConfirm", { name: category.name, count }))) return;
+    await wrapCategoryError(() => deleteCategoryAction(roomId, category.id));
+    if (filter === category.id) setFilter("all");
+  };
+
   const openResult = (id: number) => {
     setQuery("");
     setSelectedId(id);
   };
-
-  const catRow = (key: CategoryFilter, Icon: (typeof CATEGORY_META)["misc"]["Icon"], label: string, count: number) => (
-    <button
-      key={key}
-      onClick={() => setCategory(key)}
-      aria-pressed={category === key}
-      className={`notebook-cat w-full flex items-center gap-2.5 px-3 py-2 rounded-theme text-sm transition cursor-pointer border-l-2 ${
-        category === key
-          ? "bg-accent/10 text-accent font-bold border-accent"
-          : "text-text-muted hover:text-text hover:bg-surface-alt border-transparent"
-      }`}
-    >
-      <Icon className="w-4 h-4 shrink-0" />
-      <span className="flex-1 text-left truncate">{label}</span>
-      <span className="text-xs font-theme-mono opacity-70">{count}</span>
-    </button>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
@@ -167,6 +191,7 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
         {editing ? (
           <NotebookEditor
             note={editing.note}
+            categories={categories}
             entities={entities}
             onCancel={() => setEditing(null)}
             onSave={handleSave}
@@ -200,9 +225,7 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-2 text-xs">
-                    <span className="border border-accent/40 text-accent rounded-full px-2 py-px font-bold">
-                      {t(CATEGORY_META[(note.category as NotebookCategory)]?.labelKey ?? "catMisc")}
-                    </span>
+                    <CategoryChip category={categoryOf(note.categoryId)} uncategorizedLabel={t("uncategorized")} />
                     <span className="text-text-dim font-theme-mono">{formatNoteDate(note.updatedAt)}</span>
                   </div>
                 </button>
@@ -216,14 +239,21 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
               <div className="px-3 pt-3 shrink-0">
                 <SearchInput query={query} setQuery={setQuery} />
               </div>
-              <div className="px-3 pt-3 pb-2 space-y-0.5 border-b border-border shrink-0">
-                {catRow("all", Icons.Box, t("catAll"), notes.length)}
-                {NOTEBOOK_CATEGORIES.map((cat) =>
-                  catRow(cat, CATEGORY_META[cat].Icon, t(CATEGORY_META[cat].labelKey), categoryCounts[cat] ?? 0)
-                )}
+              <div className="px-3 pt-3 pb-2 border-b border-border shrink-0 overflow-y-auto max-h-[45%]">
+                <NotebookCategoryList
+                  categories={categories}
+                  counts={categoryCounts}
+                  totalCount={notes.length}
+                  active={filter}
+                  onSelect={setFilter}
+                  readOnly={readOnly}
+                  onCreate={handleCategoryCreate}
+                  onUpdate={handleCategoryUpdate}
+                  onDelete={handleCategoryDelete}
+                />
               </div>
               <div className="px-3 pt-2.5 pb-1 text-[11px] text-text-dim select-none shrink-0">
-                {category === "all" ? t("catAll") : t(CATEGORY_META[category].labelKey)} · {listNotes.length}
+                {filterLabel} · {listNotes.length}
               </div>
               <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1.5">
                 {loading && <p className="text-xs text-text-dim px-1 py-4">{tCommon("loading")}</p>}
@@ -264,6 +294,7 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
               {selected ? (
                 <NotebookViewer
                   note={selected}
+                  category={categoryOf(selected.categoryId)}
                   entities={entities}
                   readOnly={readOnly}
                   onEdit={() => setEditing({ note: selected })}
