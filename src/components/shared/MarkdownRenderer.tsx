@@ -1,13 +1,25 @@
 "use client";
 
 import { Fragment } from "react";
+import { segmentMentions, type NotebookLinkEntity } from "@/lib/notebook";
 
 /**
- * Lightweight Markdown renderer for chat bubbles.
- * Supports common LLM output patterns: headings, tables, code blocks,
- * bold, italic, inline code, strikethrough, links, lists.
+ * Optional @-mention support (notebook). When provided, plain-text runs are
+ * scanned for `@Title` tokens matching an entity title and rendered via
+ * `render`; unmatched `@` text stays literal, so a deleted backpack item
+ * degrades to plain text. Chat callers simply omit the prop.
  */
-export function MarkdownRenderer({ content }: { content: string }) {
+export interface MentionOptions {
+  entities: NotebookLinkEntity[];
+  render: (entity: NotebookLinkEntity, key: string) => React.ReactNode;
+}
+
+/**
+ * Lightweight Markdown renderer for chat bubbles and notebook notes.
+ * Supports common LLM output patterns: headings, tables, code blocks,
+ * blockquotes, bullet lists, bold, italic, inline code, strikethrough, links.
+ */
+export function MarkdownRenderer({ content, mentions }: { content: string; mentions?: MentionOptions }) {
   const parts = content.split(/(```[\s\S]*?```)/g);
 
   return (
@@ -31,13 +43,13 @@ export function MarkdownRenderer({ content }: { content: string }) {
             </pre>
           );
         }
-        return <BlockRenderer key={i} text={part} />;
+        return <BlockRenderer key={i} text={part} mentions={mentions} />;
       })}
     </>
   );
 }
 
-function BlockRenderer({ text }: { text: string }) {
+function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOptions }) {
   const lines = text.split("\n");
   const result: React.ReactNode[] = [];
 
@@ -55,11 +67,49 @@ function BlockRenderer({ text }: { text: string }) {
         ? "text-base font-bold mt-2 mb-1"
         : "text-sm font-bold mt-1 mb-0.5";
       result.push(
-        <div key={`h-${i}`} className={cls}>
-          <InlineRenderer text={headingMatch[2]} />
+        <div key={`h-${i}`} className={`md-heading ${cls}`}>
+          <InlineRenderer text={headingMatch[2]} mentions={mentions} />
         </div>
       );
       i++;
+      continue;
+    }
+
+    // Blockquote: consecutive lines starting with >
+    if (/^>\s?/.test(line)) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      result.push(
+        <blockquote key={`q-${i}`} className="md-quote border-l-2 border-accent/50 bg-surface-alt/50 pl-3 pr-2 py-1.5 my-2 text-sm text-text-muted italic rounded-r-theme">
+          {quoteLines.map((q, qi) => (
+            <p key={qi} className="leading-relaxed">
+              <InlineRenderer text={q} mentions={mentions} />
+            </p>
+          ))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    // Bullet list: consecutive lines starting with "- " or "* "
+    if (/^[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^[-*]\s+/, ""));
+        i++;
+      }
+      result.push(
+        <ul key={`ul-${i}`} className="md-list list-disc pl-5 my-1.5 space-y-1">
+          {items.map((item, li) => (
+            <li key={li} className="text-sm leading-relaxed">
+              <InlineRenderer text={item} mentions={mentions} />
+            </li>
+          ))}
+        </ul>
+      );
       continue;
     }
 
@@ -82,7 +132,7 @@ function BlockRenderer({ text }: { text: string }) {
                 <tr>
                   {headers.map((h, hi) => (
                     <th key={hi} className="border border-border bg-surface-alt px-2 py-1 text-left font-bold">
-                      <InlineRenderer text={h} />
+                      <InlineRenderer text={h} mentions={mentions} />
                     </th>
                   ))}
                 </tr>
@@ -92,7 +142,7 @@ function BlockRenderer({ text }: { text: string }) {
                   <tr key={ri}>
                     {row.map((cell, ci) => (
                       <td key={ci} className="border border-border px-2 py-1">
-                        <InlineRenderer text={cell} />
+                        <InlineRenderer text={cell} mentions={mentions} />
                       </td>
                     ))}
                   </tr>
@@ -115,7 +165,7 @@ function BlockRenderer({ text }: { text: string }) {
     // Regular paragraph: collect until empty line or special block
     result.push(
       <p key={`p-${i}`} className="text-sm whitespace-pre-wrap leading-relaxed my-0.5">
-        <InlineRenderer text={line} />
+        <InlineRenderer text={line} mentions={mentions} />
       </p>
     );
     i++;
@@ -133,9 +183,23 @@ function parseTableRow(line: string): string[] {
     .map(c => c.trim());
 }
 
-function InlineRenderer({ text }: { text: string }) {
+/** Render a plain-text run, expanding @-mentions when the caller opted in. */
+function PlainText({ text, mentions, keyPrefix }: { text: string; mentions?: MentionOptions; keyPrefix: string }) {
+  if (!mentions || mentions.entities.length === 0) return <>{text}</>;
+  return (
+    <>
+      {segmentMentions(text, mentions.entities).map((seg, si) =>
+        seg.kind === "mention"
+          ? <Fragment key={`${keyPrefix}-m-${si}`}>{mentions.render(seg.entity, `${keyPrefix}-m-${si}`)}</Fragment>
+          : <Fragment key={`${keyPrefix}-t-${si}`}>{seg.text}</Fragment>
+      )}
+    </>
+  );
+}
+
+function InlineRenderer({ text, mentions }: { text: string; mentions?: MentionOptions }) {
   const parts = text.split(
-    /(\*\*.*?\*\*|__.*?__|`.*?`|~~.*?~~|\[.*?\]\(.*?\))/g
+    /(\*\*.*?\*\*|__.*?__|`.*?`|~~.*?~~|\[.*?\]\(.*?\)|\*[^*\n]+\*)/g
   );
 
   return (
@@ -146,7 +210,7 @@ function InlineRenderer({ text }: { text: string }) {
           (part.startsWith("**") && part.endsWith("**")) ||
           (part.startsWith("__") && part.endsWith("__"))
         ) {
-          return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+          return <strong key={i} className="font-bold"><PlainText text={part.slice(2, -2)} mentions={mentions} keyPrefix={`b${i}`} /></strong>;
         }
         // Inline code
         if (part.startsWith("`") && part.endsWith("`")) {
@@ -159,6 +223,11 @@ function InlineRenderer({ text }: { text: string }) {
         // Strikethrough
         if (part.startsWith("~~") && part.endsWith("~~")) {
           return <del key={i} className="line-through text-text-dim">{part.slice(2, -2)}</del>;
+        }
+        // Italic (single *) — the split regex only captures this when the
+        // bold alternative didn't match first, so ** never lands here.
+        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+          return <em key={i} className="italic"><PlainText text={part.slice(1, -1)} mentions={mentions} keyPrefix={`i${i}`} /></em>;
         }
         // Link
         const linkMatch = part.match(/^\[(.+?)\]\((.+?)\)$/);
@@ -173,7 +242,7 @@ function InlineRenderer({ text }: { text: string }) {
             </a>
           );
         }
-        return <Fragment key={i}>{part}</Fragment>;
+        return <Fragment key={i}><PlainText text={part} mentions={mentions} keyPrefix={`p${i}`} /></Fragment>;
       })}
     </>
   );

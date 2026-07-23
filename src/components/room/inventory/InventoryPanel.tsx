@@ -10,6 +10,7 @@ import { ManageView } from "./ManageView";
 import { BackpackView } from "./BackpackView";
 import { CreateEditModal, DistributeModal, DetailModal, ShareModal } from "./InventoryModals";
 import { Icons } from "@/components/shared/icons";
+import { useHostLabel } from "@/components/shared/host-label";
 import type { InventoryItem, Distribution, ContentFields, InventoryItemType, ItemMeta } from "./inventory-helpers";
 import { DEFAULT_ITEM_META } from "./inventory-helpers";
 
@@ -31,6 +32,7 @@ interface InventoryPanelProps {
 export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClose, refreshKey = 0, readOnly = false, view = "backpack" }: InventoryPanelProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
+  const hostLabel = useHostLabel();
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
 
   // Each entry point (背包 / 道具管理) opens a fixed view; the manage view requires host.
@@ -187,6 +189,12 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
 
   const handleDistribute = async (targets: number[] | "all") => {
     if (!distributeItemId || !targets) return;
+    // Soft constraint: a KP-only info is host prep material — confirm before it
+    // leaves the KP's hands (the server then flips it to 全体可见).
+    const distItem = roomItems.find((it) => it.id === distributeItemId);
+    if (distItem?.type === "info" && distItem.visibility === "kp") {
+      if (!confirm(t("distributeKpConfirm", { title: distItem.title, host: hostLabel }))) return;
+    }
     try {
       if (targets === "all") {
         await distributeItemAction(roomId, distributeItemId, "all");

@@ -2,7 +2,7 @@
 
 ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push changes with `pnpm db:push`.
 
-## Tables (19)
+## Tables (21)
 
 | Table | Key Columns | Notes |
 | ----- | ----------- | ----- |
@@ -18,6 +18,8 @@ ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push change
 | `inventoryDistributions` | id, roomId, itemId, fromUserId, toUserId, action, viewed | `viewed` drives unread badge |
 | `clueCards` | id, roomId, creatorId, title, content, imageUrl | |
 | `clueVisibility` | id, clueId, userId, revealedAt | Controls which players can see each clue |
+| `notebookCategories` | id, roomId, userId, name, color, createdAt | User-editable notebook categories; `color` is one of 7 `NOTEBOOK_COLORS` theme-token keys. 4 localized defaults lazily seeded on first open. Unique on `(roomId, userId, name)` |
+| `notebookNotes` | id, roomId, userId, categoryId (FK `set null` → uncategorized), title, content, createdAt, updatedAt | Per-user-per-room private notebook (记事本); `content` is markdown with `@标题` backpack links resolved at render time (see `src/lib/notebook.ts`). Indexed on `(roomId, userId)` |
 | `loginHistory` | id, userId, ipAddress, userAgent, deviceType, loginAt | Auto-cleaned per user |
 | `aiProviders` | id, ownerId, name, apiEndpoint, apiKeyEncrypted, apiKeyHint, model, isShared, tokenRateInput, tokenRateCached, tokenRateOutput | Keys encrypted with AES-256-GCM |
 | `aiTokenUsages` | id, userId, providerId, day, inputTokens, cachedInputTokens, outputTokens | Aggregated daily |

@@ -52,7 +52,7 @@ src/
 │   ├── login/
 │   └── rooms/[id]/
 ├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 19-table schema, seed
+├── db/                        # Drizzle client, 21-table schema, seed
 ├── lib/                       # 15 utility/service modules
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
@@ -70,7 +70,7 @@ For deep dives into specific systems, see `docs/`:
 
 | Topic | File |
 | ----- | ---- |
-| Database — 19 tables, schema, relations | `docs/arch/database.md` |
+| Database — 21 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
 | Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
@@ -132,6 +132,10 @@ pnpm db:push  # Interactive mode — answer "No" to ai_token_usages truncate pro
 ### Room Backgrounds
 
 Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图 tab) and switch between them live; players get a local intensity slider (TopBar gear menu → personal section, localStorage, 0 = off). Uploads (≤5MB, JPEG/PNG/WebP — GIF rejected) are re-encoded server-side via `sharp` to bounded WebP (2560px / q80) under `cache/room-backgrounds/` (`ROOM_BACKGROUND_DIR`) — a **separate** directory from chat images because backgrounds are host prep material, not disposable cache; admin cleanup only touches them via an explicit opt-in checkbox. The image renders behind a per-theme scrim (`--theme-bg-scrim*` vars in each `theme.css`); `data-room-bg` on `<body>` softens opaque shells (globals.css). Switching broadcasts the existing `room_settings_updated` SSE event. Core: `src/lib/backgrounds.ts`, `src/app/api/rooms/[id]/backgrounds/`, `src/app/actions/background.ts`, `RoomBackground.tsx` (paints), `hooks/useRoomBgIntensity.ts` (intensity store shared with `RoomTopBar`), `RoomBackgroundManager.tsx`. Reverse-proxy note: nginx needs `client_max_body_size 6m`. Design doc: `docs/design/room-background.md`.
+
+### Notebook (记事本)
+
+Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. Core: `src/lib/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
 
 ### Invite-Code Registration
 

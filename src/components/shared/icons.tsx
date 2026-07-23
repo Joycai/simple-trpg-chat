@@ -12,6 +12,7 @@ import {
   RefreshCw, Share2, Box, File, Stamp,
   ArrowDown, Ban, Sparkles,
   Sunrise, Sun, Moon, CalendarDays, Undo2,
+  NotebookPen, BookOpen, AtSign, Bold, Italic, Heading2, List, Quote, Link2, MoreVertical,
   type LucideIcon,
 } from "lucide-react";
 
@@ -95,4 +96,14 @@ export const Icons = {
   Moon: wrap(Moon),
   CalendarDays: wrap(CalendarDays),
   Undo2: wrap(Undo2),
+  NotebookPen: wrap(NotebookPen),
+  BookOpen: wrap(BookOpen),
+  AtSign: wrap(AtSign),
+  Bold: wrap(Bold),
+  Italic: wrap(Italic),
+  Heading2: wrap(Heading2),
+  List: wrap(List),
+  Quote: wrap(Quote),
+  Link2: wrap(Link2),
+  MoreVertical: wrap(MoreVertical),
 };

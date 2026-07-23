@@ -258,6 +258,12 @@ export async function distributeItemAction(
   // Perform DB insertion and user lookup within transaction
   const recipients = await db.transaction(async (tx) => {
     await tx.insert(inventoryDistributions).values(values);
+    // Soft-constraint follow-through: once a KP-only info actually reaches a
+    // player, the marker no longer reflects reality — flip it to 全体可见.
+    // (The distribute UI confirms with the host before getting here.)
+    if (item.type === "info" && item.visibility === "kp") {
+      await tx.update(inventoryItems).set({ visibility: "all" }).where(eq(inventoryItems.id, itemId));
+    }
     return await tx
       .select({ id: users.id, name: users.displayName })
       .from(users)
@@ -429,13 +435,17 @@ export async function getMyInventory(roomId: number) {
     ),
     with: {
         item: true,
-        sender: true
+        sender: true,
+        recipient: true
     },
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
+  // toUsername (the player themselves) feeds the 持有 fallback in DetailModal —
+  // players get no distribution history, so this is their only holder source.
   return raw.map((d) => ({
     ...d,
+    toUsername: d.recipient?.displayName || d.recipient?.username,
     fromUsername: d.sender?.displayName || d.sender?.username
   }));
 }
