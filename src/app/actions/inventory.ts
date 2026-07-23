@@ -429,13 +429,17 @@ export async function getMyInventory(roomId: number) {
     ),
     with: {
         item: true,
-        sender: true
+        sender: true,
+        recipient: true
     },
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
+  // toUsername (the player themselves) feeds the 持有 fallback in DetailModal —
+  // players get no distribution history, so this is their only holder source.
   return raw.map((d) => ({
     ...d,
+    toUsername: d.recipient?.displayName || d.recipient?.username,
     fromUsername: d.sender?.displayName || d.sender?.username
   }));
 }

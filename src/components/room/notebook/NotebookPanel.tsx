@@ -26,7 +26,7 @@ import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryLis
 import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
 import { DetailModal } from "@/components/room/inventory/InventoryModals";
-import type { InventoryItem } from "@/components/room/inventory/inventory-helpers";
+import type { Distribution } from "@/components/room/inventory/inventory-helpers";
 
 interface NotebookPanelProps {
   roomId: number;
@@ -64,8 +64,9 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
   const [entities, setEntities] = useState<NotebookLinkEntity[]>([]);
   // Full backpack rows behind the link entities, so a clicked chip can open
   // the same detail view the backpack shows (keyed by inventory item id).
-  const [itemsById, setItemsById] = useState<Map<number, InventoryItem>>(new Map());
-  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
+  // The distribution rides along: DetailModal derives the 持有 line from it.
+  const [distsById, setDistsById] = useState<Map<number, Distribution>>(new Map());
+  const [detail, setDetail] = useState<Distribution | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ note: Note | null } | null>(null);
@@ -84,17 +85,17 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
         setCategories(notebook.categories as Category[]);
         // Backpack entries → linkable entities (dedupe by item id: shared
         // copies of the same item may produce several distributions).
-        const byId = new Map<number, InventoryItem>();
+        const byId = new Map<number, Distribution>();
         const linkable: NotebookLinkEntity[] = [];
-        for (const dist of inventory as Array<{ item?: InventoryItem | null }>) {
+        for (const dist of inventory as Distribution[]) {
           const item = dist.item;
           if (item && !byId.has(item.id)) {
-            byId.set(item.id, item);
+            byId.set(item.id, dist);
             linkable.push({ id: item.id, type: item.type, title: item.title });
           }
         }
         setEntities(linkable);
-        setItemsById(byId);
+        setDistsById(byId);
       } catch { /* panel simply shows the empty state */ }
       setLoading(false);
     })();
@@ -181,8 +182,8 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
 
   /** A clicked @-chip opens the entry's backpack detail (view-only). */
   const handleOpenEntity = (entity: NotebookLinkEntity) => {
-    const item = itemsById.get(entity.id);
-    if (item) setDetailItem(item);
+    const dist = distsById.get(entity.id);
+    if (dist?.item) setDetail(dist);
   };
 
   return (
@@ -326,15 +327,16 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
         )}
 
         {/* Backpack detail of a clicked @-chip — view-only reuse of the
-            inventory DetailModal (no dist/history: share/edit stay hidden). */}
-        {detailItem && (
+            inventory DetailModal (readOnly hides share/edit/distribute; the
+            distribution supplies the 持有 holder line). */}
+        {detail?.item && (
           <DetailModal
-            detailItem={detailItem}
-            detailDist={null}
+            detailItem={detail.item}
+            detailDist={detail}
             isHost={false}
             history={[]}
             readOnly={true}
-            onClose={() => setDetailItem(null)}
+            onClose={() => setDetail(null)}
             onEdit={() => {}}
             onShareOpen={() => {}}
             onDistribute={() => {}}
