@@ -74,16 +74,32 @@ export function entityMeta(type: string) {
   return ENTITY_META[type] ?? FALLBACK_ENTITY_META;
 }
 
-/** Inline chip for an @-linked backpack entity (used in note body + footer). */
-export function MentionChip({ entity, className = "" }: { entity: NotebookLinkEntity; className?: string }) {
+/**
+ * Inline chip for an @-linked backpack entity (used in note body + footer).
+ * With `onClick` it renders as a button that opens the entry's detail — chips
+ * only render for entities still present in the backpack, so a clickable chip
+ * is always a valid target (deleted items degrade to plain text upstream).
+ */
+export function MentionChip({ entity, className = "", onClick }: { entity: NotebookLinkEntity; className?: string; onClick?: (entity: NotebookLinkEntity) => void }) {
   const { Icon, chipClass } = entityMeta(entity.type);
+  const shared = `notebook-mention notebook-mention--${entity.type} inline-flex items-center gap-1 align-baseline border rounded-theme px-1.5 py-px text-[0.85em] font-bold leading-snug ${chipClass} ${className}`;
+  if (!onClick) {
+    return (
+      <span className={shared}>
+        <Icon className="w-3 h-3 shrink-0" />
+        {entity.title}
+      </span>
+    );
+  }
   return (
-    <span
-      className={`notebook-mention notebook-mention--${entity.type} inline-flex items-center gap-1 align-baseline border rounded-theme px-1.5 py-px text-[0.85em] font-bold leading-snug ${chipClass} ${className}`}
+    <button
+      type="button"
+      onClick={() => onClick(entity)}
+      className={`${shared} cursor-pointer hover:brightness-110 hover:underline underline-offset-2 transition`}
     >
       <Icon className="w-3 h-3 shrink-0" />
       {entity.title}
-    </span>
+    </button>
   );
 }
 

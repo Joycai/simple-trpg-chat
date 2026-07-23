@@ -18,11 +18,13 @@ interface NotebookViewerProps {
   onDelete: () => void;
   /** Mobile-only back-to-list handler. */
   onBack: () => void;
+  /** Opens the backpack detail of a clicked @-mention chip. */
+  onOpenEntity: (entity: NotebookLinkEntity) => void;
 }
 
 /** Read view of a note: header (title / category / edited-at / actions),
  *  markdown body with @-mention chips, and a footer listing linked entries. */
-export function NotebookViewer({ note, category, entities, readOnly, onEdit, onDelete, onBack }: NotebookViewerProps) {
+export function NotebookViewer({ note, category, entities, readOnly, onEdit, onDelete, onBack, onOpenEntity }: NotebookViewerProps) {
   const t = useTranslations("notebook");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,7 +86,7 @@ export function NotebookViewer({ note, category, entities, readOnly, onEdit, onD
         {note.content.trim() ? (
           <MarkdownRenderer
             content={note.content}
-            mentions={{ entities, render: (entity, key) => <MentionChip key={key} entity={entity} className="mx-0.5" /> }}
+            mentions={{ entities, render: (entity, key) => <MentionChip key={key} entity={entity} className="mx-0.5" onClick={onOpenEntity} /> }}
           />
         ) : (
           <p className="text-sm text-text-dim italic">{t("emptyContent")}</p>
@@ -98,7 +100,7 @@ export function NotebookViewer({ note, category, entities, readOnly, onEdit, onD
             {t("linksHeader")} · {links.length}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {links.map((e) => <MentionChip key={e.id} entity={e} />)}
+            {links.map((e) => <MentionChip key={e.id} entity={e} onClick={onOpenEntity} />)}
           </div>
         </div>
       )}
