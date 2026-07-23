@@ -1,12 +1,13 @@
 /**
  * Simple TRPG Chat — PostgreSQL Schema (Drizzle ORM)
  *
- * Single source of truth for the database (PostgreSQL only). 19 tables:
+ * Single source of truth for the database (PostgreSQL only). 20 tables:
  *   Identity:   users | invite_codes
  *   Room core:  rooms | room_members | room_skills | room_dm_reads | room_backgrounds
  *   Messaging:  messages
  *   Inventory:  inventory_items | inventory_distributions
  *   Clues:      clue_cards | clue_visibility
+ *   Notebook:   notebook_notes
  *   AI economy: ai_providers | ai_token_usages | ai_point_logs
  *   Platform:   system_config | daily_stats | bot_presets | login_history
  *
@@ -268,6 +269,28 @@ export const clueCards = pgTable('clue_cards', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
+/**
+ * Per-user-per-room private notebook (记事本). Every member keeps their own set
+ * of markdown notes inside a room; nobody else (host included) can read them.
+ * `category` is one of NOTEBOOK_CATEGORIES from src/lib/notebook.ts (validated
+ * in the server actions; kept as free text here so the schema layer stays free
+ * of UI vocabulary). `content` is markdown; `@Title` tokens link backpack
+ * items by title and degrade to plain text when the item disappears — nothing
+ * to cascade here.
+ */
+export const notebookNotes = pgTable('notebook_notes', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  category: text('category').notNull().default('misc'),
+  title: text('title').notNull(),
+  content: text('content').notNull().default(''),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, (t) => ({
+  idx_notebook_room_user: index('idx_notebook_room_user').on(t.roomId, t.userId),
+}));
+
 export const clueVisibility = pgTable('clue_visibility', {
   id: serial('id').primaryKey(),
   clueId: integer('clue_id').notNull().references(() => clueCards.id, { onDelete: 'cascade' }),
@@ -346,6 +369,11 @@ export const clueCardsRelations = relations(clueCards, ({ one, many }) => ({
   room: one(rooms, { fields: [clueCards.roomId], references: [rooms.id] }),
   creator: one(users, { fields: [clueCards.creatorId], references: [users.id] }),
   visibility: many(clueVisibility),
+}));
+
+export const notebookNotesRelations = relations(notebookNotes, ({ one }) => ({
+  room: one(rooms, { fields: [notebookNotes.roomId], references: [rooms.id] }),
+  user: one(users, { fields: [notebookNotes.userId], references: [users.id] }),
 }));
 
 export const clueVisibilityRelations = relations(clueVisibility, ({ one }) => ({

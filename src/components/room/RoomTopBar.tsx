@@ -68,6 +68,8 @@ interface RoomTopBarProps {
   showInventory: boolean;
   unreadItems: number;
   onToggleInventory: () => void;
+  showNotebook: boolean;
+  setShowNotebook: Dispatch<SetStateAction<boolean>>;
   checkMode: CheckMode;
   setCheckMode: Dispatch<SetStateAction<CheckMode>>;
   showCheckMenu: boolean;
@@ -114,6 +116,8 @@ export function RoomTopBar({
   showInventory,
   unreadItems,
   onToggleInventory,
+  showNotebook,
+  setShowNotebook,
   checkMode,
   setCheckMode,
   showCheckMenu,
@@ -237,6 +241,14 @@ export function RoomTopBar({
                 {unreadItems > 9 ? "9+" : unreadItems}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setShowNotebook(!showNotebook)}
+            className={`${iconBtn} ${showNotebook ? iconActive : iconIdle}`}
+            title={t("tooltipNotebook")}
+            aria-pressed={showNotebook}
+          >
+            <Icons.NotebookPen className="w-[18px] h-[18px]" />
           </button>
           <button
             onClick={() => setShowSkills(!showSkills)}

@@ -3,6 +3,7 @@
 import { CharacterPanel } from "@/components/room/character/CharacterPanel";
 import { RoomSettings } from "@/components/room/RoomSettings";
 import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
+import { NotebookPanel } from "@/components/room/notebook/NotebookPanel";
 import { BotManager } from "@/components/room/bot/BotManager";
 import { AiImportPanel } from "@/components/room/bot/AiImportPanel";
 import { ExportButton } from "@/components/room/ExportButton";
@@ -59,6 +60,8 @@ interface RoomOverlaysProps {
   setShowMembers: (v: boolean) => void;
   showInventory: boolean;
   setShowInventory: (v: boolean) => void;
+  showNotebook: boolean;
+  setShowNotebook: (v: boolean) => void;
   showItemManager: boolean;
   setShowItemManager: (v: boolean) => void;
   showTimeline: boolean;
@@ -100,7 +103,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     inventoryRefreshKey, skillRefreshKey, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
-    showMembers, setShowMembers, showInventory, setShowInventory, showItemManager, setShowItemManager,
+    showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
     showTimeline, setShowTimeline,
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
     showSkills, setShowSkills, showUserSettings, setShowUserSettings,
@@ -214,6 +217,9 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       )}
       {showInventory && (
         <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowInventory(false)} readOnly={readOnly} />
+      )}
+      {showNotebook && (
+        <NotebookPanel roomId={room.id} readOnly={readOnly} onClose={() => setShowNotebook(false)} />
       )}
       {showItemManager && isHost && (
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />

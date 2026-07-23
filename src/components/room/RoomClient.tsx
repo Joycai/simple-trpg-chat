@@ -65,6 +65,7 @@ export function RoomClient({
   const [showSettings, setShowSettings] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [showNotebook, setShowNotebook] = useState(false);
   const [showItemManager, setShowItemManager] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
@@ -576,6 +577,8 @@ export function RoomClient({
         showInventory={showInventory}
         unreadItems={unreadItems}
         onToggleInventory={handleToggleInventory}
+        showNotebook={showNotebook}
+        setShowNotebook={setShowNotebook}
         checkMode={checkMode}
         setCheckMode={setCheckMode}
         showCheckMenu={showCheckMenu}
@@ -719,6 +722,8 @@ export function RoomClient({
         setShowMembers={setShowMembers}
         showInventory={showInventory}
         setShowInventory={setShowInventory}
+        showNotebook={showNotebook}
+        setShowNotebook={setShowNotebook}
         showItemManager={showItemManager}
         setShowItemManager={setShowItemManager}
         showTimeline={showTimeline}
