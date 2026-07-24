@@ -171,6 +171,13 @@ import { <Id>LoginHero } from "@/themes/<id>/<Id>LoginHero";
 
   /* SVG 分隔线（被 .conv-divider 使用） */
   --theme-divider: url("data:image/svg+xml,...");
+
+  /* 顶栏通用功能区（角色/背包/记事本/成员）的统一"导航"身份色。
+     消费端用 rgb(var(--theme-nav, 94 134 150))，不写则回退到一个冷调
+     slate（在明暗底上都可读）。设计意图：一个冷色让通用区成组，且和
+     主持人区的暖色语义色（accent/primary/ai）拉开——所以主题若要覆盖，
+     请选一个和自身 primary/accent 都不同的冷调。可选。 */
+  --theme-nav: R G B;
 }
 ```
 

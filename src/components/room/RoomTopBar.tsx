@@ -63,8 +63,6 @@ interface RoomTopBarProps {
   // Panel toggles
   showCharacter: boolean;
   setShowCharacter: Dispatch<SetStateAction<boolean>>;
-  showSkills: boolean;
-  setShowSkills: Dispatch<SetStateAction<boolean>>;
   showInventory: boolean;
   unreadItems: number;
   onToggleInventory: () => void;
@@ -111,8 +109,6 @@ export function RoomTopBar({
   onSaveRoomName,
   showCharacter,
   setShowCharacter,
-  showSkills,
-  setShowSkills,
   showInventory,
   unreadItems,
   onToggleInventory,
@@ -151,6 +147,11 @@ export function RoomTopBar({
   const iconBtn = "relative flex items-center justify-center w-9 h-9 rounded-theme border transition-colors cursor-pointer";
   const iconActive = "bg-primary/10 text-primary border-primary/40";
   const iconIdle = "text-text-muted hover:text-text hover:bg-surface-alt border-transparent";
+  // Common (personal) group — 角色/背包/记事本/成员 share one cool "nav" identity,
+  // so the cluster reads as a unit and stays distinct from both the neutral gear
+  // and the host group's warm per-function colors (--theme-nav, themeable).
+  const iconNavActive = "bg-nav/15 text-nav border-nav/45";
+  const iconNavIdle = "text-nav/85 hover:text-nav hover:bg-nav/10 border-transparent";
   // Host-only variants — accent (gold) for 检定, primary (vermilion) for 道具,
   // ai (violet) for Bot/AI. 检定 and 道具 must read as distinct colors.
   const iconAccentActive = "bg-accent/15 text-accent border-accent/50";
@@ -223,7 +224,7 @@ export function RoomTopBar({
           {/* Group 1: common controls (host + player) — icon bar */}
           <button
             onClick={() => setShowCharacter(!showCharacter)}
-            className={`${iconBtn} ${showCharacter ? iconActive : iconIdle}`}
+            className={`${iconBtn} ${showCharacter ? iconNavActive : iconNavIdle}`}
             title={`${t("tooltipCharacter")} · ${nickname}`}
             aria-pressed={showCharacter}
           >
@@ -231,7 +232,7 @@ export function RoomTopBar({
           </button>
           <button
             onClick={onToggleInventory}
-            className={`${iconBtn} ${showInventory ? iconActive : iconIdle}`}
+            className={`${iconBtn} ${showInventory ? iconNavActive : iconNavIdle}`}
             title={t("tooltipInventory")}
             aria-pressed={showInventory}
           >
@@ -244,23 +245,15 @@ export function RoomTopBar({
           </button>
           <button
             onClick={() => setShowNotebook(!showNotebook)}
-            className={`${iconBtn} ${showNotebook ? iconActive : iconIdle}`}
+            className={`${iconBtn} ${showNotebook ? iconNavActive : iconNavIdle}`}
             title={t("tooltipNotebook")}
             aria-pressed={showNotebook}
           >
             <Icons.NotebookPen className="w-[18px] h-[18px]" />
           </button>
           <button
-            onClick={() => setShowSkills(!showSkills)}
-            className={`${iconBtn} ${showSkills ? iconActive : iconIdle}`}
-            title={t("tooltipSkills")}
-            aria-pressed={showSkills}
-          >
-            <Icons.SlidersHorizontal className="w-[18px] h-[18px]" />
-          </button>
-          <button
             onClick={onToggleSidebar}
-            className={`${iconBtn} ${!sidebarCollapsed ? iconActive : iconIdle}`}
+            className={`${iconBtn} ${!sidebarCollapsed ? iconNavActive : iconNavIdle}`}
             title={sidebarCollapsed ? t("tooltipExpandDm") : t("tooltipCollapseSidebar")}
             aria-pressed={!sidebarCollapsed}
           >
