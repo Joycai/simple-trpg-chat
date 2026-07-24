@@ -18,7 +18,8 @@ interface NotebookCategoryListProps {
   readOnly: boolean;
   onCreate: (input: { name: string; color: NotebookColor }) => Promise<void>;
   onUpdate: (id: number, input: { name: string; color: NotebookColor }) => Promise<void>;
-  onDelete: (category: Category) => Promise<void>;
+  /** Only raises the confirm dialog — the drawer owns the delete itself. */
+  onDelete: (category: Category) => void;
 }
 
 /** Inline name + 7-swatch color form, shared by "edit" and "new" states. */
@@ -33,7 +34,7 @@ function CategoryForm({
   initialColor: NotebookColor;
   onSubmit: (input: { name: string; color: NotebookColor }) => Promise<void>;
   onCancel: () => void;
-  onDelete?: () => Promise<void>;
+  onDelete?: () => void;
 }) {
   const t = useTranslations("notebook");
   const [name, setName] = useState(initialName);
@@ -86,7 +87,7 @@ function CategoryForm({
         </button>
         {onDelete && (
           <button
-            onClick={() => void onDelete()}
+            onClick={onDelete}
             disabled={busy}
             title={t("deleteCategory")}
             className="flex items-center justify-center w-7 h-7 rounded-theme text-danger hover:bg-danger/10 transition cursor-pointer disabled:opacity-50"
@@ -175,7 +176,9 @@ export function NotebookCategoryList({
             initialColor={(cat.color as NotebookColor) || "neutral"}
             onSubmit={async (input) => { await onUpdate(cat.id, input); setEditingId(null); }}
             onCancel={() => setEditingId(null)}
-            onDelete={async () => { await onDelete(cat); setEditingId(null); }}
+            // Collapse the inline form first, so the confirm dialog isn't
+            // asking about a row that is still in edit mode behind it.
+            onDelete={() => { setEditingId(null); onDelete(cat); }}
           />
         ) : (
           row(

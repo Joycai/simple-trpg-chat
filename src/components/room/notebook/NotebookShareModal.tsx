@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
+import { Notice } from "@/components/shared/Notice";
 import { Portal } from "@/components/room/inventory/InventorySkeletons";
 import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
 import type { InventoryPlayer } from "@/components/room/inventory/inventory-helpers";
@@ -16,6 +17,8 @@ interface NotebookShareModalProps {
   onCancel: () => void;
   onShare: (targetIds: number[]) => void;
   sending: boolean;
+  /** Send failure, shown in place — the picker stays open to retry from. */
+  error?: string | null;
 }
 
 /**
@@ -25,7 +28,7 @@ interface NotebookShareModalProps {
  * independent — the modal's info line spells that out so the sender knows edits
  * won't sync.
  */
-export function NotebookShareModal({ note, players, userId, onCancel, onShare, sending }: NotebookShareModalProps) {
+export function NotebookShareModal({ note, players, userId, onCancel, onShare, sending, error }: NotebookShareModalProps) {
   const t = useTranslations("notebook");
   const tCommon = useTranslations("common");
 
@@ -94,6 +97,8 @@ export function NotebookShareModal({ note, players, userId, onCancel, onShare, s
           <div className="mt-4 flex items-start gap-2 px-3 py-2.5 rounded-theme border border-border bg-surface-alt/30 text-xs text-text-muted">
             <Icons.Info className="w-4 h-4 shrink-0 mt-0.5" /> <span>{t("shareCopyNote")}</span>
           </div>
+
+          {error && <Notice variant="error" className="mt-4">{error}</Notice>}
 
           {/* Footer */}
           <div className="mt-5 flex items-center justify-end gap-3">

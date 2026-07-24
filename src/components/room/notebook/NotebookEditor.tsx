@@ -58,18 +58,15 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
     if (dirtyRef) dirtyRef.current = () => dirty;
   });
 
-  const handleCancel = () => { if (!dirty || confirm(t("discardConfirm"))) onCancel(); };
-
+  // No guard here: the drawer owns the discard dialog for both teardown paths
+  // (its own close and this back arrow), reading `dirtyRef` above.
   const handleSave = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
+      // Failures — expected and unexpected alike — are reported by the caller
+      // as a localized banner; we only need to release the button.
       await onSave({ title: title.trim(), content, categoryId });
-    } catch {
-      // Expected failures are already reported (localized) by the caller; this
-      // only catches the unexpected, where a raw message would be Next's
-      // production redaction notice rather than anything the user can act on.
-      alert(tCommon("error"));
     } finally {
       setSaving(false);
     }
@@ -81,7 +78,7 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
     <div className="flex flex-col h-full min-h-0">
       {/* Editor header: back + title + save */}
       <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-border shrink-0">
-        <button onClick={handleCancel} className={toolBtn} aria-label={tCommon("cancel")}>
+        <button onClick={onCancel} className={toolBtn} aria-label={tCommon("cancel")}>
           <Icons.ArrowLeft className="w-5 h-5" />
         </button>
         <h4 className="font-bold text-text text-lg font-theme-display flex-1 truncate">
