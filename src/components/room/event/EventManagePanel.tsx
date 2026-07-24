@@ -188,7 +188,7 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-theme bg-danger text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 cursor-pointer"
                     >
                       {confirmBusy && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
-                      {confirm.kind === "retract" ? t("retractAction") : tCommon("delete")}
+                      {confirm.kind === "retract" ? t("retractAction") : t("delete")}
                     </button>
                   </div>
                 </div>

@@ -263,7 +263,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                     <button
                       onClick={() => setImages((prev) => prev.filter((u) => u !== url))}
                       className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/55 text-white flex items-center justify-center opacity-90 hover:bg-danger transition"
-                      title={tCommon("delete")}
+                      title={t("delete")}
                     >
                       <Icons.X className="w-3 h-3" />
                     </button>
