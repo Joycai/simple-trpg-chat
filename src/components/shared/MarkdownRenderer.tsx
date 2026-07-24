@@ -67,7 +67,7 @@ function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOpt
         ? "text-base font-bold mt-2 mb-1"
         : "text-sm font-bold mt-1 mb-0.5";
       result.push(
-        <div key={`h-${i}`} className={`md-heading ${cls}`}>
+        <div key={`h-${i}`} className={`md-heading md-h${level} ${cls}`}>
           <InlineRenderer text={headingMatch[2]} mentions={mentions} />
         </div>
       );
