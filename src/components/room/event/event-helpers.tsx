@@ -12,19 +12,20 @@ import type { EventStatus } from "@/db/schema";
 
 /**
  * MarkdownRenderer emits block elements (headings, paragraphs, lists, quotes,
- * spacers). For a clamped one-liner/teaser we flatten those to inline so the
- * `line-clamp` counts wrapped lines and the ellipsis lands — while leaving the
- * genuinely-inline runs (bold / italic / links / mention chips) untouched, so
- * markdown *styling* still shows. Block bullets become an inline "· " marker.
+ * spacers). For a clamped teaser we KEEP that block flow — so real newlines and
+ * paragraphs break onto their own lines — and just tighten the spacing, then let
+ * `line-clamp` count the actual lines and drop the ellipsis. Inline runs (bold /
+ * italic / links / mention chips) are untouched, so markdown styling still shows.
+ * Blank-line spacers are hidden (paragraphs still break, just without the gap)
+ * and headings are normalized to body size so the line math stays even.
  */
-const INLINE_MD = [
-  "[&_p]:!inline [&_div]:!inline [&_ul]:!inline [&_ol]:!inline [&_li]:!inline",
-  "[&_blockquote]:!inline [&_pre]:!inline [&_table]:!inline [&_thead]:!inline [&_tbody]:!inline [&_tr]:!inline [&_th]:!inline [&_td]:!inline",
-  "[&_p]:!my-0 [&_p]:!ml-0 [&_p]:!mr-1.5 [&_div]:!m-0 [&_ul]:!m-0 [&_ul]:!p-0 [&_ol]:!m-0 [&_ol]:!p-0",
-  "[&_blockquote]:!m-0 [&_blockquote]:!p-0 [&_blockquote]:!border-0 [&_blockquote]:!bg-transparent",
-  "[&_pre]:!m-0 [&_pre]:!p-0 [&_pre]:!border-0 [&_pre]:!bg-transparent",
-  "[&_.md-heading]:!text-sm [&_.md-list]:!list-none",
-  "[&_li]:!mr-2 [&_li]:before:content-['·'] [&_li]:before:mr-1 [&_li]:before:text-text-dim",
+const PREVIEW_MD = [
+  "[&_p]:!my-0 [&_p]:!leading-6",
+  "[&_.md-heading]:!my-0 [&_.md-heading]:!text-sm [&_.md-heading]:!leading-6",
+  "[&_ul]:!my-0 [&_ol]:!my-0 [&_.md-list]:!pl-4 [&_.md-list]:!space-y-0 [&_li]:!leading-6",
+  "[&_blockquote]:!my-0 [&_blockquote]:!py-0 [&_blockquote]:!leading-6",
+  "[&_pre]:!my-0",
+  "[&_.h-2]:!hidden",
   "[&_img]:!hidden",
 ].join(" ");
 
@@ -48,7 +49,7 @@ export function EventBodyPreview({
 }) {
   if (!content.trim()) return null;
   return (
-    <div className={`${CLAMP[lines]} text-sm text-text-muted leading-6 break-words ${INLINE_MD} ${className}`}>
+    <div className={`${CLAMP[lines]} text-sm text-text-muted leading-6 break-words ${PREVIEW_MD} ${className}`}>
       <MarkdownRenderer
         content={content}
         mentions={entities ? { entities, render: (entity, key) => <MentionChip key={key} entity={entity} className="mx-0.5" /> } : undefined}
