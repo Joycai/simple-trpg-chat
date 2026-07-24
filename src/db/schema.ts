@@ -12,6 +12,17 @@
  *   Platform:   system_config | daily_stats | bot_presets | login_history
  *
  * See docs/arch/database.md for column-level reference.
+ *
+ * ⚠️ Identity primary keys must stay `generatedByDefaultAsIdentity()` — never
+ * `generatedAlwaysAsIdentity()`. drizzle-orm 0.45 does not exclude identity
+ * columns from INSERT (`shouldDisableInsert()` only looks at computed
+ * `generated` columns), so every insert ships `"id" ... default`. PostgreSQL
+ * accepts DEFAULT for a GENERATED ALWAYS identity column in a single-row
+ * VALUES, but **PostgreSQL ≤ 13 rejects it in a multi-row VALUES**
+ * (`cannot insert into column "id"`, SQLSTATE 428C9) — which broke the
+ * notebook's batch category seeding on a PG 13 production server while dev
+ * (PG 16) passed. Verified in containers: ALWAYS + multi-row fails on 12/13
+ * and passes on 14/15/16; BY DEFAULT passes on all of them.
  */
 
 import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric, type AnyPgColumn } from 'drizzle-orm/pg-core';
@@ -290,7 +301,7 @@ export const clueCards = pgTable('clue_cards', {
  * client-side so labels recolor with the active theme.
  */
 export const notebookCategories = pgTable('notebook_categories', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
@@ -311,7 +322,7 @@ export const notebookCategories = pgTable('notebook_categories', {
  * cascade here.
  */
 export const notebookNotes = pgTable('notebook_notes', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   categoryId: integer('category_id').references(() => notebookCategories.id, { onDelete: 'set null' }),
@@ -493,7 +504,7 @@ export const storyEventVisibilityRelations = relations(storyEventVisibility, ({ 
 // ============================================================
 
 export const loginHistory = pgTable('login_history', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   ipAddress: text('ip_address').notNull(),
   userAgent: text('user_agent'),
@@ -512,7 +523,7 @@ export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
 // ============================================================
 
 export const aiProviders = pgTable('ai_providers', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
@@ -537,7 +548,7 @@ export const aiProvidersRelations = relations(aiProviders, ({ one }) => ({
 // ============================================================
 
 export const aiTokenUsages = pgTable('ai_token_usages', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   providerId: integer('provider_id').notNull().references(() => aiProviders.id, { onDelete: 'cascade' }),
   day: text('day').notNull(), // YYYY-MM-DD
@@ -567,7 +578,7 @@ export const dailyStats = pgTable('daily_stats', {
 // ============================================================
 
 export const botPresets = pgTable('bot_presets', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   name: text('name').notNull(),
   defaultNickname: text('default_nickname').notNull(),
   systemPrompt: text('system_prompt').notNull(),
@@ -581,7 +592,7 @@ export const botPresets = pgTable('bot_presets', {
 // ============================================================
 
 export const aiPointLogs = pgTable('ai_point_logs', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   amount: numeric('amount', { precision: 20, scale: 10, mode: 'number' }).notNull(),
   beforePoints: numeric('before_points', { precision: 20, scale: 10, mode: 'number' }).notNull(),
@@ -602,7 +613,7 @@ export const aiPointLogsRelations = relations(aiPointLogs, ({ one }) => ({
 // ============================================================
 
 export const inviteCodes = pgTable('invite_codes', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   code: text('code').notNull().unique(),
   creatorId: integer('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   status: text('status').$type<InviteCodeStatus>().notNull().default('active'),
