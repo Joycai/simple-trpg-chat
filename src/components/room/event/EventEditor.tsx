@@ -178,30 +178,33 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
           </div>
 
           {/* Fixed-height body: title / time / images keep their natural size,
-              only the description flexes into whatever height is left over. */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-            {/* Title */}
-            {!descExpanded && (
-              <div className="shrink-0">
-                <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  maxLength={80}
-                  autoFocus={!event}
-                  placeholder={t("titlePlaceholder")}
-                  className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
-                />
-              </div>
-            )}
+              only the description flexes into whatever height is left over. The
+              header/images groups collapse via an animated grid-rows track
+              (0fr↔1fr) so toggling full-window edit eases open/closed. */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col">
+            {/* Collapsible header group — title + time */}
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+              <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pb-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`}>
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={80}
+                    autoFocus={!event}
+                    placeholder={t("titlePlaceholder")}
+                    className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
+                  />
+                </div>
 
-            {/* Time */}
-            {!descExpanded && (
-              <div className="shrink-0">
-                <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
-                <EventTimePicker value={timePayload} onChange={setTimePayload} />
+                {/* Time */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
+                  <EventTimePicker value={timePayload} onChange={setTimePayload} />
+                </div>
               </div>
-            )}
+            </div>
 
             {/* Description — the only elastic region, guaranteed a visible min height */}
             <div className="flex-1 min-h-[9rem] flex flex-col">
@@ -267,9 +270,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               </div>
             </div>
 
-            {/* Images */}
-            {!descExpanded && (
-            <div className="shrink-0">
+            {/* Collapsible images group */}
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+            <div className={`min-h-0 overflow-hidden pt-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`}>
               <label className="block text-xs font-bold text-text-muted mb-1.5">
                 {t("fieldImages")} <span className="text-text-dim font-medium">· {t("imagesHint")}</span>
               </label>
@@ -301,9 +304,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               </div>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickFile} />
             </div>
-            )}
+            </div>
 
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {error && <p className="text-sm text-danger pt-2">{error}</p>}
           </div>
 
           <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border shrink-0">

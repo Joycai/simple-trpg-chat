@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -37,6 +37,24 @@ interface EventManagePanelProps {
   onOpenEvent: (eventId: number) => void;
 }
 
+/** Pure client-side mirror of the server reorder, for optimistic updates. */
+function reorderList(list: ManagedEvent[], id: number, op: ReorderOp): ManagedEvent[] {
+  const from = list.findIndex((e) => e.id === id);
+  if (from < 0) return list;
+  const len = list.length;
+  let to: number;
+  if (op === "top") to = 0;
+  else if (op === "bottom") to = len - 1;
+  else if (op === "up") to = Math.max(0, from - 1);
+  else if (op === "down") to = Math.min(len - 1, from + 1);
+  else to = Math.min(Math.max((op.index | 0) - 1, 0), len - 1);
+  if (to === from) return list;
+  const next = list.slice();
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 export function EventManagePanel({ roomId, players, refreshKey, onClose, onChanged, onOpenEvent }: EventManagePanelProps) {
   const t = useTranslations("event");
   const tCommon = useTranslations("common");
@@ -45,6 +63,43 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
 
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // FLIP reorder animation: remember each row's on-screen box, and after the
+  // order changes, invert the delta then transition it away so rows glide.
+  const rowEls = useRef<Map<number, HTMLElement>>(new Map());
+  const prevRects = useRef<Map<number, DOMRect>>(new Map());
+  const registerRow = useCallback((id: number, el: HTMLElement | null) => {
+    if (el) rowEls.current.set(id, el);
+    else rowEls.current.delete(id);
+  }, []);
+
+  useLayoutEffect(() => {
+    const prev = prevRects.current;
+    const next = new Map<number, DOMRect>();
+    const moving: HTMLElement[] = [];
+    rowEls.current.forEach((el, id) => {
+      const rect = el.getBoundingClientRect();
+      next.set(id, rect);
+      const old = prev.get(id);
+      if (old) {
+        const dy = old.top - rect.top;
+        if (Math.abs(dy) > 1) {
+          el.style.transition = "none";
+          el.style.transform = `translateY(${dy}px)`;
+          moving.push(el);
+        }
+      }
+    });
+    prevRects.current = next;
+    if (moving.length) {
+      requestAnimationFrame(() => {
+        for (const el of moving) {
+          el.style.transition = "transform 360ms cubic-bezier(0.2,0.85,0.25,1)";
+          el.style.transform = "";
+        }
+      });
+    }
+  }, [events]);
   const [editing, setEditing] = useState<EventView | "new" | null>(null);
   const [publishFor, setPublishFor] = useState<{ event: EventView; variant: "publish" | "add"; known: number[] } | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "retract" | "delete"; event: ManagedEvent } | null>(null);
@@ -69,11 +124,15 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
   });
 
   const doReorder = async (id: number, op: ReorderOp) => {
+    // Reorder locally first so the FLIP animation starts immediately; the server
+    // persists the same order, so no refetch is needed on success (a refetch
+    // mid-animation would measure transformed rows and stutter). Restore on error.
+    setEvents((list) => reorderList(list, id, op));
     try {
       await reorderEventAction(roomId, id, op);
-      onChanged();
     } catch (err) {
       alert(err instanceof Error ? err.message : tCommon("error"));
+      onChanged();
     }
   };
   const askPosition = (e: ManagedEvent, index: number) => {
@@ -124,6 +183,7 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
               events.map((e, i) => (
                 <EventRow
                   key={e.id}
+                  rowRef={(el) => registerRow(e.id, el)}
                   index={i}
                   total={events.length}
                   event={e}
@@ -194,8 +254,9 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
 }
 
 function EventRow({
-  index, total, event, onOrd, onReorder, onOpen, onEdit, onPublish, onAdd, onDelete,
+  rowRef, index, total, event, onOrd, onReorder, onOpen, onEdit, onPublish, onAdd, onDelete,
 }: {
+  rowRef: (el: HTMLDivElement | null) => void;
   index: number;
   total: number;
   event: ManagedEvent;
@@ -215,7 +276,7 @@ function EventRow({
   const gnav = "w-6 h-5 flex items-center justify-center text-text-dim hover:text-primary transition cursor-pointer disabled:opacity-25 disabled:hover:text-text-dim disabled:cursor-default";
 
   return (
-    <div className={`flex gap-3 p-3 rounded-theme border ${event.status === "unpublished" ? "border-dashed border-border" : "border-border"} bg-surface-alt/40`}>
+    <div ref={rowRef} className={`flex gap-3 p-3 rounded-theme border ${event.status === "unpublished" ? "border-dashed border-border" : "border-border"} bg-surface-alt/40`}>
       {/* reorder gutter */}
       <div className="flex flex-col items-center shrink-0 self-stretch justify-center rounded-theme border border-border/60 bg-surface/40 px-0.5 py-1">
         <button onClick={() => onReorder("top")} disabled={isFirst} className={gnav} title={t("moveTop")}><Icons.ArrowUpToLine className="w-3.5 h-3.5" /></button>
