@@ -5,10 +5,21 @@ import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { MentionChip } from "@/components/room/notebook/notebook-helpers";
-import { composeTimelineLabel } from "@/lib/messaging/timeline-payload";
+import { composeTimelineLabel, dayPartFromDivider, type TimelineSegment } from "@/lib/messaging/timeline-payload";
 import { getEventForViewerAction, type EventView } from "@/app/actions/event";
 import type { EventCardPayload } from "@/lib/story-events";
 import { useBackpackEntities } from "./event-helpers";
+
+/**
+ * Time-pill tint by day-part — a bright warm morning, a warmer afternoon, and a
+ * cool dark night, so the card's time reads at a glance. All theme tokens, so
+ * every theme recolors automatically.
+ */
+const DAYPART_PILL: Record<TimelineSegment, string> = {
+  morning:   "text-warning border-warning/40 bg-warning/15",
+  afternoon: "text-primary border-primary/40 bg-primary/15",
+  night:     "text-ai border-ai/40 bg-ai/15",
+};
 
 /**
  * Public-channel announcement card. The payload carries metadata only; the body
@@ -108,17 +119,24 @@ function UnlockedCard({
   }, [roomId, payload.eventId]);
 
   const isFull = payload.mode === "full";
+  // Day-part tints the time pill (bright morning → warm afternoon → cool night),
+  // all theme tokens; no usable time → neutral. The cover URL is known from the
+  // payload at mount, so the image row is reserved before the fetch resolves.
+  const dayPart = dayPartFromDivider(payload.time ?? null);
+  const timePillClass = dayPart ? DAYPART_PILL[dayPart] : "text-text-muted border-border/60 bg-surface-alt/60";
+  const images = detail && detail.images.length ? detail.images : payload.cover ? [payload.cover] : [];
 
   return (
     <Shell tone="accent" icon={<Icons.Flag className="w-5 h-5" />}>
+      {/* Fixed regions so the fetch fills in without resizing the card. */}
       <div className="rounded-theme border border-accent/35 bg-surface/70 shadow-[var(--theme-card-shadow)] overflow-hidden">
         <div className="px-4 py-3.5">
           {/* time pill + publish-scope status pill */}
           <div className="flex items-center gap-2 justify-between">
             {timeLabel ? (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-theme-mono text-text-muted bg-surface-alt/60 border border-border/60 rounded-full px-2 py-0.5">
+              <span className={`inline-flex items-center gap-1.5 min-w-0 text-[11px] font-theme-mono rounded-full px-2 py-0.5 border ${timePillClass}`}>
                 <Icons.Clock className="w-3.5 h-3.5 shrink-0" />
-                {timeLabel}
+                <span className="truncate">{timeLabel}</span>
               </span>
             ) : <span />}
             <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
@@ -129,27 +147,31 @@ function UnlockedCard({
             </span>
           </div>
 
-          {/* title */}
-          <h4 className="font-theme-display font-bold text-text text-base mt-2.5">{payload.title}</h4>
+          {/* title — single line, ellipsis */}
+          <h4 className="font-theme-display font-bold text-text text-base mt-2.5 truncate">{payload.title}</h4>
 
-          {/* body — fetched per-viewer */}
-          {detail === undefined ? (
-            <div className="flex items-center gap-2 text-text-dim text-xs mt-2 py-1">
-              <Icons.Loader2 className="w-3.5 h-3.5 animate-spin" />
-            </div>
-          ) : detail && detail.description.trim() ? (
-            <div className="notebook-note-body text-sm text-text-muted mt-1.5 max-h-40 overflow-hidden">
-              <MarkdownRenderer
-                content={detail.description}
-                mentions={{ entities, render: (entity, key) => <MentionChip key={key} entity={entity} className="mx-0.5" /> }}
-              />
-            </div>
-          ) : null}
+          {/* body — fixed 2-line slot; skeleton while the per-viewer fetch resolves */}
+          <div className="mt-1.5 h-12">
+            {detail === undefined ? (
+              <div className="space-y-2 pt-1" aria-hidden="true">
+                <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-11/12" />
+                <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-3/5" />
+              </div>
+            ) : detail && detail.description.trim() ? (
+              <div className="text-sm text-text-muted leading-6 line-clamp-2 [&_p]:m-0 [&_p]:inline [&_h1]:inline [&_h2]:inline [&_h3]:inline [&_ul]:inline [&_ol]:inline [&_li]:inline">
+                <MarkdownRenderer
+                  content={detail.description}
+                  mentions={{ entities, render: (entity, key) => <MentionChip key={key} entity={entity} className="mx-0.5" /> }}
+                />
+              </div>
+            ) : null}
+          </div>
 
-          {/* image thumbnails */}
-          {detail && detail.images.length > 0 && (
-            <div className="flex gap-2 mt-3 flex-wrap">
-              {detail.images.map((url) => (
+          {/* image thumbnails — fixed row. A payload cover reserves the row before
+              the fetch resolves (no jump); a fetched-only image still shows. */}
+          {images.length > 0 && (
+            <div className="flex gap-2 mt-3 h-14 overflow-hidden">
+              {images.map((url) => (
                 <button
                   key={url}
                   onClick={onOpen}
