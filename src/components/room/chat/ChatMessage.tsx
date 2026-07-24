@@ -12,6 +12,8 @@ import { getCharacterDataAction } from "@/app/actions/character";
 import { type CharacterData } from "@/lib/character-types";
 import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
 import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
+import { EventCard } from "@/components/room/event/EventCard";
+import { parseEventCardPayload, parseEventReceiptPayload } from "@/lib/story-events";
 import type { Audience } from "@/lib/messaging/audience";
 import { useHostLabel, useRoomRule } from "@/components/shared/host-label";
 
@@ -961,7 +963,7 @@ interface ChatMessageProps {
   content: string;
   type: "text" | "dice" | "system" | "check_request" | "image" | "sticker" | "clue";
   /** Subtype for type='system' messages. Drives the kind-specific pill / help card render. */
-  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | "timeline-divider" | null;
+  systemKind?: "st" | "error" | "room-event" | "scene-marker" | "help" | "inventory-dispatch" | "inventory-receipt" | "timeline-divider" | "event-card" | "event-receipt" | null;
   diceDetail?: string | null;
   isPrivate: boolean;
   audience?: Audience;
@@ -984,6 +986,10 @@ interface ChatMessageProps {
   }>;
   /** Called when the receipt-pill CTA (`查看背包`) is clicked — opens the inventory drawer. */
   onOpenInventory?: () => void;
+  /** Set of event ids the viewer may read — decides an event card's locked/unlocked face. */
+  visibleEventIds?: Set<number>;
+  /** Opens the events panel (from an event card / receipt). */
+  onOpenEvents?: () => void;
   /** Host-only: withdraw (delete) a timeline-divider message by id. */
   onWithdrawTimeline?: (messageId: number) => void | Promise<void>;
   messageId?: number;
@@ -1013,6 +1019,8 @@ export const ChatMessage = memo(function ChatMessage({
   onProxyCheckRequest,
   onLoadProxyTargets,
   onOpenInventory,
+  visibleEventIds,
+  onOpenEvents,
   onWithdrawTimeline,
   messageId,
   roomId,
@@ -1349,6 +1357,32 @@ export const ChatMessage = memo(function ChatMessage({
     // Inventory receipt: recipient-side notification with NEW/更新 badge + 查看背包 CTA.
     if (systemKind === "inventory-receipt") {
       return <ReceiptPill content={content} diceDetail={diceDetail} onOpenInventory={onOpenInventory} />;
+    }
+    // Event announcement card — locked/unlocked/retracted decided client-side.
+    if (systemKind === "event-card") {
+      const payload = parseEventCardPayload(diceDetail);
+      if (!payload) return null;
+      const unlocked = isHost || !!visibleEventIds?.has(payload.eventId);
+      return (
+        <div className="flex justify-center py-2 animate-in fade-in">
+          <EventCard payload={payload} unlocked={unlocked} onOpen={() => onOpenEvents?.()} />
+        </div>
+      );
+    }
+    // Event receipt: a personal "you got a new event" pill opening the events panel.
+    if (systemKind === "event-receipt") {
+      const r = parseEventReceiptPayload(diceDetail);
+      return (
+        <div className="system-pill flex justify-center py-2 animate-in fade-in" data-kind="event-receipt">
+          <button
+            onClick={() => onOpenEvents?.()}
+            className="system-pill-body inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full text-primary bg-primary/10 border border-primary/30 hover:bg-primary/20 transition cursor-pointer"
+          >
+            <Icons.ScrollText className="w-3.5 h-3.5" />
+            <span>{r ? t("eventReceipt", { title: r.title }) : content}</span>
+          </button>
+        </div>
+      );
     }
     // Timeline divider: host date separator, with a host-only withdraw affordance.
     if (systemKind === "timeline-divider") {
