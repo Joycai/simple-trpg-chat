@@ -9,6 +9,7 @@ import {
   createNoteAction,
   updateNoteAction,
   deleteNoteAction,
+  shareNoteAction,
   createCategoryAction,
   updateCategoryAction,
   deleteCategoryAction,
@@ -25,11 +26,16 @@ import { CategoryChip, formatNoteDate, type Category, type Note } from "./notebo
 import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryList";
 import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
+import { NotebookShareModal } from "./NotebookShareModal";
 import { DetailModal } from "@/components/room/inventory/InventoryModals";
-import type { Distribution } from "@/components/room/inventory/inventory-helpers";
+import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-helpers";
 
 interface NotebookPanelProps {
   roomId: number;
+  /** The current user — sender identity, excluded from share recipients. */
+  userId: number;
+  /** Room members, for the share-recipient picker. */
+  players: InventoryPlayer[];
   onClose: () => void;
   readOnly?: boolean;
 }
@@ -54,7 +60,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
  * right pane = viewer. A non-empty search replaces the panes with a
  * full-width result list; editing replaces them with the editor.
  */
-export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPanelProps) {
+export function NotebookPanel({ roomId, userId, players, onClose, readOnly = false }: NotebookPanelProps) {
   const t = useTranslations("notebook");
   const tCommon = useTranslations("common");
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
@@ -70,6 +76,8 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ note: Note | null } | null>(null);
+  const [sharing, setSharing] = useState<Note | null>(null);
+  const [sendingShare, setSendingShare] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
 
@@ -173,6 +181,20 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
     if (!confirm(t("deleteCategoryConfirm", { name: category.name, count }))) return;
     await wrapCategoryError(() => deleteCategoryAction(roomId, category.id));
     if (filter === category.id) setFilter("all");
+  };
+
+  const handleShare = async (targetIds: number[]) => {
+    if (!sharing || targetIds.length === 0) return;
+    setSendingShare(true);
+    try {
+      const { count } = await shareNoteAction(roomId, sharing.id, targetIds);
+      setSharing(null);
+      alert(t("shareSuccess", { count }));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : tCommon("error"));
+    } finally {
+      setSendingShare(false);
+    }
   };
 
   const openResult = (id: number) => {
@@ -289,6 +311,12 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
                       {formatNoteDate(n.updatedAt)}
                       {(linkCounts.get(n.id) ?? 0) > 0 && <> · {t("linksCount", { count: linkCounts.get(n.id)! })}</>}
                     </div>
+                    {n.sourceName && (
+                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-ai border border-ai/40 bg-ai/10 rounded-full px-1.5 py-px max-w-full">
+                        <Icons.Send className="w-2.5 h-2.5 shrink-0" />
+                        <span className="truncate">{t("receivedFrom", { name: n.sourceName })}</span>
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -313,6 +341,7 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
                   readOnly={readOnly}
                   onEdit={() => setEditing({ note: selected })}
                   onDelete={() => handleDelete(selected)}
+                  onShare={() => setSharing(selected)}
                   onBack={() => setSelectedId(null)}
                   onOpenEntity={handleOpenEntity}
                 />
@@ -340,6 +369,19 @@ export function NotebookPanel({ roomId, onClose, readOnly = false }: NotebookPan
             onEdit={() => {}}
             onShareOpen={() => {}}
             onDistribute={() => {}}
+          />
+        )}
+
+        {/* Send a copy of a note to other members (an independent copy — the
+            recipient's edits and mine never sync). */}
+        {sharing && (
+          <NotebookShareModal
+            note={sharing}
+            players={players}
+            userId={userId}
+            sending={sendingShare}
+            onCancel={() => setSharing(null)}
+            onShare={handleShare}
           />
         )}
       </div>

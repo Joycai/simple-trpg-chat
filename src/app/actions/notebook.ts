@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { notebookCategories, notebookNotes } from "@/db/schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { notebookCategories, notebookNotes, roomMembers, users } from "@/db/schema";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import {
@@ -173,6 +173,61 @@ export async function updateNoteAction(roomId: number, noteId: number, input: No
     .returning();
   if (!note) throw new Error("Note not found");
   return note;
+}
+
+/**
+ * Share (send a COPY of) one of the caller's notes to other room members.
+ * Each recipient gets an independent notebook_notes row in their own scope —
+ * uncategorized, tagged with the sender's display-name snapshot (sourceName).
+ * The copy is decoupled: later edits to the original never propagate, and its
+ * @-mentions resolve against the *recipient's* backpack at render time, so any
+ * entry the recipient doesn't hold silently degrades to plain text.
+ *
+ * No SSE — like the rest of the notebook, the recipient sees the copy on their
+ * next open. Returns how many copies were created.
+ */
+export async function shareNoteAction(roomId: number, noteId: number, targetUserIds: number[]) {
+  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+
+  const targets = Array.from(new Set(targetUserIds)).filter((id) => id !== userId);
+  if (targets.length === 0) throw new Error("No recipients");
+
+  const [note] = await db
+    .select({ title: notebookNotes.title, content: notebookNotes.content })
+    .from(notebookNotes)
+    .where(and(
+      eq(notebookNotes.id, noteId),
+      eq(notebookNotes.roomId, roomId),
+      eq(notebookNotes.userId, userId),
+    ));
+  if (!note) throw new Error("Note not found");
+
+  // Only members of this room may receive a copy.
+  const members = await db
+    .select({ userId: roomMembers.userId })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, targets)));
+  const validIds = members.map((m) => m.userId);
+  if (validIds.length === 0) throw new Error("No valid recipients");
+
+  const [sender] = await db
+    .select({ name: users.displayName, username: users.username })
+    .from(users)
+    .where(eq(users.id, userId));
+  const sourceName = sender?.name || sender?.username || "";
+
+  await db.insert(notebookNotes).values(
+    validIds.map((rid) => ({
+      roomId,
+      userId: rid,
+      categoryId: null,
+      title: note.title,
+      content: note.content,
+      sourceName,
+    })),
+  );
+
+  return { count: validIds.length };
 }
 
 export async function deleteNoteAction(roomId: number, noteId: number) {

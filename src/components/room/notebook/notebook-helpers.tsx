@@ -11,6 +11,8 @@ export interface Note {
   categoryId: number | null;
   title: string;
   content: string;
+  /** Sender's display-name snapshot when this note is a received copy (else null). */
+  sourceName: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -304,6 +304,10 @@ export const notebookNotes = pgTable('notebook_notes', {
   categoryId: integer('category_id').references(() => notebookCategories.id, { onDelete: 'set null' }),
   title: text('title').notNull(),
   content: text('content').notNull().default(''),
+  // Snapshot of the sender's display name when a note is a shared copy (null =
+  // the owner's own note). Frozen at share time — the copy is independent, so
+  // it stays attributed even if the sender is renamed or leaves the room.
+  sourceName: text('source_name'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (t) => ({
