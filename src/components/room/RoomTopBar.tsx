@@ -48,6 +48,8 @@ interface RoomTopBarProps {
   /** True while the host has a background set — gates the intensity slider in the gear menu. */
   hasBackground: boolean;
   playerCount: number;
+  /** Live count of members currently online (non-bot, incl. self) — the "X 在线" label. */
+  onlineCount: number;
   botCount: number;
   // Sidebar
   sidebarCollapsed: boolean;
@@ -97,6 +99,7 @@ export function RoomTopBar({
   checkMenuModes,
   hasBackground,
   playerCount,
+  onlineCount,
   botCount,
   sidebarCollapsed,
   totalUnread,
@@ -206,7 +209,7 @@ export function RoomTopBar({
             {/* Online count + connection dot */}
             <span className="hidden sm:inline-flex items-center gap-1.5 shrink-0 text-xs text-text-muted">
               <span className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
-              {t("onlineCount", { count: playerCount })}
+              {t("onlineCount", { count: onlineCount })}
             </span>
             {room.frozen && (
               <span className="inline-flex items-center gap-1 text-[10px] bg-text-dim/15 text-text-dim px-1.5 py-0.5 rounded font-bold uppercase tracking-wider select-none shrink-0">

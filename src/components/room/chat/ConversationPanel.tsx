@@ -28,6 +28,8 @@ interface ConversationPanelProps {
   activeTab: "public" | number; // "public" or userId
   onTabChange: (tab: "public" | number) => void;
   dmConversations: DMConversation[];
+  /** Live online count (non-bot members incl. self) — shared with the top bar so both "X 在线" labels match. */
+  onlineCount: number;
   onStartDM: (userId: number) => void;
   onViewCard?: (userId: number, nickname: string) => void;
   isHost: boolean;
@@ -45,6 +47,7 @@ export function ConversationPanel({
   activeTab,
   onTabChange,
   dmConversations,
+  onlineCount,
   onStartDM,
   onViewCard,
   isHost,
@@ -60,7 +63,6 @@ export function ConversationPanel({
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   useClickOutside(dropdownRef, () => setOpenDropdown(null), openDropdown !== null);
-  const onlineCount = dmConversations.filter((c) => c.isOnline).length;
 
   return (
     // Outer animation shell — desktop collapses by animating width (chat reflows

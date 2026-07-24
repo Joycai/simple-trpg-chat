@@ -225,6 +225,20 @@ export function RoomClient({
   const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
 
+  // Live "online" count: non-bot members with an active SSE connection, plus
+  // self (always online as the viewer). Single source of truth shared by the
+  // top bar and the left roster panel so their "X 在线" labels stay in sync —
+  // presence lives in `onlineUserIds` (SSE presence_update), not the roster.
+  const onlineCount = useMemo(
+    () =>
+      (players || []).filter((p: { users?: { id?: number; isBot?: boolean }; user?: { id?: number; isBot?: boolean }; user_id?: number }) => {
+        const u = p.users || p.user;
+        const id = u?.id ?? p.user_id;
+        return !u?.isBot && (id === userId || onlineUserIds.has(id ?? -1));
+      }).length,
+    [players, onlineUserIds, userId]
+  );
+
   // Bucket each visible message into its channel/tab. `messages` already only
   // contains rows this viewer may see (filtered by the SSE route + initial query),
   // so we just route by audience: channelOf returns "public" (everyone/self/
@@ -559,6 +573,7 @@ export function RoomClient({
         checkMenuModes={ruleCapabilities.checkMenuModes}
         hasBackground={!!backgroundUrl}
         playerCount={playerCount}
+        onlineCount={onlineCount}
         botCount={botCount}
         sidebarCollapsed={sidebarCollapsed}
         totalUnread={totalUnread}
@@ -603,6 +618,7 @@ export function RoomClient({
           activeTab={activeTab}
           onTabChange={handleTabChange}
           dmConversations={dmConversations}
+          onlineCount={onlineCount}
           onStartDM={handleTabChange}
           onViewCard={handleViewPlayerCard}
           isHost={isHost}
