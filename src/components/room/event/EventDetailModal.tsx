@@ -222,19 +222,23 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
             />
           )}
           {confirmRetract && event && (
-            <OverlayShell onClose={() => setConfirmRetract(false)} panelClassName="w-full max-w-sm mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden">
+            <OverlayShell onClose={() => setConfirmRetract(false)} portal panelClassName="w-full max-w-sm mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden">
               {(c) => (
                 <div className="p-5">
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <Icons.AlertTriangle className="w-5 h-5 text-danger" />
-                    <h4 className="font-bold text-text">{t("retractTitle")}</h4>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="w-11 h-11 rounded-theme shrink-0 flex items-center justify-center bg-danger/12 text-danger border border-danger/30">
+                      <Icons.Undo2 className="w-5 h-5" />
+                    </span>
+                    <h4 className="font-bold text-text text-lg font-theme-display">{t("retractConfirmTitle")}</h4>
                   </div>
-                  <p className="text-sm text-text-muted mb-5">{t("retractConfirm", { title: event.title })}</p>
+                  <p className="text-sm text-text-muted leading-6 mb-5">
+                    {t.rich("retractConfirmBody", { title: event.title, b: (chunks) => <strong className="font-bold text-text">{chunks}</strong> })}
+                  </p>
                   <div className="flex justify-end gap-2">
                     <button onClick={c} className="px-4 py-2 rounded-theme border border-border text-text text-sm font-bold hover:bg-surface-alt transition cursor-pointer">{tCommon("cancel")}</button>
                     <button onClick={doRetract} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-theme bg-danger text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 cursor-pointer">
                       {busy && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
-                      {t("retractAction")}
+                      {t("retractConfirmAction")}
                     </button>
                   </div>
                 </div>

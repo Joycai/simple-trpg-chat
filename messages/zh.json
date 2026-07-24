@@ -1371,7 +1371,16 @@
     "publishedAt": "{time} 公开",
     "viewers": "知晓人员",
     "retractPublic": "撤回公开",
-    "publishedBadge": "已公开"
+    "publishedBadge": "已公开",
+    "publishScope": "公开范围",
+    "scopeEveryone": "全体",
+    "selectViewers": "选择可见成员",
+    "selectAll": "全选",
+    "clearAll": "取消全选",
+    "retractConfirmTitle": "撤回该事件？",
+    "retractConfirmBody": "撤回后，「<b>{title}</b>」将从所有玩家的事件志中隐藏，聊天卡片置灰为「已撤回」。你仍可在事件管理中重新公开。",
+    "retractConfirmAction": "确认撤回",
+    "deleteConfirmTitle": "删除该事件？"
   },
   "inventoryDispatch": {
     "allMembers": "全体成员",

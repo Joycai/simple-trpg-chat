@@ -1371,7 +1371,16 @@
     "publishedAt": "revealed {time}",
     "viewers": "Viewers",
     "retractPublic": "Retract",
-    "publishedBadge": "Revealed"
+    "publishedBadge": "Revealed",
+    "publishScope": "Scope",
+    "scopeEveryone": "Everyone",
+    "selectViewers": "Select viewers",
+    "selectAll": "All",
+    "clearAll": "Clear",
+    "retractConfirmTitle": "Retract this event?",
+    "retractConfirmBody": "After retracting, “<b>{title}</b>” is hidden from every player's event log and its chat card is greyed to “Retracted”. You can re-reveal it from event management.",
+    "retractConfirmAction": "Retract",
+    "deleteConfirmTitle": "Delete this event?"
   },
   "inventoryDispatch": {
     "allMembers": "all members",

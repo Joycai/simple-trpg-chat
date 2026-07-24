@@ -163,20 +163,22 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const toolBtn = "flex items-center justify-center w-8 h-8 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer";
 
   return (
-    <OverlayShell onClose={onClose} panelClassName="w-full max-w-2xl mx-4 max-h-[88vh] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
+    <OverlayShell onClose={onClose} portal panelClassName="w-full max-w-2xl mx-4 h-[86vh] max-h-[720px] min-h-[560px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
-            <Icons.Pencil className="w-5 h-5 text-primary" />
+            <Icons.Pencil className="w-5 h-5 text-accent" />
             <h3 className="font-bold text-text text-lg font-theme-display flex-1 truncate">
               {event ? t("editTitle") : t("createTitle")}
             </h3>
             <button onClick={close} className={toolBtn} aria-label={tCommon("cancel")}><Icons.X className="w-5 h-5" /></button>
           </div>
 
+          {/* Fixed-height body: title / time / images keep their natural size,
+              only the description flexes into whatever height is left over. */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
             {/* Title */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
               <input
                 value={title}
@@ -189,15 +191,15 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
             </div>
 
             {/* Time */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
               <EventTimePicker value={timePayload} onChange={setTimePayload} />
             </div>
 
-            {/* Description */}
-            <div>
-              <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldDescription")}</label>
-              <div className="flex items-center gap-0.5 border border-border border-b-0 rounded-t-theme px-2 py-1.5 bg-surface-alt/50">
+            {/* Description — the only elastic region, guaranteed a visible min height */}
+            <div className="flex-1 min-h-[9rem] flex flex-col">
+              <label className="block text-xs font-bold text-text-muted mb-1.5 shrink-0">{t("fieldDescription")}</label>
+              <div className="flex items-center gap-0.5 border border-border border-b-0 rounded-t-theme px-2 py-1.5 bg-surface-alt/50 shrink-0">
                 <button onClick={() => applyLinePrefix("## ")} className={toolBtn} title={t("toolHeading")}><Icons.Heading2 className="w-4 h-4" /></button>
                 <button onClick={() => applyWrap("**", "**")} className={toolBtn} title={t("toolBold")}><Icons.Bold className="w-4 h-4" /></button>
                 <button onClick={() => applyWrap("*", "*")} className={toolBtn} title={t("toolItalic")}><Icons.Italic className="w-4 h-4" /></button>
@@ -208,7 +210,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                 <button onClick={startMention} className={`${toolBtn} text-primary hover:text-primary`} title={t("toolMention")}><Icons.AtSign className="w-4 h-4" /></button>
                 <span className="ml-auto text-xs text-text-dim font-theme-mono select-none pr-1">Markdown</span>
               </div>
-              <div className="relative">
+              <div className="relative flex-1 min-h-0">
                 <textarea
                   ref={textareaRef}
                   value={description}
@@ -217,7 +219,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                   onClick={(e) => syncMention(e.currentTarget)}
                   onBlur={() => setTimeout(() => setMention(null), 150)}
                   placeholder={t("descriptionPlaceholder")}
-                  className="w-full min-h-[10rem] resize-y bg-input-bg border border-input-border rounded-b-theme px-3.5 py-3 text-sm text-text leading-relaxed outline-none focus:border-primary/50"
+                  className="w-full h-full resize-none bg-input-bg border border-input-border rounded-b-theme px-3.5 py-3 text-sm text-text leading-relaxed outline-none focus:border-primary/50"
                 />
                 {pickerOpen && (
                   <div className="absolute left-2 sm:w-80 bottom-2 bg-surface border border-border rounded-theme shadow-xl overflow-hidden z-10">
@@ -250,7 +252,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
             </div>
 
             {/* Images */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-xs font-bold text-text-muted mb-1.5">
                 {t("fieldImages")} <span className="text-text-dim font-medium">· {t("imagesHint")}</span>
               </label>
