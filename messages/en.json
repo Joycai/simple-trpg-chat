@@ -840,7 +840,17 @@
     "toolQuote": "Quote",
     "toolLink": "Link",
     "toolLinkText": "link text",
-    "toolMention": "Link backpack entry"
+    "toolMention": "Link backpack entry",
+    "shareNote": "Send note",
+    "shareTitle": "Send Note",
+    "shareSummary": "An independent copy will be sent",
+    "shareTo": "Send to",
+    "shareSelectAll": "Select all",
+    "shareNoMembers": "No other members in this room yet",
+    "shareCopyNote": "The recipient gets an independent copy — your later edits won't sync. @-links they don't have show as plain text.",
+    "shareConfirmCount": "Send ({count})",
+    "shareSuccess": "Sent to {count} member(s)",
+    "receivedFrom": "From {name}"
   },
   "inventory": {
     "title": "Inventory",

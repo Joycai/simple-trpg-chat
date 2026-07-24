@@ -840,7 +840,17 @@
     "toolQuote": "引用",
     "toolLink": "链接",
     "toolLinkText": "链接文字",
-    "toolMention": "链接背包内容"
+    "toolMention": "链接背包内容",
+    "shareNote": "发送手札",
+    "shareTitle": "发送手札",
+    "shareSummary": "将发送一份独立副本",
+    "shareTo": "发送给",
+    "shareSelectAll": "全选",
+    "shareNoMembers": "房间里还没有其他成员",
+    "shareCopyNote": "对方会收到一份独立副本，你之后的修改不会同步给对方。正文里对方没有的 @ 链接会显示为纯文本。",
+    "shareConfirmCount": "发送（{count}）",
+    "shareSuccess": "已发送给 {count} 人",
+    "receivedFrom": "来自 {name}"
   },
   "inventory": {
     "title": "道具栏",

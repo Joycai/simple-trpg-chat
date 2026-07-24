@@ -16,6 +16,8 @@ interface NotebookViewerProps {
   readOnly: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  /** Send a copy of this note to other members. */
+  onShare: () => void;
   /** Mobile-only back-to-list handler. */
   onBack: () => void;
   /** Opens the backpack detail of a clicked @-mention chip. */
@@ -24,7 +26,7 @@ interface NotebookViewerProps {
 
 /** Read view of a note: header (title / category / edited-at / actions),
  *  markdown body with @-mention chips, and a footer listing linked entries. */
-export function NotebookViewer({ note, category, entities, readOnly, onEdit, onDelete, onBack, onOpenEntity }: NotebookViewerProps) {
+export function NotebookViewer({ note, category, entities, readOnly, onEdit, onDelete, onShare, onBack, onOpenEntity }: NotebookViewerProps) {
   const t = useTranslations("notebook");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -45,6 +47,13 @@ export function NotebookViewer({ note, category, entities, readOnly, onEdit, onD
           </h4>
           {!readOnly && (
             <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={onShare}
+                className="flex items-center justify-center w-9 h-9 rounded-theme border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition cursor-pointer"
+                title={t("shareNote")}
+              >
+                <Icons.Send className="w-4 h-4" />
+              </button>
               <button
                 onClick={onEdit}
                 className="flex items-center justify-center w-9 h-9 rounded-theme border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 transition cursor-pointer"
@@ -75,8 +84,14 @@ export function NotebookViewer({ note, category, entities, readOnly, onEdit, onD
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2.5 mt-2 text-xs text-text-muted">
+        <div className="flex items-center flex-wrap gap-2.5 mt-2 text-xs text-text-muted">
           <CategoryChip category={category} uncategorizedLabel={t("uncategorized")} />
+          {note.sourceName && (
+            <span className="inline-flex items-center gap-1 text-ai border border-ai/40 bg-ai/10 rounded-full px-2 py-0.5 font-bold">
+              <Icons.Send className="w-3 h-3 shrink-0" />
+              {t("receivedFrom", { name: note.sourceName })}
+            </span>
+          )}
           <span className="font-theme-mono">{formatNoteDateTime(note.updatedAt)} {t("edited")}</span>
         </div>
       </div>
