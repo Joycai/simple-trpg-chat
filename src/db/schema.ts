@@ -65,7 +65,7 @@ export type MessageType = (typeof MESSAGE_TYPES)[number];
  * item + recipient + optional count) so the chat UI can render an icon + chip
  * pill instead of the plain text fallback — see `DispatchPill` in ChatMessage.
  */
-export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help', 'inventory-dispatch', 'inventory-receipt', 'timeline-divider'] as const;
+export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help', 'inventory-dispatch', 'inventory-receipt', 'timeline-divider', 'event-card', 'event-receipt'] as const;
 export type SystemKind = (typeof SYSTEM_KINDS)[number];
 
 export const INVENTORY_ITEM_TYPES = ['clue', 'info', 'character', 'item'] as const;
@@ -73,6 +73,19 @@ export type InventoryItemType = (typeof INVENTORY_ITEM_TYPES)[number];
 
 export const INVENTORY_ACTIONS = ['created', 'shared'] as const;
 export type InventoryAction = (typeof INVENTORY_ACTIONS)[number];
+
+/**
+ * Publication state of a story event (事件模块). The single source of truth for
+ * the host-facing three-state indicator (未公开 / 部分公开 / 完全公开):
+ *   unpublished → only the host/creator can see it (no public card yet).
+ *   partial     → published to a subset; `story_event_visibility` rows enumerate
+ *                 who may read the content. Others see a locked card.
+ *   full        → published to everyone; visibility is not enumerated (late
+ *                 joiners see it too — gated by room membership).
+ * Retracting returns an event to `unpublished` and clears its visibility rows.
+ */
+export const EVENT_STATUSES = ['unpublished', 'partial', 'full'] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
 
 export const DEVICE_TYPES = ['mobile', 'desktop', 'tablet', 'unknown'] as const;
 export type DeviceType = (typeof DEVICE_TYPES)[number];
@@ -324,6 +337,59 @@ export const clueVisibility = pgTable('clue_visibility', {
   idx_user_id: index('idx_clue_vis_user_id').on(t.userId),
 }));
 
+/**
+ * Story events (事件模块) — host-authored narrative beats published to players
+ * in stages. See docs/design/event-module.md.
+ *
+ * `description` is markdown with `@Title` mentions that resolve against the
+ * *viewer's* backpack at render time (same mechanism as the notebook — stored
+ * as plain titles, degrade to plain text). `timePayload` reuses the timeline
+ * divider's TimelineDividerData JSON (optional). `imagesJson` is a JSON array
+ * of 0–3 image URLs (first is the cover). `status` is the three-state source of
+ * truth (EVENT_STATUSES); `sortOrder` drives host-controlled ordering.
+ *
+ * The event body never travels in the public-channel card broadcast — clients
+ * fetch it through an access-gated action, so a locked card leaks nothing.
+ */
+export const storyEvents = pgTable('story_events', {
+  id: serial('id').primaryKey(),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  creatorId: integer('creator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  timePayload: text('time_payload'),
+  imagesJson: text('images_json').notNull().default('[]'),
+  status: text('status').$type<EventStatus>().notNull().default('unpublished'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  // The public-channel announcement message (systemKind 'event-card') minted at
+  // first publish, so promote/retract can update that same card in place rather
+  // than posting a new one. Null until first published; set null if the message
+  // is later deleted.
+  cardMessageId: integer('card_message_id').references(() => messages.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, (t) => ({
+  idx_story_events_room: index('idx_story_events_room').on(t.roomId),
+}));
+
+/**
+ * Who may read a `partial`-status event's content. One row per authorized
+ * player (`full` events are NOT enumerated — membership gates them). `viewed`
+ * drives the player's unread badge; `updated` re-flags an already-viewed row
+ * when the host edits the event after publishing.
+ */
+export const storyEventVisibility = pgTable('story_event_visibility', {
+  id: serial('id').primaryKey(),
+  eventId: integer('event_id').notNull().references(() => storyEvents.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  viewed: boolean('viewed').notNull().default(false),
+  updated: boolean('updated').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, (t) => ({
+  unq: unique().on(t.eventId, t.userId),
+  idx_story_event_vis_user: index('idx_story_event_vis_user').on(t.userId),
+}));
+
 // ============================================================
 // Relations
 // ============================================================
@@ -409,6 +475,17 @@ export const notebookNotesRelations = relations(notebookNotes, ({ one }) => ({
 export const clueVisibilityRelations = relations(clueVisibility, ({ one }) => ({
   clue: one(clueCards, { fields: [clueVisibility.clueId], references: [clueCards.id] }),
   user: one(users, { fields: [clueVisibility.userId], references: [users.id] }),
+}));
+
+export const storyEventsRelations = relations(storyEvents, ({ one, many }) => ({
+  room: one(rooms, { fields: [storyEvents.roomId], references: [rooms.id] }),
+  creator: one(users, { fields: [storyEvents.creatorId], references: [users.id] }),
+  visibility: many(storyEventVisibility),
+}));
+
+export const storyEventVisibilityRelations = relations(storyEventVisibility, ({ one }) => ({
+  event: one(storyEvents, { fields: [storyEventVisibility.eventId], references: [storyEvents.id] }),
+  user: one(users, { fields: [storyEventVisibility.userId], references: [users.id] }),
 }));
 
 // ============================================================

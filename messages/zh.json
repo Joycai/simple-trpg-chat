@@ -1266,6 +1266,11 @@
     "sharedReceived": "获得了来自 {sender} 分享的道具：{title}",
     "sharedSent": "已将道具 {title} 分享给 {recipient}"
   },
+  "eventActions": {
+    "cardFallback": "📜 事件：{title}",
+    "receiptFallback": "你收到了新事件：{title}",
+    "promotedToFull": "事件《{title}》已完全公开"
+  },
   "inventoryDispatch": {
     "allMembers": "全体成员",
     "allPlayers": "全体玩家",

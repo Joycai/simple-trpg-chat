@@ -1266,6 +1266,11 @@
     "sharedReceived": "Received item shared by {sender}: {title}",
     "sharedSent": "Shared item {title} with {recipient}"
   },
+  "eventActions": {
+    "cardFallback": "📜 Event: {title}",
+    "receiptFallback": "You received a new event: {title}",
+    "promotedToFull": "Event \"{title}\" is now fully public"
+  },
   "inventoryDispatch": {
     "allMembers": "all members",
     "allPlayers": "all players",
