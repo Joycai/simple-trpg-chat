@@ -236,7 +236,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <EventPanel roomId={room.id} refreshKey={eventsRefreshKey} onClose={() => setShowEvents(false)} onChanged={onEventsChanged} />
       )}
       {showEventManage && isHost && (
-        <EventManagePanel roomId={room.id} players={inventoryPlayers} refreshKey={eventsRefreshKey} onClose={() => setShowEventManage(false)} onChanged={onEventsChanged} />
+        <EventManagePanel roomId={room.id} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} refreshKey={eventsRefreshKey} onClose={() => setShowEventManage(false)} onChanged={onEventsChanged} />
       )}
       {showTimeline && isHost && (
         <TimelineDividerDialog roomId={room.id} onClose={() => setShowTimeline(false)} />

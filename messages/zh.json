@@ -840,6 +840,7 @@
     "typeInfo": "信息",
     "typeChar": "人物",
     "typeItem": "物品",
+    "typeEvent": "事件",
     "toolHeading": "标题",
     "toolBold": "加粗",
     "toolItalic": "斜体",

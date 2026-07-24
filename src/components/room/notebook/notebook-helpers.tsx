@@ -68,6 +68,7 @@ export const ENTITY_META: Record<string, { Icon: IconComponent; labelKey: string
   info:      { Icon: Icons.Info,   labelKey: "typeInfo", chipClass: "text-ai border-ai/40 bg-ai/10" },
   character: { Icon: Icons.User,   labelKey: "typeChar", chipClass: "text-text border-border bg-surface-alt" },
   item:      { Icon: Icons.Box,    labelKey: "typeItem", chipClass: "text-success border-success/40 bg-success/10" },
+  event:     { Icon: Icons.ScrollText, labelKey: "typeEvent", chipClass: "text-primary border-primary/40 bg-primary/10" },
 };
 
 const FALLBACK_ENTITY_META = ENTITY_META.item;

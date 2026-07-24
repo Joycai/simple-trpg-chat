@@ -15,6 +15,7 @@ import {
   deleteCategoryAction,
 } from "@/app/actions/notebook";
 import { getMyInventory } from "@/app/actions/inventory";
+import { getMyEventsAction } from "@/app/actions/event";
 import {
   extractMentions,
   highlightSegments,
@@ -85,9 +86,10 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     void (async () => {
       setLoading(true);
       try {
-        const [notebook, inventory] = await Promise.all([
+        const [notebook, inventory, myEvents] = await Promise.all([
           getMyNotebookAction(roomId),
           getMyInventory(roomId),
+          getMyEventsAction(roomId),
         ]);
         setNotes(notebook.notes as Note[]);
         setCategories(notebook.categories as Category[]);
@@ -101,6 +103,12 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
             byId.set(item.id, dist);
             linkable.push({ id: item.id, type: item.type, title: item.title });
           }
+        }
+        // Events the viewer may read are also linkable (#7). Negate the id so it
+        // never collides with a backpack item id in the shared entity list (a
+        // clicked event chip is a harmless no-op — no backpack dist to open).
+        for (const ev of myEvents) {
+          linkable.push({ id: -ev.id, type: "event", title: ev.title });
         }
         setEntities(linkable);
         setDistsById(byId);

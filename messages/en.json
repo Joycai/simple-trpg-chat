@@ -840,6 +840,7 @@
     "typeInfo": "Info",
     "typeChar": "Character",
     "typeItem": "Item",
+    "typeEvent": "Event",
     "toolHeading": "Heading",
     "toolBold": "Bold",
     "toolItalic": "Italic",
