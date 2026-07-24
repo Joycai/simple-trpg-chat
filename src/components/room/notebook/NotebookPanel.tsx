@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
+import { LoadFailed } from "@/components/shared/LoadFailed";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import {
   getMyNotebookAction,
@@ -75,6 +76,8 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
   const [distsById, setDistsById] = useState<Map<number, Distribution>>(new Map());
   const [detail, setDetail] = useState<Distribution | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ note: Note | null } | null>(null);
   const [sharing, setSharing] = useState<Note | null>(null);
@@ -83,39 +86,55 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
   const [filter, setFilter] = useState<CategoryFilter>("all");
 
   useEffect(() => {
+    let alive = true;
     void (async () => {
-      setLoading(true);
-      try {
-        const [notebook, inventory, myEvents] = await Promise.all([
-          getMyNotebookAction(roomId),
-          getMyInventory(roomId),
-          getMyEventsAction(roomId),
-        ]);
-        setNotes(notebook.notes as Note[]);
-        setCategories(notebook.categories as Category[]);
+      // allSettled, not all: the notes are the panel's reason to exist, while
+      // the backpack and event lists only enrich `@` mentions. Failing them
+      // together meant one blip on either extra showed "no notes yet" to
+      // someone whose notes were fine — and invited them to rewrite one.
+      const [notebook, inventory, myEvents] = await Promise.allSettled([
+        getMyNotebookAction(roomId),
+        getMyInventory(roomId),
+        getMyEventsAction(roomId),
+      ]);
+      if (!alive) return;
+
+      if (notebook.status === "fulfilled") {
+        setNotes(notebook.value.notes as Note[]);
+        setCategories(notebook.value.categories as Category[]);
+        setError(false);
+      } else {
+        setError(true);
+      }
+
+      // Mentions degrade gracefully: with no entities `segmentMentions` returns
+      // the text unchanged, so an `@Title` just reads as plain text.
+      const byId = new Map<number, Distribution>();
+      const linkable: NotebookLinkEntity[] = [];
+      if (inventory.status === "fulfilled") {
         // Backpack entries → linkable entities (dedupe by item id: shared
         // copies of the same item may produce several distributions).
-        const byId = new Map<number, Distribution>();
-        const linkable: NotebookLinkEntity[] = [];
-        for (const dist of inventory as Distribution[]) {
+        for (const dist of inventory.value as Distribution[]) {
           const item = dist.item;
           if (item && !byId.has(item.id)) {
             byId.set(item.id, dist);
             linkable.push({ id: item.id, type: item.type, title: item.title });
           }
         }
+      }
+      if (myEvents.status === "fulfilled") {
         // Events the viewer may read are also linkable (#7). Negate the id so it
-        // never collides with a backpack item id in the shared entity list (a
-        // clicked event chip is a harmless no-op — no backpack dist to open).
-        for (const ev of myEvents) {
+        // never collides with a backpack item id in the shared entity list.
+        for (const ev of myEvents.value) {
           linkable.push({ id: -ev.id, type: "event", title: ev.title });
         }
-        setEntities(linkable);
-        setDistsById(byId);
-      } catch { /* panel simply shows the empty state */ }
+      }
+      setEntities(linkable);
+      setDistsById(byId);
       setLoading(false);
     })();
-  }, [roomId]);
+    return () => { alive = false; };
+  }, [roomId, retryKey]);
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
   const categoryOf = (id: number | null) => categories.find((c) => c.id === id) ?? null;
@@ -301,7 +320,10 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
               </div>
               <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1.5">
                 {loading && <p className="text-xs text-text-dim px-1 py-4">{tCommon("loading")}</p>}
-                {!loading && listNotes.length === 0 && (
+                {!loading && error && notes.length === 0 && (
+                  <LoadFailed onRetry={() => setRetryKey((k) => k + 1)} className="py-8" />
+                )}
+                {!loading && !error && listNotes.length === 0 && (
                   <p className="text-xs text-text-dim px-1 py-4">{t("emptyList")}</p>
                 )}
                 {listNotes.map((n) => (

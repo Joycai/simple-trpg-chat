@@ -492,10 +492,13 @@ export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
     .where(eq(storyEvents.roomId, roomId))
     .orderBy(asc(storyEvents.sortOrder), asc(storyEvents.id));
 
+  // Joined to storyEvents and scoped to this room: without it the query pulls
+  // the caller's visibility rows across every room they have ever played in.
   const myVis = await db
     .select({ eventId: storyEventVisibility.eventId, viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated, createdAt: storyEventVisibility.createdAt })
     .from(storyEventVisibility)
-    .where(eq(storyEventVisibility.userId, userId));
+    .innerJoin(storyEvents, eq(storyEvents.id, storyEventVisibility.eventId))
+    .where(and(eq(storyEventVisibility.userId, userId), eq(storyEvents.roomId, roomId)));
   const visMap = new Map(myVis.map((v) => [v.eventId, v]));
 
   const out: EventView[] = [];
@@ -569,34 +572,19 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
 /** Mark a single event read for the caller (clears its unread/updated flags). */
 export async function markEventViewedAction(roomId: number, eventId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
+  // The room check authorizes the caller, but the UPDATE must also confirm the
+  // event belongs to that room — otherwise any member of any room could clear
+  // their flags on an arbitrary event id.
+  const [ev] = await db
+    .select({ id: storyEvents.id })
+    .from(storyEvents)
+    .where(and(eq(storyEvents.id, eventId), eq(storyEvents.roomId, roomId)));
+  if (!ev) return { success: true };
   await db
     .update(storyEventVisibility)
     .set({ viewed: true, updated: false })
     .where(and(eq(storyEventVisibility.eventId, eventId), eq(storyEventVisibility.userId, userId)));
   return { success: true };
-}
-
-/** Lightweight id set the chat card uses to decide locked vs unlocked. */
-export async function getMyEventIdsAction(roomId: number): Promise<number[]> {
-  const { userId, isHost } = await checkRoomAccess(roomId, false);
-  if (isHost) {
-    const rows = await db.select({ id: storyEvents.id }).from(storyEvents).where(eq(storyEvents.roomId, roomId));
-    return rows.map((r) => r.id);
-  }
-  const rows = await db
-    .select({ id: storyEvents.id })
-    .from(storyEvents)
-    .leftJoin(
-      storyEventVisibility,
-      and(eq(storyEventVisibility.eventId, storyEvents.id), eq(storyEventVisibility.userId, userId)),
-    )
-    .where(
-      and(
-        eq(storyEvents.roomId, roomId),
-        sql`(${storyEvents.status} = 'full' OR ${storyEventVisibility.userId} IS NOT NULL)`,
-      ),
-    );
-  return rows.map((r) => r.id);
 }
 
 /** Unread event count for the top-bar badge (non-host, from visibility rows). */

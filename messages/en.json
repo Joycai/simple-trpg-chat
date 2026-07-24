@@ -652,7 +652,9 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "close": "Close",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "loadFailed": "Failed to load",
+    "retry": "Retry"
   },
   "userSettings": {
     "title": "Settings",

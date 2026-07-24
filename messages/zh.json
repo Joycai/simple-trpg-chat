@@ -652,7 +652,9 @@
     "confirm": "确认",
     "cancel": "取消",
     "close": "关闭",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "loadFailed": "加载失败",
+    "retry": "重试"
   },
   "userSettings": {
     "title": "个人设置",

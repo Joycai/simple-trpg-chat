@@ -1,42 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { getMyEventsAction, markEventsViewedAction, type EventView } from "@/app/actions/event";
+import { LoadFailed } from "@/components/shared/LoadFailed";
+import { markEventsViewedAction, type EventView } from "@/app/actions/event";
+import { useEventData } from "./EventDataContext";
 import { EventTimeLabel, EventBodyPreview } from "./event-helpers";
 
 interface EventPanelProps {
   roomId: number;
-  refreshKey: number;
   onClose: () => void;
-  /** Clears the top-bar unread badge after we mark viewed. */
+  /** Clears the top-bar unread badge after we mark viewed. Deliberately does
+   *  NOT re-fetch the list — see below. */
   onChanged: () => void;
   /** Opens an event's detail modal — rendered at the room's top level (centered),
    *  NOT inside this drawer, so a transformed drawer ancestor can't trap it. */
   onOpenEvent: (eventId: number) => void;
 }
 
-export function EventPanel({ roomId, refreshKey, onClose, onChanged, onOpenEvent }: EventPanelProps) {
+export function EventPanel({ roomId, onClose, onChanged, onOpenEvent }: EventPanelProps) {
   const t = useTranslations("event");
-  const [events, setEvents] = useState<EventView[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Content comes from the room-wide fetch (EventDataContext), so opening the
+  // log costs no request and the rows keep whatever `updated` flags the last
+  // refresh saw.
+  const { eventsOrdered: events, loading, error, retry } = useEventData();
 
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      setLoading(true);
-      try {
-        const rows = await getMyEventsAction(roomId);
-        if (alive) setEvents(rows);
-      } catch { /* keep empty */ }
-      if (alive) setLoading(false);
-    })();
-    return () => { alive = false; };
-  }, [roomId, refreshKey]);
-
-  // Mark read once per open; refresh the badge afterwards.
+  // Mark read once per open; refresh the badge only. Re-fetching here would
+  // immediately clear every `updated` flag we just rendered the highlight for.
   useEffect(() => {
     markEventsViewedAction(roomId).then(() => onChanged()).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,6 +47,8 @@ export function EventPanel({ roomId, refreshKey, onClose, onChanged, onOpenEvent
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5">
             {loading ? (
               <div className="flex items-center justify-center py-10 text-text-muted"><Icons.Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : error && events.length === 0 ? (
+              <LoadFailed onRetry={retry} />
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-2 text-text-dim">
                 <Icons.Flag className="w-10 h-10 opacity-50" />

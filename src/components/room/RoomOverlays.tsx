@@ -72,7 +72,11 @@ interface RoomOverlaysProps {
   showEventManage: boolean;
   setShowEventManage: (v: boolean) => void;
   eventsRefreshKey: number;
+  /** Re-fetch the shared event list (host mutations, and closing the log). */
   onEventsChanged: () => void;
+  /** Refresh only the unread badge — used after marking events read, so the
+   *  "已更新" highlights survive for as long as the player has the log open. */
+  onEventBadgeChanged: () => void;
   /** Event whose detail modal is open (from a chat card), or null. */
   eventDetailId: number | null;
   setEventDetailId: (v: number | null) => void;
@@ -114,7 +118,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
     showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
-    showEvents, setShowEvents, showEventManage, setShowEventManage, eventsRefreshKey, onEventsChanged,
+    showEvents, setShowEvents, showEventManage, setShowEventManage, eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
     eventDetailId, setEventDetailId,
     showTimeline, setShowTimeline,
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
@@ -238,13 +242,15 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
       )}
       {showEvents && (
-        <EventPanel roomId={room.id} refreshKey={eventsRefreshKey} onClose={() => setShowEvents(false)} onChanged={onEventsChanged} onOpenEvent={(id) => setEventDetailId(id)} />
+        // Closing the log is when the read state is folded back into the list,
+        // so the highlights stay put for the whole time it is open.
+        <EventPanel roomId={room.id} onClose={() => { setShowEvents(false); onEventsChanged(); }} onChanged={onEventBadgeChanged} onOpenEvent={(id) => setEventDetailId(id)} />
       )}
       {showEventManage && isHost && (
         <EventManagePanel roomId={room.id} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} refreshKey={eventsRefreshKey} onClose={() => setShowEventManage(false)} onChanged={onEventsChanged} onOpenEvent={(id) => setEventDetailId(id)} />
       )}
       {eventDetailId != null && (
-        <EventDetailModal roomId={room.id} eventId={eventDetailId} isHost={isHost} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} onClose={() => setEventDetailId(null)} onViewed={onEventsChanged} />
+        <EventDetailModal roomId={room.id} eventId={eventDetailId} isHost={isHost} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} refreshKey={eventsRefreshKey} onClose={() => setEventDetailId(null)} onViewed={onEventBadgeChanged} onChanged={onEventsChanged} />
       )}
       {showTimeline && isHost && (
         <TimelineDividerDialog roomId={room.id} onClose={() => setShowTimeline(false)} />

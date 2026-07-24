@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { composeTimelineLabel, dayPartFromDivider, type TimelineSegment } from "@/lib/messaging/timeline-payload";
-import { getEventForViewerAction, type EventView } from "@/app/actions/event";
 import type { EventCardPayload } from "@/lib/story-events";
-import { useBackpackEntities, EventBodyPreview } from "./event-helpers";
+import { useEventData } from "./EventDataContext";
+import { EventBodyPreview } from "./event-helpers";
 
 /**
  * Time-pill tint by day-part — a bright warm morning, a warmer afternoon, and a
@@ -90,7 +90,10 @@ export function EventCard({
   return <UnlockedCard payload={payload} roomId={roomId} timeLabel={timeLabel} onOpen={onOpen} />;
 }
 
-/** Unlocked card: fetches the viewable body/images and renders the full design. */
+/** Unlocked card: reads the viewable body/images from the room-wide event data
+ *  and renders the full design. Reading from the shared store (rather than one
+ *  fetch per card) is both what keeps a long backlog to a single request and
+ *  what lets a host's later edit reach a card already in the log. */
 function UnlockedCard({
   payload,
   roomId,
@@ -103,18 +106,10 @@ function UnlockedCard({
   onOpen: () => void;
 }) {
   const t = useTranslations("event");
-  const entities = useBackpackEntities(roomId ?? 0);
-  // undefined = loading; null = no roomId / fetch failed (render metadata only).
-  const [detail, setDetail] = useState<EventView | null | undefined>(roomId ? undefined : null);
-
-  useEffect(() => {
-    if (!roomId) return; // no fetch — initial state is already null
-    let alive = true;
-    getEventForViewerAction(roomId, payload.eventId)
-      .then((e) => { if (alive) setDetail(e); })
-      .catch(() => { if (alive) setDetail(null); });
-    return () => { alive = false; };
-  }, [roomId, payload.eventId]);
+  const { eventsById, entities, loading } = useEventData();
+  // undefined = still loading; null = unavailable (render metadata only).
+  const found = eventsById.get(payload.eventId);
+  const detail = found ?? (roomId && loading ? undefined : null);
 
   const isFull = payload.mode === "full";
   // Day-part tints the time pill (bright morning → warm afternoon → cool night),
@@ -148,8 +143,10 @@ function UnlockedCard({
             </span>
           </div>
 
-          {/* title — single line, ellipsis */}
-          <h4 className="font-theme-display font-bold text-text text-base mt-2.5 truncate">{payload.title}</h4>
+          {/* title — single line, ellipsis. Prefer the live value: `payload.title`
+              is a snapshot frozen into the card message at publish time, and
+              editing an event does not repost the card. */}
+          <h4 className="font-theme-display font-bold text-text text-base mt-2.5 truncate">{detail?.title ?? payload.title}</h4>
 
           {/* body (first 3 lines, markdown-styled) with the cover to its right.
               Fixed height so the fetch fills in without resizing; the body's

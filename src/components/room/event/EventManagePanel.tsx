@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { LoadFailed } from "@/components/shared/LoadFailed";
 import {
   getRoomEventsAction,
   reorderEventAction,
@@ -63,6 +64,10 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
 
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  /** Retry counter for the error state — re-runs the fetch without touching the
+   *  room-wide key (which would also reload every other panel). */
+  const [localRefresh, setLocalRefresh] = useState(0);
 
   // FLIP reorder animation: remember each row's on-screen box, and after the
   // order changes, invert the delta then transition it away so rows glide.
@@ -108,15 +113,23 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
   useEffect(() => {
     let alive = true;
     void (async () => {
-      setLoading(true);
+      // `loading` is only ever cleared, never re-raised: a refreshKey bump keeps
+      // the current rows on screen. Swapping them for a spinner unregisters
+      // every FLIP row mid-flight and stutters the reorder animation — and the
+      // host's own reorder does bump the key, via its `events_updated` echo.
       try {
         const rows = await getRoomEventsAction(roomId);
-        if (alive) setEvents(rows as ManagedEvent[]);
-      } catch { /* empty state */ }
-      if (alive) setLoading(false);
+        if (!alive) return;
+        setEvents(rows as ManagedEvent[]);
+        setError(false);
+      } catch {
+        if (alive) setError(true);
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
     return () => { alive = false; };
-  }, [roomId, refreshKey]);
+  }, [roomId, refreshKey, localRefresh]);
 
   const toView = (e: ManagedEvent): EventView => ({
     id: e.id, title: e.title, description: e.description, timePayload: e.timePayload,
@@ -174,6 +187,10 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
           <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3">
             {loading ? (
               <div className="flex items-center justify-center py-10 text-text-muted"><Icons.Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : error && events.length === 0 ? (
+              // Never fall through to "no events yet" on a failed load — a host
+              // who believes their events are gone will recreate them.
+              <LoadFailed onRetry={() => setLocalRefresh((k) => k + 1)} />
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-2 text-text-dim">
                 <Icons.Flag className="w-10 h-10 opacity-50" />
