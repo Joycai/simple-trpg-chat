@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { segmentMentions, type NotebookLinkEntity } from "@/lib/notebook";
+import { splitBlocks, splitCodeFences } from "@/lib/markdown-blocks";
 
 /**
  * Optional @-mention support (notebook). When provided, plain-text runs are
@@ -20,167 +21,111 @@ export interface MentionOptions {
  * blockquotes, bullet lists, bold, italic, inline code, strikethrough, links.
  */
 export function MarkdownRenderer({ content, mentions }: { content: string; mentions?: MentionOptions }) {
-  const parts = content.split(/(```[\s\S]*?```)/g);
-
   return (
     <>
-      {parts.map((part, i) => {
-        if (part.startsWith("```") && part.endsWith("```")) {
-          const code = part.slice(3, -3).trim();
-          const [lang, ...rest] = code.split("\n");
-          const isLang = !/\s/.test(lang) && lang.length < 20;
+      {splitCodeFences(content).map((part, i) => {
+        if (part.kind === "code") {
           return (
             <pre
               key={i}
               className="bg-bg border border-border rounded-theme p-3 my-2 overflow-x-auto text-xs font-theme-mono leading-relaxed"
             >
-              {isLang && (
+              {part.lang && (
                 <div className="text-[10px] text-text-dim mb-1 uppercase tracking-wider">
-                  {lang}
+                  {part.lang}
                 </div>
               )}
-              <code>{isLang ? rest.join("\n") : code}</code>
+              <code>{part.code}</code>
             </pre>
           );
         }
-        return <BlockRenderer key={i} text={part} mentions={mentions} />;
+        return <BlockRenderer key={i} text={part.text} mentions={mentions} />;
       })}
     </>
   );
 }
 
+const HEADING_CLASS = {
+  1: "text-lg font-bold mt-2 mb-1",
+  2: "text-base font-bold mt-2 mb-1",
+  3: "text-sm font-bold mt-1 mb-0.5",
+} as const;
+
 function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOptions }) {
-  const lines = text.split("\n");
-  const result: React.ReactNode[] = [];
+  return (
+    <>
+      {splitBlocks(text).map((block) => {
+        switch (block.kind) {
+          case "heading":
+            return (
+              <div key={`h-${block.line}`} className={`md-heading md-h${block.level} ${HEADING_CLASS[block.level]}`}>
+                <InlineRenderer text={block.text} mentions={mentions} />
+              </div>
+            );
 
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Heading: ### / ## / #
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const cls = level === 1
-        ? "text-lg font-bold mt-2 mb-1"
-        : level === 2
-        ? "text-base font-bold mt-2 mb-1"
-        : "text-sm font-bold mt-1 mb-0.5";
-      result.push(
-        <div key={`h-${i}`} className={`md-heading md-h${level} ${cls}`}>
-          <InlineRenderer text={headingMatch[2]} mentions={mentions} />
-        </div>
-      );
-      i++;
-      continue;
-    }
-
-    // Blockquote: consecutive lines starting with >
-    if (/^>\s?/.test(line)) {
-      const quoteLines: string[] = [];
-      while (i < lines.length && /^>\s?/.test(lines[i])) {
-        quoteLines.push(lines[i].replace(/^>\s?/, ""));
-        i++;
-      }
-      result.push(
-        <blockquote key={`q-${i}`} className="md-quote border-l-2 border-accent/50 bg-surface-alt/50 pl-3 pr-2 py-1.5 my-2 text-sm text-text-muted italic rounded-r-theme">
-          {quoteLines.map((q, qi) => (
-            <p key={qi} className="leading-relaxed">
-              <InlineRenderer text={q} mentions={mentions} />
-            </p>
-          ))}
-        </blockquote>
-      );
-      continue;
-    }
-
-    // Bullet list: consecutive lines starting with "- " or "* "
-    if (/^[-*]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-*]\s+/, ""));
-        i++;
-      }
-      result.push(
-        <ul key={`ul-${i}`} className="md-list list-disc pl-5 my-1.5 space-y-1">
-          {items.map((item, li) => (
-            <li key={li} className="text-sm leading-relaxed">
-              <InlineRenderer text={item} mentions={mentions} />
-            </li>
-          ))}
-        </ul>
-      );
-      continue;
-    }
-
-    // Table detection: line starts with | and contains at least one more |
-    if (line.startsWith("|") && line.includes("|", 1)) {
-      const tableLines: string[] = [];
-      while (i < lines.length && lines[i].startsWith("|") && lines[i].includes("|", 1)) {
-        tableLines.push(lines[i]);
-        i++;
-      }
-      // Skip separator row (|---|---|)
-      const dataRows = tableLines.filter(l => !/^\|[\s\-:|]+\|$/.test(l));
-      if (dataRows.length > 0) {
-        const headers = parseTableRow(dataRows[0]);
-        const body = dataRows.length > 1 ? dataRows.slice(1).map(parseTableRow) : [];
-        result.push(
-          <div key={`tbl-${i}`} className="my-2 overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr>
-                  {headers.map((h, hi) => (
-                    <th key={hi} className="border border-border bg-surface-alt px-2 py-1 text-left font-bold">
-                      <InlineRenderer text={h} mentions={mentions} />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {body.map((row, ri) => (
-                  <tr key={ri}>
-                    {row.map((cell, ci) => (
-                      <td key={ci} className="border border-border px-2 py-1">
-                        <InlineRenderer text={cell} mentions={mentions} />
-                      </td>
-                    ))}
-                  </tr>
+          case "quote":
+            return (
+              <blockquote key={`q-${block.line}`} className="md-quote border-l-2 border-accent/50 bg-surface-alt/50 pl-3 pr-2 py-1.5 my-2 text-sm text-text-muted italic rounded-r-theme">
+                {block.lines.map((q, qi) => (
+                  <p key={qi} className="leading-relaxed">
+                    <InlineRenderer text={q} mentions={mentions} />
+                  </p>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        );
-        continue;
-      }
-    }
+              </blockquote>
+            );
 
-    // Empty line
-    if (line.trim() === "") {
-      result.push(<div key={`br-${i}`} className="h-2" />);
-      i++;
-      continue;
-    }
+          case "list":
+            return (
+              <ul key={`ul-${block.line}`} className="md-list list-disc pl-5 my-1.5 space-y-1">
+                {block.items.map((item, li) => (
+                  <li key={li} className="text-sm leading-relaxed">
+                    <InlineRenderer text={item} mentions={mentions} />
+                  </li>
+                ))}
+              </ul>
+            );
 
-    // Regular paragraph: collect until empty line or special block
-    result.push(
-      <p key={`p-${i}`} className="text-sm whitespace-pre-wrap leading-relaxed my-0.5">
-        <InlineRenderer text={line} mentions={mentions} />
-      </p>
-    );
-    i++;
-  }
+          case "table":
+            return (
+              <div key={`tbl-${block.line}`} className="my-2 overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr>
+                      {block.headers.map((h, hi) => (
+                        <th key={hi} className="border border-border bg-surface-alt px-2 py-1 text-left font-bold">
+                          <InlineRenderer text={h} mentions={mentions} />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, ri) => (
+                      <tr key={ri}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} className="border border-border px-2 py-1">
+                            <InlineRenderer text={cell} mentions={mentions} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
 
-  return <>{result}</>;
-}
+          case "break":
+            return <div key={`br-${block.line}`} className="h-2" />;
 
-/** Parse a table row like | col1 | col2 | col3 | */
-function parseTableRow(line: string): string[] {
-  return line
-    .replace(/^\|/, "")
-    .replace(/\|$/, "")
-    .split("|")
-    .map(c => c.trim());
+          case "paragraph":
+            return (
+              <p key={`p-${block.line}`} className="text-sm whitespace-pre-wrap leading-relaxed my-0.5">
+                <InlineRenderer text={block.text} mentions={mentions} />
+              </p>
+            );
+        }
+      })}
+    </>
+  );
 }
 
 /** Render a plain-text run, expanding @-mentions when the caller opted in. */
