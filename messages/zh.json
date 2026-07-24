@@ -1349,13 +1349,18 @@
     "updated": "已更新",
     "noContent": "（无正文）",
     "cardPublished": "事件公开",
+    "cardLabel": "事件志",
+    "cardTag": "EVENT",
     "cardCanView": "你可查看",
     "cardOpenPanel": "查看详情",
+    "cardScopeFull": "对全体成员公开",
+    "cardScopePartial": "仅指定成员可见",
     "detailUnavailable": "你暂时无法查看该事件。",
     "cardLimited": "有限公开",
-    "cardLockedDesc": "此事件仅对部分成员公开，内容不可见。",
+    "cardLockedTitle": "主持人公开了一条事件",
+    "cardLockedDesc": "主持人公开了一条事件，但其内容未对你开放。",
     "cardRetracted": "已撤回",
-    "cardRetractedDesc": "主持人已撤回此事件。"
+    "cardRetractedDesc": "该事件已被主持人撤回，不再对外可见。"
   },
   "inventoryDispatch": {
     "allMembers": "全体成员",

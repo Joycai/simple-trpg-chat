@@ -1349,13 +1349,18 @@
     "updated": "Updated",
     "noContent": "(no content)",
     "cardPublished": "Event published",
+    "cardLabel": "Event Log",
+    "cardTag": "EVENT",
     "cardCanView": "You can view",
     "cardOpenPanel": "View details",
+    "cardScopeFull": "Visible to everyone",
+    "cardScopePartial": "Visible to selected members",
     "detailUnavailable": "You cannot view this event.",
     "cardLimited": "Limited reveal",
-    "cardLockedDesc": "This event is only revealed to some members; content hidden.",
+    "cardLockedTitle": "The host published an event",
+    "cardLockedDesc": "The host published an event, but its content isn't shared with you.",
     "cardRetracted": "Retracted",
-    "cardRetractedDesc": "The host has retracted this event."
+    "cardRetractedDesc": "The host retracted this event; it's no longer visible."
   },
   "inventoryDispatch": {
     "allMembers": "all members",

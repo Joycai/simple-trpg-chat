@@ -1365,7 +1365,7 @@ export const ChatMessage = memo(function ChatMessage({
       const unlocked = isHost || !!visibleEventIds?.has(payload.eventId);
       return (
         <div className="flex justify-center py-2 animate-in fade-in">
-          <EventCard payload={payload} unlocked={unlocked} onOpen={() => onOpenEvent?.(payload.eventId)} />
+          <EventCard payload={payload} unlocked={unlocked} roomId={roomId} onOpen={() => onOpenEvent?.(payload.eventId)} />
         </div>
       );
     }

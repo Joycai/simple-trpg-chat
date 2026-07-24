@@ -64,11 +64,11 @@ type IconComponent = (typeof Icons)[keyof typeof Icons];
 
 /** @-mention chip chrome per backpack entity type (colors are theme tokens). */
 export const ENTITY_META: Record<string, { Icon: IconComponent; labelKey: string; chipClass: string }> = {
-  clue:      { Icon: Icons.Search, labelKey: "typeClue", chipClass: "text-accent border-accent/40 bg-accent/10" },
+  clue:      { Icon: Icons.Search, labelKey: "typeClue", chipClass: "text-primary border-primary/40 bg-primary/10" },
   info:      { Icon: Icons.Info,   labelKey: "typeInfo", chipClass: "text-ai border-ai/40 bg-ai/10" },
-  character: { Icon: Icons.User,   labelKey: "typeChar", chipClass: "text-text border-border bg-surface-alt" },
+  character: { Icon: Icons.User,   labelKey: "typeChar", chipClass: "text-accent border-accent/40 bg-accent/10" },
   item:      { Icon: Icons.Box,    labelKey: "typeItem", chipClass: "text-success border-success/40 bg-success/10" },
-  event:     { Icon: Icons.ScrollText, labelKey: "typeEvent", chipClass: "text-primary border-primary/40 bg-primary/10" },
+  event:     { Icon: Icons.Flag,   labelKey: "typeEvent", chipClass: "text-primary border-primary/40 bg-primary/10" },
 };
 
 const FALLBACK_ENTITY_META = ENTITY_META.item;
