@@ -10,7 +10,7 @@ import {
   Target, Eye, Droplet, Braces, Clock,
   HelpCircle, AlertTriangle, UserPlus, CheckSquare,
   RefreshCw, Share2, Box, File, Stamp,
-  ArrowDown, Ban, Sparkles,
+  ArrowDown, ArrowUp, ChevronsUp, ChevronsDown, Ban, Sparkles, ScrollText,
   Sunrise, Sun, Moon, CalendarDays, Undo2,
   NotebookPen, BookOpen, AtSign, Bold, Italic, Heading2, List, Quote, Link2, MoreVertical,
   type LucideIcon,
@@ -106,4 +106,8 @@ export const Icons = {
   Quote: wrap(Quote),
   Link2: wrap(Link2),
   MoreVertical: wrap(MoreVertical),
+  ScrollText: wrap(ScrollText),
+  ArrowUp: wrap(ArrowUp),
+  ChevronsUp: wrap(ChevronsUp),
+  ChevronsDown: wrap(ChevronsDown),
 };

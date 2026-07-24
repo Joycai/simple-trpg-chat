@@ -4,6 +4,9 @@ import { CharacterPanel } from "@/components/room/character/CharacterPanel";
 import { RoomSettings } from "@/components/room/RoomSettings";
 import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
 import { NotebookPanel } from "@/components/room/notebook/NotebookPanel";
+import { EventPanel } from "@/components/room/event/EventPanel";
+import { EventManagePanel } from "@/components/room/event/EventManagePanel";
+import { EventDetailModal } from "@/components/room/event/EventDetailModal";
 import { BotManager } from "@/components/room/bot/BotManager";
 import { AiImportPanel } from "@/components/room/bot/AiImportPanel";
 import { ExportButton } from "@/components/room/ExportButton";
@@ -64,6 +67,15 @@ interface RoomOverlaysProps {
   setShowNotebook: (v: boolean) => void;
   showItemManager: boolean;
   setShowItemManager: (v: boolean) => void;
+  showEvents: boolean;
+  setShowEvents: (v: boolean) => void;
+  showEventManage: boolean;
+  setShowEventManage: (v: boolean) => void;
+  eventsRefreshKey: number;
+  onEventsChanged: () => void;
+  /** Event whose detail modal is open (from a chat card), or null. */
+  eventDetailId: number | null;
+  setEventDetailId: (v: number | null) => void;
   showTimeline: boolean;
   setShowTimeline: (v: boolean) => void;
   showSettings: boolean;
@@ -102,6 +114,8 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
     showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
+    showEvents, setShowEvents, showEventManage, setShowEventManage, eventsRefreshKey, onEventsChanged,
+    eventDetailId, setEventDetailId,
     showTimeline, setShowTimeline,
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
     showUserSettings, setShowUserSettings,
@@ -222,6 +236,15 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       )}
       {showItemManager && isHost && (
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
+      )}
+      {showEvents && (
+        <EventPanel roomId={room.id} refreshKey={eventsRefreshKey} onClose={() => setShowEvents(false)} onChanged={onEventsChanged} onOpenEvent={(id) => setEventDetailId(id)} />
+      )}
+      {showEventManage && isHost && (
+        <EventManagePanel roomId={room.id} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} refreshKey={eventsRefreshKey} onClose={() => setShowEventManage(false)} onChanged={onEventsChanged} />
+      )}
+      {eventDetailId != null && (
+        <EventDetailModal roomId={room.id} eventId={eventDetailId} onClose={() => setEventDetailId(null)} onViewed={onEventsChanged} />
       )}
       {showTimeline && isHost && (
         <TimelineDividerDialog roomId={room.id} onClose={() => setShowTimeline(false)} />

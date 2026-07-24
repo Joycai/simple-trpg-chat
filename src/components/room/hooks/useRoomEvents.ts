@@ -18,6 +18,7 @@ interface UseRoomEventsParams {
   setUnreadCounts: React.Dispatch<React.SetStateAction<Record<number, number>>>;
   setTypingBots: React.Dispatch<React.SetStateAction<TypingBots>>;
   setInventoryRefreshKey: React.Dispatch<React.SetStateAction<number>>;
+  setEventsRefreshKey: React.Dispatch<React.SetStateAction<number>>;
   setOnlineUserIds: React.Dispatch<React.SetStateAction<Set<number>>>;
   setCharacterResources: React.Dispatch<React.SetStateAction<Map<number, StatusEntry>>>;
 }
@@ -36,6 +37,7 @@ export function useRoomEvents({
   setUnreadCounts,
   setTypingBots,
   setInventoryRefreshKey,
+  setEventsRefreshKey,
   setOnlineUserIds,
   setCharacterResources,
 }: UseRoomEventsParams) {
@@ -98,6 +100,13 @@ export function useRoomEvents({
             // Host edited an item — bump the key so any open InventoryPanel reloads
             // the edited content (distributed copies sync via the item relation).
             setInventoryRefreshKey((k) => k + 1);
+            return;
+          }
+          if (data.type === "events_updated") {
+            // Any event mutation (publish/edit/reorder/add-viewer/promote/retract):
+            // bump so open event panels reload AND the viewer's visible-id set
+            // refreshes, re-evaluating each chat card's locked/unlocked state.
+            setEventsRefreshKey((k) => k + 1);
             return;
           }
           if (data.type === "presence_update") {

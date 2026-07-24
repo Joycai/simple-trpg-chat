@@ -16,6 +16,7 @@ import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadActi
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { getMySkillsAction } from "@/app/actions/skills";
+import { getMyEventIdsAction, getUnreadEventCountAction } from "@/app/actions/event";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
@@ -69,6 +70,12 @@ export function RoomClient({
   const [showInventory, setShowInventory] = useState(false);
   const [showNotebook, setShowNotebook] = useState(false);
   const [showItemManager, setShowItemManager] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
+  const [showEventManage, setShowEventManage] = useState(false);
+  const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
+  const [visibleEventIds, setVisibleEventIds] = useState<Set<number>>(new Set());
+  const [unreadEvents, setUnreadEvents] = useState(0);
+  const [eventDetailId, setEventDetailId] = useState<number | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
@@ -238,6 +245,15 @@ export function RoomClient({
       .catch(() => {});
   }, [room.id, skillRefreshKey]);
 
+  // Events: the viewer's set of readable event ids (drives chat-card lock state)
+  // + unread count for the top-bar badge. Re-fetched on the shared eventsRefreshKey,
+  // which the `events_updated` SSE bumps, so publish/retract/promote reflect live.
+  useEffect(() => {
+    getMyEventIdsAction(room.id).then((ids) => setVisibleEventIds(new Set(ids))).catch(() => {});
+    getUnreadEventCountAction(room.id).then(setUnreadEvents).catch(() => {});
+  }, [room.id, eventsRefreshKey]);
+  const bumpEvents = useCallback(() => setEventsRefreshKey((k) => k + 1), []);
+
   const characterHint = useMemo(() => {
     const rule = getRuleForRoom(room);
     if (!ruleUsesStructuredSheet(rule)) return false;
@@ -375,6 +391,7 @@ export function RoomClient({
     setUnreadCounts,
     setTypingBots,
     setInventoryRefreshKey,
+    setEventsRefreshKey,
     setOnlineUserIds,
     setCharacterResources,
   });
@@ -620,12 +637,16 @@ export function RoomClient({
         onToggleInventory={handleToggleInventory}
         showNotebook={showNotebook}
         setShowNotebook={setShowNotebook}
+        showEvents={showEvents}
+        setShowEvents={setShowEvents}
+        unreadEvents={unreadEvents}
         checkMode={checkMode}
         setCheckMode={setCheckMode}
         showCheckMenu={showCheckMenu}
         setShowCheckMenu={setShowCheckMenu}
         showItemManager={showItemManager}
         setShowItemManager={setShowItemManager}
+        setShowEventManage={setShowEventManage}
         showTimeline={showTimeline}
         setShowTimeline={setShowTimeline}
         showAiMenu={showAiMenu}
@@ -721,6 +742,8 @@ export function RoomClient({
           onOpenInventory={handleToggleInventory}
           onWithdrawTimeline={isHost ? handleWithdrawTimeline : undefined}
           onSendMessage={handleSendMessage}
+          visibleEventIds={visibleEventIds}
+          onOpenEvent={(id) => setEventDetailId(id)}
         />
       </div>
 
@@ -769,6 +792,14 @@ export function RoomClient({
         setShowNotebook={setShowNotebook}
         showItemManager={showItemManager}
         setShowItemManager={setShowItemManager}
+        showEvents={showEvents}
+        setShowEvents={setShowEvents}
+        showEventManage={showEventManage}
+        setShowEventManage={setShowEventManage}
+        eventsRefreshKey={eventsRefreshKey}
+        onEventsChanged={bumpEvents}
+        eventDetailId={eventDetailId}
+        setEventDetailId={setEventDetailId}
         showTimeline={showTimeline}
         setShowTimeline={setShowTimeline}
         showSettings={showSettings}

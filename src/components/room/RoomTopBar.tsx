@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
@@ -73,12 +73,18 @@ interface RoomTopBarProps {
   onToggleInventory: () => void;
   showNotebook: boolean;
   setShowNotebook: Dispatch<SetStateAction<boolean>>;
+  // Events (事件) — player-facing panel toggle + unread badge.
+  showEvents: boolean;
+  setShowEvents: Dispatch<SetStateAction<boolean>>;
+  unreadEvents: number;
   checkMode: CheckMode;
   setCheckMode: Dispatch<SetStateAction<CheckMode>>;
   showCheckMenu: boolean;
   setShowCheckMenu: Dispatch<SetStateAction<boolean>>;
   showItemManager: boolean;
   setShowItemManager: Dispatch<SetStateAction<boolean>>;
+  // Host event management panel (opened from the 道具/事件 dropdown).
+  setShowEventManage: Dispatch<SetStateAction<boolean>>;
   showTimeline: boolean;
   setShowTimeline: Dispatch<SetStateAction<boolean>>;
   showAiMenu: boolean;
@@ -121,12 +127,16 @@ export function RoomTopBar({
   onToggleInventory,
   showNotebook,
   setShowNotebook,
+  showEvents,
+  setShowEvents,
+  unreadEvents,
   checkMode,
   setCheckMode,
   showCheckMenu,
   setShowCheckMenu,
   showItemManager,
   setShowItemManager,
+  setShowEventManage,
   showTimeline,
   setShowTimeline,
   showAiMenu,
@@ -173,9 +183,13 @@ export function RoomTopBar({
   const checkRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLDivElement>(null);
   const sysRef = useRef<HTMLDivElement>(null);
+  // The 道具/事件 dropdown is self-contained (local open state), like the AI menu.
+  const itemMenuRef = useRef<HTMLDivElement>(null);
+  const [showItemMenu, setShowItemMenu] = useState(false);
   useClickOutside(checkRef, () => setShowCheckMenu(false), showCheckMenu);
   useClickOutside(aiRef, () => setShowAiMenu(false), showAiMenu);
   useClickOutside(sysRef, () => setShowSystemMenu(false), showSystemMenu);
+  useClickOutside(itemMenuRef, () => setShowItemMenu(false), showItemMenu);
 
   return (
     <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
@@ -263,6 +277,19 @@ export function RoomTopBar({
             aria-pressed={showNotebook}
           >
             <Icons.NotebookPen className="w-[18px] h-[18px]" />
+          </button>
+          <button
+            onClick={() => setShowEvents(!showEvents)}
+            className={`${iconBtn} ${showEvents ? iconNavActive : iconNavIdle}`}
+            title={t("tooltipEvents")}
+            aria-pressed={showEvents}
+          >
+            <Icons.ScrollText className="w-[18px] h-[18px]" />
+            {unreadEvents > 0 && (
+              <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+                {unreadEvents > 9 ? "9+" : unreadEvents}
+              </span>
+            )}
           </button>
           <button
             onClick={onToggleSidebar}
@@ -413,14 +440,30 @@ export function RoomTopBar({
                   <Icons.Crosshair className="w-[18px] h-[18px]" />
                 </button>
               ) : null /* No-check rule (triangle): hide the button entirely. */}
-              <button
-                onClick={() => setShowItemManager(!showItemManager)}
-                className={`${iconBtn} ${showItemManager ? iconPrimaryActive : iconPrimaryIdle}`}
-                title={t("tooltipItemManage")}
-                aria-pressed={showItemManager}
-              >
-                <Icons.ClipboardList className="w-[18px] h-[18px]" />
-              </button>
+              <div className="relative" ref={itemMenuRef}>
+                <button
+                  onClick={() => { setShowItemMenu(!showItemMenu); setShowAiMenu(false); setShowSystemMenu(false); }}
+                  className={`${iconBtn} ${showItemManager || showItemMenu ? iconPrimaryActive : iconPrimaryIdle}`}
+                  title={t("tooltipItemEvent")}
+                  aria-pressed={showItemMenu}
+                >
+                  <Icons.ClipboardList className="w-[18px] h-[18px]" />
+                </button>
+                {showItemMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[184px] z-30 overlay-pop"
+                    style={{ transformOrigin: "top right" }}
+                    onClick={() => setShowItemMenu(false)}>
+                    <button onClick={() => setShowItemManager(true)}
+                      className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-primary hover:bg-surface-alt transition">
+                      <Icons.Package className="w-4 h-4" /> {t("menuItemManage")}
+                    </button>
+                    <button onClick={() => setShowEventManage(true)}
+                      className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-primary hover:bg-surface-alt transition">
+                      <Icons.ScrollText className="w-4 h-4" /> {t("menuEventManage")}
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowTimeline(!showTimeline)}
                 className={`${iconBtn} ${showTimeline ? iconAccentActive : iconAccentIdle}`}

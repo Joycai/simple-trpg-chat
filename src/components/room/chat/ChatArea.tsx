@@ -42,13 +42,17 @@ interface ChatAreaProps {
   onOpenInventory: () => void;
   /** Host-only: withdraw (delete) a timeline-divider message by id. */
   onWithdrawTimeline?: (messageId: number) => void | Promise<void>;
+  /** Event ids the viewer may read — an event card renders locked unless its id is here. */
+  visibleEventIds?: Set<number>;
+  /** Opens an event's detail modal (from event cards / receipts). */
+  onOpenEvent?: (eventId: number) => void;
   onSendMessage: (content: string, type: "text" | "dice" | "image" | "sticker", diceDetail?: string, isPrivate?: boolean, targetUserId?: number) => void;
 }
 
 export function ChatArea({
   scrollRef, onScroll, tabMessages, players, userId, isHost, roomId, hostId,
   typingBots, activeTab, showScrollButton, scrollToBottom, dmConversations,
-  mentionTargets, readOnly, readOnlyNotice, quickCommands, defaultRollExpression, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onWithdrawTimeline, onSendMessage,
+  mentionTargets, readOnly, readOnlyNotice, quickCommands, defaultRollExpression, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onWithdrawTimeline, visibleEventIds, onOpenEvent, onSendMessage,
 }: ChatAreaProps) {
   const t = useTranslations("room");
 
@@ -80,6 +84,8 @@ export function ChatArea({
                 onLoadProxyTargets={onLoadProxyTargets}
                 onOpenInventory={onOpenInventory}
                 onWithdrawTimeline={onWithdrawTimeline}
+                visibleEventIds={visibleEventIds}
+                onOpenEvent={onOpenEvent}
                 messageId={msg.id}
                 isBot={!!playerData?.users?.isBot}
                 roomId={roomId}
