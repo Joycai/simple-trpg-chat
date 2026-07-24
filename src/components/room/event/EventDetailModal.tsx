@@ -8,7 +8,8 @@ import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { MentionChip } from "@/components/room/notebook/notebook-helpers";
 import { getEventForViewerAction, markEventViewedAction, retractEventAction, type EventView } from "@/app/actions/event";
-import { EventTimeLabel, useBackpackEntities, useRoomCatalogEntities, type EventPlayer } from "./event-helpers";
+import { useEventData } from "./EventDataContext";
+import { EventTimeLabel, useRoomCatalogEntities, type EventPlayer } from "./event-helpers";
 import { EventEditor } from "./EventEditor";
 import { EventPublishDialog } from "./EventPublishDialog";
 
@@ -19,21 +20,26 @@ interface EventDetailModalProps {
   isHost?: boolean;
   /** Non-host, non-bot members — for the publish / add-viewers dialogs. */
   players?: EventPlayer[];
+  /** Room-wide events refresh key — re-reads this event when the host edits it
+   *  while a player has the modal open. */
+  refreshKey?: number;
   onClose: () => void;
-  /** Fired after the event is marked read or mutated, so panels + badge refresh. */
+  /** Fired after the event is marked read — refreshes the badge only. */
   onViewed?: () => void;
+  /** Fired after a host mutation — re-fetches the shared event list. */
+  onChanged?: () => void;
 }
 
 /** Full-content event view in a centered modal. Fetches by id (access-gated),
  *  so it works from the events panel, the management panel, or a chat card.
  *  For the host it doubles as the control surface (edit / publish / retract). */
-export function EventDetailModal({ roomId, eventId, isHost = false, players = [], onClose, onViewed }: EventDetailModalProps) {
+export function EventDetailModal({ roomId, eventId, isHost = false, players = [], refreshKey = 0, onClose, onViewed, onChanged }: EventDetailModalProps) {
   const t = useTranslations("event");
   const tCommon = useTranslations("common");
   // Host resolves `@` against the full room catalog (drives its editor's
   // suggestions and shows every reference as a link); a player resolves against
   // their own backpack, so anything they don't hold degrades to plain text.
-  const backpackEntities = useBackpackEntities(roomId);
+  const { entities: backpackEntities } = useEventData();
   const catalogEntities = useRoomCatalogEntities(roomId, isHost);
   const entities = isHost ? catalogEntities : backpackEntities;
   const [event, setEvent] = useState<EventView | null | undefined>(undefined); // undefined = loading
@@ -60,21 +66,26 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
       }
     })();
     return () => { alive = false; };
+    // `refreshKey` is in the deps so a host edit reaches an open modal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, eventId, reload]);
+  }, [roomId, eventId, reload, refreshKey]);
 
   // After a host mutation: refetch this modal + signal the other panels/badge.
-  const afterChange = () => { setReload((n) => n + 1); onViewed?.(); };
+  const afterChange = () => { setReload((n) => n + 1); onChanged?.(); };
 
   const doRetract = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      await retractEventAction(roomId, eventId);
+      const res = await retractEventAction(roomId, eventId);
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
       setConfirmRetract(false);
       afterChange();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      alert(tCommon("error"));
     } finally {
       setBusy(false);
     }

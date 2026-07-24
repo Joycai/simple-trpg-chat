@@ -166,7 +166,7 @@ export function EventTimePicker({
 
           {previewLabel && (
             <div className="text-xs text-text-muted">
-              {te("timePreview")}：<span className="font-theme-mono text-primary">{previewLabel}</span>
+              {te("timePreviewLabel")}<span className="font-theme-mono text-primary">{previewLabel}</span>
             </div>
           )}
         </div>

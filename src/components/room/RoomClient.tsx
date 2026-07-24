@@ -16,7 +16,9 @@ import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadActi
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { getMySkillsAction } from "@/app/actions/skills";
-import { getMyEventIdsAction, getUnreadEventCountAction } from "@/app/actions/event";
+import { getMyEventsAction, getUnreadEventCountAction, type EventView } from "@/app/actions/event";
+import { EventDataProvider, type EventData } from "@/components/room/event/EventDataContext";
+import { useBackpackEntities } from "@/components/room/event/event-helpers";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
@@ -74,7 +76,12 @@ export function RoomClient({
   const [showEventManage, setShowEventManage] = useState(false);
   const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
   const [visibleEventIds, setVisibleEventIds] = useState<Set<number>>(new Set());
+  const [eventsById, setEventsById] = useState<Map<number, EventView>>(new Map());
+  const [eventsOrdered, setEventsOrdered] = useState<EventView[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState(false);
   const [unreadEvents, setUnreadEvents] = useState(0);
+  const [unreadEventsKey, setUnreadEventsKey] = useState(0);
   const [eventDetailId, setEventDetailId] = useState<number | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
@@ -245,14 +252,48 @@ export function RoomClient({
       .catch(() => {});
   }, [room.id, skillRefreshKey]);
 
-  // Events: the viewer's set of readable event ids (drives chat-card lock state)
-  // + unread count for the top-bar badge. Re-fetched on the shared eventsRefreshKey,
-  // which the `events_updated` SSE bumps, so publish/retract/promote reflect live.
+  // Events: one fetch for the whole room, shared through EventDataContext with
+  // the chat cards, the events panel and the detail modal — see that file for
+  // why this is centralized. The same response drives the readable-id set that
+  // gates each chat card's lock state, plus the top-bar unread badge.
+  // Re-fetched on the shared eventsRefreshKey, which the `events_updated` SSE
+  // bumps, so publish/retract/promote/edit all reflect live.
   useEffect(() => {
-    getMyEventIdsAction(room.id).then((ids) => setVisibleEventIds(new Set(ids))).catch(() => {});
-    getUnreadEventCountAction(room.id).then(setUnreadEvents).catch(() => {});
+    let alive = true;
+    void (async () => {
+      try {
+        const rows = await getMyEventsAction(room.id);
+        if (!alive) return;
+        setEventsOrdered(rows);
+        setEventsById(new Map(rows.map((e) => [e.id, e])));
+        setVisibleEventIds(new Set(rows.map((e) => e.id)));
+        setEventsError(false);
+      } catch {
+        if (alive) setEventsError(true);
+      } finally {
+        // Never flips back to true: a refresh keeps the current list on screen
+        // instead of flashing a spinner (and wiping the "updated" highlights).
+        if (alive) setEventsLoading(false);
+      }
+    })();
+    return () => { alive = false; };
   }, [room.id, eventsRefreshKey]);
+
+  useEffect(() => {
+    getUnreadEventCountAction(room.id).then(setUnreadEvents).catch(() => {});
+  }, [room.id, eventsRefreshKey, unreadEventsKey]);
+
   const bumpEvents = useCallback(() => setEventsRefreshKey((k) => k + 1), []);
+  /** Refresh only the top-bar badge. Marking events read must NOT re-fetch the
+   *  list — that is what used to erase the "已更新" highlights ~300ms after the
+   *  player opened the panel to look at them. */
+  const refreshEventBadge = useCallback(() => setUnreadEventsKey((k) => k + 1), []);
+
+  const eventEntities = useBackpackEntities(room.id, inventoryRefreshKey);
+  const eventData = useMemo<EventData>(() => ({
+    eventsById, eventsOrdered, entities: eventEntities,
+    loading: eventsLoading, error: eventsError, retry: bumpEvents,
+  }), [eventsById, eventsOrdered, eventEntities, eventsLoading, eventsError, bumpEvents]);
 
   const characterHint = useMemo(() => {
     const rule = getRuleForRoom(room);
@@ -606,6 +647,7 @@ export function RoomClient({
 
   return (
     <RuleTemplateProvider ruleTemplate={room.ruleTemplate}>
+    <EventDataProvider value={eventData}>
     <div className="flex flex-col h-dvh bg-bg overflow-hidden text-text">
       {/* Ambient background: fixed z-0 layers above the root's opaque bg-bg,
           below the top bar (z-20) and the positioned content row below. */}
@@ -798,6 +840,7 @@ export function RoomClient({
         setShowEventManage={setShowEventManage}
         eventsRefreshKey={eventsRefreshKey}
         onEventsChanged={bumpEvents}
+        onEventBadgeChanged={refreshEventBadge}
         eventDetailId={eventDetailId}
         setEventDetailId={setEventDetailId}
         showTimeline={showTimeline}
@@ -823,6 +866,7 @@ export function RoomClient({
         onStartDM={handleTabChange}
       />
     </div>
+    </EventDataProvider>
     </RuleTemplateProvider>
   );
 }

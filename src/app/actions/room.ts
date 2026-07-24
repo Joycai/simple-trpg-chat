@@ -17,7 +17,7 @@ import { isValidStickerRef } from "@/lib/stickers";
 import { parseAvatarDataUrl } from "@/lib/avatars";
 import { getTranslations, getLocale } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
-import { buildTimelinePayload, composeTimelineLabel, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
+import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character-types";
 
@@ -871,37 +871,11 @@ export async function insertTimelineDividerAction(
 ): Promise<{ success: boolean; error?: string }> {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
-  // Validate the payload — reject anything the modal shouldn't have produced.
-  const mode = data?.mode;
-  if (mode !== "day" && mode !== "date" && mode !== "custom") return { success: false, error: "Invalid mode" };
-  const timeMode = data?.timeMode;
-  if (timeMode !== "segment" && timeMode !== "clock") return { success: false, error: "Invalid time mode" };
-
-  const clean: TimelineDividerData = { mode, timeMode };
-  if (mode === "day") {
-    const day = Math.trunc(Number(data.day));
-    if (!Number.isFinite(day) || day < 1 || day > 999) return { success: false, error: "Invalid day" };
-    clean.day = day;
-  } else if (mode === "date") {
-    const date = String(data.date ?? "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
-      return { success: false, error: "Invalid date" };
-    }
-    clean.date = date;
-  } else {
-    const custom = String(data.custom ?? "").trim();
-    if (!custom) return { success: false, error: "Invalid custom text" };
-    clean.custom = custom.slice(0, 100);
-  }
-  if (timeMode === "segment") {
-    const seg = data.segment;
-    if (seg !== "morning" && seg !== "afternoon" && seg !== "night") return { success: false, error: "Invalid segment" };
-    clean.segment = seg;
-  } else {
-    const clock = String(data.clock ?? "");
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(clock)) return { success: false, error: "Invalid time" };
-    clean.clock = clock;
-  }
+  // Reject anything the modal shouldn't have produced. These rules now live in
+  // timeline-payload.ts so the event module gates its own writes with the same
+  // ones rather than its own (non-)validation.
+  const clean = sanitizeTimelineDivider(data);
+  if (!clean) return { success: false, error: "Invalid timeline payload" };
 
   const [hostMember] = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));

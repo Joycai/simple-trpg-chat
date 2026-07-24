@@ -7,13 +7,17 @@ import { checkRoomAccess } from "@/lib/auth-helpers";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
-import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
+import { parseTimelinePayload, sanitizeTimelineDivider } from "@/lib/messaging/timeline-payload";
 import { resolveChatImagePath } from "@/lib/uploads";
 import {
   buildEventCardPayload,
   buildEventReceiptPayload,
+  parseEventReceiptPayload,
   parseEventImages,
   serializeEventImages,
+  resolveEventVisibility,
+  EVENT_TITLE_MAX,
+  EVENT_DESC_MAX,
   type EventCardPayload,
 } from "@/lib/story-events";
 
@@ -65,10 +69,41 @@ async function unlinkImages(urls: string[]) {
   }
 }
 
-/** Validate a timeline payload string; return the cleaned JSON or null. */
+/**
+ * Validate a host-supplied timeline payload string; cleaned JSON, or null.
+ * Runs the same rules as the timeline-divider action — this used to parse and
+ * re-serialize without checking anything, so arbitrary JSON reached the column.
+ */
 function cleanTimePayload(raw: string | null | undefined): string | null {
-  const data = parseTimelinePayload(raw);
+  const data = sanitizeTimelineDivider(parseTimelinePayload(raw));
   return data ? JSON.stringify({ timelineDivider: data }) : null;
+}
+
+type Fail = { success: false; error: string };
+type EventMessages = Awaited<ReturnType<typeof getEventMessages>>;
+
+function getEventMessages() {
+  return getTranslations("event");
+}
+
+/** Wraps checkRoomAccess (which throws, and is shared) into a result value. */
+async function requireHost(roomId: number): Promise<{ userId: number } | null> {
+  try {
+    const { userId } = await checkRoomAccess(roomId, true);
+    return { userId };
+  } catch {
+    return null;
+  }
+}
+
+/** Validate the host-editable fields shared by create and update. */
+function validateEventInput(data: EventInput, t: EventMessages) {
+  const title = (data.title ?? "").trim();
+  if (!title) return { error: t("errorTitleRequired") };
+  if (title.length > EVENT_TITLE_MAX) return { error: t("errorTitleTooLong", { max: EVENT_TITLE_MAX }) };
+  const description = data.description ?? "";
+  if (description.length > EVENT_DESC_MAX) return { error: t("errorContentTooLong", { max: EVENT_DESC_MAX }) };
+  return { value: { title, description } };
 }
 
 /** Post (or repost) the public-channel announcement card. Returns the message row. */
@@ -116,10 +151,30 @@ async function sendReceipts(
   }
 }
 
-async function requireEvent(roomId: number, eventId: number) {
+async function findEvent(roomId: number, eventId: number) {
   const [ev] = await db.select().from(storyEvents).where(eq(storyEvents.id, eventId));
-  if (!ev || ev.roomId !== roomId) throw new Error("Event not found");
-  return ev;
+  return ev && ev.roomId === roomId ? ev : null;
+}
+
+/**
+ * Drop the personal "new event" receipt pills for an event.
+ *
+ * Receipts outlived their event: after a delete or retract the pill stayed in
+ * the recipient's log, and tapping it opened an empty detail modal, since
+ * getEventForViewerAction now (correctly) returns null. There is no index on
+ * the payload, so match in JS over this room's receipts — a room has few.
+ */
+async function deleteEventReceipts(roomId: number, eventId: number) {
+  const rows = await db
+    .select({ id: messages.id, diceDetail: messages.diceDetail })
+    .from(messages)
+    .where(and(eq(messages.roomId, roomId), eq(messages.systemKind, "event-receipt")));
+  const stale = rows
+    .filter((m) => parseEventReceiptPayload(m.diceDetail)?.eventId === eventId)
+    .map((m) => m.id);
+  if (stale.length === 0) return;
+  await db.delete(messages).where(inArray(messages.id, stale));
+  for (const id of stale) broadcastToRoom(roomId, { type: "message_deleted", messageId: id });
 }
 
 /* ------------------------------------------------------------------ mutations */
@@ -133,9 +188,12 @@ export interface EventInput {
 
 /** Create a new (unpublished) event. Host only. */
 export async function createEventAction(roomId: number, data: EventInput) {
-  const { userId } = await checkRoomAccess(roomId, true);
-  const title = (data.title ?? "").trim();
-  if (!title) throw new Error("Title required");
+  const t = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
+
+  const valid = validateEventInput(data, t);
+  if (!valid.value) return { success: false as const, error: valid.error } satisfies Fail;
 
   const [{ maxOrder }] = await db
     .select({ maxOrder: sql<number>`coalesce(max(${storyEvents.sortOrder}), 0)` })
@@ -146,9 +204,9 @@ export async function createEventAction(roomId: number, data: EventInput) {
     .insert(storyEvents)
     .values({
       roomId,
-      creatorId: userId,
-      title,
-      description: data.description ?? "",
+      creatorId: auth.userId,
+      title: valid.value.title,
+      description: valid.value.description,
       timePayload: cleanTimePayload(data.timePayload),
       imagesJson: serializeEventImages(data.images ?? []),
       status: "unpublished",
@@ -157,17 +215,22 @@ export async function createEventAction(roomId: number, data: EventInput) {
     .returning();
 
   signalUpdate(roomId, row.id);
-  return row;
+  return { success: true as const, event: row };
 }
 
 /** Edit an event's fields. Host only. Published, already-viewed recipients are
  *  re-flagged "updated" and pinged so the change is noticed (Q4). */
 export async function updateEventAction(roomId: number, eventId: number, data: EventInput) {
-  const { userId } = await checkRoomAccess(roomId, true);
-  const ev = await requireEvent(roomId, eventId);
+  const t = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
+  const userId = auth.userId;
+  const ev = await findEvent(roomId, eventId);
+  if (!ev) return { success: false as const, error: t("errorEventNotFound") } satisfies Fail;
 
-  const title = (data.title ?? "").trim();
-  if (!title) throw new Error("Title required");
+  const valid = validateEventInput(data, t);
+  if (!valid.value) return { success: false as const, error: valid.error } satisfies Fail;
+  const { title } = valid.value;
 
   const oldImages = parseEventImages(ev.imagesJson);
   const newImages = serializeEventImages(data.images ?? []);
@@ -178,7 +241,7 @@ export async function updateEventAction(roomId: number, eventId: number, data: E
     .update(storyEvents)
     .set({
       title,
-      description: data.description ?? "",
+      description: valid.value.description,
       timePayload: cleanTimePayload(data.timePayload),
       imagesJson: newImages,
       updatedAt: sql`now()`,
@@ -204,30 +267,61 @@ export async function updateEventAction(roomId: number, eventId: number, data: E
   }
 
   signalUpdate(roomId, eventId);
-  return { success: true };
+  return { success: true as const };
 }
 
 /** Delete an event (visibility rows cascade) and its card + image files. Host only. */
 export async function deleteEventAction(roomId: number, eventId: number) {
-  await checkRoomAccess(roomId, true);
-  const ev = await requireEvent(roomId, eventId);
+  const t = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
+  const ev = await findEvent(roomId, eventId);
+  if (!ev) return { success: false as const, error: t("errorEventNotFound") } satisfies Fail;
 
   await unlinkImages(parseEventImages(ev.imagesJson));
   if (ev.cardMessageId != null) {
     await db.delete(messages).where(eq(messages.id, ev.cardMessageId));
     broadcastToRoom(roomId, { type: "message_deleted", messageId: ev.cardMessageId });
   }
+  await deleteEventReceipts(roomId, eventId);
   await db.delete(storyEvents).where(eq(storyEvents.id, eventId));
 
   signalUpdate(roomId, eventId);
-  return { success: true };
+  return { success: true as const };
+}
+
+/**
+ * Reclaim images uploaded during an editor session that was abandoned.
+ *
+ * The cropper POSTs to disk the moment a picture is cropped, so cancelling the
+ * editor (or removing a thumbnail) used to leave the file behind forever —
+ * `unlinkImages` only ran on the save path. The caller passes only URLs it
+ * uploaded this session; anything still referenced by a stored event is kept,
+ * so a cancelled *edit* cannot delete the original's pictures.
+ */
+export async function discardEventImagesAction(roomId: number, urls: string[]) {
+  const t = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
+  if (urls.length === 0) return { success: true as const };
+
+  const rows = await db
+    .select({ imagesJson: storyEvents.imagesJson })
+    .from(storyEvents)
+    .where(eq(storyEvents.roomId, roomId));
+  const inUse = new Set(rows.flatMap((r) => parseEventImages(r.imagesJson)));
+  await unlinkImages(urls.filter((u) => !inUse.has(u)));
+  return { success: true as const };
 }
 
 export type ReorderOp = "up" | "down" | "top" | "bottom" | { index: number };
 
 /** Move an event within the host-controlled order. Host only. */
 export async function reorderEventAction(roomId: number, eventId: number, op: ReorderOp) {
-  await checkRoomAccess(roomId, true);
+  const t = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
+
   const list = await db
     .select({ id: storyEvents.id })
     .from(storyEvents)
@@ -236,7 +330,7 @@ export async function reorderEventAction(roomId: number, eventId: number, op: Re
 
   const ids = list.map((e) => e.id);
   const from = ids.indexOf(eventId);
-  if (from < 0) throw new Error("Event not found");
+  if (from < 0) return { success: false as const, error: t("errorEventNotFound") } satisfies Fail;
 
   const len = ids.length;
   let to: number;
@@ -258,14 +352,18 @@ export async function reorderEventAction(roomId: number, eventId: number, op: Re
   });
 
   signalUpdate(roomId, eventId);
-  return { success: true };
+  return { success: true as const };
 }
 
 /** Publish an unpublished event. `target` = "all" (or []) → full; a user-id list → partial. */
 export async function publishEventAction(roomId: number, eventId: number, target: "all" | number[]) {
-  const { userId } = await checkRoomAccess(roomId, true);
-  const ev = await requireEvent(roomId, eventId);
-  if (ev.status !== "unpublished") throw new Error("Event already published");
+  const te = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
+  const userId = auth.userId;
+  const ev = await findEvent(roomId, eventId);
+  if (!ev) return { success: false as const, error: te("errorEventNotFound") } satisfies Fail;
+  if (ev.status !== "unpublished") return { success: false as const, error: te("errorAlreadyPublished") } satisfies Fail;
 
   const wantAll = target === "all" || (Array.isArray(target) && target.length === 0);
   const t = await getTranslations("eventActions");
@@ -278,7 +376,7 @@ export async function publishEventAction(roomId: number, eventId: number, target
     const members = await roomAudienceIds(roomId, userId);
     const allowed = new Set(members);
     recipientIds = [...new Set(target as number[])].filter((id) => allowed.has(id));
-    if (recipientIds.length === 0) throw new Error("No valid recipients");
+    if (recipientIds.length === 0) return { success: false as const, error: te("errorNoRecipients") } satisfies Fail;
   }
 
   const status = wantAll ? "full" : "partial";
@@ -311,14 +409,18 @@ export async function publishEventAction(roomId: number, eventId: number, target
   }
 
   signalUpdate(roomId, eventId);
-  return { success: true };
+  return { success: true as const };
 }
 
 /** Add more knowers to a partial event. Host only. */
 export async function addEventViewersAction(roomId: number, eventId: number, userIds: number[]) {
-  const { userId } = await checkRoomAccess(roomId, true);
-  const ev = await requireEvent(roomId, eventId);
-  if (ev.status !== "partial") throw new Error("Event is not partially published");
+  const te = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
+  const userId = auth.userId;
+  const ev = await findEvent(roomId, eventId);
+  if (!ev) return { success: false as const, error: te("errorEventNotFound") } satisfies Fail;
+  if (ev.status !== "partial") return { success: false as const, error: te("errorNotPartiallyPublished") } satisfies Fail;
 
   const members = new Set(await roomAudienceIds(roomId, userId));
   const existing = await db
@@ -327,7 +429,7 @@ export async function addEventViewersAction(roomId: number, eventId: number, use
     .where(eq(storyEventVisibility.eventId, eventId));
   const have = new Set(existing.map((r) => r.userId));
   const fresh = [...new Set(userIds)].filter((id) => members.has(id) && !have.has(id));
-  if (fresh.length === 0) return { success: true, added: 0 };
+  if (fresh.length === 0) return { success: true as const, added: 0 };
 
   await db
     .insert(storyEventVisibility)
@@ -339,14 +441,18 @@ export async function addEventViewersAction(roomId: number, eventId: number, use
   await sendReceipts(roomId, userId, nickname, eventId, ev.title, fresh, t);
 
   signalUpdate(roomId, eventId);
-  return { success: true, added: fresh.length };
+  return { success: true as const, added: fresh.length };
 }
 
 /** Convert a partial event to full. Host only. Newly-eligible members' cards unlock live. */
 export async function promoteEventToFullAction(roomId: number, eventId: number) {
-  const { userId } = await checkRoomAccess(roomId, true);
-  const ev = await requireEvent(roomId, eventId);
-  if (ev.status !== "partial") throw new Error("Event is not partially published");
+  const te = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
+  const userId = auth.userId;
+  const ev = await findEvent(roomId, eventId);
+  if (!ev) return { success: false as const, error: te("errorEventNotFound") } satisfies Fail;
+  if (ev.status !== "partial") return { success: false as const, error: te("errorNotPartiallyPublished") } satisfies Fail;
 
   const members = await roomAudienceIds(roomId, userId);
   if (members.length > 0) {
@@ -371,16 +477,23 @@ export async function promoteEventToFullAction(roomId: number, eventId: number) 
   });
 
   signalUpdate(roomId, eventId);
-  return { success: true };
+  return { success: true as const };
 }
 
 /** Retract a published event back to unpublished. Host only (client double-confirms). */
 export async function retractEventAction(roomId: number, eventId: number) {
-  const { userId } = await checkRoomAccess(roomId, true);
-  const ev = await requireEvent(roomId, eventId);
-  if (ev.status === "unpublished") throw new Error("Event is not published");
+  const te = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
+  const userId = auth.userId;
+  const ev = await findEvent(roomId, eventId);
+  if (!ev) return { success: false as const, error: te("errorEventNotFound") } satisfies Fail;
+  if (ev.status === "unpublished") return { success: false as const, error: te("errorNotPublished") } satisfies Fail;
 
   await db.delete(storyEventVisibility).where(eq(storyEventVisibility.eventId, eventId));
+  // The retracted card replaces the public announcement; the personal pills
+  // would otherwise still link to content nobody may read any more.
+  await deleteEventReceipts(roomId, eventId);
 
   // Replace the live card with a fresh "已撤回" card (same-id re-broadcast is deduped
   // client-side, so we delete the old message and post a new one).
@@ -404,7 +517,7 @@ export async function retractEventAction(roomId: number, eventId: number) {
     .where(eq(storyEvents.id, eventId));
 
   signalUpdate(roomId, eventId);
-  return { success: true };
+  return { success: true as const };
 }
 
 /** Mark the caller's visible events as read (clears unread badge + updated flags). */
@@ -422,7 +535,7 @@ export async function markEventsViewedAction(roomId: number) {
         eq(storyEventVisibility.viewed, false),
       ),
     );
-  return { success: true };
+  return { success: true as const };
 }
 
 /* ------------------------------------------------------------------ reads */
@@ -492,10 +605,13 @@ export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
     .where(eq(storyEvents.roomId, roomId))
     .orderBy(asc(storyEvents.sortOrder), asc(storyEvents.id));
 
+  // Joined to storyEvents and scoped to this room: without it the query pulls
+  // the caller's visibility rows across every room they have ever played in.
   const myVis = await db
     .select({ eventId: storyEventVisibility.eventId, viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated, createdAt: storyEventVisibility.createdAt })
     .from(storyEventVisibility)
-    .where(eq(storyEventVisibility.userId, userId));
+    .innerJoin(storyEvents, eq(storyEvents.id, storyEventVisibility.eventId))
+    .where(and(eq(storyEventVisibility.userId, userId), eq(storyEvents.roomId, roomId)));
   const visMap = new Map(myVis.map((v) => [v.eventId, v]));
 
   const out: EventView[] = [];
@@ -533,7 +649,7 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
   if (!e) return null;
 
   let updated = false;
-  let visible = isHost || e.status === "full";
+  let hasVisibilityRow = false;
   if (!isHost) {
     const [row] = await db
       .select({ viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated })
@@ -541,9 +657,10 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
       .where(and(eq(storyEventVisibility.eventId, eventId), eq(storyEventVisibility.userId, userId)));
     if (row) {
       updated = row.updated;
-      if (e.status === "partial") visible = true;
+      hasVisibilityRow = true;
     }
   }
+  const { visible } = resolveEventVisibility({ status: e.status, isHost, hasVisibilityRow });
   if (!visible) return null;
 
   // Host gets the extra control-surface data the detail modal's footer needs:
@@ -569,34 +686,19 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
 /** Mark a single event read for the caller (clears its unread/updated flags). */
 export async function markEventViewedAction(roomId: number, eventId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
+  // The room check authorizes the caller, but the UPDATE must also confirm the
+  // event belongs to that room — otherwise any member of any room could clear
+  // their flags on an arbitrary event id.
+  const [ev] = await db
+    .select({ id: storyEvents.id })
+    .from(storyEvents)
+    .where(and(eq(storyEvents.id, eventId), eq(storyEvents.roomId, roomId)));
+  if (!ev) return { success: true as const };
   await db
     .update(storyEventVisibility)
     .set({ viewed: true, updated: false })
     .where(and(eq(storyEventVisibility.eventId, eventId), eq(storyEventVisibility.userId, userId)));
-  return { success: true };
-}
-
-/** Lightweight id set the chat card uses to decide locked vs unlocked. */
-export async function getMyEventIdsAction(roomId: number): Promise<number[]> {
-  const { userId, isHost } = await checkRoomAccess(roomId, false);
-  if (isHost) {
-    const rows = await db.select({ id: storyEvents.id }).from(storyEvents).where(eq(storyEvents.roomId, roomId));
-    return rows.map((r) => r.id);
-  }
-  const rows = await db
-    .select({ id: storyEvents.id })
-    .from(storyEvents)
-    .leftJoin(
-      storyEventVisibility,
-      and(eq(storyEventVisibility.eventId, storyEvents.id), eq(storyEventVisibility.userId, userId)),
-    )
-    .where(
-      and(
-        eq(storyEvents.roomId, roomId),
-        sql`(${storyEvents.status} = 'full' OR ${storyEventVisibility.userId} IS NOT NULL)`,
-      ),
-    );
-  return rows.map((r) => r.id);
+  return { success: true as const };
 }
 
 /** Unread event count for the top-bar badge (non-host, from visibility rows). */

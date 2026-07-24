@@ -5,6 +5,7 @@ import {
   buildEventReceiptPayload,
   parseEventReceiptPayload,
   canViewEvent,
+  resolveEventVisibility,
   isPublished,
   parseEventImages,
   serializeEventImages,
@@ -79,5 +80,59 @@ describe("event images", () => {
     const urls = ["/a", "/b", "/c", "/d"];
     expect(parseEventImages(serializeEventImages(urls))).toEqual(["/a", "/b", "/c"]);
     expect(MAX_EVENT_IMAGES).toBe(3);
+  });
+});
+
+describe("resolveEventVisibility — the single-event access decision", () => {
+  const STATUSES = ["unpublished", "partial", "full"] as const;
+
+  it("covers all 3 x 2 x 2 combinations explicitly", () => {
+    const table: Array<[typeof STATUSES[number], boolean, boolean, boolean]> = [
+      // status,        isHost, hasRow, expected visible
+      ["unpublished", false, false, false],
+      ["unpublished", false, true, false], // a stray row must NOT expose a draft
+      ["unpublished", true, false, true],
+      ["unpublished", true, true, true],
+      ["partial", false, false, false], // not granted -> no body
+      ["partial", false, true, true],
+      ["partial", true, false, true],
+      ["partial", true, true, true],
+      ["full", false, false, true], // published to everyone
+      ["full", false, true, true],
+      ["full", true, false, true],
+      ["full", true, true, true],
+    ];
+    expect(table).toHaveLength(STATUSES.length * 2 * 2);
+    for (const [status, isHost, hasVisibilityRow, expected] of table) {
+      expect(
+        resolveEventVisibility({ status, isHost, hasVisibilityRow }).visible,
+        `status=${status} isHost=${isHost} hasRow=${hasVisibilityRow}`,
+      ).toBe(expected);
+    }
+  });
+
+  it("never leaks an unpublished event to a non-host, row or not", () => {
+    for (const hasVisibilityRow of [false, true]) {
+      expect(resolveEventVisibility({ status: "unpublished", isHost: false, hasVisibilityRow }).visible).toBe(false);
+    }
+  });
+
+  it("exposes host-only fields to the host and nobody else", () => {
+    for (const status of STATUSES) {
+      expect(resolveEventVisibility({ status, isHost: true, hasVisibilityRow: false }).exposeHostFields).toBe(true);
+      expect(resolveEventVisibility({ status, isHost: false, hasVisibilityRow: true }).exposeHostFields).toBe(false);
+    }
+  });
+
+  it("agrees with canViewEvent on every combination", () => {
+    for (const status of STATUSES) {
+      for (const isHost of [false, true]) {
+        for (const hasRow of [false, true]) {
+          expect(resolveEventVisibility({ status, isHost, hasVisibilityRow: hasRow }).visible).toBe(
+            canViewEvent({ status, isHostOrCreator: isHost, isVisibleMember: hasRow }),
+          );
+        }
+      }
+    }
   });
 });

@@ -81,7 +81,7 @@ export function NotebookShareModal({ note, players, userId, onCancel, onShare, s
                     }`}>
                     <span className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: color, color: getContrastColor(color) }}>{name.charAt(0)}</span>
                     <span className="flex-1 min-w-0 truncate text-text font-medium">{name}</span>
-                    <span className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isSel ? "bg-primary border-primary text-white" : "border-input-border bg-input-bg"}`}>
+                    <span className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isSel ? "bg-primary border-primary text-primary-foreground" : "border-input-border bg-input-bg"}`}>
                       {isSel && <Icons.Check className="w-3.5 h-3.5" />}
                     </span>
                   </button>

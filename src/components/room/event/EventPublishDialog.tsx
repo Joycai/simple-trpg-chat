@@ -7,6 +7,38 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { publishEventAction, addEventViewersAction, type EventView } from "@/app/actions/event";
 import { EventTimeLabel, type EventPlayer } from "./event-helpers";
 
+/**
+ * One selectable recipient.
+ *
+ * Module scope, deliberately: defined inside EventPublishDialog it was a fresh
+ * component type on every render, so React unmounted and rebuilt every row on
+ * each toggle — keyboard focus fell back to document.body after Space, and long
+ * lists jumped to the top.
+ *
+ * It is a checkbox by behavior, so it says so: the tick was purely visual and
+ * screen readers announced only "button, <nickname>" with no state.
+ */
+function PlayerRow({ player, selected, onToggle }: { player: EventPlayer; selected: boolean; onToggle: () => void }) {
+  return (
+    <button
+      role="checkbox"
+      aria-checked={selected}
+      onClick={onToggle}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-theme border text-sm transition cursor-pointer ${
+        selected ? "border-primary/50 bg-primary/8" : "border-border bg-surface/50 hover:bg-surface-alt"
+      }`}
+    >
+      <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0" style={{ background: player.avatarColor || "rgb(var(--theme-primary))" }}>
+        {player.nickname.slice(0, 1)}
+      </span>
+      <span className="flex-1 text-left truncate text-text font-medium">{player.nickname}</span>
+      <span aria-hidden className={`w-[18px] h-[18px] rounded-[6px] border-2 flex items-center justify-center shrink-0 ${selected ? "bg-primary border-primary" : "border-text-muted"}`}>
+        {selected && <Icons.Check className="w-3 h-3 text-primary-foreground" />}
+      </span>
+    </button>
+  );
+}
+
 interface EventPublishDialogProps {
   roomId: number;
   event: EventView;
@@ -48,15 +80,18 @@ export function EventPublishDialog({ roomId, event, players, variant, knownIds =
     setBusy(true);
     setError(null);
     try {
-      if (isAdd) {
-        await addEventViewersAction(roomId, event.id, [...selected]);
-      } else {
-        await publishEventAction(roomId, event.id, scope === "all" ? "all" : [...selected]);
+      const res = isAdd
+        ? await addEventViewersAction(roomId, event.id, [...selected])
+        : await publishEventAction(roomId, event.id, scope === "all" ? "all" : [...selected]);
+      if (!res.success) {
+        setError(res.error);
+        setBusy(false);
+        return;
       }
       onDone();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      setError(tCommon("error"));
       setBusy(false);
     }
   };
@@ -69,26 +104,6 @@ export function EventPublishDialog({ roomId, event, players, variant, knownIds =
           : "border-warning/60 bg-warning/10 text-warning"
         : "border-border bg-surface/50 text-text-muted hover:bg-surface-alt"
     }`;
-
-  const PlayerRow = ({ p }: { p: EventPlayer }) => {
-    const on = selected.has(p.id);
-    return (
-      <button
-        onClick={() => toggle(p.id)}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-theme border text-sm transition cursor-pointer ${
-          on ? "border-primary/50 bg-primary/8" : "border-border bg-surface/50 hover:bg-surface-alt"
-        }`}
-      >
-        <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground shrink-0" style={{ background: p.avatarColor || "rgb(var(--theme-primary))" }}>
-          {p.nickname.slice(0, 1)}
-        </span>
-        <span className="flex-1 text-left truncate text-text font-medium">{p.nickname}</span>
-        <span className={`w-[18px] h-[18px] rounded-[6px] border-2 flex items-center justify-center shrink-0 ${on ? "bg-primary border-primary" : "border-text-muted"}`}>
-          {on && <Icons.Check className="w-3 h-3 text-primary-foreground" />}
-        </span>
-      </button>
-    );
-  };
 
   return (
     <OverlayShell onClose={onClose} portal panelClassName="w-full max-w-md mx-4 h-[78vh] max-h-[600px] min-h-[440px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
@@ -145,7 +160,9 @@ export function EventPublishDialog({ roomId, event, players, variant, knownIds =
                     {selectable.length === 0 ? (
                       <p className="text-sm text-text-dim italic py-2">{t("noSelectablePlayers")}</p>
                     ) : (
-                      selectable.map((p) => <PlayerRow key={p.id} p={p} />)
+                      selectable.map((p) => (
+                        <PlayerRow key={p.id} player={p} selected={selected.has(p.id)} onToggle={() => toggle(p.id)} />
+                      ))
                     )}
                   </div>
                 </>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { LoadFailed } from "@/components/shared/LoadFailed";
 import {
   getRoomEventsAction,
   reorderEventAction,
@@ -63,6 +64,10 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
 
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  /** Retry counter for the error state — re-runs the fetch without touching the
+   *  room-wide key (which would also reload every other panel). */
+  const [localRefresh, setLocalRefresh] = useState(0);
 
   // FLIP reorder animation: remember each row's on-screen box, and after the
   // order changes, invert the delta then transition it away so rows glide.
@@ -104,19 +109,31 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
   const [publishFor, setPublishFor] = useState<{ event: EventView; variant: "publish" | "add"; known: number[] } | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "retract" | "delete"; event: ManagedEvent } | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  /** Inline error strip — replaces blocking `alert()`, matching how the
+   *  editor and publish dialog in this same module already report failures. */
+  const [banner, setBanner] = useState<string | null>(null);
+  const [positionFor, setPositionFor] = useState<{ event: ManagedEvent; value: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
     void (async () => {
-      setLoading(true);
+      // `loading` is only ever cleared, never re-raised: a refreshKey bump keeps
+      // the current rows on screen. Swapping them for a spinner unregisters
+      // every FLIP row mid-flight and stutters the reorder animation — and the
+      // host's own reorder does bump the key, via its `events_updated` echo.
       try {
         const rows = await getRoomEventsAction(roomId);
-        if (alive) setEvents(rows as ManagedEvent[]);
-      } catch { /* empty state */ }
-      if (alive) setLoading(false);
+        if (!alive) return;
+        setEvents(rows as ManagedEvent[]);
+        setError(false);
+      } catch {
+        if (alive) setError(true);
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
     return () => { alive = false; };
-  }, [roomId, refreshKey]);
+  }, [roomId, refreshKey, localRefresh]);
 
   const toView = (e: ManagedEvent): EventView => ({
     id: e.id, title: e.title, description: e.description, timePayload: e.timePayload,
@@ -128,29 +145,36 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
     // persists the same order, so no refetch is needed on success (a refetch
     // mid-animation would measure transformed rows and stutter). Restore on error.
     setEvents((list) => reorderList(list, id, op));
-    try {
-      await reorderEventAction(roomId, id, op);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    const res = await reorderEventAction(roomId, id, op).catch(() => null);
+    if (!res?.success) {
+      setBanner(res?.error ?? tCommon("error"));
       onChanged();
     }
   };
-  const askPosition = (e: ManagedEvent, index: number) => {
-    const raw = window.prompt(t("positionPrompt", { count: events.length }), String(index + 1));
-    if (raw == null) return;
-    const n = parseInt(raw, 10);
-    if (Number.isFinite(n)) doReorder(e.id, { index: n });
+  /** Opens the themed position dialog. This was a `window.prompt`, the only one
+   *  left in the room UI — unthemed, and blocking on mobile. */
+  const askPosition = (e: ManagedEvent, index: number) => setPositionFor({ event: e, value: String(index + 1) });
+  const submitPosition = () => {
+    if (!positionFor) return;
+    const n = parseInt(positionFor.value, 10);
+    setPositionFor(null);
+    if (Number.isFinite(n)) doReorder(positionFor.event.id, { index: n });
   };
   const doConfirm = async () => {
     if (!confirm || confirmBusy) return;
     setConfirmBusy(true);
     try {
-      if (confirm.kind === "retract") await retractEventAction(roomId, confirm.event.id);
-      else await deleteEventAction(roomId, confirm.event.id);
+      const res = confirm.kind === "retract"
+        ? await retractEventAction(roomId, confirm.event.id)
+        : await deleteEventAction(roomId, confirm.event.id);
+      if (!res.success) {
+        setBanner(res.error);
+        return;
+      }
       onChanged();
       setConfirm(null);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      setBanner(tCommon("error"));
     } finally {
       setConfirmBusy(false);
     }
@@ -171,9 +195,23 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
             <button onClick={close} className="text-text-muted hover:text-text cursor-pointer ml-1"><Icons.X className="w-5 h-5" /></button>
           </div>
 
+          {banner && (
+            <div role="alert" className="mx-4 mt-3 flex items-start gap-2 rounded-theme border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger shrink-0">
+              <Icons.AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span className="flex-1">{banner}</span>
+              <button onClick={() => setBanner(null)} className="shrink-0 hover:opacity-70 cursor-pointer" aria-label={tCommon("close")}>
+                <Icons.X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3">
             {loading ? (
               <div className="flex items-center justify-center py-10 text-text-muted"><Icons.Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : error && events.length === 0 ? (
+              // Never fall through to "no events yet" on a failed load — a host
+              // who believes their events are gone will recreate them.
+              <LoadFailed onRetry={() => setLocalRefresh((k) => k + 1)} />
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-2 text-text-dim">
                 <Icons.Flag className="w-10 h-10 opacity-50" />
@@ -241,6 +279,38 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
                     >
                       {confirmBusy && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
                       {confirm.kind === "retract" ? t("retractConfirmAction") : t("delete")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </OverlayShell>
+          )}
+
+          {/* Position dialog — the themed replacement for window.prompt. */}
+          {positionFor && (
+            <OverlayShell onClose={() => setPositionFor(null)} portal panelClassName="w-full max-w-xs mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden">
+              {(closeDialog) => (
+                <div className="p-5">
+                  <label htmlFor="event-position" className="block text-sm text-text mb-3">
+                    {t("positionPrompt", { count: events.length })}
+                  </label>
+                  <input
+                    id="event-position"
+                    type="number"
+                    min={1}
+                    max={events.length}
+                    autoFocus
+                    value={positionFor.value}
+                    onChange={(e) => setPositionFor((p) => (p ? { ...p, value: e.target.value } : p))}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitPosition(); } }}
+                    className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-theme-mono text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
+                  />
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={closeDialog} className="flex-1 h-9 rounded-theme border border-border text-sm text-text-muted hover:bg-surface-alt transition cursor-pointer">
+                      {tCommon("cancel")}
+                    </button>
+                    <button onClick={submitPosition} className="flex-1 h-9 rounded-theme bg-primary text-primary-foreground text-sm font-bold hover:bg-primary-hover transition cursor-pointer">
+                      {tCommon("confirm")}
                     </button>
                   </div>
                 </div>

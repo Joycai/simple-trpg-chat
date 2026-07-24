@@ -13,6 +13,12 @@ import type { TimelineDividerData } from "@/lib/messaging/timeline-payload";
 /** Max images per event (first is the cover). */
 export const MAX_EVENT_IMAGES = 3;
 
+/** Length caps, mirroring the notebook's NOTE_TITLE_MAX / NOTE_CONTENT_MAX.
+ *  Events had none, so a paste of arbitrary size went straight to the DB — and
+ *  the body now rides in the room-wide event fetch, where size is shared cost. */
+export const EVENT_TITLE_MAX = 100;
+export const EVENT_DESC_MAX = 20_000;
+
 /**
  * Structured payload stored in `messages.diceDetail` for a `systemKind:
  * 'event-card'` message — the public-channel announcement. Metadata only.
@@ -91,6 +97,27 @@ export function canViewEvent(args: {
     default:
       return false;
   }
+}
+
+/**
+ * The access decision behind `getEventForViewerAction` — the call that actually
+ * hands an event's body to a client. `canViewEvent` covers the same ground for
+ * the list query, but this is the single-event path, and it had no test.
+ *
+ * `hasVisibilityRow` means the viewer has a row for this event. It grants
+ * nothing on its own: an `unpublished` event stays invisible to a non-host even
+ * with a row present, which matters because a row can outlive a publish if
+ * cleanup ever misses one.
+ */
+export function resolveEventVisibility(args: {
+  status: EventStatus;
+  isHost: boolean;
+  hasVisibilityRow: boolean;
+}): { visible: boolean; exposeHostFields: boolean } {
+  const { status, isHost, hasVisibilityRow } = args;
+  if (isHost) return { visible: true, exposeHostFields: true };
+  const visible = status === "full" || (status === "partial" && hasVisibilityRow);
+  return { visible, exposeHostFields: false };
 }
 
 /** True once an event has been published in any form (i.e. a public card exists). */

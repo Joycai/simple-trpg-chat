@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
+import { LoadFailed } from "@/components/shared/LoadFailed";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import {
   getMyNotebookAction,
@@ -20,6 +21,7 @@ import {
   extractMentions,
   highlightSegments,
   searchNotes,
+  stripMarkdown,
   type NotebookColor,
   type NotebookLinkEntity,
 } from "@/lib/notebook";
@@ -37,6 +39,9 @@ interface NotebookPanelProps {
   userId: number;
   /** Room members, for the share-recipient picker. */
   players: InventoryPlayer[];
+  /** Opens an event's detail modal — rendered at the room's top level, so a
+   *  clicked event @-chip is not trapped inside this drawer. */
+  onOpenEvent?: (eventId: number) => void;
   onClose: () => void;
   readOnly?: boolean;
 }
@@ -61,7 +66,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
  * right pane = viewer. A non-empty search replaces the panes with a
  * full-width result list; editing replaces them with the editor.
  */
-export function NotebookPanel({ roomId, userId, players, onClose, readOnly = false }: NotebookPanelProps) {
+export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, readOnly = false }: NotebookPanelProps) {
   const t = useTranslations("notebook");
   const tCommon = useTranslations("common");
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
@@ -75,47 +80,67 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
   const [distsById, setDistsById] = useState<Map<number, Distribution>>(new Map());
   const [detail, setDetail] = useState<Distribution | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ note: Note | null } | null>(null);
+  /** Installed by NotebookEditor so the drawer can ask before discarding. */
+  const isEditorDirty = useRef<() => boolean>(() => false);
   const [sharing, setSharing] = useState<Note | null>(null);
   const [sendingShare, setSendingShare] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
 
   useEffect(() => {
+    let alive = true;
     void (async () => {
-      setLoading(true);
-      try {
-        const [notebook, inventory, myEvents] = await Promise.all([
-          getMyNotebookAction(roomId),
-          getMyInventory(roomId),
-          getMyEventsAction(roomId),
-        ]);
-        setNotes(notebook.notes as Note[]);
-        setCategories(notebook.categories as Category[]);
+      // allSettled, not all: the notes are the panel's reason to exist, while
+      // the backpack and event lists only enrich `@` mentions. Failing them
+      // together meant one blip on either extra showed "no notes yet" to
+      // someone whose notes were fine — and invited them to rewrite one.
+      const [notebook, inventory, myEvents] = await Promise.allSettled([
+        getMyNotebookAction(roomId),
+        getMyInventory(roomId),
+        getMyEventsAction(roomId),
+      ]);
+      if (!alive) return;
+
+      if (notebook.status === "fulfilled") {
+        setNotes(notebook.value.notes as Note[]);
+        setCategories(notebook.value.categories as Category[]);
+        setError(false);
+      } else {
+        setError(true);
+      }
+
+      // Mentions degrade gracefully: with no entities `segmentMentions` returns
+      // the text unchanged, so an `@Title` just reads as plain text.
+      const byId = new Map<number, Distribution>();
+      const linkable: NotebookLinkEntity[] = [];
+      if (inventory.status === "fulfilled") {
         // Backpack entries → linkable entities (dedupe by item id: shared
         // copies of the same item may produce several distributions).
-        const byId = new Map<number, Distribution>();
-        const linkable: NotebookLinkEntity[] = [];
-        for (const dist of inventory as Distribution[]) {
+        for (const dist of inventory.value as Distribution[]) {
           const item = dist.item;
           if (item && !byId.has(item.id)) {
             byId.set(item.id, dist);
             linkable.push({ id: item.id, type: item.type, title: item.title });
           }
         }
+      }
+      if (myEvents.status === "fulfilled") {
         // Events the viewer may read are also linkable (#7). Negate the id so it
-        // never collides with a backpack item id in the shared entity list (a
-        // clicked event chip is a harmless no-op — no backpack dist to open).
-        for (const ev of myEvents) {
+        // never collides with a backpack item id in the shared entity list.
+        for (const ev of myEvents.value) {
           linkable.push({ id: -ev.id, type: "event", title: ev.title });
         }
-        setEntities(linkable);
-        setDistsById(byId);
-      } catch { /* panel simply shows the empty state */ }
+      }
+      setEntities(linkable);
+      setDistsById(byId);
       setLoading(false);
     })();
-  }, [roomId]);
+    return () => { alive = false; };
+  }, [roomId, retryKey]);
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
   const categoryOf = (id: number | null) => categories.find((c) => c.id === id) ?? null;
@@ -140,7 +165,17 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     filter === "all" ? t("catAll")
     : filter === "uncat" ? t("uncategorized")
     : categoryOf(filter)?.name ?? "";
-  const results = useMemo(() => searchNotes(notes, query), [notes, query]);
+  // Strip markdown once per notes change, not once per keystroke; and search on
+  // a deferred copy of the query so typing never waits on the scan.
+  const plainByNoteId = useMemo(
+    () => new Map(notes.map((n) => [n.id, stripMarkdown(n.content)])),
+    [notes],
+  );
+  const deferredQuery = useDeferredValue(query);
+  const results = useMemo(
+    () => searchNotes(notes, deferredQuery, plainByNoteId),
+    [notes, deferredQuery, plainByNoteId],
+  );
 
   const reload = async () => {
     const notebook = await getMyNotebookAction(roomId);
@@ -148,34 +183,41 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     setCategories(notebook.categories as Category[]);
   };
 
+  // Actions return `{ success, error }` with the message already localized on
+  // the server; the old `err.message` path surfaced Next's production redaction
+  // notice to the user instead.
   const handleSave = async (input: { title: string; content: string; categoryId: number | null }) => {
-    const saved = editing?.note
+    const res = editing?.note
       ? await updateNoteAction(roomId, editing.note.id, input)
       : await createNoteAction(roomId, input);
+    if (!res.success) {
+      alert(res.error);
+      return;
+    }
     await reload();
     setEditing(null);
-    setSelectedId(saved.id);
+    setSelectedId(res.note.id);
   };
 
   const handleDelete = async (note: Note) => {
     if (!confirm(t("deleteConfirm", { title: note.title }))) return;
-    try {
-      await deleteNoteAction(roomId, note.id);
-      setSelectedId(null);
-      await reload();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    const res = await deleteNoteAction(roomId, note.id);
+    if (!res.success) {
+      alert(res.error);
+      return;
     }
+    setSelectedId(null);
+    await reload();
   };
 
-  const wrapCategoryError = async (fn: () => Promise<unknown>) => {
-    try {
-      await fn();
-      await reload();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
-      throw err;
+  /** Category editors expect a rejection to keep their inline form open. */
+  const wrapCategoryError = async (fn: () => Promise<{ success: boolean; error?: string }>) => {
+    const res = await fn();
+    if (!res.success) {
+      alert(res.error ?? tCommon("error"));
+      throw new Error(res.error ?? "failed");
     }
+    await reload();
   };
 
   const handleCategoryCreate = (input: { name: string; color: NotebookColor }) =>
@@ -195,11 +237,13 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     if (!sharing || targetIds.length === 0) return;
     setSendingShare(true);
     try {
-      const { count } = await shareNoteAction(roomId, sharing.id, targetIds);
+      const res = await shareNoteAction(roomId, sharing.id, targetIds);
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
       setSharing(null);
-      alert(t("shareSuccess", { count }));
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+      alert(t("shareSuccess", { count: res.count }));
     } finally {
       setSendingShare(false);
     }
@@ -210,14 +254,31 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     setSelectedId(id);
   };
 
-  /** A clicked @-chip opens the entry's backpack detail (view-only). */
+  /**
+   * A clicked @-chip opens its detail: backpack entries in the view-only
+   * inventory modal, events in the event modal. Event ids are stored negated
+   * so they cannot collide with item ids, which also meant they never matched
+   * `distsById` — the chip rendered as a button and silently did nothing.
+   */
   const handleOpenEntity = (entity: NotebookLinkEntity) => {
+    if (entity.id < 0) {
+      onOpenEvent?.(-entity.id);
+      return;
+    }
     const dist = distsById.get(entity.id);
     if (dist?.item) setDetail(dist);
   };
 
+  // Closing the drawer unmounts the editor, so a mistouch on the backdrop used
+  // to discard an in-progress note with no way back. The editor keeps the
+  // authoritative answer; we just ask before tearing it down.
+  const guardedClose = () => {
+    if (editing && isEditorDirty.current() && !confirm(t("discardConfirm"))) return;
+    close();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
+    <div className="fixed inset-0 z-50 flex font-theme" onClick={guardedClose}>
       <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
       <div
         className={`notebook-panel relative ml-auto w-full sm:w-[44rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
@@ -227,7 +288,7 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
         <div className="bg-surface border-b border-border px-4 sm:px-6 py-4 flex items-center gap-3 shrink-0">
           <Icons.NotebookPen className="w-5 h-5 text-accent" />
           <h3 className="font-bold text-text text-xl font-theme-display flex-1">{t("title")}</h3>
-          <button onClick={close} className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer" aria-label={tCommon("close")}>
+          <button onClick={guardedClose} className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer" aria-label={tCommon("close")}>
             <Icons.X className="w-5 h-5" />
           </button>
         </div>
@@ -237,15 +298,27 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
             note={editing.note}
             categories={categories}
             entities={entities}
+            dirtyRef={isEditorDirty}
             onCancel={() => setEditing(null)}
             onSave={handleSave}
           />
-        ) : query.trim() ? (
+        ) : (
+        /* One fixed search header above a body that swaps on `query`.
+           The box used to live inside each branch at a different tree depth,
+           so going from empty to non-empty remounted the <input>. Chrome
+           dispatches `input` during IME composition, so a zh user typing pinyin
+           destroyed their own composition session mid-word — on the default
+           locale's highest-traffic control. Same node in both states now. */
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="px-4 sm:px-6 pt-4 pb-1 shrink-0">
+            <SearchInput query={query} setQuery={setQuery} />
+          </div>
+
+          {query.trim() ? (
           /* Full-width search results */
           <div className="flex-1 min-h-0 flex flex-col">
-            <div className="px-4 sm:px-6 pt-4 shrink-0">
-              <SearchInput query={query} setQuery={setQuery} autoFocus />
-              <div className="flex items-center justify-between mt-3 mb-2 text-xs text-text-muted select-none">
+            <div className="px-4 sm:px-6 pt-1 shrink-0">
+              <div className="flex items-center justify-between mt-1 mb-2 text-xs text-text-muted select-none">
                 <span>{t("matches", { count: results.length })}</span>
                 <span>{t("byRelevance")}</span>
               </div>
@@ -280,9 +353,6 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
           /* Two panes: sidebar (search/categories/list) + note viewer */
           <div className="flex-1 min-h-0 flex">
             <div className={`${selected ? "hidden sm:flex" : "flex"} w-full sm:w-60 sm:border-r border-border flex-col min-h-0 shrink-0`}>
-              <div className="px-3 pt-3 shrink-0">
-                <SearchInput query={query} setQuery={setQuery} />
-              </div>
               <div className="px-3 pt-3 pb-2 border-b border-border shrink-0 overflow-y-auto max-h-[45%]">
                 <NotebookCategoryList
                   categories={categories}
@@ -301,7 +371,10 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
               </div>
               <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1.5">
                 {loading && <p className="text-xs text-text-dim px-1 py-4">{tCommon("loading")}</p>}
-                {!loading && listNotes.length === 0 && (
+                {!loading && error && notes.length === 0 && (
+                  <LoadFailed onRetry={() => setRetryKey((k) => k + 1)} className="py-8" />
+                )}
+                {!loading && !error && listNotes.length === 0 && (
                   <p className="text-xs text-text-dim px-1 py-4">{t("emptyList")}</p>
                 )}
                 {listNotes.map((n) => (
@@ -361,6 +434,8 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
               )}
             </div>
           </div>
+          )}
+        </div>
         )}
 
         {/* Backpack detail of a clicked @-chip — view-only reuse of the
@@ -397,7 +472,10 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
   );
 }
 
-function SearchInput({ query, setQuery, autoFocus = false }: { query: string; setQuery: (q: string) => void; autoFocus?: boolean }) {
+/** Single instance, rendered above the view switch — see the comment there for
+ *  why it must not live inside either branch. No autoFocus: it is never
+ *  remounted now, so there is nothing to restore focus from. */
+function SearchInput({ query, setQuery }: { query: string; setQuery: (q: string) => void }) {
   const t = useTranslations("notebook");
   return (
     <div className="relative">
@@ -406,14 +484,13 @@ function SearchInput({ query, setQuery, autoFocus = false }: { query: string; se
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t("searchPlaceholder")}
-        autoFocus={autoFocus}
         className="w-full bg-input-bg border border-input-border rounded-theme pl-9 pr-8 py-2 text-sm text-text outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent/50"
       />
       {query && (
         <button
           onClick={() => setQuery("")}
           className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-dim hover:text-text transition cursor-pointer"
-          aria-label="clear"
+          aria-label={t("clearSearch")}
         >
           <Icons.X className="w-3.5 h-3.5" />
         </button>
