@@ -882,6 +882,8 @@
     "titleLabel": "标题",
     "contentLabel": "内容",
     "markdownHint": "支持 Markdown",
+    "expandEditor": "展开为全窗口编辑",
+    "collapseEditor": "收起编辑区",
     "imageLabel": "证物图片（可选）",
     "uploadHint": "点击或拖拽上传图片",
     "itemImageLabel": "物品图片（可选）",

@@ -882,6 +882,8 @@
     "titleLabel": "Title",
     "contentLabel": "Content",
     "markdownHint": "Markdown supported",
+    "expandEditor": "Expand to full editor",
+    "collapseEditor": "Collapse editor",
     "imageLabel": "Evidence image (optional)",
     "uploadHint": "Click or drag to upload",
     "itemImageLabel": "Item image (optional)",
