@@ -39,6 +39,9 @@ interface NotebookPanelProps {
   userId: number;
   /** Room members, for the share-recipient picker. */
   players: InventoryPlayer[];
+  /** Opens an event's detail modal — rendered at the room's top level, so a
+   *  clicked event @-chip is not trapped inside this drawer. */
+  onOpenEvent?: (eventId: number) => void;
   onClose: () => void;
   readOnly?: boolean;
 }
@@ -63,7 +66,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
  * right pane = viewer. A non-empty search replaces the panes with a
  * full-width result list; editing replaces them with the editor.
  */
-export function NotebookPanel({ roomId, userId, players, onClose, readOnly = false }: NotebookPanelProps) {
+export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, readOnly = false }: NotebookPanelProps) {
   const t = useTranslations("notebook");
   const tCommon = useTranslations("common");
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
@@ -251,8 +254,17 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     setSelectedId(id);
   };
 
-  /** A clicked @-chip opens the entry's backpack detail (view-only). */
+  /**
+   * A clicked @-chip opens its detail: backpack entries in the view-only
+   * inventory modal, events in the event modal. Event ids are stored negated
+   * so they cannot collide with item ids, which also meant they never matched
+   * `distsById` — the chip rendered as a button and silently did nothing.
+   */
   const handleOpenEntity = (entity: NotebookLinkEntity) => {
+    if (entity.id < 0) {
+      onOpenEvent?.(-entity.id);
+      return;
+    }
     const dist = distsById.get(entity.id);
     if (dist?.item) setDetail(dist);
   };

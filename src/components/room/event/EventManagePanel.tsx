@@ -109,6 +109,10 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
   const [publishFor, setPublishFor] = useState<{ event: EventView; variant: "publish" | "add"; known: number[] } | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "retract" | "delete"; event: ManagedEvent } | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  /** Inline error strip — replaces blocking `alert()`, matching how the
+   *  editor and publish dialog in this same module already report failures. */
+  const [banner, setBanner] = useState<string | null>(null);
+  const [positionFor, setPositionFor] = useState<{ event: ManagedEvent; value: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -143,15 +147,18 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
     setEvents((list) => reorderList(list, id, op));
     const res = await reorderEventAction(roomId, id, op).catch(() => null);
     if (!res?.success) {
-      alert(res?.error ?? tCommon("error"));
+      setBanner(res?.error ?? tCommon("error"));
       onChanged();
     }
   };
-  const askPosition = (e: ManagedEvent, index: number) => {
-    const raw = window.prompt(t("positionPrompt", { count: events.length }), String(index + 1));
-    if (raw == null) return;
-    const n = parseInt(raw, 10);
-    if (Number.isFinite(n)) doReorder(e.id, { index: n });
+  /** Opens the themed position dialog. This was a `window.prompt`, the only one
+   *  left in the room UI — unthemed, and blocking on mobile. */
+  const askPosition = (e: ManagedEvent, index: number) => setPositionFor({ event: e, value: String(index + 1) });
+  const submitPosition = () => {
+    if (!positionFor) return;
+    const n = parseInt(positionFor.value, 10);
+    setPositionFor(null);
+    if (Number.isFinite(n)) doReorder(positionFor.event.id, { index: n });
   };
   const doConfirm = async () => {
     if (!confirm || confirmBusy) return;
@@ -161,13 +168,13 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
         ? await retractEventAction(roomId, confirm.event.id)
         : await deleteEventAction(roomId, confirm.event.id);
       if (!res.success) {
-        alert(res.error);
+        setBanner(res.error);
         return;
       }
       onChanged();
       setConfirm(null);
     } catch {
-      alert(tCommon("error"));
+      setBanner(tCommon("error"));
     } finally {
       setConfirmBusy(false);
     }
@@ -187,6 +194,16 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
             </button>
             <button onClick={close} className="text-text-muted hover:text-text cursor-pointer ml-1"><Icons.X className="w-5 h-5" /></button>
           </div>
+
+          {banner && (
+            <div role="alert" className="mx-4 mt-3 flex items-start gap-2 rounded-theme border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger shrink-0">
+              <Icons.AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span className="flex-1">{banner}</span>
+              <button onClick={() => setBanner(null)} className="shrink-0 hover:opacity-70 cursor-pointer" aria-label={tCommon("close")}>
+                <Icons.X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3">
             {loading ? (
@@ -262,6 +279,38 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
                     >
                       {confirmBusy && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
                       {confirm.kind === "retract" ? t("retractConfirmAction") : t("delete")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </OverlayShell>
+          )}
+
+          {/* Position dialog — the themed replacement for window.prompt. */}
+          {positionFor && (
+            <OverlayShell onClose={() => setPositionFor(null)} portal panelClassName="w-full max-w-xs mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden">
+              {(closeDialog) => (
+                <div className="p-5">
+                  <label htmlFor="event-position" className="block text-sm text-text mb-3">
+                    {t("positionPrompt", { count: events.length })}
+                  </label>
+                  <input
+                    id="event-position"
+                    type="number"
+                    min={1}
+                    max={events.length}
+                    autoFocus
+                    value={positionFor.value}
+                    onChange={(e) => setPositionFor((p) => (p ? { ...p, value: e.target.value } : p))}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitPosition(); } }}
+                    className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-theme-mono text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
+                  />
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={closeDialog} className="flex-1 h-9 rounded-theme border border-border text-sm text-text-muted hover:bg-surface-alt transition cursor-pointer">
+                      {tCommon("cancel")}
+                    </button>
+                    <button onClick={submitPosition} className="flex-1 h-9 rounded-theme bg-primary text-primary-foreground text-sm font-bold hover:bg-primary-hover transition cursor-pointer">
+                      {tCommon("confirm")}
                     </button>
                   </div>
                 </div>

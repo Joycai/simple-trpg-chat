@@ -12,6 +12,7 @@ import { resolveChatImagePath } from "@/lib/uploads";
 import {
   buildEventCardPayload,
   buildEventReceiptPayload,
+  parseEventReceiptPayload,
   parseEventImages,
   serializeEventImages,
   resolveEventVisibility,
@@ -155,6 +156,27 @@ async function findEvent(roomId: number, eventId: number) {
   return ev && ev.roomId === roomId ? ev : null;
 }
 
+/**
+ * Drop the personal "new event" receipt pills for an event.
+ *
+ * Receipts outlived their event: after a delete or retract the pill stayed in
+ * the recipient's log, and tapping it opened an empty detail modal, since
+ * getEventForViewerAction now (correctly) returns null. There is no index on
+ * the payload, so match in JS over this room's receipts — a room has few.
+ */
+async function deleteEventReceipts(roomId: number, eventId: number) {
+  const rows = await db
+    .select({ id: messages.id, diceDetail: messages.diceDetail })
+    .from(messages)
+    .where(and(eq(messages.roomId, roomId), eq(messages.systemKind, "event-receipt")));
+  const stale = rows
+    .filter((m) => parseEventReceiptPayload(m.diceDetail)?.eventId === eventId)
+    .map((m) => m.id);
+  if (stale.length === 0) return;
+  await db.delete(messages).where(inArray(messages.id, stale));
+  for (const id of stale) broadcastToRoom(roomId, { type: "message_deleted", messageId: id });
+}
+
 /* ------------------------------------------------------------------ mutations */
 
 export interface EventInput {
@@ -261,9 +283,34 @@ export async function deleteEventAction(roomId: number, eventId: number) {
     await db.delete(messages).where(eq(messages.id, ev.cardMessageId));
     broadcastToRoom(roomId, { type: "message_deleted", messageId: ev.cardMessageId });
   }
+  await deleteEventReceipts(roomId, eventId);
   await db.delete(storyEvents).where(eq(storyEvents.id, eventId));
 
   signalUpdate(roomId, eventId);
+  return { success: true as const };
+}
+
+/**
+ * Reclaim images uploaded during an editor session that was abandoned.
+ *
+ * The cropper POSTs to disk the moment a picture is cropped, so cancelling the
+ * editor (or removing a thumbnail) used to leave the file behind forever —
+ * `unlinkImages` only ran on the save path. The caller passes only URLs it
+ * uploaded this session; anything still referenced by a stored event is kept,
+ * so a cancelled *edit* cannot delete the original's pictures.
+ */
+export async function discardEventImagesAction(roomId: number, urls: string[]) {
+  const t = await getEventMessages();
+  const auth = await requireHost(roomId);
+  if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
+  if (urls.length === 0) return { success: true as const };
+
+  const rows = await db
+    .select({ imagesJson: storyEvents.imagesJson })
+    .from(storyEvents)
+    .where(eq(storyEvents.roomId, roomId));
+  const inUse = new Set(rows.flatMap((r) => parseEventImages(r.imagesJson)));
+  await unlinkImages(urls.filter((u) => !inUse.has(u)));
   return { success: true as const };
 }
 
@@ -444,6 +491,9 @@ export async function retractEventAction(roomId: number, eventId: number) {
   if (ev.status === "unpublished") return { success: false as const, error: te("errorNotPublished") } satisfies Fail;
 
   await db.delete(storyEventVisibility).where(eq(storyEventVisibility.eventId, eventId));
+  // The retracted card replaces the public announcement; the personal pills
+  // would otherwise still link to content nobody may read any more.
+  await deleteEventReceipts(roomId, eventId);
 
   // Replace the live card with a fresh "已撤回" card (same-id re-broadcast is deduped
   // client-side, so we delete the old message and post a new one).

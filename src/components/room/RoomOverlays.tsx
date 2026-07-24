@@ -236,7 +236,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <InventoryPanel view="backpack" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowInventory(false)} readOnly={readOnly} />
       )}
       {showNotebook && (
-        <NotebookPanel roomId={room.id} userId={userId} players={inventoryPlayers} readOnly={readOnly} onClose={() => setShowNotebook(false)} />
+        <NotebookPanel roomId={room.id} userId={userId} players={inventoryPlayers} readOnly={readOnly} onOpenEvent={(id) => setEventDetailId(id)} onClose={() => setShowNotebook(false)} />
       )}
       {showItemManager && isHost && (
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />

@@ -9,7 +9,7 @@ import { useMentionTextarea } from "@/components/room/hooks/useMentionTextarea";
 import { MentionPicker } from "@/components/room/MentionPicker";
 import { type NotebookLinkEntity } from "@/lib/notebook";
 import { MAX_EVENT_IMAGES, EVENT_TITLE_MAX, EVENT_DESC_MAX } from "@/lib/story-events";
-import { createEventAction, updateEventAction, type EventView } from "@/app/actions/event";
+import { createEventAction, updateEventAction, discardEventImagesAction, type EventView } from "@/app/actions/event";
 import { EventTimePicker } from "./EventTimePicker";
 
 const CHAT_IMAGE_MAX_BYTES = 1024 * 1024;
@@ -50,6 +50,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const [descExpanded, setDescExpanded] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  /** URLs uploaded during this session — reclaimed if the editor is abandoned.
+   *  The cropper writes to disk immediately, so cancelling used to orphan them. */
+  const uploadedThisSession = useRef<string[]>([]);
 
   const {
     textareaRef, textareaProps, mention, activeIdx, setActiveIdx,
@@ -63,7 +66,15 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
     timePayload !== (event?.timePayload ?? null) ||
     images.join(" ") !== (event?.images ?? []).join(" ");
 
-  const handleClose = () => { if (!dirty || confirm(t("discardConfirm"))) onClose(); };
+  const handleClose = () => {
+    if (dirty && !confirm(t("discardConfirm"))) return;
+    // Fire-and-forget: the files are cache, and the server keeps any URL a
+    // stored event still references.
+    if (uploadedThisSession.current.length > 0) {
+      void discardEventImagesAction(roomId, uploadedThisSession.current).catch(() => {});
+    }
+    onClose();
+  };
 
   const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -84,6 +95,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
       const res = await fetch(`/api/rooms/${roomId}/images`, { method: "POST", body: fd });
       if (!res.ok) { setError(res.status === 413 ? t("errImageTooLarge") : tCommon("error")); return; }
       const { url } = await res.json();
+      uploadedThisSession.current.push(url);
       setImages((prev) => [...prev, url].slice(0, MAX_EVENT_IMAGES));
       setCropSource(null);
     } catch {
