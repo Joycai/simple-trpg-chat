@@ -15,12 +15,14 @@ import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction, withdrawTimelineDividerAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
+import { getMySkillsAction } from "@/app/actions/skills";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
-import { getRuleForRoom, primaryVital, type StatusEntry } from "@/lib/rules";
+import { getRuleForRoom, primaryVital, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
+import type { CharacterData } from "@/lib/character-types";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
@@ -221,6 +223,32 @@ export function RoomClient({
   // tooltips, host-only buttons). Looked up once per render so child props
   // stay stable.
   const ruleCapabilities = getRuleForRoom(room).capabilities;
+
+  // "Set up your character" nudge on the 角色档案 top-bar icon. Only for rules
+  // with a structured sheet (coc7th/TA/DnD/狩魂; basic/通用 d100 never hints),
+  // and only for the current user. Roll-up: lights up when attributes are still
+  // at their rule defaults OR the user has no skills yet. Skills are counted
+  // here (the top bar has no sheet/skill data of its own), keyed on the shared
+  // skillRefreshKey so .st commands and in-panel skill edits keep it live.
+  const [skillsEmpty, setSkillsEmpty] = useState(false);
+  const [skillsLoaded, setSkillsLoaded] = useState(false);
+  useEffect(() => {
+    getMySkillsAction(room.id)
+      .then(s => { setSkillsEmpty(s.length === 0); setSkillsLoaded(true); })
+      .catch(() => {});
+  }, [room.id, skillRefreshKey]);
+
+  const characterHint = useMemo(() => {
+    const rule = getRuleForRoom(room);
+    if (!ruleUsesStructuredSheet(rule)) return false;
+    let sheet: CharacterData | null = null;
+    if (characterData) {
+      try { sheet = JSON.parse(characterData) as CharacterData; } catch {}
+    }
+    return attributesUnset(sheet, rule) || (skillsLoaded && skillsEmpty);
+  }, [room, characterData, skillsLoaded, skillsEmpty]);
+
+  const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 
   const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
   const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
@@ -586,6 +614,7 @@ export function RoomClient({
         onSaveRoomName={handleSaveRoomName}
         showCharacter={showCharacter}
         setShowCharacter={setShowCharacter}
+        characterHint={characterHint}
         showInventory={showInventory}
         unreadItems={unreadItems}
         onToggleInventory={handleToggleInventory}
@@ -711,6 +740,7 @@ export function RoomClient({
         roomThemeMode={roomThemeMode}
         inventoryRefreshKey={inventoryRefreshKey}
         skillRefreshKey={skillRefreshKey}
+        onSkillsChanged={bumpSkills}
         mentionTargets={mentionTargets}
         onlineUserIds={onlineUserIds}
         playerCount={playerCount}

@@ -65,6 +65,9 @@ interface RoomTopBarProps {
   // Panel toggles
   showCharacter: boolean;
   setShowCharacter: Dispatch<SetStateAction<boolean>>;
+  // Gentle nudge dot when the current user's character sheet isn't set up yet
+  // (structured-sheet rules only; see RoomClient).
+  characterHint?: boolean;
   showInventory: boolean;
   unreadItems: number;
   onToggleInventory: () => void;
@@ -112,6 +115,7 @@ export function RoomTopBar({
   onSaveRoomName,
   showCharacter,
   setShowCharacter,
+  characterHint = false,
   showInventory,
   unreadItems,
   onToggleInventory,
@@ -228,10 +232,16 @@ export function RoomTopBar({
           <button
             onClick={() => setShowCharacter(!showCharacter)}
             className={`${iconBtn} ${showCharacter ? iconNavActive : iconNavIdle}`}
-            title={`${t("tooltipCharacter")} · ${nickname}`}
+            title={`${t("tooltipCharacter")} · ${nickname}${characterHint ? ` · ${t("charHintUnset")}` : ""}`}
             aria-pressed={showCharacter}
           >
             <Icons.User className="w-[18px] h-[18px]" />
+            {characterHint && (
+              <span
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary shadow-[var(--theme-glow)]"
+                aria-hidden="true"
+              />
+            )}
           </button>
           <button
             onClick={onToggleInventory}

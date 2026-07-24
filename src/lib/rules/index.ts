@@ -21,6 +21,7 @@ export { getRule, getRuleForRoom, listRules, listRuleIds, DEFAULT_RULE_ID } from
 export { clampAttributes, clampInt } from "./patch-utils";
 export type { StatusEntries, StatusEntry } from "./status-view";
 export { primaryVital, readStatusEntries } from "./status-view";
+export { ruleUsesStructuredSheet, attributesUnset } from "./sheet-state";
 
 // Per-rule character-sheet data models (types + defaults + derivation helpers).
 // Each ruleset owns its own sheet under `rules/<id>/sheet.ts`; re-exported here
