@@ -8,7 +8,7 @@ import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { MentionChip } from "@/components/room/notebook/notebook-helpers";
 import { getEventForViewerAction, markEventViewedAction, retractEventAction, type EventView } from "@/app/actions/event";
-import { EventTimeLabel, useBackpackEntities, type EventPlayer } from "./event-helpers";
+import { EventTimeLabel, useBackpackEntities, useRoomCatalogEntities, type EventPlayer } from "./event-helpers";
 import { EventEditor } from "./EventEditor";
 import { EventPublishDialog } from "./EventPublishDialog";
 
@@ -30,7 +30,12 @@ interface EventDetailModalProps {
 export function EventDetailModal({ roomId, eventId, isHost = false, players = [], onClose, onViewed }: EventDetailModalProps) {
   const t = useTranslations("event");
   const tCommon = useTranslations("common");
-  const entities = useBackpackEntities(roomId);
+  // Host resolves `@` against the full room catalog (drives its editor's
+  // suggestions and shows every reference as a link); a player resolves against
+  // their own backpack, so anything they don't hold degrades to plain text.
+  const backpackEntities = useBackpackEntities(roomId);
+  const catalogEntities = useRoomCatalogEntities(roomId, isHost);
+  const entities = isHost ? catalogEntities : backpackEntities;
   const [event, setEvent] = useState<EventView | null | undefined>(undefined); // undefined = loading
   const [zoom, setZoom] = useState<string | null>(null);
   const [reload, setReload] = useState(0);

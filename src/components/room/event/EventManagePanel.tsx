@@ -14,7 +14,7 @@ import {
 } from "@/app/actions/event";
 import { EventEditor } from "./EventEditor";
 import { EventPublishDialog } from "./EventPublishDialog";
-import { StatusBadge, EventTimeLabel, EventBodyPreview, useBackpackEntities, type EventPlayer } from "./event-helpers";
+import { StatusBadge, EventTimeLabel, EventBodyPreview, useRoomCatalogEntities, type EventPlayer } from "./event-helpers";
 
 interface ManagedEvent {
   id: number;
@@ -40,7 +40,8 @@ interface EventManagePanelProps {
 export function EventManagePanel({ roomId, players, refreshKey, onClose, onChanged, onOpenEvent }: EventManagePanelProps) {
   const t = useTranslations("event");
   const tCommon = useTranslations("common");
-  const entities = useBackpackEntities(roomId, refreshKey);
+  // Host authoring: `@` can reference the whole room catalog, not just held items.
+  const entities = useRoomCatalogEntities(roomId, true, refreshKey);
 
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [loading, setLoading] = useState(true);
