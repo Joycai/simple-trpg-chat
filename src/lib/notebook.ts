@@ -134,14 +134,23 @@ const SNIPPET_RADIUS = 18;
 /**
  * Case-insensitive substring search over title + markdown-stripped content,
  * sorted by relevance (title hits count 10, content hits 1 each).
+ *
+ * `plainByNoteId` is an optional precomputed `stripMarkdown` cache. Without it
+ * every keystroke re-runs eight regexes over every note's full body (each up to
+ * NOTE_CONTENT_MAX), which the caller can hoist to a memo keyed on the notes
+ * alone. Optional so existing callers and tests are unaffected.
  */
-export function searchNotes<T extends SearchableNote>(notes: T[], query: string): NoteSearchResult<T>[] {
+export function searchNotes<T extends SearchableNote>(
+  notes: T[],
+  query: string,
+  plainByNoteId?: Map<number, string>,
+): NoteSearchResult<T>[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const results: NoteSearchResult<T>[] = [];
   for (const note of notes) {
     const titleHit = note.title.toLowerCase().includes(q);
-    const plain = stripMarkdown(note.content);
+    const plain = plainByNoteId?.get(note.id) ?? stripMarkdown(note.content);
     const lower = plain.toLowerCase();
     let contentHits = 0;
     let firstHit = -1;

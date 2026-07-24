@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { ImageCropper } from "@/components/shared/ImageCropper";
-import { mentionQueryAt, type NotebookLinkEntity } from "@/lib/notebook";
-import { entityMeta } from "@/components/room/notebook/notebook-helpers";
+import { useMentionTextarea } from "@/components/room/hooks/useMentionTextarea";
+import { MentionPicker } from "@/components/room/MentionPicker";
+import { type NotebookLinkEntity } from "@/lib/notebook";
 import { MAX_EVENT_IMAGES, EVENT_TITLE_MAX, EVENT_DESC_MAX } from "@/lib/story-events";
 import { createEventAction, updateEventAction, type EventView } from "@/app/actions/event";
 import { EventTimePicker } from "./EventTimePicker";
@@ -48,77 +49,21 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
    *  title / time / images sections collapse away, giving the textarea room. */
   const [descExpanded, setDescExpanded] = useState(false);
 
-  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const suggestions = useMemo(() => {
-    if (!mention) return [];
-    const q = mention.query.toLowerCase();
-    return entities.filter((e) => !q || e.title.toLowerCase().includes(q)).slice(0, MAX_SUGGESTIONS);
-  }, [mention, entities]);
-  const pickerOpen = mention !== null && suggestions.length > 0;
+  const {
+    textareaRef, textareaProps, mention, activeIdx, setActiveIdx,
+    suggestions, pickerOpen, insertMention, startMention, applyWrap, applyLinePrefix,
+  } = useMentionTextarea({ value: description, setValue: setDescription, entities, maxSuggestions: MAX_SUGGESTIONS });
 
-  const syncMention = (el: HTMLTextAreaElement) => {
-    setMention(mentionQueryAt(el.value, el.selectionStart ?? 0));
-    setActiveIdx(0);
-  };
-  const insertMention = (entity: NotebookLinkEntity) => {
-    const el = textareaRef.current;
-    if (!el || !mention) return;
-    const caret = el.selectionStart ?? 0;
-    const next = `${description.slice(0, mention.start)}@${entity.title} ${description.slice(caret)}`;
-    setDescription(next);
-    setMention(null);
-    const newCaret = mention.start + entity.title.length + 2;
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(newCaret, newCaret);
-    });
-  };
-  const startMention = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart ?? description.length;
-    const next = `${description.slice(0, start)}@${description.slice(el.selectionEnd ?? start)}`;
-    setDescription(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + 1, start + 1);
-      setMention({ start, query: "" });
-    });
-  };
-  const applyWrap = (before: string, after: string) => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const s = el.selectionStart ?? 0;
-    const e = el.selectionEnd ?? s;
-    const sel = description.slice(s, e);
-    setDescription(description.slice(0, s) + before + sel + after + description.slice(e));
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(s + before.length, s + before.length + sel.length);
-    });
-  };
-  const applyLinePrefix = (prefix: string) => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const s = el.selectionStart ?? 0;
-    const e = el.selectionEnd ?? s;
-    const lineStart = description.lastIndexOf("\n", s - 1) + 1;
-    const block = description.slice(lineStart, e);
-    const prefixed = block.split("\n").map((l) => (l.startsWith(prefix) ? l : prefix + l)).join("\n");
-    setDescription(description.slice(0, lineStart) + prefixed + description.slice(e));
-    requestAnimationFrame(() => el.focus());
-  };
-  const handleKeyDown = (ev: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!pickerOpen) return;
-    if (ev.key === "ArrowDown") { ev.preventDefault(); setActiveIdx((i) => (i + 1) % suggestions.length); }
-    else if (ev.key === "ArrowUp") { ev.preventDefault(); setActiveIdx((i) => (i - 1 + suggestions.length) % suggestions.length); }
-    else if (ev.key === "Enter" || ev.key === "Tab") { ev.preventDefault(); insertMention(suggestions[activeIdx]); }
-    else if (ev.key === "Escape") { ev.preventDefault(); setMention(null); }
-  };
+  /** Unsaved-work guard for the modal's close paths. */
+  const dirty =
+    title !== (event?.title ?? "") ||
+    description !== (event?.description ?? "") ||
+    timePayload !== (event?.timePayload ?? null) ||
+    images.join(" ") !== (event?.images ?? []).join(" ");
+
+  const handleClose = () => { if (!dirty || confirm(t("discardConfirm"))) onClose(); };
 
   const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -174,7 +119,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const toolBtn = "flex items-center justify-center w-8 h-8 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer";
 
   return (
-    <OverlayShell onClose={onClose} portal panelClassName="w-full max-w-2xl mx-4 h-[86vh] max-h-[720px] min-h-[560px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
+    <OverlayShell onClose={handleClose} portal panelClassName="w-full max-w-2xl mx-4 h-[86vh] max-h-[720px] min-h-[560px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
@@ -192,7 +137,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col">
             {/* Collapsible header group — title + time */}
             <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
-              <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pb-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`}>
+              <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pb-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`} inert={descExpanded || undefined}>
                 {/* Title */}
                 <div>
                   <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
@@ -226,7 +171,12 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                 <button onClick={() => applyLinePrefix("> ")} className={toolBtn} title={t("toolQuote")}><Icons.Quote className="w-4 h-4" /></button>
                 <span className="w-px h-4 bg-border mx-1" aria-hidden />
                 <button onClick={startMention} className={`${toolBtn} text-primary hover:text-primary`} title={t("toolMention")}><Icons.AtSign className="w-4 h-4" /></button>
-                <span className="ml-auto text-xs text-text-dim font-theme-mono select-none pr-1">Markdown</span>
+                <span className="ml-auto flex items-center gap-2 pr-1 text-xs font-theme-mono select-none">
+                  <span className={description.length > EVENT_DESC_MAX * 0.9 ? "text-warning" : "text-text-dim"}>
+                    {description.length} / {EVENT_DESC_MAX}
+                  </span>
+                  <span className="text-text-dim">{tn("markdownLabel")}</span>
+                </span>
                 <span className="w-px h-4 bg-border mx-1" aria-hidden />
                 <button
                   onClick={() => setDescExpanded((v) => !v)}
@@ -241,47 +191,28 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                 <textarea
                   ref={textareaRef}
                   value={description}
-                  onChange={(e) => { setDescription(e.target.value); syncMention(e.target); }}
-                  onKeyDown={handleKeyDown}
-                  onClick={(e) => syncMention(e.currentTarget)}
-                  onBlur={() => setTimeout(() => setMention(null), 150)}
+                  {...textareaProps}
                   maxLength={EVENT_DESC_MAX}
                   placeholder={t("descriptionPlaceholder")}
                   className="w-full h-full resize-none bg-input-bg border border-input-border rounded-b-theme px-3.5 py-3 text-sm text-text leading-relaxed outline-none focus:border-primary/50"
                 />
                 {pickerOpen && (
-                  <div className="absolute left-2 sm:w-80 bottom-2 bg-surface border border-border rounded-theme shadow-xl overflow-hidden z-10">
-                    <div className="flex items-center gap-2 px-3.5 py-2 border-b border-border">
-                      <span className="text-sm font-bold text-primary font-theme-mono">@{mention?.query}</span>
-                      <span className="text-xs text-text-muted">{t("mentionHeader")}</span>
-                    </div>
-                    <div className="max-h-52 overflow-y-auto py-1">
-                      {suggestions.map((e, i) => {
-                        const { Icon, labelKey, chipClass } = entityMeta(e.type);
-                        return (
-                          <button
-                            key={e.id}
-                            onMouseDown={(ev) => { ev.preventDefault(); insertMention(e); }}
-                            onMouseEnter={() => setActiveIdx(i)}
-                            className={`w-full text-left flex items-center gap-3 px-3 py-2 transition cursor-pointer ${i === activeIdx ? "bg-surface-alt" : ""}`}
-                          >
-                            <span className={`flex items-center justify-center w-8 h-8 rounded-theme border shrink-0 ${chipClass}`}><Icon className="w-4 h-4" /></span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-bold text-text truncate">{e.title}</span>
-                              <span className="block text-xs text-text-muted">{tn(labelKey)}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <MentionPicker
+                    query={mention?.query ?? ""}
+                    suggestions={suggestions}
+                    activeIdx={activeIdx}
+                    onPick={insertMention}
+                    onHover={setActiveIdx}
+                    className="left-2 sm:w-80 bottom-2"
+                    accentClass="text-primary"
+                  />
                 )}
               </div>
             </div>
 
             {/* Collapsible images group */}
             <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
-            <div className={`min-h-0 overflow-hidden pt-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`}>
+            <div className={`min-h-0 overflow-hidden pt-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`} inert={descExpanded || undefined}>
               <label className="block text-xs font-bold text-text-muted mb-1.5">
                 {t("fieldImages")} <span className="text-text-dim font-medium">· {t("imagesHint")}</span>
               </label>

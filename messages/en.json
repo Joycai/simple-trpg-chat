@@ -798,6 +798,9 @@
   },
   "notebook": {
     "title": "Notebook",
+    "markdownLabel": "Markdown",
+    "discardConfirm": "You have unsaved changes. Discard them?",
+    "clearSearch": "Clear search",
     "errorUnauthorized": "You do not have permission to do that",
     "errorTitleRequired": "Title is required",
     "errorTitleTooLong": "Title cannot exceed {max} characters",
@@ -1297,6 +1300,7 @@
     "promotedToFull": "Event \"{title}\" is now fully public"
   },
   "event": {
+    "discardConfirm": "You have unsaved changes. Discard them?",
     "errorNotHost": "Only the host can do that",
     "errorEventNotFound": "Event not found",
     "errorTitleRequired": "Title is required",
@@ -1337,7 +1341,7 @@
     "timeCustomPlaceholder": "Custom time text",
     "timeSegment": "Segment",
     "timeClock": "Clock",
-    "timePreview": "Preview",
+    "timePreviewLabel": "Preview: ",
     "statusUnpublished": "Unpublished",
     "statusPartial": "Partial",
     "statusPartialN": "Partial · {count}",

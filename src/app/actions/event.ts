@@ -14,6 +14,7 @@ import {
   buildEventReceiptPayload,
   parseEventImages,
   serializeEventImages,
+  resolveEventVisibility,
   EVENT_TITLE_MAX,
   EVENT_DESC_MAX,
   type EventCardPayload,
@@ -598,7 +599,7 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
   if (!e) return null;
 
   let updated = false;
-  let visible = isHost || e.status === "full";
+  let hasVisibilityRow = false;
   if (!isHost) {
     const [row] = await db
       .select({ viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated })
@@ -606,9 +607,10 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
       .where(and(eq(storyEventVisibility.eventId, eventId), eq(storyEventVisibility.userId, userId)));
     if (row) {
       updated = row.updated;
-      if (e.status === "partial") visible = true;
+      hasVisibilityRow = true;
     }
   }
+  const { visible } = resolveEventVisibility({ status: e.status, isHost, hasVisibilityRow });
   if (!visible) return null;
 
   // Host gets the extra control-surface data the detail modal's footer needs:

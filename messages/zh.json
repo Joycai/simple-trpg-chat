@@ -798,6 +798,9 @@
   },
   "notebook": {
     "title": "记事本",
+    "markdownLabel": "Markdown",
+    "discardConfirm": "有未保存的修改，确定要放弃吗？",
+    "clearSearch": "清空搜索",
     "errorUnauthorized": "没有权限执行此操作",
     "errorTitleRequired": "请填写标题",
     "errorTitleTooLong": "标题不能超过 {max} 个字符",
@@ -1297,6 +1300,7 @@
     "promotedToFull": "事件《{title}》已完全公开"
   },
   "event": {
+    "discardConfirm": "有未保存的修改，确定要放弃吗？",
     "errorNotHost": "只有主持人可以执行此操作",
     "errorEventNotFound": "事件不存在",
     "errorTitleRequired": "请填写事件标题",
@@ -1337,7 +1341,7 @@
     "timeCustomPlaceholder": "自定义时间文本",
     "timeSegment": "时段",
     "timeClock": "时钟",
-    "timePreview": "预览",
+    "timePreviewLabel": "预览：",
     "statusUnpublished": "未公开",
     "statusPartial": "部分公开",
     "statusPartialN": "部分公开 · {count} 人",
