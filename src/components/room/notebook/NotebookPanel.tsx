@@ -4,6 +4,8 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { LoadFailed } from "@/components/shared/LoadFailed";
+import { Notice } from "@/components/shared/Notice";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import {
   getMyNotebookAction,
@@ -45,6 +47,19 @@ interface NotebookPanelProps {
   onClose: () => void;
   readOnly?: boolean;
 }
+
+/** Themed stand-in for `alert()` — rendered as a strip under the panel header. */
+type Banner = { kind: "success" | "error"; text: string };
+
+/** Themed stand-in for `confirm()`. `discard` carries the action it guards, so
+ *  the drawer-close and the editor-back paths share one dialog. */
+type Confirm =
+  | { kind: "discard"; proceed: () => void }
+  | { kind: "deleteNote"; note: Note }
+  | { kind: "deleteCategory"; category: Category };
+
+/** How long a success banner stays up before fading itself out. */
+const BANNER_TTL = 3200;
 
 /** Highlight helper for search results. */
 function Highlighted({ text, query }: { text: string; query: string }) {
@@ -88,8 +103,20 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   const isEditorDirty = useRef<() => boolean>(() => false);
   const [sharing, setSharing] = useState<Note | null>(null);
   const [sendingShare, setSendingShare] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
+  const [banner, setBanner] = useState<Banner | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  // A success banner is an acknowledgement, not a message to act on — it clears
+  // itself. Errors stay until dismissed or replaced.
+  useEffect(() => {
+    if (banner?.kind !== "success") return;
+    const id = setTimeout(() => setBanner(null), BANNER_TTL);
+    return () => clearTimeout(id);
+  }, [banner]);
 
   useEffect(() => {
     let alive = true;
@@ -183,38 +210,34 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
     setCategories(notebook.categories as Category[]);
   };
 
+  const fail = (text?: string) => setBanner({ kind: "error", text: text ?? tCommon("error") });
+
   // Actions return `{ success, error }` with the message already localized on
   // the server; the old `err.message` path surfaced Next's production redaction
-  // notice to the user instead.
+  // notice to the user instead. The catch covers what never reaches that shape
+  // — a dropped connection mid-save — so the editor is never left silent.
   const handleSave = async (input: { title: string; content: string; categoryId: number | null }) => {
-    const res = editing?.note
-      ? await updateNoteAction(roomId, editing.note.id, input)
-      : await createNoteAction(roomId, input);
-    if (!res.success) {
-      alert(res.error);
-      return;
+    try {
+      const res = editing?.note
+        ? await updateNoteAction(roomId, editing.note.id, input)
+        : await createNoteAction(roomId, input);
+      if (!res.success) {
+        fail(res.error);
+        return;
+      }
+      await reload();
+      setEditing(null);
+      setSelectedId(res.note.id);
+    } catch {
+      fail();
     }
-    await reload();
-    setEditing(null);
-    setSelectedId(res.note.id);
-  };
-
-  const handleDelete = async (note: Note) => {
-    if (!confirm(t("deleteConfirm", { title: note.title }))) return;
-    const res = await deleteNoteAction(roomId, note.id);
-    if (!res.success) {
-      alert(res.error);
-      return;
-    }
-    setSelectedId(null);
-    await reload();
   };
 
   /** Category editors expect a rejection to keep their inline form open. */
   const wrapCategoryError = async (fn: () => Promise<{ success: boolean; error?: string }>) => {
     const res = await fn();
     if (!res.success) {
-      alert(res.error ?? tCommon("error"));
+      fail(res.error);
       throw new Error(res.error ?? "failed");
     }
     await reload();
@@ -226,26 +249,67 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   const handleCategoryUpdate = (id: number, input: { name: string; color: NotebookColor }) =>
     wrapCategoryError(() => updateCategoryAction(roomId, id, input));
 
-  const handleCategoryDelete = async (category: Category) => {
-    const count = categoryCounts.get(category.id) ?? 0;
-    if (!confirm(t("deleteCategoryConfirm", { name: category.name, count }))) return;
-    await wrapCategoryError(() => deleteCategoryAction(roomId, category.id));
-    if (filter === category.id) setFilter("all");
-  };
-
   const handleShare = async (targetIds: number[]) => {
     if (!sharing || targetIds.length === 0) return;
     setSendingShare(true);
+    setShareError(null);
     try {
       const res = await shareNoteAction(roomId, sharing.id, targetIds);
+      // Reported inside the picker, which stays open: the selection is still
+      // there to retry with, and a banner behind the modal would be unreadable.
       if (!res.success) {
-        alert(res.error);
+        setShareError(res.error);
         return;
       }
       setSharing(null);
-      alert(t("shareSuccess", { count: res.count }));
+      setBanner({ kind: "success", text: t("shareSuccess", { count: res.count }) });
+    } catch {
+      setShareError(tCommon("error"));
     } finally {
       setSendingShare(false);
+    }
+  };
+
+  const closeShare = () => {
+    setSharing(null);
+    setShareError(null);
+  };
+
+  /** Runs the pending confirm. Destructive branches always dismiss the dialog
+   *  when they settle, so a failure banner isn't left behind the backdrop. */
+  const runConfirm = async () => {
+    if (!confirm || confirmBusy) return;
+    if (confirm.kind === "discard") {
+      const { proceed } = confirm;
+      setConfirm(null);
+      proceed();
+      return;
+    }
+    setConfirmBusy(true);
+    try {
+      if (confirm.kind === "deleteNote") {
+        const res = await deleteNoteAction(roomId, confirm.note.id);
+        if (!res.success) {
+          fail(res.error);
+          return;
+        }
+        setSelectedId(null);
+        await reload();
+      } else {
+        const { category } = confirm;
+        const res = await deleteCategoryAction(roomId, category.id);
+        if (!res.success) {
+          fail(res.error);
+          return;
+        }
+        await reload();
+        if (filter === category.id) setFilter("all");
+      }
+    } catch {
+      fail();
+    } finally {
+      setConfirmBusy(false);
+      setConfirm(null);
     }
   };
 
@@ -271,11 +335,14 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
 
   // Closing the drawer unmounts the editor, so a mistouch on the backdrop used
   // to discard an in-progress note with no way back. The editor keeps the
-  // authoritative answer; we just ask before tearing it down.
-  const guardedClose = () => {
-    if (editing && isEditorDirty.current() && !confirm(t("discardConfirm"))) return;
-    close();
+  // authoritative answer; we just ask before tearing it down. Both teardown
+  // paths — the drawer closing and the editor's back arrow — route through
+  // here, so the question is asked in one place instead of two.
+  const guardDiscard = (proceed: () => void) => {
+    if (editing && isEditorDirty.current()) setConfirm({ kind: "discard", proceed });
+    else proceed();
   };
+  const guardedClose = () => guardDiscard(close);
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={guardedClose}>
@@ -293,13 +360,26 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
           </button>
         </div>
 
+        {/* Themed replacement for the module's `alert()` calls. Sits above the
+            view switch so it survives list ↔ search ↔ editor. */}
+        {banner && (
+          <Notice
+            variant={banner.kind}
+            className="mx-4 sm:mx-6 mt-3 shrink-0"
+            onDismiss={() => setBanner(null)}
+            dismissLabel={tCommon("close")}
+          >
+            {banner.text}
+          </Notice>
+        )}
+
         {editing ? (
           <NotebookEditor
             note={editing.note}
             categories={categories}
             entities={entities}
             dirtyRef={isEditorDirty}
-            onCancel={() => setEditing(null)}
+            onCancel={() => guardDiscard(() => setEditing(null))}
             onSave={handleSave}
           />
         ) : (
@@ -363,7 +443,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                   readOnly={readOnly}
                   onCreate={handleCategoryCreate}
                   onUpdate={handleCategoryUpdate}
-                  onDelete={handleCategoryDelete}
+                  onDelete={(category) => setConfirm({ kind: "deleteCategory", category })}
                 />
               </div>
               <div className="px-3 pt-2.5 pb-1 text-[11px] text-text-dim select-none shrink-0">
@@ -421,8 +501,8 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                   entities={entities}
                   readOnly={readOnly}
                   onEdit={() => setEditing({ note: selected })}
-                  onDelete={() => handleDelete(selected)}
-                  onShare={() => setSharing(selected)}
+                  onDelete={() => setConfirm({ kind: "deleteNote", note: selected })}
+                  onShare={() => { setShareError(null); setSharing(selected); }}
                   onBack={() => setSelectedId(null)}
                   onOpenEntity={handleOpenEntity}
                 />
@@ -463,8 +543,39 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
             players={players}
             userId={userId}
             sending={sendingShare}
-            onCancel={() => setSharing(null)}
+            error={shareError}
+            onCancel={closeShare}
             onShare={handleShare}
+          />
+        )}
+
+        {/* Themed replacement for the module's `confirm()` calls. Portals to
+            the body for correct centering; React events still bubble to the
+            panel's stopPropagation, so a click inside cannot close the drawer. */}
+        {confirm && (
+          <ConfirmDialog
+            title={
+              confirm.kind === "discard" ? t("discardConfirmTitle")
+              : confirm.kind === "deleteNote" ? t("deleteConfirmTitle")
+              : t("deleteCategoryConfirmTitle")
+            }
+            description={
+              confirm.kind === "discard" ? t("discardConfirm")
+              : confirm.kind === "deleteNote" ? t("deleteConfirm", { title: confirm.note.title })
+              : t("deleteCategoryConfirm", {
+                  name: confirm.category.name,
+                  count: categoryCounts.get(confirm.category.id) ?? 0,
+                })
+            }
+            confirmLabel={
+              confirm.kind === "discard" ? t("discardConfirmAction")
+              : confirm.kind === "deleteNote" ? t("delete")
+              : t("deleteCategory")
+            }
+            icon={confirm.kind === "discard" ? undefined : <Icons.Trash2 className="w-5 h-5" />}
+            busy={confirmBusy}
+            onConfirm={runConfirm}
+            onCancel={() => setConfirm(null)}
           />
         )}
       </div>

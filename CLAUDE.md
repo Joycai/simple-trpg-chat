@@ -168,6 +168,13 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   shared with another caller (`sanitizeTimelineDivider` in `lib/messaging/timeline-payload.ts`,
   used by both `room.ts` and `event.ts`). Length caps belong in `src/lib/` next to the
   feature's other constants so the editor and the action agree.
+- **Dialogs**: Never `alert` / `confirm` / `prompt` — they ignore the theme and
+  block on mobile. Confirmations use `components/shared/ConfirmDialog.tsx`
+  (built on `OverlayShell`; always portals, so it centers correctly when opened
+  from inside a drawer). Notifications use `components/shared/Notice.tsx` as an
+  inline strip — pass `onDismiss` for a close button. Converted so far:
+  `notebook` (all paths), `event` (hand-rolled equivalents, predates the
+  shared component).
 - **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`
 
 ## License
