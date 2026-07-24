@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { stripMarkdown } from "@/lib/notebook";
 import { getMyEventsAction, markEventsViewedAction, type EventView } from "@/app/actions/event";
-import { EventTimeLabel } from "./event-helpers";
+import { EventTimeLabel, EventBodyPreview } from "./event-helpers";
 
 interface EventPanelProps {
   roomId: number;
@@ -89,13 +88,15 @@ export function EventPanel({ roomId, refreshKey, onClose, onChanged, onOpenEvent
   );
 }
 
-/** Timeline entry — time header, title, one-line preview; flags updates + limited scope. */
+/** Timeline entry — time header, title, two-line body preview; flags updates + limited scope. */
 function EventLogCard({ event, onOpen }: { event: EventView; onOpen: () => void }) {
   const t = useTranslations("event");
-  const preview = useMemo(() => stripMarkdown(event.description).slice(0, 90), [event.description]);
   return (
-    <button
+    <div
       onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       className={`flex-1 min-w-0 text-left rounded-theme border p-3.5 transition cursor-pointer ${
         event.updated
           ? "border-warning/45 bg-warning/[0.06] hover:border-warning/70"
@@ -112,7 +113,7 @@ function EventLogCard({ event, onOpen }: { event: EventView; onOpen: () => void 
         </span>
       </div>
       <h4 className="font-theme-display font-bold text-text mt-1.5 truncate">{event.title}</h4>
-      {preview && <p className="mt-1 text-xs text-text-muted truncate">{preview}</p>}
-    </button>
+      <EventBodyPreview content={event.description} lines={2} className="mt-1" />
+    </div>
   );
 }

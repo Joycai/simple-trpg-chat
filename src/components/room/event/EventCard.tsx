@@ -3,12 +3,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
-import { MentionChip } from "@/components/room/notebook/notebook-helpers";
 import { composeTimelineLabel, dayPartFromDivider, type TimelineSegment } from "@/lib/messaging/timeline-payload";
 import { getEventForViewerAction, type EventView } from "@/app/actions/event";
 import type { EventCardPayload } from "@/lib/story-events";
-import { useBackpackEntities } from "./event-helpers";
+import { useBackpackEntities, EventBodyPreview } from "./event-helpers";
 
 /**
  * Time-pill tint by day-part — a bright warm morning, a warmer afternoon, and a
@@ -124,7 +122,10 @@ function UnlockedCard({
   // payload at mount, so the image row is reserved before the fetch resolves.
   const dayPart = dayPartFromDivider(payload.time ?? null);
   const timePillClass = dayPart ? DAYPART_PILL[dayPart] : "text-text-muted border-border/60 bg-surface-alt/60";
-  const images = detail && detail.images.length ? detail.images : payload.cover ? [payload.cover] : [];
+  // Single cover thumbnail (first image) shown to the right of the body; the full
+  // set lives in the detail modal. payload.cover is known at mount so the slot is
+  // reserved before the fetch resolves.
+  const cover = (detail && detail.images[0]) || payload.cover || null;
 
   return (
     <Shell tone="accent" icon={<Icons.Flag className="w-5 h-5" />}>
@@ -150,39 +151,31 @@ function UnlockedCard({
           {/* title — single line, ellipsis */}
           <h4 className="font-theme-display font-bold text-text text-base mt-2.5 truncate">{payload.title}</h4>
 
-          {/* body — fixed 2-line slot; skeleton while the per-viewer fetch resolves */}
-          <div className="mt-1.5 h-12">
-            {detail === undefined ? (
-              <div className="space-y-2 pt-1" aria-hidden="true">
-                <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-11/12" />
-                <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-3/5" />
-              </div>
-            ) : detail && detail.description.trim() ? (
-              <div className="text-sm text-text-muted leading-6 line-clamp-2 [&_p]:m-0 [&_p]:inline [&_h1]:inline [&_h2]:inline [&_h3]:inline [&_ul]:inline [&_ol]:inline [&_li]:inline">
-                <MarkdownRenderer
-                  content={detail.description}
-                  mentions={{ entities, render: (entity, key) => <MentionChip key={key} entity={entity} className="mx-0.5" /> }}
-                />
-              </div>
-            ) : null}
-          </div>
-
-          {/* image thumbnails — fixed row. A payload cover reserves the row before
-              the fetch resolves (no jump); a fetched-only image still shows. */}
-          {images.length > 0 && (
-            <div className="flex gap-2 mt-3 h-14 overflow-hidden">
-              {images.map((url) => (
-                <button
-                  key={url}
-                  onClick={onOpen}
-                  className="w-16 h-14 rounded-theme border border-border overflow-hidden hover:border-accent/50 transition cursor-pointer shrink-0"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+          {/* body (first 3 lines, markdown-styled) with the cover to its right.
+              Fixed height so the fetch fills in without resizing; the body's
+              min-w-0 lets its ellipsis truncate before it can reach the image. */}
+          <div className="flex gap-3 mt-1.5 h-[4.5rem]">
+            <div className="flex-1 min-w-0">
+              {detail === undefined ? (
+                <div className="space-y-2 pt-1" aria-hidden="true">
+                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-11/12" />
+                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-4/5" />
+                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-3/5" />
+                </div>
+              ) : detail ? (
+                <EventBodyPreview content={detail.description} lines={3} entities={entities} />
+              ) : null}
             </div>
-          )}
+            {cover && (
+              <button
+                onClick={onOpen}
+                className="shrink-0 w-[4.5rem] h-[4.5rem] rounded-theme border border-border overflow-hidden hover:border-accent/50 transition cursor-pointer"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={cover} alt="" className="w-full h-full object-cover" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* footer — scope + view-details */}

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { stripMarkdown } from "@/lib/notebook";
 import {
   getRoomEventsAction,
   reorderEventAction,
@@ -15,7 +14,7 @@ import {
 } from "@/app/actions/event";
 import { EventEditor } from "./EventEditor";
 import { EventPublishDialog } from "./EventPublishDialog";
-import { StatusBadge, EventTimeLabel, useBackpackEntities, type EventPlayer } from "./event-helpers";
+import { StatusBadge, EventTimeLabel, EventBodyPreview, useBackpackEntities, type EventPlayer } from "./event-helpers";
 
 interface ManagedEvent {
   id: number;
@@ -206,7 +205,6 @@ function EventRow({
   onDelete: () => void;
 }) {
   const t = useTranslations("event");
-  const preview = useMemo(() => stripMarkdown(event.description).slice(0, 90), [event.description]);
   const isFirst = index === 0;
   const isLast = index === total - 1;
 
@@ -225,7 +223,13 @@ function EventRow({
       </div>
 
       {/* cover + content — clicking opens the detail modal (host's retract/viewers surface) */}
-      <button onClick={onOpen} className="flex-1 min-w-0 flex gap-3 text-left cursor-pointer group">
+      <div
+        onClick={onOpen}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+        className="flex-1 min-w-0 flex gap-3 text-left cursor-pointer group"
+      >
         <span className="w-14 h-14 rounded-theme shrink-0 border border-border overflow-hidden flex items-center justify-center bg-surface-alt relative">
           {event.images[0] ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -238,17 +242,18 @@ function EventRow({
           )}
         </span>
 
-        <span className="flex-1 min-w-0 block">
-          <span className="flex items-center gap-2 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`font-bold group-hover:text-primary transition ${event.status === "unpublished" ? "text-text-muted" : "text-text"}`}>{event.title}</span>
             <StatusBadge status={event.status} knowerCount={event.status === "partial" ? event.knowers.length : undefined} />
-          </span>
-          <span className="flex items-center gap-1.5 mt-1 text-xs text-text-muted">
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-text-muted">
             <EventTimeLabel payload={event.timePayload} />
-          </span>
-          {preview && <span className="mt-1.5 block text-xs text-text-muted truncate">{preview}</span>}
-        </span>
-      </button>
+          </div>
+          {/* first line only, markdown-styled */}
+          <EventBodyPreview content={event.description} lines={1} className="mt-1.5" />
+        </div>
+      </div>
 
       {/* fixed action column — same width on every row so cards stay aligned */}
       <div className="flex flex-col gap-1.5 shrink-0 self-start w-[104px]">
