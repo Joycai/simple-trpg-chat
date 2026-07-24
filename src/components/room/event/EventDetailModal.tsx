@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
+import { ImagePreview } from "@/components/shared/ImagePreview";
 import { MentionChip } from "@/components/room/notebook/notebook-helpers";
 import { getEventForViewerAction, markEventViewedAction, type EventView } from "@/app/actions/event";
 import { EventTimeLabel, useBackpackEntities } from "./event-helpers";
@@ -43,7 +44,7 @@ export function EventDetailModal({ roomId, eventId, onClose, onViewed }: EventDe
   }, [roomId, eventId]);
 
   return (
-    <OverlayShell onClose={onClose} panelClassName="w-full max-w-lg mx-4 max-h-[85vh] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
+    <OverlayShell onClose={onClose} panelClassName="w-full max-w-lg mx-4 h-[80vh] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-2 px-5 py-3 border-b border-primary/25 bg-gradient-to-r from-primary/12 to-transparent shrink-0">
@@ -92,14 +93,10 @@ export function EventDetailModal({ roomId, eventId, onClose, onViewed }: EventDe
             )}
           </div>
 
-          {zoom && (
-            <OverlayShell onClose={() => setZoom(null)} panelClassName="max-w-[92vw] max-h-[88vh]">
-              {() => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={zoom} alt="" className="max-w-full max-h-[88vh] rounded-theme object-contain" />
-              )}
-            </OverlayShell>
-          )}
+          {/* Full-screen preview is portaled to <body> (escapes this modal's
+              transformed subtree), has its own dark mask + close button, and its
+              backdrop click closes only the preview — never this modal. */}
+          {zoom && <ImagePreview src={zoom} alt="" onClose={() => setZoom(null)} />}
         </>
       )}
     </OverlayShell>
