@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
@@ -100,6 +100,34 @@ interface RoomTopBarProps {
   setShowUserSettings: Dispatch<SetStateAction<boolean>>;
 }
 
+/**
+ * External store for the 事件管理 "新" badge. Persisted in localStorage and
+ * read via useSyncExternalStore so there's no setState-in-effect (which the
+ * lint config treats as a build error) and no hydration flash — the server
+ * snapshot is always "seen" (badge hidden). `markSeen` notifies same-tab
+ * subscribers directly, since the native `storage` event only fires cross-tab.
+ */
+const EVENT_BADGE_KEY = "strpg:event-manage-badge-seen";
+const eventBadgeStore = {
+  listeners: new Set<() => void>(),
+  subscribe(cb: () => void) {
+    eventBadgeStore.listeners.add(cb);
+    window.addEventListener("storage", cb);
+    return () => {
+      eventBadgeStore.listeners.delete(cb);
+      window.removeEventListener("storage", cb);
+    };
+  },
+  getSnapshot(): boolean {
+    try { return localStorage.getItem(EVENT_BADGE_KEY) === "1"; } catch { return true; }
+  },
+  getServerSnapshot(): boolean { return true; },
+  markSeen() {
+    try { localStorage.setItem(EVENT_BADGE_KEY, "1"); } catch { /* ignore */ }
+    eventBadgeStore.listeners.forEach((l) => l());
+  },
+};
+
 export function RoomTopBar({
   room,
   isHost,
@@ -186,6 +214,13 @@ export function RoomTopBar({
   // The 道具/事件 dropdown is self-contained (local open state), like the AI menu.
   const itemMenuRef = useRef<HTMLDivElement>(null);
   const [showItemMenu, setShowItemMenu] = useState(false);
+  // "新" badge on the 事件管理 row auto-dismisses once the host opens it.
+  const eventBadgeSeen = useSyncExternalStore(
+    eventBadgeStore.subscribe,
+    eventBadgeStore.getSnapshot,
+    eventBadgeStore.getServerSnapshot,
+  );
+  const markEventBadgeSeen = () => eventBadgeStore.markSeen();
   useClickOutside(checkRef, () => setShowCheckMenu(false), showCheckMenu);
   useClickOutside(aiRef, () => setShowAiMenu(false), showAiMenu);
   useClickOutside(sysRef, () => setShowSystemMenu(false), showSystemMenu);
@@ -280,11 +315,11 @@ export function RoomTopBar({
           </button>
           <button
             onClick={() => setShowEvents(!showEvents)}
-            className={`${iconBtn} ${showEvents ? iconNavActive : iconNavIdle}`}
+            className={`${iconBtn} ${showEvents ? iconAccentActive : iconAccentIdle}`}
             title={t("tooltipEvents")}
             aria-pressed={showEvents}
           >
-            <Icons.ScrollText className="w-[18px] h-[18px]" />
+            <Icons.Flag className="w-[18px] h-[18px]" />
             {unreadEvents > 0 && (
               <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
                 {unreadEvents > 9 ? "9+" : unreadEvents}
@@ -443,23 +478,44 @@ export function RoomTopBar({
               <div className="relative" ref={itemMenuRef}>
                 <button
                   onClick={() => { setShowItemMenu(!showItemMenu); setShowAiMenu(false); setShowSystemMenu(false); }}
-                  className={`${iconBtn} ${showItemManager || showItemMenu ? iconPrimaryActive : iconPrimaryIdle}`}
+                  className={`relative flex items-center justify-center gap-1 h-9 px-2 rounded-theme border transition-colors cursor-pointer ${showItemManager || showItemMenu ? iconPrimaryActive : iconPrimaryIdle}`}
                   title={t("tooltipItemEvent")}
                   aria-pressed={showItemMenu}
                 >
                   <Icons.ClipboardList className="w-[18px] h-[18px]" />
+                  <Icons.ChevronDown className={`w-3.5 h-3.5 transition-transform ${showItemMenu ? "rotate-180" : ""}`} />
+                  {!eventBadgeSeen && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent" aria-hidden="true" />
+                  )}
                 </button>
                 {showItemMenu && (
-                  <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[184px] z-30 overlay-pop"
+                  <div className="absolute right-0 top-full mt-1 bg-surface theme-border rounded-theme shadow-xl p-1.5 w-72 z-30 overlay-pop"
                     style={{ transformOrigin: "top right" }}
                     onClick={() => setShowItemMenu(false)}>
                     <button onClick={() => setShowItemManager(true)}
-                      className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-primary hover:bg-surface-alt transition">
-                      <Icons.Package className="w-4 h-4" /> {t("menuItemManage")}
+                      className="group w-full text-left flex items-center gap-3 px-2.5 py-2.5 rounded-theme hover:bg-surface-alt transition cursor-pointer">
+                      <span className="flex items-center justify-center w-10 h-10 rounded-theme shrink-0 bg-primary/12 text-primary">
+                        <Icons.ClipboardList className="w-5 h-5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold text-text">{t("menuItemManage")}</span>
+                        <span className="block text-xs text-text-muted truncate">{t("menuItemManageDesc")}</span>
+                      </span>
                     </button>
-                    <button onClick={() => setShowEventManage(true)}
-                      className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-primary hover:bg-surface-alt transition">
-                      <Icons.ScrollText className="w-4 h-4" /> {t("menuEventManage")}
+                    <button onClick={() => { setShowEventManage(true); markEventBadgeSeen(); }}
+                      className="group w-full text-left flex items-center gap-3 px-2.5 py-2.5 rounded-theme hover:bg-surface-alt transition cursor-pointer">
+                      <span className="flex items-center justify-center w-10 h-10 rounded-theme shrink-0 bg-accent/12 text-accent">
+                        <Icons.Flag className="w-5 h-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-text">{t("menuEventManage")}</span>
+                          {!eventBadgeSeen && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0">{t("menuNewBadge")}</span>
+                          )}
+                        </span>
+                        <span className="block text-xs text-text-muted truncate">{t("menuEventManageDesc")}</span>
+                      </span>
                     </button>
                   </div>
                 )}
