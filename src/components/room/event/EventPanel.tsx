@@ -7,23 +7,22 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { stripMarkdown } from "@/lib/notebook";
 import { getMyEventsAction, markEventsViewedAction, type EventView } from "@/app/actions/event";
 import { EventTimeLabel } from "./event-helpers";
-import { EventDetailModal } from "./EventDetailModal";
 
 interface EventPanelProps {
   roomId: number;
   refreshKey: number;
-  /** Open this event's detail modal on mount (from a chat card "view" click). */
-  focusEventId?: number | null;
   onClose: () => void;
   /** Clears the top-bar unread badge after we mark viewed. */
   onChanged: () => void;
+  /** Opens an event's detail modal — rendered at the room's top level (centered),
+   *  NOT inside this drawer, so a transformed drawer ancestor can't trap it. */
+  onOpenEvent: (eventId: number) => void;
 }
 
-export function EventPanel({ roomId, refreshKey, focusEventId, onClose, onChanged }: EventPanelProps) {
+export function EventPanel({ roomId, refreshKey, onClose, onChanged, onOpenEvent }: EventPanelProps) {
   const t = useTranslations("event");
   const [events, setEvents] = useState<EventView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [detailId, setDetailId] = useState<number | null>(focusEventId ?? null);
 
   useEffect(() => {
     let alive = true;
@@ -63,13 +62,9 @@ export function EventPanel({ roomId, refreshKey, focusEventId, onClose, onChange
                 <p className="text-sm">{t("emptyMine")}</p>
               </div>
             ) : (
-              events.map((e) => <EventListCard key={e.id} event={e} onOpen={() => setDetailId(e.id)} />)
+              events.map((e) => <EventListCard key={e.id} event={e} onOpen={() => onOpenEvent(e.id)} />)
             )}
           </div>
-
-          {detailId != null && (
-            <EventDetailModal roomId={roomId} eventId={detailId} onClose={() => setDetailId(null)} onViewed={onChanged} />
-          )}
         </>
       )}
     </OverlayShell>

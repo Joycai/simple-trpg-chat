@@ -238,7 +238,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <InventoryPanel view="manage" roomId={room.id} userId={userId} isHost={isHost} hostId={room.hostId} refreshKey={inventoryRefreshKey} players={inventoryPlayers} onClose={() => setShowItemManager(false)} readOnly={readOnly} />
       )}
       {showEvents && (
-        <EventPanel roomId={room.id} refreshKey={eventsRefreshKey} onClose={() => setShowEvents(false)} onChanged={onEventsChanged} />
+        <EventPanel roomId={room.id} refreshKey={eventsRefreshKey} onClose={() => setShowEvents(false)} onChanged={onEventsChanged} onOpenEvent={(id) => setEventDetailId(id)} />
       )}
       {showEventManage && isHost && (
         <EventManagePanel roomId={room.id} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} refreshKey={eventsRefreshKey} onClose={() => setShowEventManage(false)} onChanged={onEventsChanged} />
