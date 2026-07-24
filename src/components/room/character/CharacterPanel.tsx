@@ -382,6 +382,13 @@ export function CharacterPanel({
     getMySkillsAction(roomId).then(setSkills).catch(() => {});
   };
 
+  // Inline value edit — upsert overwrites by (room, user, name), same as .st.
+  const updateSkill = async (skillName: string, value: number) => {
+    await upsertSkillAction(roomId, skillName, value);
+    router.refresh();
+    getMySkillsAction(roomId).then(setSkills).catch(() => {});
+  };
+
   // Add or overwrite a custom item. `max` present ⇒ rendered as a resource bar.
   const addCustom = async (attr: { name: string; value: number; max?: number }) => {
     const name = attr.name.trim();
@@ -598,6 +605,7 @@ export function CharacterPanel({
               onNewSkillValueChange={setNewSkillValue}
               onAddSkill={addSkill}
               onRemoveSkill={removeSkill}
+              onUpdateSkill={updateSkill}
             />
           )}
 

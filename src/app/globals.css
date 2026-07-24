@@ -34,6 +34,11 @@
   --color-ai: rgb(var(--theme-ai));
   --color-ai-hover: rgb(var(--theme-ai-hover));
   --color-ai-foreground: rgb(var(--theme-ai-foreground));
+  /* Common-toolbar "nav" identity: one cool tint shared by the personal
+     panel buttons (角色/背包/记事本/成员), distinct from the host group's warm
+     per-function colors. Themes may tune --theme-nav; the fallback is a cool
+     slate that reads on both light and dark surfaces. */
+  --color-nav: rgb(var(--theme-nav, 94 134 150));
   --color-danger: rgb(var(--theme-danger));
   --color-success: rgb(var(--theme-success));
   --color-warning: rgb(var(--theme-warning, 245 158 11));

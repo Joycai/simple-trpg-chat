@@ -14,7 +14,6 @@ import { SkillSetPrompt } from "@/components/room/character/SkillSetPrompt";
 import { CharacterRuleGate } from "@/components/room/character/CharacterRuleGate";
 import { BonusDicePrompt } from "@/components/room/chat/BonusDicePrompt";
 import { getRuleForRoom } from "@/lib/rules";
-import { SkillPanel } from "@/components/room/character/SkillPanel";
 import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { MembersDialog } from "@/components/room/MembersDialog";
@@ -72,8 +71,6 @@ interface RoomOverlaysProps {
   setShowRoomInfo: (v: boolean) => void;
   showExport: boolean;
   setShowExport: (v: boolean) => void;
-  showSkills: boolean;
-  setShowSkills: (v: boolean) => void;
   showUserSettings: boolean;
   setShowUserSettings: (v: boolean) => void;
 
@@ -106,7 +103,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
     showTimeline, setShowTimeline,
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
-    showSkills, setShowSkills, showUserSettings, setShowUserSettings,
+    showUserSettings, setShowUserSettings,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
     pendingBonusDice, setPendingBonusDice, onConfirmBonusDice,
     onNicknameChange, onViewPlayerCard, onStartDM,
@@ -237,9 +234,6 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <OverlayShell onClose={() => setShowExport(false)} panelClassName="max-w-md w-full mx-4">
           {() => <ExportButton roomId={room.id} roomName={room.name} />}
         </OverlayShell>
-      )}
-      {showSkills && (
-        <SkillPanel roomId={room.id} userId={userId} onClose={() => setShowSkills(false)} readOnly={readOnly} refreshKey={skillRefreshKey} />
       )}
       {showUserSettings && (
         <UserSettingsPanel userName={userName} userRole={userRole} onClose={() => setShowUserSettings(false)} />

@@ -78,7 +78,6 @@ export function RoomClient({
   const [showCheckMenu, setShowCheckMenu] = useState(false);
   const [pendingSkillCheck, setPendingSkillCheck] = useState<PendingSkillCheck | null>(null);
   const [pendingBonusDice, setPendingBonusDice] = useState<{ messageId: number } | null>(null);
-  const [showSkills, setShowSkills] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
@@ -366,9 +365,9 @@ export function RoomClient({
     return () => setRoomMode(null);
   }, [effectiveRoomMode, room.id, setRoomMode]);
 
-  // Re-fetch the current user's sheet so an open 角色卡 / 技能 panel reflects command-driven
+  // Re-fetch the current user's sheet so an open 角色卡 reflects command-driven
   // changes (.st / .sc) without a full page reload. router.refresh() updates the
-  // characterData prop (synced into CharacterPanel); the key bump reloads SkillPanel.
+  // characterData prop; the key bump reloads the CharacterPanel's 技能 tab.
   const refreshSelfSheet = useCallback(() => {
     router.refresh();
     setSkillRefreshKey(k => k + 1);
@@ -572,8 +571,6 @@ export function RoomClient({
         onSaveRoomName={handleSaveRoomName}
         showCharacter={showCharacter}
         setShowCharacter={setShowCharacter}
-        showSkills={showSkills}
-        setShowSkills={setShowSkills}
         showInventory={showInventory}
         unreadItems={unreadItems}
         onToggleInventory={handleToggleInventory}
@@ -734,8 +731,6 @@ export function RoomClient({
         setShowRoomInfo={setShowRoomInfo}
         showExport={showExport}
         setShowExport={setShowExport}
-        showSkills={showSkills}
-        setShowSkills={setShowSkills}
         showUserSettings={showUserSettings}
         setShowUserSettings={setShowUserSettings}
         checkMode={checkMode}
