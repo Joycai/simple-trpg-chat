@@ -1380,7 +1380,9 @@
     "retractConfirmTitle": "撤回该事件？",
     "retractConfirmBody": "撤回后，「<b>{title}</b>」将从所有玩家的事件志中隐藏，聊天卡片置灰为「已撤回」。你仍可在事件管理中重新公开。",
     "retractConfirmAction": "确认撤回",
-    "deleteConfirmTitle": "删除该事件？"
+    "deleteConfirmTitle": "删除该事件？",
+    "expandEditor": "展开为全窗口编辑",
+    "collapseEditor": "收起编辑区"
   },
   "inventoryDispatch": {
     "allMembers": "全体成员",

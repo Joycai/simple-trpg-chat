@@ -44,6 +44,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const [cropSource, setCropSource] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** When true, the description editor takes over the whole modal body — the
+   *  title / time / images sections collapse away, giving the textarea room. */
+  const [descExpanded, setDescExpanded] = useState(false);
 
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -178,23 +181,27 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               only the description flexes into whatever height is left over. */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
             {/* Title */}
-            <div className="shrink-0">
-              <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                maxLength={80}
-                autoFocus={!event}
-                placeholder={t("titlePlaceholder")}
-                className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
-              />
-            </div>
+            {!descExpanded && (
+              <div className="shrink-0">
+                <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  maxLength={80}
+                  autoFocus={!event}
+                  placeholder={t("titlePlaceholder")}
+                  className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
+                />
+              </div>
+            )}
 
             {/* Time */}
-            <div className="shrink-0">
-              <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
-              <EventTimePicker value={timePayload} onChange={setTimePayload} />
-            </div>
+            {!descExpanded && (
+              <div className="shrink-0">
+                <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
+                <EventTimePicker value={timePayload} onChange={setTimePayload} />
+              </div>
+            )}
 
             {/* Description — the only elastic region, guaranteed a visible min height */}
             <div className="flex-1 min-h-[9rem] flex flex-col">
@@ -209,6 +216,15 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                 <span className="w-px h-4 bg-border mx-1" aria-hidden />
                 <button onClick={startMention} className={`${toolBtn} text-primary hover:text-primary`} title={t("toolMention")}><Icons.AtSign className="w-4 h-4" /></button>
                 <span className="ml-auto text-xs text-text-dim font-theme-mono select-none pr-1">Markdown</span>
+                <span className="w-px h-4 bg-border mx-1" aria-hidden />
+                <button
+                  onClick={() => setDescExpanded((v) => !v)}
+                  className={`${toolBtn} ${descExpanded ? "text-primary" : ""}`}
+                  title={descExpanded ? t("collapseEditor") : t("expandEditor")}
+                  aria-pressed={descExpanded}
+                >
+                  {descExpanded ? <Icons.Minimize2 className="w-4 h-4" /> : <Icons.Maximize2 className="w-4 h-4" />}
+                </button>
               </div>
               <div className="relative flex-1 min-h-0">
                 <textarea
@@ -252,6 +268,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
             </div>
 
             {/* Images */}
+            {!descExpanded && (
             <div className="shrink-0">
               <label className="block text-xs font-bold text-text-muted mb-1.5">
                 {t("fieldImages")} <span className="text-text-dim font-medium">· {t("imagesHint")}</span>
@@ -284,6 +301,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               </div>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickFile} />
             </div>
+            )}
 
             {error && <p className="text-sm text-danger">{error}</p>}
           </div>

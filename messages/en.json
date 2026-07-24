@@ -1380,7 +1380,9 @@
     "retractConfirmTitle": "Retract this event?",
     "retractConfirmBody": "After retracting, “<b>{title}</b>” is hidden from every player's event log and its chat card is greyed to “Retracted”. You can re-reveal it from event management.",
     "retractConfirmAction": "Retract",
-    "deleteConfirmTitle": "Delete this event?"
+    "deleteConfirmTitle": "Delete this event?",
+    "expandEditor": "Expand to full editor",
+    "collapseEditor": "Collapse editor"
   },
   "inventoryDispatch": {
     "allMembers": "all members",
