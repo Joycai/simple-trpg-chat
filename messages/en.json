@@ -1325,7 +1325,7 @@
     "moveDown": "Move down",
     "moveBottom": "Move to bottom",
     "publish": "Publish",
-    "addViewers": "Add",
+    "addViewers": "Add viewers",
     "moreActions": "More",
     "edit": "Edit",
     "promoteFull": "Make fully public",
@@ -1360,7 +1360,18 @@
     "cardLockedTitle": "The host published an event",
     "cardLockedDesc": "The host published an event, but its content isn't shared with you.",
     "cardRetracted": "Retracted",
-    "cardRetractedDesc": "The host retracted this event; it's no longer visible."
+    "cardRetractedDesc": "The host retracted this event; it's no longer visible.",
+    "logTitle": "Event Log",
+    "logFooter": "{count} revealed event(s) · tap to reopen",
+    "onlyYou": "Only you",
+    "detailTag": "Event",
+    "visScopeFull": "Full · everyone can see",
+    "visScopePartial": "Limited · {count} can see",
+    "visScopeUnpublished": "Unpublished · only you",
+    "publishedAt": "revealed {time}",
+    "viewers": "Viewers",
+    "retractPublic": "Retract",
+    "publishedBadge": "Revealed"
   },
   "inventoryDispatch": {
     "allMembers": "all members",

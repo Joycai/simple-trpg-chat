@@ -48,59 +48,71 @@ export function EventPanel({ roomId, refreshKey, onClose, onChanged, onOpenEvent
       {(close) => (
         <>
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border shrink-0">
-            <Icons.ScrollText className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-text text-lg font-theme-display flex-1">{t("myEvents")}</h3>
+            <Icons.Flag className="w-5 h-5 text-accent" />
+            <h3 className="font-bold text-text text-lg font-theme-display flex-1">{t("logTitle")}</h3>
             <button onClick={close} className="text-text-muted hover:text-text cursor-pointer"><Icons.X className="w-5 h-5" /></button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2.5">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5">
             {loading ? (
               <div className="flex items-center justify-center py-10 text-text-muted"><Icons.Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-2 text-text-dim">
-                <Icons.ScrollText className="w-10 h-10 opacity-50" />
+                <Icons.Flag className="w-10 h-10 opacity-50" />
                 <p className="text-sm">{t("emptyMine")}</p>
               </div>
             ) : (
-              events.map((e) => <EventListCard key={e.id} event={e} onOpen={() => onOpenEvent(e.id)} />)
+              // Timeline: a single rail down the left, one node per event, cards ordered
+              // by acquisition time (newest first — server-sorted for the player view).
+              <div className="relative flex flex-col gap-3">
+                <span aria-hidden className="absolute left-[5px] top-3 bottom-3 w-px bg-border/70" />
+                {events.map((e) => (
+                  <div key={e.id} className="relative flex gap-4">
+                    <span className="relative z-10 mt-4 shrink-0">
+                      <span className={`block w-[11px] h-[11px] rounded-full border-2 ${e.updated ? "bg-warning border-warning shadow-[var(--theme-glow)]" : "bg-surface border-border"}`} />
+                    </span>
+                    <EventLogCard event={e} onOpen={() => onOpenEvent(e.id)} />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
+
+          {!loading && events.length > 0 && (
+            <div className="px-5 py-3 border-t border-border/60 shrink-0 text-center text-xs text-text-dim">
+              {t("logFooter", { count: events.length })}
+            </div>
+          )}
         </>
       )}
     </OverlayShell>
   );
 }
 
-/** Fixed-height summary card — cover/icon, title, time, one-line preview. */
-function EventListCard({ event, onOpen }: { event: EventView; onOpen: () => void }) {
+/** Timeline entry — time header, title, one-line preview; flags updates + limited scope. */
+function EventLogCard({ event, onOpen }: { event: EventView; onOpen: () => void }) {
   const t = useTranslations("event");
   const preview = useMemo(() => stripMarkdown(event.description).slice(0, 90), [event.description]);
   return (
     <button
       onClick={onOpen}
-      className="w-full text-left flex items-center gap-3 p-3 rounded-theme border border-primary/25 bg-surface/60 hover:border-primary/50 hover:bg-surface-alt/60 transition cursor-pointer"
+      className={`flex-1 min-w-0 text-left rounded-theme border p-3.5 transition cursor-pointer ${
+        event.updated
+          ? "border-warning/45 bg-warning/[0.06] hover:border-warning/70"
+          : "border-border bg-surface/50 hover:border-primary/40 hover:bg-surface-alt/50"
+      }`}
     >
-      <div className="w-12 h-12 rounded-theme shrink-0 border border-border overflow-hidden flex items-center justify-center bg-surface-alt">
-        {event.images[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.images[0]} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <Icons.ScrollText className="w-5 h-5 text-primary/70" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-text truncate">{event.title}</span>
-          {event.updated && (
-            <span className="text-[10px] font-bold font-theme-mono text-warning border border-warning/50 rounded px-1 shrink-0">{t("updated")}</span>
+      <div className="flex items-start justify-between gap-2">
+        <EventTimeLabel payload={event.timePayload} className="text-xs text-text-muted" />
+        <span className="flex items-center gap-2 shrink-0">
+          {event.status === "partial" && (
+            <span className="text-[10px] font-bold text-warning border border-warning/45 rounded-full px-2 py-0.5">{t("onlyYou")}</span>
           )}
-        </div>
-        <div className="flex items-center gap-2 mt-0.5 text-xs text-text-muted">
-          <EventTimeLabel payload={event.timePayload} />
-          {preview && <span className="truncate">{preview}</span>}
-        </div>
+          {event.updated && <span className="w-2 h-2 rounded-full bg-warning shadow-[var(--theme-glow)]" />}
+        </span>
       </div>
-      <Icons.ChevronRight className="w-4 h-4 text-text-dim shrink-0" />
+      <h4 className="font-theme-display font-bold text-text mt-1.5 truncate">{event.title}</h4>
+      {preview && <p className="mt-1 text-xs text-text-muted truncate">{preview}</p>}
     </button>
   );
 }

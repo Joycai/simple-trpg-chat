@@ -140,9 +140,9 @@ function UnlockedCard({
               </span>
             ) : <span />}
             <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
-              isFull ? "text-success border-success/50" : "text-primary border-primary/50"
+              isFull ? "text-success border-success/50" : "text-warning border-warning/50"
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isFull ? "bg-success" : "bg-primary"}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isFull ? "bg-success" : "bg-warning"}`} />
               {isFull ? t("statusFull") : t("statusPartial")}
             </span>
           </div>

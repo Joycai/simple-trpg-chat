@@ -1325,7 +1325,7 @@
     "moveDown": "下移",
     "moveBottom": "置底",
     "publish": "公开",
-    "addViewers": "追加",
+    "addViewers": "追加知晓",
     "moreActions": "更多操作",
     "edit": "编辑",
     "promoteFull": "转为完全公开",
@@ -1360,7 +1360,18 @@
     "cardLockedTitle": "主持人公开了一条事件",
     "cardLockedDesc": "主持人公开了一条事件，但其内容未对你开放。",
     "cardRetracted": "已撤回",
-    "cardRetractedDesc": "该事件已被主持人撤回，不再对外可见。"
+    "cardRetractedDesc": "该事件已被主持人撤回，不再对外可见。",
+    "logTitle": "事件志",
+    "logFooter": "共 {count} 条已公开事件 · 点按可重看",
+    "onlyYou": "仅你可见",
+    "detailTag": "事件",
+    "visScopeFull": "完全公开 · 全体可见",
+    "visScopePartial": "部分公开 · {count} 人可见",
+    "visScopeUnpublished": "未公开 · 仅你可见",
+    "publishedAt": "{time} 公开",
+    "viewers": "知晓人员",
+    "retractPublic": "撤回公开",
+    "publishedBadge": "已公开"
   },
   "inventoryDispatch": {
     "allMembers": "全体成员",

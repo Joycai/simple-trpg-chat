@@ -24,9 +24,9 @@ export const STATUS_META: Record<
   EventStatus,
   { labelKey: string; Icon: IconComponent; text: string; border: string; dot: string }
 > = {
-  unpublished: { labelKey: "statusUnpublished", Icon: Icons.ScrollText, text: "text-text-dim", border: "border-border", dot: "bg-text-dim" },
+  unpublished: { labelKey: "statusUnpublished", Icon: Icons.Flag, text: "text-text-dim", border: "border-border", dot: "bg-text-dim" },
   partial: { labelKey: "statusPartial", Icon: Icons.Eye, text: "text-warning", border: "border-warning/50", dot: "bg-warning" },
-  full: { labelKey: "statusFull", Icon: Icons.Users, text: "text-primary", border: "border-primary/50", dot: "bg-primary" },
+  full: { labelKey: "statusFull", Icon: Icons.Users, text: "text-success", border: "border-success/50", dot: "bg-success" },
 };
 
 /** Small pill showing an event's publish status. */

@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { useClickOutside } from "@/lib/useClickOutside";
 import { stripMarkdown } from "@/lib/notebook";
 import {
   getRoomEventsAction,
   reorderEventAction,
-  promoteEventToFullAction,
   retractEventAction,
   deleteEventAction,
   type EventView,
@@ -36,9 +34,11 @@ interface EventManagePanelProps {
   refreshKey: number;
   onClose: () => void;
   onChanged: () => void;
+  /** Open an event's detail modal — the host's surface for retract / viewers. */
+  onOpenEvent: (eventId: number) => void;
 }
 
-export function EventManagePanel({ roomId, players, refreshKey, onClose, onChanged }: EventManagePanelProps) {
+export function EventManagePanel({ roomId, players, refreshKey, onClose, onChanged, onOpenEvent }: EventManagePanelProps) {
   const t = useTranslations("event");
   const tCommon = useTranslations("common");
   const entities = useBackpackEntities(roomId, refreshKey);
@@ -96,21 +96,12 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
       setConfirmBusy(false);
     }
   };
-  const doPromote = async (e: ManagedEvent) => {
-    try {
-      await promoteEventToFullAction(roomId, e.id);
-      onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
-    }
-  };
-
   return (
     <OverlayShell onClose={onClose} variant="drawer" panelClassName="w-full max-w-2xl h-full bg-surface theme-border border-l border-border shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border shrink-0">
-            <Icons.ScrollText className="w-5 h-5 text-primary" />
+            <Icons.Flag className="w-5 h-5 text-accent" />
             <h3 className="font-bold text-text text-lg font-theme-display flex-1">{t("manageTitle")}</h3>
             <button
               onClick={() => setEditing("new")}
@@ -126,7 +117,7 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
               <div className="flex items-center justify-center py-10 text-text-muted"><Icons.Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-2 text-text-dim">
-                <Icons.ScrollText className="w-10 h-10 opacity-50" />
+                <Icons.Flag className="w-10 h-10 opacity-50" />
                 <p className="text-sm">{t("emptyManage")}</p>
               </div>
             ) : (
@@ -138,11 +129,10 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
                   event={e}
                   onOrd={() => askPosition(e, i)}
                   onReorder={(op) => doReorder(e.id, op)}
+                  onOpen={() => onOpenEvent(e.id)}
                   onEdit={() => setEditing(toView(e))}
                   onPublish={() => setPublishFor({ event: toView(e), variant: "publish", known: [] })}
                   onAdd={() => setPublishFor({ event: toView(e), variant: "add", known: e.knowers.map((k) => k.userId) })}
-                  onPromote={() => doPromote(e)}
-                  onRetract={() => setConfirm({ kind: "retract", event: e })}
                   onDelete={() => setConfirm({ kind: "delete", event: e })}
                 />
               ))
@@ -202,98 +192,82 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
 }
 
 function EventRow({
-  index, total, event, onOrd, onReorder, onEdit, onPublish, onAdd, onPromote, onRetract, onDelete,
+  index, total, event, onOrd, onReorder, onOpen, onEdit, onPublish, onAdd, onDelete,
 }: {
   index: number;
   total: number;
   event: ManagedEvent;
   onOrd: () => void;
   onReorder: (op: ReorderOp) => void;
+  onOpen: () => void;
   onEdit: () => void;
   onPublish: () => void;
   onAdd: () => void;
-  onPromote: () => void;
-  onRetract: () => void;
   onDelete: () => void;
 }) {
   const t = useTranslations("event");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
-
   const preview = useMemo(() => stripMarkdown(event.description).slice(0, 90), [event.description]);
-  const published = event.status !== "unpublished";
-  const knowerNames = event.knowers.map((k) => k.nickname).filter(Boolean).join("、");
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
 
-  const mini = "w-8 h-[30px] flex items-center justify-center text-text-dim hover:text-primary hover:bg-primary/10 transition cursor-pointer disabled:opacity-30 disabled:hover:bg-transparent";
+  // Vertical reorder gutter (left): to-top / up / [position] / down / to-bottom.
+  const gnav = "w-6 h-5 flex items-center justify-center text-text-dim hover:text-primary transition cursor-pointer disabled:opacity-25 disabled:hover:text-text-dim disabled:cursor-default";
 
   return (
     <div className={`flex gap-3 p-3 rounded-theme border ${event.status === "unpublished" ? "border-dashed border-border" : "border-border"} bg-surface-alt/40`}>
-      <button onClick={onOrd} title={t("positionTooltip")} className="w-6 self-center shrink-0 font-theme-mono text-sm font-bold text-text-dim hover:text-primary transition cursor-pointer">
-        {index + 1}
+      {/* reorder gutter */}
+      <div className="flex flex-col items-center shrink-0 self-stretch justify-center rounded-theme border border-border/60 bg-surface/40 px-0.5 py-1">
+        <button onClick={() => onReorder("top")} disabled={isFirst} className={gnav} title={t("moveTop")}><Icons.ArrowUpToLine className="w-3.5 h-3.5" /></button>
+        <button onClick={() => onReorder("up")} disabled={isFirst} className={gnav} title={t("moveUp")}><Icons.ChevronUp className="w-4 h-4" /></button>
+        <button onClick={onOrd} title={t("positionTooltip")} className="w-6 h-5 font-theme-mono text-sm font-bold text-text-muted hover:text-primary transition cursor-pointer">{index + 1}</button>
+        <button onClick={() => onReorder("down")} disabled={isLast} className={gnav} title={t("moveDown")}><Icons.ChevronDown className="w-4 h-4" /></button>
+        <button onClick={() => onReorder("bottom")} disabled={isLast} className={gnav} title={t("moveBottom")}><Icons.ArrowDownToLine className="w-3.5 h-3.5" /></button>
+      </div>
+
+      {/* cover + content — clicking opens the detail modal (host's retract/viewers surface) */}
+      <button onClick={onOpen} className="flex-1 min-w-0 flex gap-3 text-left cursor-pointer group">
+        <span className="w-14 h-14 rounded-theme shrink-0 border border-border overflow-hidden flex items-center justify-center bg-surface-alt relative">
+          {event.images[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={event.images[0]} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Icons.Flag className="w-6 h-6 text-text-dim" />
+          )}
+          {event.images.length > 1 && (
+            <span className="absolute right-0.5 bottom-0.5 text-[9px] font-theme-mono bg-black/55 text-white px-1 rounded">{event.images.length}</span>
+          )}
+        </span>
+
+        <span className="flex-1 min-w-0 block">
+          <span className="flex items-center gap-2 flex-wrap">
+            <span className={`font-bold group-hover:text-primary transition ${event.status === "unpublished" ? "text-text-muted" : "text-text"}`}>{event.title}</span>
+            <StatusBadge status={event.status} knowerCount={event.status === "partial" ? event.knowers.length : undefined} />
+          </span>
+          <span className="flex items-center gap-1.5 mt-1 text-xs text-text-muted">
+            <EventTimeLabel payload={event.timePayload} />
+          </span>
+          {preview && <span className="mt-1.5 block text-xs text-text-muted truncate">{preview}</span>}
+        </span>
       </button>
 
-      <div className="w-14 h-14 rounded-theme shrink-0 border border-border overflow-hidden flex items-center justify-center bg-surface-alt relative">
-        {event.images[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={event.images[0]} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <Icons.ScrollText className="w-6 h-6 text-text-dim" />
-        )}
-        {event.images.length > 1 && (
-          <span className="absolute right-0.5 bottom-0.5 text-[9px] font-theme-mono bg-black/55 text-white px-1 rounded">{event.images.length}</span>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`font-bold ${event.status === "unpublished" ? "text-text-muted" : "text-text"}`}>{event.title}</span>
-          <StatusBadge status={event.status} knowerCount={event.status === "partial" ? event.knowers.length : undefined} />
-        </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-text-muted flex-wrap">
-          <EventTimeLabel payload={event.timePayload} />
-          {event.status === "partial" && knowerNames && (
-            <span className="inline-flex items-center gap-1.5"><Icons.Eye className="w-3.5 h-3.5" />{t("knownBy")}：{knowerNames}</span>
-          )}
-        </div>
-        {preview && <p className="mt-1.5 text-xs text-text-muted truncate">{preview}</p>}
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0 self-start">
-        <div className="inline-flex items-center rounded-theme border border-border bg-surface/50 overflow-hidden">
-          <button onClick={() => onReorder("top")} disabled={index === 0} className={`${mini} border-r border-border`} title={t("moveTop")}><Icons.ChevronsUp className="w-4 h-4" /></button>
-          <button onClick={() => onReorder("up")} disabled={index === 0} className={`${mini} border-r border-border`} title={t("moveUp")}><Icons.ArrowUp className="w-4 h-4" /></button>
-          <button onClick={() => onReorder("down")} disabled={index === total - 1} className={`${mini} border-r border-border`} title={t("moveDown")}><Icons.ArrowDown className="w-4 h-4" /></button>
-          <button onClick={() => onReorder("bottom")} disabled={index === total - 1} className={mini} title={t("moveBottom")}><Icons.ChevronsDown className="w-4 h-4" /></button>
-        </div>
-
-        {event.status === "unpublished" && (
-          <button onClick={onPublish} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-theme bg-primary text-primary-foreground text-xs font-bold shadow-[var(--theme-glow)] hover:bg-primary-hover transition cursor-pointer">
-            <Icons.Send className="w-3.5 h-3.5" /> {t("publish")}
+      {/* fixed action column — same width on every row so cards stay aligned */}
+      <div className="flex flex-col gap-1.5 shrink-0 self-start w-[104px]">
+        {event.status === "unpublished" ? (
+          <button onClick={onPublish} className="inline-flex items-center justify-center gap-1.5 h-8 rounded-theme bg-accent text-accent-foreground text-xs font-bold shadow-[var(--theme-glow)] hover:opacity-90 transition cursor-pointer">
+            <Icons.Eye className="w-3.5 h-3.5" /> {t("publish")}
           </button>
-        )}
-        {event.status === "partial" && (
-          <button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-theme border border-border text-text text-xs font-bold hover:bg-surface-alt transition cursor-pointer">
+        ) : event.status === "partial" ? (
+          <button onClick={onAdd} className="inline-flex items-center justify-center gap-1.5 h-8 rounded-theme border border-warning/50 text-warning text-xs font-bold hover:bg-warning/10 transition cursor-pointer">
             <Icons.UserPlus className="w-3.5 h-3.5" /> {t("addViewers")}
           </button>
+        ) : (
+          <span className="inline-flex items-center justify-center gap-1.5 h-8 rounded-theme border border-success/45 bg-success/8 text-success text-xs font-bold">
+            <Icons.CheckCheck className="w-3.5 h-3.5" /> {t("publishedBadge")}
+          </span>
         )}
-
-        <div className="relative" ref={menuRef}>
-          <button onClick={() => setMenuOpen((v) => !v)} className="w-8 h-[30px] rounded-theme border border-border text-text-muted hover:text-text hover:border-text-muted flex items-center justify-center cursor-pointer" title={t("moreActions")}>
-            <Icons.MoreVertical className="w-4 h-4" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-theme shadow-xl py-1 z-20 overlay-pop" style={{ transformOrigin: "top right" }} onClick={() => setMenuOpen(false)}>
-              <button onClick={onEdit} className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-sm text-text hover:bg-surface-alt transition cursor-pointer"><Icons.Pencil className="w-4 h-4" /> {t("edit")}</button>
-              {event.status === "partial" && (
-                <button onClick={onPromote} className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-sm text-text hover:bg-surface-alt transition cursor-pointer"><Icons.Send className="w-4 h-4" /> {t("promoteFull")}</button>
-              )}
-              {published && (
-                <button onClick={onRetract} className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-sm text-danger hover:bg-danger/10 transition cursor-pointer"><Icons.Undo2 className="w-4 h-4" /> {t("retract")}</button>
-              )}
-              <button onClick={onDelete} className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-sm text-danger hover:bg-danger/10 transition cursor-pointer"><Icons.Trash2 className="w-4 h-4" /> {t("delete")}</button>
-            </div>
-          )}
+        <div className="flex gap-1.5">
+          <button onClick={onEdit} title={t("edit")} className="flex-1 h-8 rounded-theme border border-border text-text-muted hover:text-text hover:border-text-muted flex items-center justify-center transition cursor-pointer"><Icons.Pencil className="w-4 h-4" /></button>
+          <button onClick={onDelete} title={t("delete")} className="flex-1 h-8 rounded-theme border border-border text-text-muted hover:text-danger hover:border-danger/50 flex items-center justify-center transition cursor-pointer"><Icons.Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
     </div>
