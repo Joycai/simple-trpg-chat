@@ -17,6 +17,8 @@ import {
   computeCocDerived,
   computeShDerived,
   shGradeLabel,
+  ruleUsesStructuredSheet,
+  attributesUnset,
 } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character-types";
 import { RULE_TEMPLATES } from "@/db/schema";
@@ -1839,5 +1841,49 @@ describe("rules/panel capability flags", () => {
     for (const r of [dnd5eRule, triangleRule, basicRule]) {
       expect(r.capabilities.resourceCurrentsViaAction ?? false).toBe(false);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// "Set up your character" hint helpers (ruleUsesStructuredSheet / attributesUnset)
+// ---------------------------------------------------------------------------
+
+describe("rules/sheet-state", () => {
+  it("ruleUsesStructuredSheet is true for the four structured rules, false for basic", () => {
+    expect(ruleUsesStructuredSheet(basicRule)).toBe(false);
+    for (const r of [coc7thRule, dnd5eRule, triangleRule, shouhunRule]) {
+      expect(ruleUsesStructuredSheet(r)).toBe(true);
+    }
+  });
+
+  it("attributesUnset is always false for basic (no structured sheet)", () => {
+    expect(attributesUnset(null, basicRule)).toBe(false);
+    expect(attributesUnset(basicRule.initCharacter(), basicRule)).toBe(false);
+  });
+
+  it("attributesUnset is true for a null sheet under structured rules", () => {
+    for (const r of [coc7thRule, dnd5eRule, triangleRule, shouhunRule]) {
+      expect(attributesUnset(null, r)).toBe(true);
+    }
+  });
+
+  it("attributesUnset is true for a freshly-initialized sheet, false once an attribute changes", () => {
+    // COC — defaults all 50
+    const coc = coc7thRule.initCharacter();
+    expect(attributesUnset(coc, coc7thRule)).toBe(true);
+    const cocEdited: CharacterData = { ...coc, cocAttributes: { ...coc.cocAttributes!, str: 60 } };
+    expect(attributesUnset(cocEdited, coc7thRule)).toBe(false);
+
+    // DnD — abilities default 10
+    const dnd = dnd5eRule.initCharacter();
+    expect(attributesUnset(dnd, dnd5eRule)).toBe(true);
+    const dndEdited: CharacterData = { ...dnd, d20Attributes: { ...dnd.d20Attributes!, str: 14 } };
+    expect(attributesUnset(dndEdited, dnd5eRule)).toBe(false);
+
+    // 狩魂者 — attributes default 3
+    const sh = shouhunRule.initCharacter();
+    expect(attributesUnset(sh, shouhunRule)).toBe(true);
+    const shEdited: CharacterData = { ...sh, shAttributes: { ...sh.shAttributes!, phy: 5 } };
+    expect(attributesUnset(shEdited, shouhunRule)).toBe(false);
   });
 });

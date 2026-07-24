@@ -36,6 +36,7 @@ interface RoomOverlaysProps {
   roomThemeMode?: StoredThemeMode;
   inventoryRefreshKey: number;
   skillRefreshKey: number;
+  onSkillsChanged?: () => void;
   mentionTargets: MentionTarget[];
   onlineUserIds?: Set<number>;
   playerCount: number;
@@ -97,7 +98,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
   const {
     room, userId, isHost, nickname, characterData, readOnly, players,
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
-    inventoryRefreshKey, skillRefreshKey, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
+    inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
     showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
@@ -145,6 +146,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           onNicknameChange={onNicknameChange}
           readOnly={readOnly}
           refreshKey={skillRefreshKey}
+          onSkillsChanged={onSkillsChanged}
           avatarColor={memberOf(userId)?.avatarColor}
           avatar={memberOf(userId)?.avatar}
         />

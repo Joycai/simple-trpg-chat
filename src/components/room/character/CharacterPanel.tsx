@@ -39,6 +39,9 @@ interface CharacterPanelProps {
   isGM?: boolean;
   /** Bumped by the parent after a .st command, so the skills tab reloads. */
   refreshKey?: number;
+  /** Fired after an in-panel skill add/delete/adjust, so the parent can refresh
+   *  its own skill-derived state (e.g. the top-bar "not set up" nudge). */
+  onSkillsChanged?: () => void;
 }
 
 type TabId = "attributes" | "skills" | "background";
@@ -58,6 +61,7 @@ export function CharacterPanel({
   avatar,
   isGM = false,
   refreshKey = 0,
+  onSkillsChanged,
 }: CharacterPanelProps) {
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
@@ -169,6 +173,7 @@ export function CharacterPanel({
 
   // Skills
   const [skills, setSkills] = useState<SkillItem[]>([]);
+  const [skillsLoaded, setSkillsLoaded] = useState(false);
   const [newSkillName, setNewSkillName] = useState("");
   const [newSkillValue, setNewSkillValue] = useState(50);
 
@@ -176,11 +181,18 @@ export function CharacterPanel({
     if (readOnly && targetUserId) {
       getRoomSkills(roomId, targetUserId).then((data) => {
         setSkills(data.map(s => ({ id: s.id, skillName: s.skillName, skillValue: s.skillValue })));
+        setSkillsLoaded(true);
       }).catch(() => {});
     } else {
-      getMySkillsAction(roomId).then(setSkills).catch(() => {});
+      getMySkillsAction(roomId).then((data) => { setSkills(data); setSkillsLoaded(true); }).catch(() => {});
     }
   }, [roomId, readOnly, targetUserId, refreshKey]);
+
+  // "No skills yet" nudge on the 技能 tab: only for the owner, only when this
+  // rule uses a structured sheet (basic/通用 d100 never hints), and only once
+  // the list has actually loaded (avoids flashing on the async gap).
+  const skillsUnset =
+    !readOnly && ruleCap.attributeKeys.length > 0 && skillsLoaded && skills.length === 0;
 
   // Re-sync attributes/resources when the characterData prop changes (e.g. after a
   // .st / .sc command triggers router.refresh upstream). Keeps an open panel current
@@ -374,12 +386,14 @@ export function CharacterPanel({
     setNewSkillName("");
     router.refresh();
     getMySkillsAction(roomId).then(setSkills).catch(() => {});
+    onSkillsChanged?.();
   };
 
   const removeSkill = async (skillId: number) => {
     await deleteSkillAction(roomId, skillId);
     router.refresh();
     getMySkillsAction(roomId).then(setSkills).catch(() => {});
+    onSkillsChanged?.();
   };
 
   // Inline value edit — upsert overwrites by (room, user, name), same as .st.
@@ -387,6 +401,7 @@ export function CharacterPanel({
     await upsertSkillAction(roomId, skillName, value);
     router.refresh();
     getMySkillsAction(roomId).then(setSkills).catch(() => {});
+    onSkillsChanged?.();
   };
 
   // Add or overwrite a custom item. `max` present ⇒ rendered as a resource bar.
@@ -561,6 +576,12 @@ export function CharacterPanel({
                 activeTab === tab.id ? "text-primary" : "text-text-muted hover:text-text"
               }`}>
               {tab.label}
+              {tab.id === "skills" && skillsUnset && (
+                <span
+                  className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-primary align-middle shadow-[var(--theme-glow)]"
+                  title={t("hintSkillsUnset")}
+                />
+              )}
               {activeTab === tab.id && (
                 <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-primary rounded-full shadow-[var(--theme-glow)]" />
               )}
