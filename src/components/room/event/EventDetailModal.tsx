@@ -77,11 +77,15 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
     if (busy) return;
     setBusy(true);
     try {
-      await retractEventAction(roomId, eventId);
+      const res = await retractEventAction(roomId, eventId);
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
       setConfirmRetract(false);
       afterChange();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      alert(tCommon("error"));
     } finally {
       setBusy(false);
     }

@@ -139,8 +139,11 @@ export function NotebookEditor({ note, categories, entities, onCancel, onSave }:
     setSaving(true);
     try {
       await onSave({ title: title.trim(), content, categoryId });
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      // Expected failures are already reported (localized) by the caller; this
+      // only catches the unexpected, where a raw message would be Next's
+      // production redaction notice rather than anything the user can act on.
+      alert(tCommon("error"));
     } finally {
       setSaving(false);
     }

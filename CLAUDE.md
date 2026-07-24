@@ -135,7 +135,7 @@ Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图
 
 ### Notebook (记事本)
 
-Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. A note can be **sent to other members** (`shareNoteAction`) as an independent copy — the recipient gets a new row in their own scope (uncategorized, `sourceName` = sender snapshot, badged "来自 X"); later edits never sync, and the copy's `@` links re-resolve against the *recipient's* backpack, so anything they don't hold degrades to plain text. Bots are excluded as recipients; no SSE, so copies surface on the recipient's next open. The note body's typography (section headings, list markers, quote chrome) is a shared structural layer scoped to `.notebook-note-body` in `globals.css` — values read `var(--theme-nb-*, <fallback to --theme-*>)`, so every theme auto-tints and a theme may override any `--theme-nb-*` at its root (see the `simple-trpg-chat-theme` skill). Core: `src/lib/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
+Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. A note can be **sent to other members** (`shareNoteAction`) as an independent copy — the recipient gets a new row in their own scope (uncategorized, `sourceName` = sender snapshot, badged "来自 X"); later edits never sync, and the copy's `@` links re-resolve against the *recipient's* backpack, so anything they don't hold degrades to plain text. Bots are excluded as recipients on the server (`users.isBot` join), not just in the picker; no SSE, so copies surface on the recipient's next open. The note body's typography (section headings, list markers, quote chrome) is a shared structural layer scoped to `.notebook-note-body` in `globals.css` — values read `var(--theme-nb-*, <fallback to --theme-*>)`, so every theme auto-tints and a theme may override any `--theme-nb-*` at its root (see the `simple-trpg-chat-theme` skill). Core: `src/lib/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
 
 ### Invite-Code Registration
 
@@ -154,8 +154,20 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
 - **Client components**: `src/components/`, `"use client"` directive
 - **Styling**: Semantic Tailwind tokens only — never arbitrary colors
 - **Database**: Drizzle query builder; `db.config.json` holds `{ "type": "postgresql", "url": "..." }`
-- **Error handling**: Server actions return result objects, never throw
-- **Validation**: Use `zod` at action boundaries
+- **Error handling**: Server actions return result objects — `{ success: true, ... }` /
+  `{ success: false, error }`, with `error` already localized via server-side
+  `getTranslations`. Never surface a thrown message to the client: Next.js redacts
+  server-action errors in production, so `err.message` renders as "An error occurred in
+  the Server Components render…". `checkRoomAccess` still throws (it is shared); wrap it
+  per-action, as `background.ts`'s `requireRoomHost` does.
+  Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook`.
+  Still throwing, to be converted: `inventory` / `character` / `clue` / `room` / `theme` /
+  `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
+- **Validation**: Validate at the action boundary — `zod` where a schema fits
+  (`background.ts`, `invite.ts`), an explicit hand-written sanitizer where the rules are
+  shared with another caller (`sanitizeTimelineDivider` in `lib/messaging/timeline-payload.ts`,
+  used by both `room.ts` and `event.ts`). Length caps belong in `src/lib/` next to the
+  feature's other constants so the editor and the action agree.
 - **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`
 
 ## License

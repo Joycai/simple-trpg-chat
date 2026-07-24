@@ -13,6 +13,12 @@ import type { TimelineDividerData } from "@/lib/messaging/timeline-payload";
 /** Max images per event (first is the cover). */
 export const MAX_EVENT_IMAGES = 3;
 
+/** Length caps, mirroring the notebook's NOTE_TITLE_MAX / NOTE_CONTENT_MAX.
+ *  Events had none, so a paste of arbitrary size went straight to the DB — and
+ *  the body now rides in the room-wide event fetch, where size is shared cost. */
+export const EVENT_TITLE_MAX = 100;
+export const EVENT_DESC_MAX = 20_000;
+
 /**
  * Structured payload stored in `messages.diceDetail` for a `systemKind:
  * 'event-card'` message — the public-channel announcement. Metadata only.

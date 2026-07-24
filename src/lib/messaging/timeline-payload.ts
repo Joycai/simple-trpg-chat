@@ -37,14 +37,70 @@ export function buildTimelinePayload(data: TimelineDividerData): string {
   return JSON.stringify({ timelineDivider: data } satisfies TimelinePayload);
 }
 
+/**
+ * Read a stored payload. Deliberately lenient: it also serves historical
+ * `timeline-divider` messages, and tightening it would silently downgrade rows
+ * written before any given rule existed. Trust comes from the write path —
+ * see `sanitizeTimelineDivider`, which every writer must run first.
+ */
 export function parseTimelinePayload(raw: string | null | undefined): TimelineDividerData | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<TimelinePayload>;
-    return parsed?.timelineDivider ?? null;
+    const d = parsed?.timelineDivider;
+    // Guard the shape only: consumers destructure fields off this.
+    return d && typeof d === "object" && !Array.isArray(d) ? d : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Validate and normalize host-supplied divider data; null when unusable.
+ *
+ * This is the single gate on the write path. The rules are exactly those the
+ * timeline-divider action has enforced since it shipped — extracted here so
+ * the event module can reuse them instead of re-deriving (its own
+ * `cleanTimePayload` was a JSON round-trip that validated nothing, which let a
+ * crafted `custom: {}` reach `composeTimelineLabel`'s `.trim()` and blank the
+ * whole events panel).
+ */
+export function sanitizeTimelineDivider(data: unknown): TimelineDividerData | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const d = data as Partial<TimelineDividerData>;
+
+  const mode = d.mode;
+  if (mode !== "day" && mode !== "date" && mode !== "custom") return null;
+  const timeMode = d.timeMode;
+  if (timeMode !== "segment" && timeMode !== "clock") return null;
+
+  const clean: TimelineDividerData = { mode, timeMode };
+
+  if (mode === "day") {
+    const day = Math.trunc(Number(d.day));
+    if (!Number.isFinite(day) || day < 1 || day > 999) return null;
+    clean.day = day;
+  } else if (mode === "date") {
+    const date = String(d.date ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) return null;
+    clean.date = date;
+  } else {
+    const custom = typeof d.custom === "string" ? d.custom.trim() : "";
+    if (!custom) return null;
+    clean.custom = custom.slice(0, 100);
+  }
+
+  if (timeMode === "segment") {
+    const seg = d.segment;
+    if (seg !== "morning" && seg !== "afternoon" && seg !== "night") return null;
+    clean.segment = seg;
+  } else {
+    const clock = String(d.clock ?? "");
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(clock)) return null;
+    clean.clock = clock;
+  }
+
+  return clean;
 }
 
 /**
@@ -136,19 +192,21 @@ export function composeTimelineLabel(
   locale: string,
 ): string {
   const isZh = locale.startsWith("zh");
+  // Defensive against rows stored before the write path was gated: a non-string
+  // `custom` used to throw here and blank the panel that rendered it.
   let head = "";
   if (data.mode === "custom") {
-    head = (data.custom ?? "").trim();
-  } else if (data.mode === "day" && data.day != null) {
+    head = typeof data.custom === "string" ? data.custom.trim() : "";
+  } else if (data.mode === "day" && typeof data.day === "number") {
     head = t("labelDay", { day: isZh ? toCJKNumeral(data.day) : String(data.day) });
-  } else if (data.mode === "date" && data.date) {
+  } else if (data.mode === "date" && typeof data.date === "string") {
     head = formatTimelineDate(data.date, locale);
   }
 
   let tail = "";
-  if (data.timeMode === "segment" && data.segment) {
+  if (data.timeMode === "segment" && data.segment && SEGMENT_KEY[data.segment]) {
     tail = t(SEGMENT_KEY[data.segment]);
-  } else if (data.timeMode === "clock" && data.clock) {
+  } else if (data.timeMode === "clock" && typeof data.clock === "string") {
     tail = data.clock;
   }
 

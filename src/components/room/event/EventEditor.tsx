@@ -7,7 +7,7 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { mentionQueryAt, type NotebookLinkEntity } from "@/lib/notebook";
 import { entityMeta } from "@/components/room/notebook/notebook-helpers";
-import { MAX_EVENT_IMAGES } from "@/lib/story-events";
+import { MAX_EVENT_IMAGES, EVENT_TITLE_MAX, EVENT_DESC_MAX } from "@/lib/story-events";
 import { createEventAction, updateEventAction, type EventView } from "@/app/actions/event";
 import { EventTimePicker } from "./EventTimePicker";
 
@@ -153,12 +153,20 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
     setSaving(true);
     try {
       const payload = { title: title.trim(), description, timePayload, images };
-      if (event) await updateEventAction(roomId, event.id, payload);
-      else await createEventAction(roomId, payload);
+      const res = event
+        ? await updateEventAction(roomId, event.id, payload)
+        : await createEventAction(roomId, payload);
+      if (!res.success) {
+        // Already localized server-side; `err.message` used to show Next's
+        // production redaction notice here instead.
+        setError(res.error);
+        setSaving(false);
+        return;
+      }
       onSaved();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      setError(tCommon("error"));
       setSaving(false);
     }
   };
@@ -191,7 +199,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    maxLength={80}
+                    maxLength={EVENT_TITLE_MAX}
                     autoFocus={!event}
                     placeholder={t("titlePlaceholder")}
                     className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
@@ -237,6 +245,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                   onKeyDown={handleKeyDown}
                   onClick={(e) => syncMention(e.currentTarget)}
                   onBlur={() => setTimeout(() => setMention(null), 150)}
+                  maxLength={EVENT_DESC_MAX}
                   placeholder={t("descriptionPlaceholder")}
                   className="w-full h-full resize-none bg-input-bg border border-input-border rounded-b-theme px-3.5 py-3 text-sm text-text leading-relaxed outline-none focus:border-primary/50"
                 />

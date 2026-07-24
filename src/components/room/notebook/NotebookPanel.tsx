@@ -167,34 +167,41 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     setCategories(notebook.categories as Category[]);
   };
 
+  // Actions return `{ success, error }` with the message already localized on
+  // the server; the old `err.message` path surfaced Next's production redaction
+  // notice to the user instead.
   const handleSave = async (input: { title: string; content: string; categoryId: number | null }) => {
-    const saved = editing?.note
+    const res = editing?.note
       ? await updateNoteAction(roomId, editing.note.id, input)
       : await createNoteAction(roomId, input);
+    if (!res.success) {
+      alert(res.error);
+      return;
+    }
     await reload();
     setEditing(null);
-    setSelectedId(saved.id);
+    setSelectedId(res.note.id);
   };
 
   const handleDelete = async (note: Note) => {
     if (!confirm(t("deleteConfirm", { title: note.title }))) return;
-    try {
-      await deleteNoteAction(roomId, note.id);
-      setSelectedId(null);
-      await reload();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    const res = await deleteNoteAction(roomId, note.id);
+    if (!res.success) {
+      alert(res.error);
+      return;
     }
+    setSelectedId(null);
+    await reload();
   };
 
-  const wrapCategoryError = async (fn: () => Promise<unknown>) => {
-    try {
-      await fn();
-      await reload();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
-      throw err;
+  /** Category editors expect a rejection to keep their inline form open. */
+  const wrapCategoryError = async (fn: () => Promise<{ success: boolean; error?: string }>) => {
+    const res = await fn();
+    if (!res.success) {
+      alert(res.error ?? tCommon("error"));
+      throw new Error(res.error ?? "failed");
     }
+    await reload();
   };
 
   const handleCategoryCreate = (input: { name: string; color: NotebookColor }) =>
@@ -214,11 +221,13 @@ export function NotebookPanel({ roomId, userId, players, onClose, readOnly = fal
     if (!sharing || targetIds.length === 0) return;
     setSendingShare(true);
     try {
-      const { count } = await shareNoteAction(roomId, sharing.id, targetIds);
+      const res = await shareNoteAction(roomId, sharing.id, targetIds);
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
       setSharing(null);
-      alert(t("shareSuccess", { count }));
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+      alert(t("shareSuccess", { count: res.count }));
     } finally {
       setSendingShare(false);
     }

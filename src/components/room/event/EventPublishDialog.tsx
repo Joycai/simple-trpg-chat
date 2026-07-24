@@ -48,15 +48,18 @@ export function EventPublishDialog({ roomId, event, players, variant, knownIds =
     setBusy(true);
     setError(null);
     try {
-      if (isAdd) {
-        await addEventViewersAction(roomId, event.id, [...selected]);
-      } else {
-        await publishEventAction(roomId, event.id, scope === "all" ? "all" : [...selected]);
+      const res = isAdd
+        ? await addEventViewersAction(roomId, event.id, [...selected])
+        : await publishEventAction(roomId, event.id, scope === "all" ? "all" : [...selected]);
+      if (!res.success) {
+        setError(res.error);
+        setBusy(false);
+        return;
       }
       onDone();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      setError(tCommon("error"));
       setBusy(false);
     }
   };

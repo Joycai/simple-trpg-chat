@@ -141,10 +141,9 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
     // persists the same order, so no refetch is needed on success (a refetch
     // mid-animation would measure transformed rows and stutter). Restore on error.
     setEvents((list) => reorderList(list, id, op));
-    try {
-      await reorderEventAction(roomId, id, op);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    const res = await reorderEventAction(roomId, id, op).catch(() => null);
+    if (!res?.success) {
+      alert(res?.error ?? tCommon("error"));
       onChanged();
     }
   };
@@ -158,12 +157,17 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
     if (!confirm || confirmBusy) return;
     setConfirmBusy(true);
     try {
-      if (confirm.kind === "retract") await retractEventAction(roomId, confirm.event.id);
-      else await deleteEventAction(roomId, confirm.event.id);
+      const res = confirm.kind === "retract"
+        ? await retractEventAction(roomId, confirm.event.id)
+        : await deleteEventAction(roomId, confirm.event.id);
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
       onChanged();
       setConfirm(null);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
+    } catch {
+      alert(tCommon("error"));
     } finally {
       setConfirmBusy(false);
     }
