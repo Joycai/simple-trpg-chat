@@ -6,6 +6,7 @@ import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
 import { NotebookPanel } from "@/components/room/notebook/NotebookPanel";
 import { EventPanel } from "@/components/room/event/EventPanel";
 import { EventManagePanel } from "@/components/room/event/EventManagePanel";
+import { EventDetailModal } from "@/components/room/event/EventDetailModal";
 import { BotManager } from "@/components/room/bot/BotManager";
 import { AiImportPanel } from "@/components/room/bot/AiImportPanel";
 import { ExportButton } from "@/components/room/ExportButton";
@@ -72,6 +73,9 @@ interface RoomOverlaysProps {
   setShowEventManage: (v: boolean) => void;
   eventsRefreshKey: number;
   onEventsChanged: () => void;
+  /** Event whose detail modal is open (from a chat card), or null. */
+  eventDetailId: number | null;
+  setEventDetailId: (v: number | null) => void;
   showTimeline: boolean;
   setShowTimeline: (v: boolean) => void;
   showSettings: boolean;
@@ -111,6 +115,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
     showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
     showEvents, setShowEvents, showEventManage, setShowEventManage, eventsRefreshKey, onEventsChanged,
+    eventDetailId, setEventDetailId,
     showTimeline, setShowTimeline,
     showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
     showUserSettings, setShowUserSettings,
@@ -237,6 +242,9 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       )}
       {showEventManage && isHost && (
         <EventManagePanel roomId={room.id} players={inventoryPlayers.filter((p) => p.id !== room.hostId)} refreshKey={eventsRefreshKey} onClose={() => setShowEventManage(false)} onChanged={onEventsChanged} />
+      )}
+      {eventDetailId != null && (
+        <EventDetailModal roomId={room.id} eventId={eventDetailId} onClose={() => setEventDetailId(null)} onViewed={onEventsChanged} />
       )}
       {showTimeline && isHost && (
         <TimelineDividerDialog roomId={room.id} onClose={() => setShowTimeline(false)} />

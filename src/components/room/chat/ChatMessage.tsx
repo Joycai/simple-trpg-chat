@@ -988,8 +988,8 @@ interface ChatMessageProps {
   onOpenInventory?: () => void;
   /** Set of event ids the viewer may read — decides an event card's locked/unlocked face. */
   visibleEventIds?: Set<number>;
-  /** Opens the events panel (from an event card / receipt). */
-  onOpenEvents?: () => void;
+  /** Opens an event's detail modal (from an event card / receipt). */
+  onOpenEvent?: (eventId: number) => void;
   /** Host-only: withdraw (delete) a timeline-divider message by id. */
   onWithdrawTimeline?: (messageId: number) => void | Promise<void>;
   messageId?: number;
@@ -1020,7 +1020,7 @@ export const ChatMessage = memo(function ChatMessage({
   onLoadProxyTargets,
   onOpenInventory,
   visibleEventIds,
-  onOpenEvents,
+  onOpenEvent,
   onWithdrawTimeline,
   messageId,
   roomId,
@@ -1365,17 +1365,17 @@ export const ChatMessage = memo(function ChatMessage({
       const unlocked = isHost || !!visibleEventIds?.has(payload.eventId);
       return (
         <div className="flex justify-center py-2 animate-in fade-in">
-          <EventCard payload={payload} unlocked={unlocked} onOpen={() => onOpenEvents?.()} />
+          <EventCard payload={payload} unlocked={unlocked} onOpen={() => onOpenEvent?.(payload.eventId)} />
         </div>
       );
     }
-    // Event receipt: a personal "you got a new event" pill opening the events panel.
+    // Event receipt: a personal "you got a new event" pill opening its detail modal.
     if (systemKind === "event-receipt") {
       const r = parseEventReceiptPayload(diceDetail);
       return (
         <div className="system-pill flex justify-center py-2 animate-in fade-in" data-kind="event-receipt">
           <button
-            onClick={() => onOpenEvents?.()}
+            onClick={() => r && onOpenEvent?.(r.eventId)}
             className="system-pill-body inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full text-primary bg-primary/10 border border-primary/30 hover:bg-primary/20 transition cursor-pointer"
           >
             <Icons.ScrollText className="w-3.5 h-3.5" />

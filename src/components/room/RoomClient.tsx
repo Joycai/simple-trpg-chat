@@ -75,6 +75,7 @@ export function RoomClient({
   const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
   const [visibleEventIds, setVisibleEventIds] = useState<Set<number>>(new Set());
   const [unreadEvents, setUnreadEvents] = useState(0);
+  const [eventDetailId, setEventDetailId] = useState<number | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
@@ -742,7 +743,7 @@ export function RoomClient({
           onWithdrawTimeline={isHost ? handleWithdrawTimeline : undefined}
           onSendMessage={handleSendMessage}
           visibleEventIds={visibleEventIds}
-          onOpenEvents={() => setShowEvents(true)}
+          onOpenEvent={(id) => setEventDetailId(id)}
         />
       </div>
 
@@ -797,6 +798,8 @@ export function RoomClient({
         setShowEventManage={setShowEventManage}
         eventsRefreshKey={eventsRefreshKey}
         onEventsChanged={bumpEvents}
+        eventDetailId={eventDetailId}
+        setEventDetailId={setEventDetailId}
         showTimeline={showTimeline}
         setShowTimeline={setShowTimeline}
         showSettings={showSettings}

@@ -509,6 +509,43 @@ export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
   return out;
 }
 
+/** Fetch a single event's full content if the caller may read it, else null.
+ *  Backs the detail modal opened from the events panel or a chat card. */
+export async function getEventForViewerAction(roomId: number, eventId: number): Promise<EventView | null> {
+  const { userId, isHost } = await checkRoomAccess(roomId, false);
+  const [e] = await db.select().from(storyEvents).where(and(eq(storyEvents.id, eventId), eq(storyEvents.roomId, roomId)));
+  if (!e) return null;
+
+  let updated = false;
+  let visible = isHost || e.status === "full";
+  if (!isHost) {
+    const [row] = await db
+      .select({ viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated })
+      .from(storyEventVisibility)
+      .where(and(eq(storyEventVisibility.eventId, eventId), eq(storyEventVisibility.userId, userId)));
+    if (row) {
+      updated = row.updated;
+      if (e.status === "partial") visible = true;
+    }
+  }
+  if (!visible) return null;
+
+  return {
+    id: e.id, title: e.title, description: e.description, timePayload: e.timePayload,
+    images: parseEventImages(e.imagesJson), status: e.status, sortOrder: e.sortOrder, updated,
+  };
+}
+
+/** Mark a single event read for the caller (clears its unread/updated flags). */
+export async function markEventViewedAction(roomId: number, eventId: number) {
+  const { userId } = await checkRoomAccess(roomId, false);
+  await db
+    .update(storyEventVisibility)
+    .set({ viewed: true, updated: false })
+    .where(and(eq(storyEventVisibility.eventId, eventId), eq(storyEventVisibility.userId, userId)));
+  return { success: true };
+}
+
 /** Lightweight id set the chat card uses to decide locked vs unlocked. */
 export async function getMyEventIdsAction(roomId: number): Promise<number[]> {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
