@@ -174,6 +174,53 @@ import { <Id>LoginHero } from "@/themes/<id>/<Id>LoginHero";
 }
 ```
 
+### 记事本正文排版令牌（`--theme-nb-*`，可选覆盖）
+
+记事本（手札）正文由共享的 `MarkdownRenderer` 渲染，但**排版走一套独立的主题令牌**，
+让每个主题塑造自己的手札气质。设计分两层：
+
+- **结构层（共享，写一遍）**：`globals.css` 里作用域限定 `.notebook-note-body` 的规则——
+  章节标题带前导竖条 + 底部细线、无序列表用自定义标记字形、引用块带竖条 + 引号、段落节奏。
+  这层对所有主题一致，**不影响聊天气泡**（聊天不加 `.notebook-note-body` 包裹）。
+  唯一动到 renderer 的是给标题追加 `md-h1` / `md-h2` / `md-h3` 类名做钩子（纯追加，聊天视觉不变）。
+- **取值层（每个主题可选注入）**：下面的 `--theme-nb-*` 令牌。**消费端一律用 `var(令牌, 回退)`**，
+  回退指向现有 `--theme-*`——所以**任何主题不写也自动带自己的主题色**。想要独特气质的主题，
+  只在自己的 `[data-theme="<id>"]` 根块里覆盖几个即可（与调色板 token 并列）。
+
+> ⚠️ 覆盖必须写在 `[data-theme="<id>"]` **根块**（或更高层），**不要**写在 `[data-theme="<id>"] .notebook-note-body`
+> 上——因为消费端用的是 `var(令牌, 回退)`，`.notebook-note-body` 本身不声明这些令牌，令牌通过继承下沉即可。
+
+| 令牌 | 作用 | 回退默认值 |
+|---|---|---|
+| `--theme-nb-heading-color` | 章节标题色 | `rgb(var(--theme-primary))` |
+| `--theme-nb-heading-font` | 标题字体 | `var(--theme-font-display)` |
+| `--theme-nb-heading-weight` | 标题字重 | `700` |
+| `--theme-nb-heading-tracking` | 标题字距 | `0.02em` |
+| `--theme-nb-heading-marker-color` | 前导竖条色 | `rgb(var(--theme-primary))` |
+| `--theme-nb-heading-marker-width` | 前导竖条宽（设 `0` 隐藏） | `3px` |
+| `--theme-nb-heading-rule` | 标题底部细线色 | `rgb(var(--theme-border))` |
+| `--theme-nb-list-marker` | 无序列表标记字形 | `"◆"` |
+| `--theme-nb-list-marker-color` | 列表标记色 | `rgb(var(--theme-primary))` |
+| `--theme-nb-quote-border` | 引用块竖条色 | `rgb(var(--theme-accent))` |
+| `--theme-nb-quote-bg` | 引用块底色 | `rgb(var(--theme-surface-alt) / 0.5)` |
+| `--theme-nb-strong-color` | 加粗文字色 | `inherit` |
+| `--theme-nb-body-leading` | 正文行高 | `1.8` |
+
+**主题覆盖示例**（bespoke 笔触，之后逐主题微调）：
+
+```css
+[data-theme="shrine"] {
+  --theme-nb-list-marker: "❖";                  /* 神社纹样 */
+  --theme-nb-heading-font: var(--font-shippori); /* 明朝体标题 */
+}
+[data-theme="cthulhu"] {
+  --theme-nb-strong-color: rgb(var(--theme-primary)); /* 暖金加粗，重点跳出 */
+}
+```
+
+> 结构 + 回退默认已落地（六主题自动主题色、共用同一套字形/标记）。逐主题 bespoke 覆盖是后续微调，
+> 加/改一个令牌即可，无需碰结构层。核心 CSS：`globals.css` 的 `.notebook-note-body` 段。
+
 ---
 
 ## 四、可用字体变量（已在 fonts.ts 注册）
