@@ -67,6 +67,26 @@ export function resolvedModeFromDivider(data: TimelineDividerData | null): "ligh
   return null;
 }
 
+/**
+ * Coarse day-part for a divider's time, used to tint UI (e.g. the event card's
+ * time pill): 上午/06:00–11:59 → morning, 下午/12:00–17:59 → afternoon,
+ * 夜晚/18:00–05:59 → night. Returns null when the payload carries no segment or
+ * clock (custom text, or a date with no time) — callers then fall back to a
+ * neutral tint. Finer-grained than {@link resolvedModeFromDivider}'s light/dark.
+ */
+export function dayPartFromDivider(data: TimelineDividerData | null): TimelineSegment | null {
+  if (!data) return null;
+  if (data.timeMode === "segment") return data.segment ?? null;
+  if (data.timeMode === "clock" && data.clock) {
+    const hour = parseInt(data.clock.slice(0, 2), 10);
+    if (Number.isNaN(hour)) return null;
+    if (hour >= 6 && hour < 12) return "morning";
+    if (hour >= 12 && hour < 18) return "afternoon";
+    return "night";
+  }
+  return null;
+}
+
 const SEGMENT_KEY: Record<TimelineSegment, string> = {
   morning: "segMorning",
   afternoon: "segAfternoon",

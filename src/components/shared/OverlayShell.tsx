@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useOverlayTransition, type OverlayVariant } from "@/lib/useOverlayTransition";
 
 interface OverlayShellProps {
@@ -14,6 +15,13 @@ interface OverlayShellProps {
   rootClassName?: string;
   /** Whether clicking the backdrop closes the overlay (default true). */
   closeOnBackdrop?: boolean;
+  /**
+   * Render into `document.body` instead of in place. Required for a centered
+   * modal opened from inside a drawer/modal: an ancestor's enter/exit
+   * `transform` becomes the containing block for `position: fixed`, which would
+   * otherwise center this overlay within that ancestor rather than the screen.
+   */
+  portal?: boolean;
   /** Receives the animated `close` so inner controls can trigger the exit. */
   children: (close: () => void) => ReactNode;
 }
@@ -29,12 +37,17 @@ export function OverlayShell({
   panelClassName,
   rootClassName = "",
   closeOnBackdrop = true,
+  portal = false,
   children,
 }: OverlayShellProps) {
   const { close, backdropClass, panelClass } = useOverlayTransition(onClose, variant);
+  // These overlays mount only on client interaction (never during SSR), so a
+  // one-shot check for `document` is enough to portal — no effect needed, which
+  // keeps clear of the set-state-in-effect lint rule.
+  const [canPortal] = useState(() => typeof document !== "undefined");
 
-  if (variant === "drawer") {
-    return (
+  const tree =
+    variant === "drawer" ? (
       <div className="fixed inset-0 z-50 flex" onClick={closeOnBackdrop ? close : undefined}>
         <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
         <div
@@ -44,17 +57,17 @@ export function OverlayShell({
           {children(close)}
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass} ${rootClassName}`}
-      onClick={closeOnBackdrop ? close : undefined}
-    >
-      <div className={`${panelClassName} ${panelClass}`} onClick={(e) => e.stopPropagation()}>
-        {children(close)}
+    ) : (
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass} ${rootClassName}`}
+        onClick={closeOnBackdrop ? close : undefined}
+      >
+        <div className={`${panelClassName} ${panelClass}`} onClick={(e) => e.stopPropagation()}>
+          {children(close)}
+        </div>
       </div>
-    </div>
-  );
+    );
+
+  if (portal) return canPortal ? createPortal(tree, document.body) : null;
+  return tree;
 }

@@ -44,6 +44,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const [cropSource, setCropSource] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** When true, the description editor takes over the whole modal body — the
+   *  title / time / images sections collapse away, giving the textarea room. */
+  const [descExpanded, setDescExpanded] = useState(false);
 
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -163,41 +166,50 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const toolBtn = "flex items-center justify-center w-8 h-8 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer";
 
   return (
-    <OverlayShell onClose={onClose} panelClassName="w-full max-w-2xl mx-4 max-h-[88vh] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
+    <OverlayShell onClose={onClose} portal panelClassName="w-full max-w-2xl mx-4 h-[86vh] max-h-[720px] min-h-[560px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
-            <Icons.Pencil className="w-5 h-5 text-primary" />
+            <Icons.Pencil className="w-5 h-5 text-accent" />
             <h3 className="font-bold text-text text-lg font-theme-display flex-1 truncate">
               {event ? t("editTitle") : t("createTitle")}
             </h3>
             <button onClick={close} className={toolBtn} aria-label={tCommon("cancel")}><Icons.X className="w-5 h-5" /></button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-            {/* Title */}
-            <div>
-              <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                maxLength={80}
-                autoFocus={!event}
-                placeholder={t("titlePlaceholder")}
-                className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
-              />
+          {/* Fixed-height body: title / time / images keep their natural size,
+              only the description flexes into whatever height is left over. The
+              header/images groups collapse via an animated grid-rows track
+              (0fr↔1fr) so toggling full-window edit eases open/closed. */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col">
+            {/* Collapsible header group — title + time */}
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+              <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pb-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`}>
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTitle")}</label>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={80}
+                    autoFocus={!event}
+                    placeholder={t("titlePlaceholder")}
+                    className="w-full bg-input-bg border border-input-border rounded-theme px-3.5 py-2.5 text-base font-bold text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary/50"
+                  />
+                </div>
+
+                {/* Time */}
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
+                  <EventTimePicker value={timePayload} onChange={setTimePayload} />
+                </div>
+              </div>
             </div>
 
-            {/* Time */}
-            <div>
-              <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldTime")} <span className="text-text-dim font-medium">· {t("optional")}</span></label>
-              <EventTimePicker value={timePayload} onChange={setTimePayload} />
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-xs font-bold text-text-muted mb-1.5">{t("fieldDescription")}</label>
-              <div className="flex items-center gap-0.5 border border-border border-b-0 rounded-t-theme px-2 py-1.5 bg-surface-alt/50">
+            {/* Description — the only elastic region, guaranteed a visible min height */}
+            <div className="flex-1 min-h-[9rem] flex flex-col">
+              <label className="block text-xs font-bold text-text-muted mb-1.5 shrink-0">{t("fieldDescription")}</label>
+              <div className="flex items-center gap-0.5 border border-border border-b-0 rounded-t-theme px-2 py-1.5 bg-surface-alt/50 shrink-0">
                 <button onClick={() => applyLinePrefix("## ")} className={toolBtn} title={t("toolHeading")}><Icons.Heading2 className="w-4 h-4" /></button>
                 <button onClick={() => applyWrap("**", "**")} className={toolBtn} title={t("toolBold")}><Icons.Bold className="w-4 h-4" /></button>
                 <button onClick={() => applyWrap("*", "*")} className={toolBtn} title={t("toolItalic")}><Icons.Italic className="w-4 h-4" /></button>
@@ -207,8 +219,17 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                 <span className="w-px h-4 bg-border mx-1" aria-hidden />
                 <button onClick={startMention} className={`${toolBtn} text-primary hover:text-primary`} title={t("toolMention")}><Icons.AtSign className="w-4 h-4" /></button>
                 <span className="ml-auto text-xs text-text-dim font-theme-mono select-none pr-1">Markdown</span>
+                <span className="w-px h-4 bg-border mx-1" aria-hidden />
+                <button
+                  onClick={() => setDescExpanded((v) => !v)}
+                  className={`${toolBtn} ${descExpanded ? "text-primary" : ""}`}
+                  title={descExpanded ? t("collapseEditor") : t("expandEditor")}
+                  aria-pressed={descExpanded}
+                >
+                  {descExpanded ? <Icons.Minimize2 className="w-4 h-4" /> : <Icons.Maximize2 className="w-4 h-4" />}
+                </button>
               </div>
-              <div className="relative">
+              <div className="relative flex-1 min-h-0">
                 <textarea
                   ref={textareaRef}
                   value={description}
@@ -217,7 +238,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
                   onClick={(e) => syncMention(e.currentTarget)}
                   onBlur={() => setTimeout(() => setMention(null), 150)}
                   placeholder={t("descriptionPlaceholder")}
-                  className="w-full min-h-[10rem] resize-y bg-input-bg border border-input-border rounded-b-theme px-3.5 py-3 text-sm text-text leading-relaxed outline-none focus:border-primary/50"
+                  className="w-full h-full resize-none bg-input-bg border border-input-border rounded-b-theme px-3.5 py-3 text-sm text-text leading-relaxed outline-none focus:border-primary/50"
                 />
                 {pickerOpen && (
                   <div className="absolute left-2 sm:w-80 bottom-2 bg-surface border border-border rounded-theme shadow-xl overflow-hidden z-10">
@@ -249,8 +270,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               </div>
             </div>
 
-            {/* Images */}
-            <div>
+            {/* Collapsible images group */}
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+            <div className={`min-h-0 overflow-hidden pt-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`}>
               <label className="block text-xs font-bold text-text-muted mb-1.5">
                 {t("fieldImages")} <span className="text-text-dim font-medium">· {t("imagesHint")}</span>
               </label>
@@ -282,8 +304,9 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               </div>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickFile} />
             </div>
+            </div>
 
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {error && <p className="text-sm text-danger pt-2">{error}</p>}
           </div>
 
           <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border shrink-0">

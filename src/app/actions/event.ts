@@ -436,6 +436,13 @@ export interface EventView {
   status: "unpublished" | "partial" | "full";
   sortOrder: number;
   updated: boolean;
+  /** When this viewer gained access (partial → grant time; full → publish time).
+   *  Drives the player log's "by acquisition time" ordering. */
+  acquiredAt?: string | null;
+  /** Host-only: last publish/update time, shown as the detail modal's "公开时间". */
+  updatedAt?: string;
+  /** Host-only: who currently knows a partial event (empty for full/unpublished). */
+  knowers?: { userId: number; nickname: string }[];
 }
 
 /** Host management list — every event (incl. unpublished) + who knows each. */
@@ -486,7 +493,7 @@ export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
     .orderBy(asc(storyEvents.sortOrder), asc(storyEvents.id));
 
   const myVis = await db
-    .select({ eventId: storyEventVisibility.eventId, viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated })
+    .select({ eventId: storyEventVisibility.eventId, viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated, createdAt: storyEventVisibility.createdAt })
     .from(storyEventVisibility)
     .where(eq(storyEventVisibility.userId, userId));
   const visMap = new Map(myVis.map((v) => [v.eventId, v]));
@@ -495,6 +502,9 @@ export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
   for (const e of evs) {
     const canView = isHost || e.status === "full" || (e.status === "partial" && visMap.has(e.id));
     if (!canView) continue;
+    // Acquisition time: a partial grant carries its own row timestamp; a full
+    // event has none, so fall back to its publish/update time.
+    const acquiredAt = visMap.get(e.id)?.createdAt ?? e.updatedAt;
     out.push({
       id: e.id,
       title: e.title,
@@ -504,7 +514,13 @@ export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
       status: e.status,
       sortOrder: e.sortOrder,
       updated: visMap.get(e.id)?.updated ?? false,
+      acquiredAt,
     });
+  }
+  // Player log orders by acquisition time (most recent first); host keeps the
+  // authored order so it mirrors the management panel.
+  if (!isHost) {
+    out.sort((a, b) => String(b.acquiredAt ?? "").localeCompare(String(a.acquiredAt ?? "")));
   }
   return out;
 }
@@ -530,9 +546,23 @@ export async function getEventForViewerAction(roomId: number, eventId: number): 
   }
   if (!visible) return null;
 
+  // Host gets the extra control-surface data the detail modal's footer needs:
+  // who currently knows a partial event, and when it was last published/updated.
+  let knowers: { userId: number; nickname: string }[] | undefined;
+  if (isHost && e.status === "partial") {
+    const rows = await db
+      .select({ userId: storyEventVisibility.userId, nickname: roomMembers.nickname })
+      .from(storyEventVisibility)
+      .leftJoin(roomMembers, and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, storyEventVisibility.userId)))
+      .where(eq(storyEventVisibility.eventId, eventId));
+    knowers = rows.map((r) => ({ userId: r.userId, nickname: r.nickname ?? "" }));
+  }
+
   return {
     id: e.id, title: e.title, description: e.description, timePayload: e.timePayload,
     images: parseEventImages(e.imagesJson), status: e.status, sortOrder: e.sortOrder, updated,
+    updatedAt: isHost ? e.updatedAt : undefined,
+    knowers,
   };
 }
 
