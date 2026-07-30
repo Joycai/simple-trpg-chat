@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 /**
  * Aether login-card hero — 黄铜铭板昼夜 · Brass Plate by Day, Broken Panel by Night.
  *
@@ -15,7 +19,10 @@
  * 3. Night plate (dark mode): the same nameplate, aged and torn open — jagged
  *    breach with a bent flap and a missing screw, revealing the machinery
  *    behind the panel: sagging wires (one dangling loose, sparking) and two
- *    nixie tubes glowing warm orange through the gap.
+ *    nixie tubes glowing warm orange through the gap. The tubes display the
+ *    current day of month (user-local), set after mount via useEffect — SSR
+ *    renders a fixed "42" so server/client timezone drift can never cause a
+ *    hydration mismatch; the swap on mount reads as the tubes re-striking.
  *
  * Both plate layers are always rendered; the day/night swap, positioning and
  * the nixie-flicker / spark animations live in src/themes/aether/theme.css
@@ -81,6 +88,12 @@ const BREACH =
   "L 146 44 L 152 28 Z";
 
 export function AetherLoginHero() {
+  // Day of month shown on the nixie tubes. "42" until mounted (see doc above).
+  const [day, setDay] = useState("42");
+  useEffect(() => {
+    setDay(String(new Date().getDate()).padStart(2, "0"));
+  }, []);
+
   return (
     <div className="aether-login-hero" aria-hidden="true">
       <span className="aether-hero-rule aether-hero-rule-left" />
@@ -202,9 +215,9 @@ export function AetherLoginHero() {
         <path d="M 150 42 C 184 66 240 68 280 56 C 300 50 316 52 326 44" fill="none" stroke="#2e6e78" strokeWidth="3.5" strokeLinecap="round" />
         <path d="M 150 42 C 184 66 240 68 280 56 C 300 50 316 52 326 44" fill="none" stroke="#5fd3da" strokeWidth="1" strokeLinecap="round" strokeOpacity="0.8" />
 
-        {/* nixie tubes peeking through the gap */}
-        <NixieTube x={196} y={18} digit="4" />
-        <NixieTube x={252} y={22} digit="2" dim />
+        {/* nixie tubes peeking through the gap — today's day of month */}
+        <NixieTube x={196} y={18} digit={day[0]} />
+        <NixieTube x={252} y={22} digit={day[1]} dim />
 
         {/* the plate itself, with the breach cut out (evenodd) */}
         <path d={`M 0 0 H 448 V 84 H 0 Z ${BREACH}`} fill="url(#aeNightBrass)" fillRule="evenodd" />
