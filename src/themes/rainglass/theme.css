@@ -204,59 +204,65 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — 水珠涟漪 · Drop & Impact Ripples (LIGHT baseline)
+   LOGIN — 雨窗昼夜 · Wet Glass by Day / Neon Frost by Night
+   Day (light, baseline): 打湿的透明玻璃 — 阴天天光、细雨划过窗外，
+   卡片是一块被雨打湿的清玻璃：低模糊、高透、白色水光，水珠挂在窗面。
+   Night (dark override, below): 毛玻璃后的霓虹街 — 页面铺霓虹灯斑与灯管,
+   卡片重霜化（大半径 backdrop-filter），灯光透过雾玻璃晕成光团，
+   凝露珠吸霓虹色。颜色一律走 --theme-* token（昼夜自动换色）；
+   昼夜差异只写结构：模糊半径 / 透明度 / 场景层 / 水珠形态。
    ===================================================================== */
 
 /* Hide the default Dice5 emblem — replaced by the Drop hero below */
 [data-theme="rainglass"] .default-login-icon { display: none; }
 
-/* Login card chrome — frosted glass + deep teal edge */
-[data-theme="rainglass"] .login-card {
-  border-color: rgba(8, 145, 178, 0.40) !important;
-  box-shadow:
-    0 0 22px rgba(8, 145, 178, 0.18),
-    0 18px 48px rgba(40, 55, 66, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
-  position: relative;
+/* --- DAY page scenery: overcast daylight + drizzle streaking past the window --- */
+[data-theme="rainglass"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(70% 55% at 50% -12%, rgba(255, 255, 255, 0.55), transparent 70%),
+    radial-gradient(50% 42% at 10% 34%, rgb(var(--theme-primary) / 0.10), transparent 70%),
+    radial-gradient(46% 40% at 92% 76%, rgb(var(--theme-accent) / 0.06), transparent 70%),
+    repeating-linear-gradient(100deg, transparent 0px, transparent 11px, rgb(var(--theme-primary) / 0.05) 11px, transparent 12px);
 }
+
+/* --- DAY card: rain-wet clear glass (light frost, airy, white water-sheen) --- */
+[data-theme="rainglass"] .login-card.theme-border {
+  background-color: rgb(var(--theme-surface) / 0.58) !important;
+  backdrop-filter: blur(6px) saturate(1.35);
+  border-color: rgb(var(--theme-primary) / 0.35) !important;
+  box-shadow:
+    0 0 22px rgb(var(--theme-primary) / 0.16),
+    0 18px 48px rgba(40, 55, 66, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.60) !important;
+  position: relative;
+  overflow: hidden; /* clip droplet layers & sheens to the rounded pane */
+}
+/* top water sheen where light catches the wet pane */
 [data-theme="rainglass"] .login-card::before {
   content: "";
   position: absolute;
   top: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(8, 145, 178, 0.85), transparent);
+  left: 0;
+  right: 0;
+  height: 46px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent);
   pointer-events: none;
 }
+/* diagonal daylight glare sweeping across the glass */
 [data-theme="rainglass"] .login-card::after {
   content: "";
   position: absolute;
-  inset: 8px;
+  inset: 0;
+  background: linear-gradient(115deg,
+    transparent 28%,
+    rgba(255, 255, 255, 0.15) 40%,
+    rgba(255, 255, 255, 0.03) 52%,
+    transparent 60%);
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65)),
-    linear-gradient(rgba(8, 145, 178, 0.65), rgba(8, 145, 178, 0.65));
-  background-repeat: no-repeat;
-  background-size:
-    6px 1px, 1px 6px,
-    6px 1px, 1px 6px,
-    6px 1px, 1px 6px,
-    6px 1px, 1px 6px;
-  background-position:
-    left top, left top,
-    right top, right top,
-    left bottom, left bottom,
-    right bottom, right bottom;
 }
 
-/* The Drop & Ripples hero — cyan-rimmed badge + flanking glass rules */
+/* The Drop & Ripples hero — token-driven; dark mode recolors itself */
 [data-theme="rainglass"] .rainglass-login-hero {
   display: flex;
   align-items: center;
@@ -269,10 +275,10 @@
   height: 1px;
 }
 [data-theme="rainglass"] .rainglass-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(8, 145, 178, 0.6));
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.6));
 }
 [data-theme="rainglass"] .rainglass-hero-rule-right {
-  background: linear-gradient(90deg, rgba(8, 145, 178, 0.6), transparent);
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.6), transparent);
 }
 [data-theme="rainglass"] .rainglass-hero-badge {
   position: relative;
@@ -282,20 +288,81 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 1px solid rgba(8, 145, 178, 0.55);
-  background: radial-gradient(circle, rgba(8, 145, 178, 0.14), transparent 70%);
+  border: 1px solid rgb(var(--theme-primary) / 0.55);
+  background: radial-gradient(circle, rgb(var(--theme-primary) / 0.14), transparent 70%);
   backdrop-filter: blur(3px) saturate(1.3);
   box-shadow:
-    0 0 18px rgba(8, 145, 178, 0.35),
-    inset 0 0 12px rgba(8, 145, 178, 0.18);
+    0 0 18px rgb(var(--theme-primary) / 0.40),
+    inset 0 0 12px rgb(var(--theme-primary) / 0.20);
   color: rgb(var(--theme-primary));
 }
 [data-theme="rainglass"] .rainglass-hero-badge-ring {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  border: 1px dashed rgba(8, 145, 178, 0.4);
+  border: 1px dashed rgb(var(--theme-primary) / 0.4);
   pointer-events: none;
+}
+
+/* --- Wet-glass droplet layers (day droplets / night condensation) ---
+   Two always-rendered SVG bands inside the hero; they position against the
+   card (its nearest positioned ancestor) and swap by mode in pure CSS,
+   the same mechanism as shrine's torii/bough hero. */
+.rg-hero-glass { display: none; }
+[data-theme="rainglass"] .rg-hero-glass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  z-index: 1;
+}
+[data-theme="rainglass"] .rg-hero-glass-day {
+  display: block;
+  color: rgb(var(--theme-primary));
+}
+[data-theme="rainglass"][data-mode="dark"] .rg-hero-glass-day { display: none; }
+[data-theme="rainglass"] .rg-hero-glass-night { display: none; }
+[data-theme="rainglass"][data-mode="dark"] .rg-hero-glass-night {
+  display: block;
+  color: rgb(var(--theme-primary));
+  filter: drop-shadow(0 0 3px rgb(var(--theme-primary) / 0.45));
+}
+[data-theme="rainglass"][data-mode="dark"] .rg-hero-glass-night .rg-accent {
+  color: rgb(var(--theme-accent));
+}
+
+/* a lone droplet sliding down the day glass */
+[data-theme="rainglass"] .rg-anim-slide {
+  animation: rainglass-drop-slide 9s ease-in 2s infinite;
+  transform-box: fill-box;
+}
+/* neon-lit drips streaking down the night frost */
+[data-theme="rainglass"] .rg-anim-drip {
+  animation: rainglass-drip-fall 5.6s cubic-bezier(0.4, 0, 0.85, 0.5) infinite;
+  transform-box: fill-box;
+}
+[data-theme="rainglass"] .rg-anim-drip-b {
+  animation-delay: 2.9s;
+}
+
+@keyframes rainglass-drop-slide {
+  0% { transform: translateY(0); opacity: 0; }
+  6% { opacity: 0.9; }
+  72% { opacity: 0.85; }
+  100% { transform: translateY(86px); opacity: 0; }
+}
+@keyframes rainglass-drip-fall {
+  0% { transform: translateY(0) scaleY(0.55); opacity: 0; }
+  8% { opacity: 0.95; }
+  78% { opacity: 0.75; }
+  100% { transform: translateY(98px) scaleY(1); opacity: 0; }
+}
+@keyframes rainglass-neon-breathe {
+  0%, 100% { opacity: 0.72; }
+  45% { opacity: 1; }
+  70% { opacity: 0.86; }
 }
 
 /* ============ DARK — neon rainy night (the hero) ============ */
@@ -457,51 +524,73 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — 水珠涟漪 · DARK override (electric cyan over teal-black sky)
+   LOGIN — DARK override: 毛玻璃后的霓虹街
+   颜色随 token 自动换（hero/badge/rules 无需重写）；这里只写结构差异：
+   窗外场景（霓虹灯斑 + 灯管 + 湿街倒影）、重霜卡片、凝露雾圈。
    ===================================================================== */
 
-[data-theme="rainglass"][data-mode="dark"] .login-card {
-  border-color: rgba(34, 211, 238, 0.40) !important;
-  box-shadow:
-    0 0 28px rgba(34, 211, 238, 0.22),
-    0 0 60px rgba(34, 211, 238, 0.08),
-    0 32px 80px rgba(2, 8, 12, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-}
-[data-theme="rainglass"][data-mode="dark"] .login-card::before {
-  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.85), transparent);
-}
-[data-theme="rainglass"][data-mode="dark"] .login-card::after {
+/* Neon street outside the window: sign glows + two vertical neon tubes */
+[data-theme="rainglass"][data-mode="dark"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
   background-image:
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7)),
-    linear-gradient(rgba(34, 211, 238, 0.7), rgba(34, 211, 238, 0.7));
+    radial-gradient(70% 60% at 50% 118%, rgba(124, 92, 224, 0.10), transparent 70%);
 }
-[data-theme="rainglass"][data-mode="dark"] .rainglass-login-hero {
-  color: rgb(var(--theme-primary));
+[data-theme="rainglass"][data-mode="dark"] .login-page-bg::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  pointer-events: none;
+  /* Sign glows anchor to the viewport CENTER (calc(50% ± Npx)) so they always
+     overlap the centered card's edges and visibly bloom through its frost,
+     regardless of viewport width. The card is max-w-md (448px → half 224px). */
+  background-image:
+    radial-gradient(210px 165px at calc(50% - 290px) 22%, rgb(var(--theme-accent) / 0.38), transparent 70%),
+    radial-gradient(260px 200px at calc(50% + 300px) 16%, rgb(var(--theme-primary) / 0.34), transparent 70%),
+    radial-gradient(160px 130px at calc(50% + 270px) 74%, rgba(251, 191, 36, 0.22), transparent 70%),
+    radial-gradient(200px 160px at calc(50% - 280px) 72%, rgba(167, 139, 250, 0.26), transparent 70%),
+    linear-gradient(180deg, rgb(var(--theme-accent) / 0.70), rgb(var(--theme-accent) / 0.04)),
+    linear-gradient(180deg, rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.03));
+  background-repeat: no-repeat;
+  background-size: auto, auto, auto, auto, 4px 220px, 3px 170px;
+  background-position: 0 0, 0 0, 0 0, 0 0, calc(50% - 360px) 12%, calc(50% + 350px) 6%;
+  animation: rainglass-neon-breathe 7s ease-in-out infinite;
 }
-[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.6));
+/* wet-street reflection streaks along the bottom */
+[data-theme="rainglass"][data-mode="dark"] .login-page-bg::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36%;
+  pointer-events: none;
+  background-image:
+    linear-gradient(0deg, rgb(var(--theme-accent) / 0.10), transparent 65%),
+    repeating-linear-gradient(90deg, transparent 0px, transparent 46px, rgb(var(--theme-primary) / 0.05) 46px, transparent 49px);
+  animation: rainglass-neon-breathe 9s ease-in-out infinite reverse;
 }
-[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-rule-right {
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.6), transparent);
-}
-[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-badge {
-  border-color: rgba(34, 211, 238, 0.55);
-  background: radial-gradient(circle, rgba(34, 211, 238, 0.16), transparent 70%);
-  backdrop-filter: blur(4px) saturate(1.5);
+
+/* Card: heavy frost — the neon outside blooms through the fogged pane */
+[data-theme="rainglass"][data-mode="dark"] .login-card.theme-border {
+  background-color: rgb(var(--theme-surface) / 0.45) !important;
+  backdrop-filter: blur(22px) saturate(1.65);
+  border-color: rgb(var(--theme-primary) / 0.45) !important;
   box-shadow:
-    0 0 18px rgba(34, 211, 238, 0.50),
-    0 0 32px rgba(34, 211, 238, 0.15),
-    inset 0 0 12px rgba(34, 211, 238, 0.22);
+    0 0 26px rgb(var(--theme-primary) / 0.25),
+    0 0 64px rgb(var(--theme-accent) / 0.10),
+    0 32px 80px rgba(2, 8, 12, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }
-[data-theme="rainglass"][data-mode="dark"] .rainglass-hero-badge-ring {
-  border-color: rgba(34, 211, 238, 0.4);
+/* neon reflection caught on the pane's top edge */
+[data-theme="rainglass"][data-mode="dark"] .login-card::before {
+  height: 52px;
+  background: linear-gradient(180deg, rgb(var(--theme-primary) / 0.16), transparent);
+}
+/* condensation fog creeping in from the rim + a magenta sign tint at the corner */
+[data-theme="rainglass"][data-mode="dark"] .login-card::after {
+  background:
+    radial-gradient(40% 30% at 100% 0%, rgb(var(--theme-accent) / 0.10), transparent 70%),
+    radial-gradient(130% 105% at 50% 50%, transparent 58%, rgb(var(--theme-surface) / 0.50) 100%);
 }
 
 /* ============================================================
