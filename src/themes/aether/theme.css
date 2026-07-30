@@ -206,21 +206,44 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — 宇宙罗盘 · Cosmic Compass Rose (DARK)
+   LOGIN — 黄铜铭板昼夜 · Brass Plate (day) / Broken Panel (night)
+   Night (dark, baseline): 破损的铜铭板 — 卡片顶部横着一块年久失修的黄铜板，
+   锯齿破口翻着卷边、缺了一颗螺丝，露出板后下垂的电线与两支橙光辉光管
+   （辉光管电离闪烁 + 断线偶发火花）。
+   Day (light override, below): 同一块铭板完好如新 — 抛光拉丝黄铜、
+   雕刻双线边框、四颗开槽螺丝、中央蚀刻罗盘菱纹。
+   颜色走 --theme-* token（铭板 SVG 内的金属/辉光色是实体材质色，昼夜
+   各自一套，由 CSS 按 data-mode 整层切换）。机制同 shrine / rainglass。
    ===================================================================== */
 
 /* Hide the default Dice5 emblem — replaced by the Compass Rose hero below */
 [data-theme="aether"] .default-login-icon { display: none; }
 
-/* Login card chrome — brass corner nails + top filigree line */
-[data-theme="aether"] .login-card {
-  border-color: rgba(201, 161, 74, 0.50) !important;
+/* NIGHT page scenery: a faint warm haze where tube-light leaks upward */
+[data-theme="aether"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(42% 30% at 50% 26%, rgba(255, 156, 58, 0.07), transparent 70%),
+    radial-gradient(62% 48% at 8% -6%, rgba(201, 161, 74, 0.22), transparent 68%),
+    radial-gradient(58% 42% at 100% 100%, rgba(95, 211, 218, 0.14), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, 4px 4px;
+}
+
+/* Login card chrome — brass corner nails + room for the plate crown.
+   Night needs extra headroom: the torn plate is taller and a loose wire
+   dangles below its bottom edge. */
+[data-theme="aether"] .login-card.theme-border {
+  border-color: rgb(var(--theme-primary) / 0.50) !important;
   box-shadow:
-    0 0 28px rgba(201, 161, 74, 0.22),
-    0 0 60px rgba(95, 211, 218, 0.08),
+    0 0 28px rgb(var(--theme-primary) / 0.22),
+    0 0 60px rgb(var(--theme-accent) / 0.08),
     0 32px 80px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
   position: relative;
+  overflow: hidden; /* clip the plate band to the faceted corners */
+  padding-top: 7.5rem;
 }
 [data-theme="aether"] .login-card::before {
   content: "";
@@ -229,7 +252,7 @@
   left: 32px;
   right: 32px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(201, 161, 74, 0.85), rgba(95, 211, 218, 0.50), rgba(201, 161, 74, 0.85), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.85), rgb(var(--theme-accent) / 0.50), rgb(var(--theme-primary) / 0.85), transparent);
   pointer-events: none;
 }
 [data-theme="aether"] .login-card::after {
@@ -238,14 +261,14 @@
   inset: 8px;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65)),
-    linear-gradient(rgba(201, 161, 74, 0.65), rgba(201, 161, 74, 0.65));
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65)),
+    linear-gradient(rgb(var(--theme-primary) / 0.65), rgb(var(--theme-primary) / 0.65));
   background-repeat: no-repeat;
   background-size:
     6px 1px, 1px 6px,
@@ -259,7 +282,7 @@
     right bottom, right bottom;
 }
 
-/* The Cosmic Compass hero — brass-rimmed badge + flanking gold rules */
+/* The Cosmic Compass hero — token-driven; light mode recolors itself */
 [data-theme="aether"] .aether-login-hero {
   display: flex;
   align-items: center;
@@ -272,10 +295,10 @@
   height: 1px;
 }
 [data-theme="aether"] .aether-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(201, 161, 74, 0.6));
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.6));
 }
 [data-theme="aether"] .aether-hero-rule-right {
-  background: linear-gradient(90deg, rgba(201, 161, 74, 0.6), transparent);
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.6), transparent);
 }
 [data-theme="aether"] .aether-hero-badge {
   position: relative;
@@ -285,20 +308,65 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 1px solid rgba(201, 161, 74, 0.55);
-  background: radial-gradient(circle, rgba(201, 161, 74, 0.14), transparent 70%);
+  border: 1px solid rgb(var(--theme-primary) / 0.55);
+  background: radial-gradient(circle, rgb(var(--theme-primary) / 0.14), transparent 70%);
   box-shadow:
-    0 0 18px rgba(201, 161, 74, 0.45),
-    0 0 32px rgba(95, 211, 218, 0.18),
-    inset 0 0 12px rgba(201, 161, 74, 0.22);
+    0 0 18px rgb(var(--theme-primary) / 0.45),
+    0 0 32px rgb(var(--theme-accent) / 0.18),
+    inset 0 0 12px rgb(var(--theme-primary) / 0.22);
   color: rgb(var(--theme-primary));
 }
 [data-theme="aether"] .aether-hero-badge-ring {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  border: 1px dashed rgba(201, 161, 74, 0.4);
+  border: 1px dashed rgb(var(--theme-primary) / 0.4);
   pointer-events: none;
+}
+
+/* --- Brass-plate crown layers (day intact / night broken) ---
+   Absolutely positioned against the card, always both rendered,
+   swapped by mode in pure CSS — shrine's torii/bough mechanism. */
+.ae-hero-plate { display: none; }
+[data-theme="aether"] .ae-hero-plate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  z-index: 1;
+}
+/* dark is the baseline → the broken panel shows by default */
+[data-theme="aether"] .ae-hero-plate-night { display: block; }
+[data-theme="aether"][data-mode="light"] .ae-hero-plate-night { display: none; }
+[data-theme="aether"][data-mode="light"] .ae-hero-plate-day { display: block; }
+
+/* nixie tubes ionize with a slow uneven flicker */
+[data-theme="aether"] .ae-nixie {
+  animation: aether-nixie-flicker 4.2s ease-in-out infinite;
+}
+/* the frayed wire throws a spark every few seconds */
+[data-theme="aether"] .ae-spark {
+  opacity: 0;
+  animation: aether-spark 3.8s linear infinite;
+}
+
+@keyframes aether-nixie-flicker {
+  0%, 100% { opacity: 0.92; }
+  8%  { opacity: 0.72; }
+  12% { opacity: 0.96; }
+  38% { opacity: 0.85; }
+  55% { opacity: 1; }
+  70% { opacity: 0.78; }
+  82% { opacity: 0.94; }
+}
+@keyframes aether-spark {
+  0%, 88% { opacity: 0; }
+  90% { opacity: 1; }
+  92% { opacity: 0; }
+  94% { opacity: 0.85; }
+  96%, 100% { opacity: 0; }
 }
 
 /* =====================================================================
@@ -458,50 +526,35 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — 宇宙罗盘 · LIGHT override (ivory + polished brass + verdigris)
+   LOGIN — DAY override: 完好的黄铜铭板（颜色随 token，hero 无需重写）
+   卡片本体也转为铜板材质：铜色底 + 拉丝纹 + 顶部抛光反光，配合日间
+   铭板（ae-hero-plate-day, 64px 高 + 边缘线）收窄顶部留白。
    ===================================================================== */
 
-[data-theme="aether"][data-mode="light"] .login-card {
-  border-color: rgba(176, 125, 30, 0.55) !important;
-  box-shadow:
-    0 0 22px rgba(176, 125, 30, 0.20),
-    0 0 40px rgba(46, 133, 119, 0.10),
-    0 18px 48px rgba(70, 55, 20, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
-}
-[data-theme="aether"][data-mode="light"] .login-card::before {
-  background: linear-gradient(90deg, transparent, rgba(176, 125, 30, 0.85), rgba(46, 133, 119, 0.50), rgba(176, 125, 30, 0.85), transparent);
-}
-[data-theme="aether"][data-mode="light"] .login-card::after {
+/* DAY page scenery: warm workshop daylight, no tube haze */
+[data-theme="aether"][data-mode="light"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
   background-image:
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65)),
-    linear-gradient(rgba(176, 125, 30, 0.65), rgba(176, 125, 30, 0.65));
+    radial-gradient(70% 55% at 50% -12%, rgba(255, 250, 235, 0.75), transparent 70%),
+    radial-gradient(50% 40% at 8% 40%, rgb(var(--theme-primary) / 0.10), transparent 70%),
+    radial-gradient(46% 40% at 94% 80%, rgb(var(--theme-accent) / 0.08), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, 8px 8px;
 }
-[data-theme="aether"][data-mode="light"] .aether-login-hero {
-  color: rgb(var(--theme-primary));
-}
-[data-theme="aether"][data-mode="light"] .aether-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(176, 125, 30, 0.6));
-}
-[data-theme="aether"][data-mode="light"] .aether-hero-rule-right {
-  background: linear-gradient(90deg, rgba(176, 125, 30, 0.6), transparent);
-}
-[data-theme="aether"][data-mode="light"] .aether-hero-badge {
-  border-color: rgba(176, 125, 30, 0.55);
-  background: radial-gradient(circle, rgba(176, 125, 30, 0.12), transparent 70%);
+
+/* Card as one polished brass panel: brass ground + brushed strokes + top sheen */
+[data-theme="aether"][data-mode="light"] .login-card.theme-border {
+  background-color: rgb(var(--theme-header-bg)) !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 246, 220, 0.55), rgba(176, 125, 30, 0.08) 55%, rgba(120, 84, 20, 0.12)),
+    repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(120, 84, 20, 0.04) 3px, transparent 4px);
   box-shadow:
-    0 0 14px rgba(176, 125, 30, 0.30),
-    0 0 24px rgba(46, 133, 119, 0.12),
-    inset 0 0 10px rgba(176, 125, 30, 0.18);
-}
-[data-theme="aether"][data-mode="light"] .aether-hero-badge-ring {
-  border-color: rgba(176, 125, 30, 0.4);
+    0 0 22px rgb(var(--theme-primary) / 0.20),
+    0 0 40px rgb(var(--theme-accent) / 0.10),
+    0 18px 48px rgba(70, 55, 20, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+  padding-top: 6rem;
 }
 
 /* ============================================================
