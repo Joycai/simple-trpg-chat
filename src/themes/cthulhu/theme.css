@@ -193,20 +193,62 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — Innsmouth Port 通行登记
+   LOGIN — 雾港昼夜 · Misty Coast (day) / Lighthouse in Fog (night)
+   Night (dark, baseline): 雾中灯塔 — 卡片顶部是雾夜的因思茅斯港：条纹
+   灯塔立在礁石上，铜色光束在雾中缓慢扫摆（灯室电火闪烁），雾墙分远近
+   两层漂移，月亮悬在薄雾后，远处红色港灯眨眼，水下有磷光的东西。
+   Day (light override, below): 迷雾海岸 — 同一片海岸的褪色蚀刻版画：
+   雾后白日、远岬、魔鬼礁的锯齿、孤帆、海鸥与两层流雾。
+   颜色走 --theme-* token；场景 SVG 内的实体色（礁石/塔身/月光）为材质
+   色，由 CSS 按 data-mode 整层切换。机制同 shrine / rainglass / aether。
    ===================================================================== */
 
 /* Hide the default Dice5 emblem — replaced by the Elder Sign hero below */
 [data-theme="cthulhu"] .default-login-icon { display: none; }
 
-/* Login card chrome — brass corner nails + top gold rule */
-[data-theme="cthulhu"] .login-card {
-  border-color: rgba(196, 160, 90, 0.45) !important;
+/* NIGHT page scenery: abyss fog + a moon-pale wash; two fog layers drift */
+[data-theme="cthulhu"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(36% 26% at 24% 8%, rgba(221, 226, 206, 0.06), transparent 70%),
+    radial-gradient(50% 40% at 12% -2%, rgb(var(--theme-primary) / 0.14), transparent 70%),
+    radial-gradient(80% 50% at 50% 115%, rgb(var(--theme-ai) / 0.09), transparent 70%);
+}
+[data-theme="cthulhu"] .login-page-bg::before,
+[data-theme="cthulhu"] .login-page-bg::after {
+  content: "";
+  position: absolute;
+  left: -20%;
+  width: 140%;
+  pointer-events: none;
+}
+[data-theme="cthulhu"] .login-page-bg::before {
+  top: 18%;
+  height: 22%;
+  background:
+    radial-gradient(50% 100% at 30% 50%, rgba(221, 226, 206, 0.05), transparent 70%),
+    radial-gradient(40% 90% at 75% 40%, rgba(221, 226, 206, 0.04), transparent 70%);
+  animation: cthulhu-fog-drift 34s ease-in-out infinite alternate;
+}
+[data-theme="cthulhu"] .login-page-bg::after {
+  bottom: 6%;
+  height: 26%;
+  background:
+    radial-gradient(45% 100% at 60% 55%, rgba(221, 226, 206, 0.06), transparent 70%),
+    radial-gradient(38% 85% at 18% 45%, rgba(221, 226, 206, 0.04), transparent 70%);
+  animation: cthulhu-fog-drift 26s ease-in-out infinite alternate-reverse;
+}
+
+/* Login card chrome — brass corner nails + top gold rule + scene headroom */
+[data-theme="cthulhu"] .login-card.theme-border {
+  border-color: rgb(var(--theme-primary) / 0.45) !important;
   box-shadow:
-    0 0 28px rgba(196, 160, 90, 0.22),
+    0 0 28px rgb(var(--theme-primary) / 0.22),
     0 32px 80px rgba(0, 0, 0, 0.7),
     inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
   position: relative;
+  overflow: hidden; /* clip the scene band to the driftwood corners */
+  padding-top: 7.5rem;
 }
 /* top gold filigree line */
 [data-theme="cthulhu"] .login-card::before {
@@ -216,8 +258,9 @@
   left: 32px;
   right: 32px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(196, 160, 90, 0.85), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.85), transparent);
   pointer-events: none;
+  z-index: 2; /* stays legible above the scene band */
 }
 /* four corner brass nails */
 [data-theme="cthulhu"] .login-card::after {
@@ -225,15 +268,16 @@
   position: absolute;
   inset: 8px;
   pointer-events: none;
+  z-index: 2;
   background-image:
-    /* tl */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    /* tr */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    /* bl */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    /* br */ linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6)),
-    linear-gradient(rgba(196, 160, 90, 0.6), rgba(196, 160, 90, 0.6));
+    /* tl */ linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    /* tr */ linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    /* bl */ linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    /* br */ linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6));
   background-repeat: no-repeat;
   background-size:
     6px 1px, 1px 6px,  /* tl */
@@ -247,7 +291,7 @@
     right bottom, right bottom;     /* br */
 }
 
-/* The Elder Sign hero — brass-rimmed badge + flanking gold rules */
+/* The Elder Sign hero — token-driven; light mode recolors itself */
 [data-theme="cthulhu"] .cthulhu-login-hero {
   display: flex;
   align-items: center;
@@ -260,10 +304,10 @@
   height: 1px;
 }
 [data-theme="cthulhu"] .cthulhu-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(196, 160, 90, 0.6));
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.6));
 }
 [data-theme="cthulhu"] .cthulhu-hero-rule-right {
-  background: linear-gradient(90deg, rgba(196, 160, 90, 0.6), transparent);
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.6), transparent);
 }
 [data-theme="cthulhu"] .cthulhu-hero-badge {
   position: relative;
@@ -273,19 +317,86 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 1px solid rgba(196, 160, 90, 0.55);
-  background: radial-gradient(circle, rgba(196, 160, 90, 0.14), transparent 70%);
+  border: 1px solid rgb(var(--theme-primary) / 0.55);
+  background: radial-gradient(circle, rgb(var(--theme-primary) / 0.14), transparent 70%);
   box-shadow:
-    0 0 18px rgba(196, 160, 90, 0.45),
-    inset 0 0 12px rgba(196, 160, 90, 0.22);
+    0 0 18px rgb(var(--theme-primary) / 0.45),
+    inset 0 0 12px rgb(var(--theme-primary) / 0.22);
   color: rgb(var(--theme-primary));
 }
 [data-theme="cthulhu"] .cthulhu-hero-badge-ring {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  border: 1px dashed rgba(196, 160, 90, 0.4);
+  border: 1px dashed rgb(var(--theme-primary) / 0.4);
   pointer-events: none;
+}
+
+/* --- Coast / lighthouse scene bands (day etching / night lighthouse) ---
+   Absolutely positioned against the card, always both rendered,
+   swapped by mode in pure CSS — shrine's torii/bough mechanism. */
+.cth-hero-scene { display: none; }
+[data-theme="cthulhu"] .cth-hero-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  z-index: 1;
+}
+/* dark is the baseline → the lighthouse shows by default */
+[data-theme="cthulhu"] .cth-hero-light { display: block; }
+[data-theme="cthulhu"][data-mode="light"] .cth-hero-light { display: none; }
+[data-theme="cthulhu"][data-mode="light"] .cth-hero-coast { display: block; }
+
+/* fog banks drift slowly; far and near layers move against each other */
+[data-theme="cthulhu"] .cth-fog-far {
+  animation: cthulhu-fog-slide 19s ease-in-out infinite alternate;
+}
+[data-theme="cthulhu"] .cth-fog-near {
+  animation: cthulhu-fog-slide 24s ease-in-out infinite alternate-reverse;
+}
+/* the beam sweeps around its lantern apex (right edge of its own bbox) */
+[data-theme="cthulhu"] .cth-beam {
+  transform-box: fill-box;
+  transform-origin: right center;
+  animation: cthulhu-beam-sweep 9s ease-in-out infinite alternate;
+}
+/* arc-lamp flicker in the lantern room */
+[data-theme="cthulhu"] .cth-lamp {
+  animation: cthulhu-lamp-flicker 4.6s ease-in-out infinite;
+}
+/* the red harbor light blinks briefly every few seconds */
+[data-theme="cthulhu"] .cth-harbor-light {
+  opacity: 0.15;
+  animation: cthulhu-harbor-blink 5.2s linear infinite;
+}
+
+@keyframes cthulhu-fog-drift {
+  0%   { transform: translateX(-2.5%); }
+  100% { transform: translateX(2.5%); }
+}
+@keyframes cthulhu-fog-slide {
+  0%   { transform: translateX(-9px); }
+  100% { transform: translateX(9px); }
+}
+@keyframes cthulhu-beam-sweep {
+  0%   { transform: rotate(-8deg); }
+  100% { transform: rotate(8deg); }
+}
+@keyframes cthulhu-lamp-flicker {
+  0%, 100% { opacity: 0.9; }
+  12% { opacity: 0.7; }
+  18% { opacity: 0.95; }
+  47% { opacity: 0.82; }
+  63% { opacity: 1; }
+  78% { opacity: 0.75; }
+}
+@keyframes cthulhu-harbor-blink {
+  0%, 90% { opacity: 0.15; }
+  92%, 96% { opacity: 1; }
+  98%, 100% { opacity: 0.15; }
 }
 
 /* =====================================================================
@@ -417,46 +528,38 @@
   text-shadow: none;
 }
 
-/* Light-mode login chrome — pale brass + faded archive */
-[data-theme="cthulhu"][data-mode="light"] .login-card {
-  border-color: rgba(125, 94, 26, 0.45) !important;
+/* =====================================================================
+   LOGIN — DAY override: 迷雾海岸（颜色随 token，hero 无需重写）
+   页面变成褪色的白雾海天；卡片阴影转日光；场景带换成海岸蚀刻版画
+   （cth-hero-coast, 110px 高），顶部留白相应收窄。
+   ===================================================================== */
+
+/* DAY page scenery: white sea-fog over a paper sky; the same layers drift */
+[data-theme="cthulhu"][data-mode="light"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(70% 55% at 50% -12%, rgba(250, 245, 226, 0.85), transparent 70%),
+    radial-gradient(50% 40% at 14% 36%, rgb(var(--theme-primary) / 0.08), transparent 70%),
+    radial-gradient(46% 38% at 90% 78%, rgb(var(--theme-accent) / 0.06), transparent 70%);
+}
+[data-theme="cthulhu"][data-mode="light"] .login-page-bg::before {
+  background:
+    radial-gradient(50% 100% at 30% 50%, rgba(250, 245, 226, 0.55), transparent 70%),
+    radial-gradient(40% 90% at 75% 40%, rgba(250, 245, 226, 0.40), transparent 70%);
+}
+[data-theme="cthulhu"][data-mode="light"] .login-page-bg::after {
+  background:
+    radial-gradient(45% 100% at 60% 55%, rgba(250, 245, 226, 0.50), transparent 70%),
+    radial-gradient(38% 85% at 18% 45%, rgba(250, 245, 226, 0.35), transparent 70%);
+}
+
+/* Card under daylight: softer archive shadow, shorter coast band above */
+[data-theme="cthulhu"][data-mode="light"] .login-card.theme-border {
   box-shadow:
-    0 0 22px rgba(125, 94, 26, 0.18),
+    0 0 22px rgb(var(--theme-primary) / 0.18),
     0 18px 48px rgba(80, 60, 30, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-}
-[data-theme="cthulhu"][data-mode="light"] .login-card::before {
-  background: linear-gradient(90deg, transparent, rgba(125, 94, 26, 0.7), transparent);
-}
-[data-theme="cthulhu"][data-mode="light"] .login-card::after {
-  background-image:
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55)),
-    linear-gradient(rgba(125, 94, 26, 0.55), rgba(125, 94, 26, 0.55));
-}
-[data-theme="cthulhu"][data-mode="light"] .cthulhu-login-hero {
-  color: rgb(var(--theme-primary));
-}
-[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(125, 94, 26, 0.6));
-}
-[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-rule-right {
-  background: linear-gradient(90deg, rgba(125, 94, 26, 0.6), transparent);
-}
-[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-badge {
-  border-color: rgba(125, 94, 26, 0.55);
-  background: radial-gradient(circle, rgba(125, 94, 26, 0.12), transparent 70%);
-  box-shadow:
-    0 0 14px rgba(125, 94, 26, 0.30),
-    inset 0 0 10px rgba(125, 94, 26, 0.18);
-}
-[data-theme="cthulhu"][data-mode="light"] .cthulhu-hero-badge-ring {
-  border-color: rgba(125, 94, 26, 0.4);
+  padding-top: 6.5rem;
 }
 
 /* ============================================================
