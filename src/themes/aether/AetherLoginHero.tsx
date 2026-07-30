@@ -91,6 +91,9 @@ export function AetherLoginHero() {
   // Day of month shown on the nixie tubes. "42" until mounted (see doc above).
   const [day, setDay] = useState("42");
   useEffect(() => {
+    // Mount-time sync with an external system (the clock) — same pattern and
+    // rationale as ThemeProvider's localStorage read.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDay(String(new Date().getDate()).padStart(2, "0"));
   }, []);
 
