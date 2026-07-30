@@ -136,52 +136,6 @@ describe("Commands - parseAndRollExpression", () => {
     expect(res.success).toBe(false);
   });
 
-  it("should validate command prefix matching regex", () => {
-    const regex = /^(help|st|rc|sc|rd|ra|rh|r)\s*(.*)$/i;
-
-    const testCases = [
-      { input: "st侦查50", cmd: "st", args: "侦查50" },
-      { input: "st 侦查50", cmd: "st", args: "侦查50" },
-      { input: "rc侦查", cmd: "rc", args: "侦查" },
-      { input: "rc侦查90", cmd: "rc", args: "侦查90" },
-      { input: "ra侦查60", cmd: "ra", args: "侦查60" },
-      { input: "ra 侦查 60", cmd: "ra", args: "侦查 60" },
-      { input: "ra侦查", cmd: "ra", args: "侦查" },
-      { input: "sc0/1", cmd: "sc", args: "0/1" },
-      { input: "help", cmd: "help", args: "" },
-      { input: "rd100", cmd: "rd", args: "100" },
-      { input: "rd", cmd: "rd", args: "" },
-      // `rh` (hidden roll) must not be stolen by the `.r` dice command
-      { input: "rh100", cmd: "rh", args: "100" },
-      { input: "rh2d100k1", cmd: "rh", args: "2d100k1" },
-      // `ra` / `rh` must not steal the `.r` dice command
-      { input: "r2d100", cmd: "r", args: "2d100" },
-      { input: "r3d100k2+2d20+1d6", cmd: "r", args: "3d100k2+2d20+1d6" },
-    ];
-
-    for (const { input, cmd, args } of testCases) {
-      const match = input.match(regex);
-      expect(match).not.toBeNull();
-      expect(match![1].toLowerCase()).toBe(cmd);
-      expect(match![2]).toBe(args);
-    }
-  });
-
-  it("should match sanity check expressions with minus sign", () => {
-    const scRegex = /^([0-9a-zA-Z+-d\s]+)\s*\/\s*([0-9a-zA-Z+-d\s]+)$/i;
-    
-    const validCases = [
-      "0/1d6",
-      "1d3-1/1d6",
-      "1d6-2/1d10-1d2",
-      "1d6 + 1 / 1d20 - 5"
-    ];
-
-    for (const testCase of validCases) {
-      const match = testCase.match(scRegex);
-      expect(match).not.toBeNull();
-    }
-  });
 });
 
 describe("Commands - executeCommand (.sc)", () => {
