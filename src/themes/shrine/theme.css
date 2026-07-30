@@ -442,27 +442,37 @@
   border-right: 1px solid rgb(var(--theme-border));
 }
 
-/* Day — torii lintel crowning the card. The kasagi overhangs both pillars
-   (left/right negative) and crests just above the top edge, so the card itself
-   becomes the gate. SVG height comes from the 480×74 viewBox aspect ratio. */
+/* Day — torii lintel crowning the card. The kasagi overhangs both pillars by an
+   equal 16px and crests just above the top edge, so the card itself becomes the
+   gate. SVG height comes from the 480×74 viewBox aspect ratio.
+
+   Overhang MUST be `left` + `width`, never `left` + `right`. ShrineLoginHero's
+   <svg> carries no width/height attributes, so browsers disagree: Chrome sizes
+   it from left/right, but engines that resolve the absent width to a definite
+   100% see left/width/right as over-constrained and drop `right` — shifting the
+   whole lintel 16px left, overhanging one pillar and tucked inside the other.
+   Pinning width (and letting height follow the viewBox) removes the ambiguity. */
 [data-theme="shrine"] .shrine-hero-day {
   position: absolute;
   top: -30px;
   left: -16px;
-  right: -16px;
+  width: calc(100% + 32px);
+  height: auto;
   filter: drop-shadow(0 3px 4px rgba(60, 36, 14, 0.28));
 }
 [data-theme="shrine"][data-mode="dark"] .shrine-hero-day { display: none; }
 
 /* Night — a withered bough crowns the top with a stone lantern hanging at each
-   end. Mirrors the day lintel's placement; height from the 480×96 viewBox. */
+   end. Mirrors the day lintel's placement, `left` + `width` for the same reason;
+   height from the 480×96 viewBox. */
 [data-theme="shrine"] .shrine-hero-night { display: none; }
 [data-theme="shrine"][data-mode="dark"] .shrine-hero-night {
   display: block;
   position: absolute;
   top: -24px;
   left: -10px;
-  right: -10px;
+  width: calc(100% + 20px);
+  height: auto;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
 }
 .shrine-hero-fire {
