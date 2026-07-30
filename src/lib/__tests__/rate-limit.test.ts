@@ -6,35 +6,22 @@ describe("Login Rate Limiting", () => {
     loginLimitMap.clear();
   });
 
-  it("should record failures and lock key after threshold", () => {
-    const key = "user:testuser";
-
+  it.each([
+    ["user:testuser", 5],
+    ["ip:127.0.0.1", 10],
+  ])("should record failures and lock key after threshold (key=%s, limit=%i)", (key, limit) => {
     // Not locked initially
-    expect(isLocked(key, 5)).toBe(false);
+    expect(isLocked(key, limit)).toBe(false);
 
-    // Record 4 failures
-    for (let i = 0; i < 4; i++) {
+    // Record limit-1 failures
+    for (let i = 0; i < limit - 1; i++) {
       recordFailure(key);
     }
-    expect(isLocked(key, 5)).toBe(false);
+    expect(isLocked(key, limit)).toBe(false);
 
-    // 5th failure should lock the account
+    // Final failure should lock the key
     recordFailure(key);
-    expect(isLocked(key, 5)).toBe(true);
-  });
-
-  it("should lock IP after different threshold", () => {
-    const key = "ip:127.0.0.1";
-
-    expect(isLocked(key, 10)).toBe(false);
-
-    for (let i = 0; i < 9; i++) {
-      recordFailure(key);
-    }
-    expect(isLocked(key, 10)).toBe(false);
-
-    recordFailure(key);
-    expect(isLocked(key, 10)).toBe(true);
+    expect(isLocked(key, limit)).toBe(true);
   });
 
   it("should clear attempts when clearAttempts is called", () => {
