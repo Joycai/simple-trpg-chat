@@ -224,20 +224,41 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — 盘剑龙印 · Adventurer's Dragon Seal (DARK)
+   LOGIN — 书房昼夜 · Open Manuscript (day) / Oil Lamp & Dark Ink (night)
+   Night (dark, baseline): 油灯与深色墨水 — 烛影书房：黄铜油灯的火焰在
+   玻璃灯罩里摇曳，暖光池铺在摊开的手稿上；字迹换成深色新墨并带一团
+   墨渍，羽毛笔插在墨水瓶里，墨面映着灯光的微光，尘埃在灯光里浮动。
+   Day (light override, below): 摊开的手稿 — 日光书桌：双页手稿摊开，
+   褪色铁胆墨字迹、红色首字母、藏宝图小抄，羽毛笔横躺在右页上轻轻
+   起伏，笔尖拖着一线新墨。
+   颜色走 --theme-* token；场景 SVG 内的实体材质色（纸页/羽毛/灯铜）
+   昼夜各一套，由 CSS 按 data-mode 整层切换。机制同其余主题。
    ===================================================================== */
 
 /* Hide the default Dice5 emblem — replaced by the Dragon-Sword hero below */
 [data-theme="parchment"] .default-login-icon { display: none; }
 
-/* Login card chrome — brass corner nails + top gold filigree line */
-[data-theme="parchment"] .login-card {
-  border-color: rgba(202, 161, 90, 0.45) !important;
+/* NIGHT page scenery: dark leather desk, lamp warmth, deep vignette */
+[data-theme="parchment"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(46% 34% at 60% 8%, rgba(255, 156, 58, 0.10), transparent 70%),
+    radial-gradient(60% 48% at 8% -6%, rgb(var(--theme-primary) / 0.12), transparent 70%),
+    radial-gradient(80% 60% at 50% 120%, rgba(0, 0, 0, 0.55), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+}
+
+/* Login card chrome — brass corner nails + gold rule + scene headroom */
+[data-theme="parchment"] .login-card.theme-border {
+  border-color: rgb(var(--theme-primary) / 0.45) !important;
   box-shadow:
-    0 0 28px rgba(202, 161, 90, 0.18),
+    0 0 28px rgb(var(--theme-primary) / 0.18),
     0 32px 80px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 240, 200, 0.06) !important;
   position: relative;
+  overflow: hidden; /* clip the desk band to the torn-paper corners */
+  padding-top: 7.5rem;
 }
 [data-theme="parchment"] .login-card::before {
   content: "";
@@ -246,23 +267,25 @@
   left: 32px;
   right: 32px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(202, 161, 90, 0.85), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.85), transparent);
   pointer-events: none;
+  z-index: 2; /* stays legible above the scene band */
 }
 [data-theme="parchment"] .login-card::after {
   content: "";
   position: absolute;
   inset: 8px;
   pointer-events: none;
+  z-index: 2;
   background-image:
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6)),
-    linear-gradient(rgba(202, 161, 90, 0.6), rgba(202, 161, 90, 0.6));
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6)),
+    linear-gradient(rgb(var(--theme-primary) / 0.6), rgb(var(--theme-primary) / 0.6));
   background-repeat: no-repeat;
   background-size:
     6px 1px, 1px 6px,
@@ -276,7 +299,7 @@
     right bottom, right bottom;
 }
 
-/* The Dragon-Sword hero — brass-rimmed badge + flanking gold rules */
+/* The Dragon-Sword hero — token-driven; light mode recolors itself */
 [data-theme="parchment"] .parchment-login-hero {
   display: flex;
   align-items: center;
@@ -289,10 +312,10 @@
   height: 1px;
 }
 [data-theme="parchment"] .parchment-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(202, 161, 90, 0.6));
+  background: linear-gradient(90deg, transparent, rgb(var(--theme-primary) / 0.6));
 }
 [data-theme="parchment"] .parchment-hero-rule-right {
-  background: linear-gradient(90deg, rgba(202, 161, 90, 0.6), transparent);
+  background: linear-gradient(90deg, rgb(var(--theme-primary) / 0.6), transparent);
 }
 [data-theme="parchment"] .parchment-hero-badge {
   position: relative;
@@ -302,19 +325,91 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 1px solid rgba(202, 161, 90, 0.55);
-  background: radial-gradient(circle, rgba(202, 161, 90, 0.14), transparent 70%);
+  border: 1px solid rgb(var(--theme-primary) / 0.55);
+  background: radial-gradient(circle, rgb(var(--theme-primary) / 0.14), transparent 70%);
   box-shadow:
-    0 0 18px rgba(202, 161, 90, 0.45),
-    inset 0 0 12px rgba(202, 161, 90, 0.22);
+    0 0 18px rgb(var(--theme-primary) / 0.45),
+    inset 0 0 12px rgb(var(--theme-primary) / 0.22);
   color: rgb(var(--theme-primary));
 }
 [data-theme="parchment"] .parchment-hero-badge-ring {
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  border: 1px dashed rgba(202, 161, 90, 0.4);
+  border: 1px dashed rgb(var(--theme-primary) / 0.4);
   pointer-events: none;
+}
+
+/* --- Desk scene bands (day manuscript / night lamp & ink) ---
+   Absolutely positioned against the card, always both rendered,
+   swapped by mode in pure CSS — shrine's torii/bough mechanism. */
+.prch-hero-desk { display: none; }
+[data-theme="parchment"] .prch-hero-desk {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  z-index: 1;
+}
+/* dark is the baseline → the lamplit desk shows by default */
+[data-theme="parchment"] .prch-hero-night { display: block; }
+[data-theme="parchment"][data-mode="light"] .prch-hero-night { display: none; }
+[data-theme="parchment"][data-mode="light"] .prch-hero-day { display: block; }
+
+/* the lamp flame gutters; its glow pool breathes in step */
+[data-theme="parchment"] .prch-flame {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: parchment-flame 3.2s ease-in-out infinite;
+}
+[data-theme="parchment"] .prch-glow {
+  animation: parchment-glow 3.2s ease-in-out infinite;
+}
+/* lamplight glint sliding on the ink surface */
+[data-theme="parchment"] .prch-ink-glint {
+  animation: parchment-ink-glint 5s ease-in-out infinite;
+}
+/* the day quill lifts with a phantom draft */
+[data-theme="parchment"] .prch-quill {
+  transform-box: fill-box;
+  transform-origin: left bottom;
+  animation: parchment-quill-sway 7s ease-in-out infinite alternate;
+}
+/* dust motes climbing the lamplight */
+[data-theme="parchment"] .prch-mote {
+  animation: parchment-mote 6s ease-in-out infinite alternate;
+}
+[data-theme="parchment"] .prch-mote-b {
+  animation-delay: 2.6s;
+}
+
+@keyframes parchment-flame {
+  0%, 100% { transform: scaleY(0.95) scaleX(1); opacity: 0.88; }
+  30% { transform: scaleY(1.05) scaleX(0.96); opacity: 1; }
+  52% { transform: scaleY(0.92) scaleX(1.03); opacity: 0.82; }
+  74% { transform: scaleY(1.02) scaleX(0.98); opacity: 0.96; }
+}
+@keyframes parchment-glow {
+  0%, 100% { opacity: 0.82; }
+  30% { opacity: 1; }
+  52% { opacity: 0.76; }
+  74% { opacity: 0.93; }
+}
+@keyframes parchment-ink-glint {
+  0%, 100% { opacity: 0.35; }
+  45% { opacity: 0.8; }
+  70% { opacity: 0.5; }
+}
+@keyframes parchment-quill-sway {
+  0%   { transform: rotate(-0.5deg); }
+  100% { transform: rotate(0.9deg); }
+}
+@keyframes parchment-mote {
+  0%   { transform: translateY(0); opacity: 0.3; }
+  50%  { opacity: 0.65; }
+  100% { transform: translateY(-6px); opacity: 0.25; }
 }
 
 /* =====================================================================
@@ -454,48 +549,29 @@
 }
 
 /* =====================================================================
-   LOGIN CARD — 盘剑龙印 · LIGHT override (daylight aged tan + iron-gall)
+   LOGIN — DAY override: 摊开的手稿（颜色随 token，hero 无需重写）
+   页面转为日光书桌；卡片阴影转日光；场景带换成手稿+羽毛笔
+   （prch-hero-day, 112px 高），顶部留白相应收窄。
    ===================================================================== */
 
-[data-theme="parchment"][data-mode="light"] .login-card {
-  border-color: rgba(140, 90, 35, 0.45) !important;
+/* DAY page scenery: sunlight falling across the writing desk */
+[data-theme="parchment"][data-mode="light"] .login-page-bg {
+  background-color: rgb(var(--theme-bg));
+  background-image:
+    radial-gradient(70% 55% at 50% -12%, rgba(255, 250, 230, 0.7), transparent 70%),
+    radial-gradient(50% 40% at 12% 36%, rgb(var(--theme-primary) / 0.08), transparent 70%),
+    radial-gradient(46% 38% at 92% 78%, rgb(var(--theme-accent) / 0.06), transparent 70%),
+    var(--theme-surface-texture);
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+}
+
+/* Card under daylight: softer sepia shadow, shorter manuscript band above */
+[data-theme="parchment"][data-mode="light"] .login-card.theme-border {
   box-shadow:
-    0 0 22px rgba(140, 90, 35, 0.18),
+    0 0 22px rgb(var(--theme-primary) / 0.18),
     0 18px 48px rgba(80, 50, 20, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-}
-[data-theme="parchment"][data-mode="light"] .login-card::before {
-  background: linear-gradient(90deg, transparent, rgba(140, 90, 35, 0.7), transparent);
-}
-[data-theme="parchment"][data-mode="light"] .login-card::after {
-  background-image:
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55)),
-    linear-gradient(rgba(140, 90, 35, 0.55), rgba(140, 90, 35, 0.55));
-}
-[data-theme="parchment"][data-mode="light"] .parchment-login-hero {
-  color: rgb(var(--theme-primary));
-}
-[data-theme="parchment"][data-mode="light"] .parchment-hero-rule-left {
-  background: linear-gradient(90deg, transparent, rgba(140, 90, 35, 0.6));
-}
-[data-theme="parchment"][data-mode="light"] .parchment-hero-rule-right {
-  background: linear-gradient(90deg, rgba(140, 90, 35, 0.6), transparent);
-}
-[data-theme="parchment"][data-mode="light"] .parchment-hero-badge {
-  border-color: rgba(140, 90, 35, 0.55);
-  background: radial-gradient(circle, rgba(140, 90, 35, 0.12), transparent 70%);
-  box-shadow:
-    0 0 14px rgba(140, 90, 35, 0.30),
-    inset 0 0 10px rgba(140, 90, 35, 0.18);
-}
-[data-theme="parchment"][data-mode="light"] .parchment-hero-badge-ring {
-  border-color: rgba(140, 90, 35, 0.4);
+  padding-top: 6.5rem;
 }
 
 /* ============================================================
