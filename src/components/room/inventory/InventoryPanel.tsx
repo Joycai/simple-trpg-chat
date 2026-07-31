@@ -257,12 +257,9 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     setDetailItem(null);
   };
 
-  // Filter backpack dynamically
-  const filteredBackpack = myItems.filter(d => {
-    const item = d.item;
-    if (filterType === "all") return true;
-    return item?.type === filterType;
-  });
+  // Backpack filtering lives in BackpackView now: its category rail shows a
+  // per-type count, which needs the unfiltered list, and its search box narrows
+  // the same set. Passing the whole backpack keeps both in one place.
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
@@ -273,8 +270,11 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
           its divider — run the full height of the drawer. */}
       <div ref={panelRef} className={`relative ml-auto w-full sm:w-[36rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center">
-          <h3 className="font-bold text-text text-xl font-theme-display">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>
+        <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center gap-3">
+          <h3 className="font-bold text-text text-xl font-theme-display flex items-center gap-2.5 min-w-0">
+            <Icons.Package className="w-5 h-5 shrink-0 text-accent" />
+            <span className="truncate">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</span>
+          </h3>
           <button onClick={close} className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer" aria-label={tCommon("close")}>
             <Icons.X className="w-5 h-5" />
           </button>
@@ -299,7 +299,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
             />
           ) : (
             <BackpackView
-              filteredItems={filteredBackpack}
+              items={myItems}
               filterType={filterType}
               onFilterChange={setFilterType}
               userId={userId}
