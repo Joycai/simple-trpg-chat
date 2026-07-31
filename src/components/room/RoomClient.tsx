@@ -4,7 +4,7 @@
 // Negative IDs guarantee no collision with real DB auto-increment IDs.
 let localEphemeralId = -1;
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
 import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
 import { RoomTopBar } from "@/components/room/RoomTopBar";
 import { RoomBackground } from "@/components/room/RoomBackground";
@@ -14,7 +14,8 @@ import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
-import { TOGGLE_DICE_EVENT, type RoomHotkeyAction } from "@/lib/hotkeys";
+import { TOGGLE_DICE_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/hotkeys";
+import { Icons } from "@/components/shared/icons";
 import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction, withdrawTimelineDividerAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
@@ -26,6 +27,44 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/botStatus";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
+
+/**
+ * External store for the one-time hotkey-discoverability toast. Persisted in
+ * localStorage per browser (not per room). `getSnapshot` also gates on a fine
+ * pointer, so touch-only devices — where the shortcuts don't exist — never see
+ * the toast. `markSeen` notifies same-tab subscribers directly, since the
+ * native `storage` event only fires cross-tab.
+ */
+const hotkeyHintStore = {
+  listeners: new Set<() => void>(),
+  subscribe(cb: () => void) {
+    hotkeyHintStore.listeners.add(cb);
+    return () => {
+      hotkeyHintStore.listeners.delete(cb);
+    };
+  },
+  getSnapshot(): boolean {
+    try {
+      return (
+        !window.localStorage.getItem(HOTKEY_HINT_SEEN_KEY) &&
+        window.matchMedia("(pointer: fine)").matches
+      );
+    } catch {
+      return false;
+    }
+  },
+  getServerSnapshot(): boolean {
+    return false;
+  },
+  markSeen() {
+    try {
+      window.localStorage.setItem(HOTKEY_HINT_SEEN_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    hotkeyHintStore.listeners.forEach((l) => l());
+  },
+};
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, primaryVital, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character-types";
@@ -54,6 +93,7 @@ export function RoomClient({
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tra = useTranslations("roomActions");
+  const tHotkeys = useTranslations("hotkeys");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -102,6 +142,20 @@ export function RoomClient({
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
+  // One-time discoverability toast for the hotkey system. Read via
+  // useSyncExternalStore (same pattern as RoomTopBar's event badge): no
+  // setState-in-effect, no hydration flash — the server snapshot is always
+  // "seen" (toast hidden). Desktop only; retired for good once the user closes
+  // it or opens the help sheet by any path (Alt+/, gear menu, the toast).
+  const showHotkeyHint = useSyncExternalStore(
+    hotkeyHintStore.subscribe,
+    hotkeyHintStore.getSnapshot,
+    hotkeyHintStore.getServerSnapshot,
+  );
+  const openHotkeyHelp = useCallback(() => {
+    hotkeyHintStore.markSeen();
+    setShowHotkeyHelp(true);
+  }, []);
   // Inline room-name editing (host only, top bar)
   const [editingRoomName, setEditingRoomName] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState(room.name);
@@ -681,7 +735,10 @@ export function RoomClient({
         case "toggle-timeline": setShowTimeline((v) => !v); break;
         case "prev-tab": cycleTab(-1); break;
         case "next-tab": cycleTab(1); break;
-        case "help": setShowHotkeyHelp((v) => !v); break;
+        case "help":
+          hotkeyHintStore.markSeen();
+          setShowHotkeyHelp((v) => !v);
+          break;
       }
     },
     // Escape with no overlay mounted: close whichever top-bar dropdown is open.
@@ -749,7 +806,10 @@ export function RoomClient({
         setShowExport={setShowExport}
         setShowSettings={setShowSettings}
         setShowUserSettings={setShowUserSettings}
-        setShowHotkeyHelp={setShowHotkeyHelp}
+        setShowHotkeyHelp={(v) => {
+          hotkeyHintStore.markSeen();
+          setShowHotkeyHelp(v);
+        }}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -913,6 +973,27 @@ export function RoomClient({
         onViewPlayerCard={handleViewPlayerCard}
         onStartDM={handleTabChange}
       />
+
+      {showHotkeyHint && (
+        <div className="fixed bottom-24 right-4 z-30 flex items-center gap-2.5 bg-surface theme-border rounded-theme shadow-xl pl-3.5 pr-2 py-2.5 overlay-pop"
+          style={{ transformOrigin: "bottom right" }} role="status">
+          <Icons.Keyboard className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-sm text-text">{tHotkeys("hintText")}</span>
+          <button
+            onClick={openHotkeyHelp}
+            className="text-sm font-bold text-primary hover:text-primary-hover transition cursor-pointer whitespace-nowrap"
+          >
+            {tHotkeys("hintAction", { key: formatHotkey("Slash") })}
+          </button>
+          <button
+            onClick={() => hotkeyHintStore.markSeen()}
+            className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer"
+            aria-label={tHotkeys("hintDismiss")}
+          >
+            <Icons.X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {showHotkeyHelp && (
         <RoomHotkeyHelp isHost={isHost} onClose={() => setShowHotkeyHelp(false)} />
