@@ -182,7 +182,8 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   const handleDiceRoll = (content: string, diceDetail: string) => {
     const isSecret = content.includes("🔒");
     onSendMessage(content, "dice", diceDetail, isSecret);
-    setShowDice(false);
+    // The panel closes itself (animated) after rolling — unmounting it here
+    // would cut its exit transition off.
     inputRef.current?.focus();
   };
 

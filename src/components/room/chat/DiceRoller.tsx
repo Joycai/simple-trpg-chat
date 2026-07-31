@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { parseLeadingDice } from "@/lib/roll-command";
-import { useEscapeToClose } from "@/lib/overlay-esc";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 
 const DICE_FACES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
 const MAX_COUNT = 20;
@@ -47,8 +47,10 @@ export function DiceRoller({ onRoll, onClose, defaultExpression }: DiceRollerPro
   const [count, setCount] = useState(initial.count);
   const [isPrivate, setIsPrivate] = useState(false);
 
-  // Escape closes the panel (topmost-only, via the shared overlay stack).
-  useEscapeToClose(onClose);
+  // Enter/exit motion + deferred unmount. Escape registration comes with it
+  // (topmost-only, via the shared overlay stack), so the panel no longer calls
+  // useEscapeToClose itself — that would register the handler twice.
+  const { close, panelRef } = useOverlayTransition(onClose, "popover");
 
   const handleRoll = () => {
     // The roll itself is performed server-side (rollDiceAction) so it is authoritative
@@ -65,10 +67,14 @@ export function DiceRoller({ onRoll, onClose, defaultExpression }: DiceRollerPro
     }
 
     onRoll(content, detail);
+    // Dismiss through the animated path, same as the X and Escape.
+    close();
   };
 
   return (
-    <div className="bg-surface border border-border rounded-theme p-4 shadow-lg animate-in fade-in slide-in-from-bottom-2">
+    /* `origin-bottom` so the scale grows out of the input bar the panel is
+       anchored to, rather than from its own middle. */
+    <div ref={panelRef} className="bg-surface border border-border rounded-theme p-4 shadow-lg origin-bottom">
       {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <h4 className="font-bold text-sm flex items-center gap-2 text-text">
@@ -76,7 +82,7 @@ export function DiceRoller({ onRoll, onClose, defaultExpression }: DiceRollerPro
           <span>{t("title")}</span>
         </h4>
         <button
-          onClick={onClose}
+          onClick={close}
           className="text-text-muted hover:text-text transition"
           aria-label={t("title")}
         >
