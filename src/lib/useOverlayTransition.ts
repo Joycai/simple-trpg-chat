@@ -4,7 +4,7 @@ import { useCallback, useRef } from "react";
 import { animate } from "motion";
 import { useEscapeToClose } from "@/lib/overlay-esc";
 
-export type OverlayVariant = "drawer" | "modal";
+export type OverlayVariant = "drawer" | "modal" | "popover";
 
 /**
  * Motion springs, not CSS curves.
@@ -27,6 +27,10 @@ const ENTER_SPRING = {
   drawer: { type: "spring", visualDuration: 0.42, bounce: 0.05 },
   // Centered modals get a visible tip past their resting size before settling.
   modal: { type: "spring", visualDuration: 0.3, bounce: 0.3 },
+  // Anchored popovers (dice panel, pickers) rise off the control that opened
+  // them. Quick and barely bouncy: these sit inches from the cursor and open on
+  // a click the user just made, so anything slower reads as lag.
+  popover: { type: "spring", visualDuration: 0.22, bounce: 0.12 },
 } as const;
 
 /** Backdrops are opacity-only: a spring's overshoot would clip at 0–1 anyway. */
@@ -91,7 +95,9 @@ export function useOverlayTransition(
       const ctrl =
         variant === "drawer"
           ? animate(el, { x: ["100%", "0%"] }, ENTER_SPRING.drawer)
-          : animate(el, { scale: [0.92, 1], opacity: [0, 1] }, ENTER_SPRING.modal);
+          : variant === "popover"
+            ? animate(el, { y: [10, 0], scale: [0.97, 1], opacity: [0, 1] }, ENTER_SPRING.popover)
+            : animate(el, { scale: [0.92, 1], opacity: [0, 1] }, ENTER_SPRING.modal);
       ctrl.finished
         .then(() => {
           enteredRef.current = true;
@@ -123,7 +129,9 @@ export function useOverlayTransition(
     const exit =
       variant === "drawer"
         ? animate(panel, { x: "100%" }, EXIT)
-        : animate(panel, { scale: 0.97, opacity: 0 }, EXIT);
+        : variant === "popover"
+          ? animate(panel, { y: 6, scale: 0.98, opacity: 0 }, EXIT)
+          : animate(panel, { scale: 0.97, opacity: 0 }, EXIT);
 
     // `.finished` rejects if the animation is cancelled by an unmount; the
     // parent has already dropped us in that case, so swallow it.

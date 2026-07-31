@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { getStickerManifestAction } from "@/app/actions/sticker";
-import { useEscapeToClose } from "@/lib/overlay-esc";
+import { useOverlayTransition } from "@/lib/useOverlayTransition";
 import type { StickerPack } from "@/lib/stickers";
 
 interface StickerPickerProps {
   /** Called with the chosen sticker's path URL. */
-  onPick: (url: string) => void;
+  /** Returns false when the pick was rejected (e.g. private mode with no
+   *  target picked), in which case the panel stays open. */
+  onPick: (url: string) => boolean;
   /** Close the popover (e.g. after a pick or outside click). */
   onClose: () => void;
 }
@@ -43,19 +45,28 @@ export function StickerPicker({ onPick, onClose }: StickerPickerProps) {
     };
   }, []);
 
-  // Escape closes via the shared overlay stack (topmost-only).
-  useEscapeToClose(onClose);
+  // Enter/exit motion + deferred unmount; Escape registration rides along
+  // (topmost-only, via the shared overlay stack), so this no longer calls
+  // useEscapeToClose itself — that would register the handler twice.
+  const { close, panelRef } = useOverlayTransition(onClose, "popover");
 
-  // Close on outside click.
+  // The root element needs both refs: the hook animates it, and the
+  // outside-click check measures it.
+  const setRoot = useCallback((el: HTMLDivElement | null) => {
+    rootRef.current = el;
+    panelRef(el);
+  }, [panelRef]);
+
+  // Close on outside click — through the animated path.
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) onClose();
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) close();
     }
     document.addEventListener("mousedown", onDocClick);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
     };
-  }, [onClose]);
+  }, [close]);
 
   const current = packs?.[activePack];
   const pageCount = current ? Math.max(1, Math.ceil(current.stickers.length / PAGE_SIZE)) : 1;
@@ -68,8 +79,8 @@ export function StickerPicker({ onPick, onClose }: StickerPickerProps) {
 
   return (
     <div
-      ref={rootRef}
-      className="absolute bottom-12 right-0 z-30 w-60 sm:w-72 max-w-[calc(100vw-1rem)] max-h-80 flex flex-col rounded-theme border border-border bg-surface shadow-lg overflow-hidden"
+      ref={setRoot}
+      className="absolute bottom-12 right-0 origin-bottom-right z-30 w-60 sm:w-72 max-w-[calc(100vw-1rem)] max-h-80 flex flex-col rounded-theme border border-border bg-surface shadow-lg overflow-hidden"
       role="dialog"
       aria-label={t("stickerPanelTitle")}
     >
@@ -91,7 +102,7 @@ export function StickerPicker({ onPick, onClose }: StickerPickerProps) {
               <button
                 key={s.id}
                 type="button"
-                onClick={() => onPick(s.url)}
+                onClick={() => { if (onPick(s.url)) close(); }}
                 className="aspect-square flex items-center justify-center rounded-theme hover:bg-surface-alt transition p-0.5 cursor-pointer"
                 title={s.id}
               >

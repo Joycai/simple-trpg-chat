@@ -360,7 +360,21 @@
       "d2": "d2",
       "d3": "d3"
     },
-    "privateHint": "暗骰 - 仅你可见"
+    "privateHint": "暗骰 - 仅你可见",
+    "mixedBadge": "支持混投",
+    "dicePoolLabel": "DICE",
+    "dicePoolHint": "点击加一颗 · 长按加五颗",
+    "presetsLabel": "PRESETS",
+    "lastUsed": "上次",
+    "trayLabel": "组合",
+    "trayClear": "清空",
+    "trayEmpty": "点击左侧骰型开始组合",
+    "modifier": "修正值",
+    "range": "范围",
+    "rollN": "投出 {count} 颗骰",
+    "removeTerm": "移除",
+    "decrease": "减少",
+    "increase": "增加"
   },
   "nickname": {
     "edit": "编辑昵称",

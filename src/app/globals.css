@@ -216,12 +216,50 @@ body[data-room-bg] .bg-bg .bg-bg {
    components/shared/PaneTransition.tsx (Motion), which covers the lobby, room
    settings, the character sheet and the backpack under one mechanism. */
 
+/* ============================================================
+   Mount-in-place enter animations (chat pills, popovers, tooltips).
+   ------------------------------------------------------------
+   The markup across ChatMessage / ImagePreview / TimelineDivider /
+   ResourceStatusTooltip / ChatInput was written against the
+   `tailwindcss-animate` API — but that plugin is not, and never
+   was, a dependency. Every one of those classes generated no CSS,
+   so ~18 sites silently had no animation at all.
+
+   Implementing the handful of combinations actually used is a far
+   smaller change than rewriting all those call sites, and keeps the
+   markup honest about its intent.
+
+   Composing note: the keyframe animates `transform`, while Tailwind
+   v4 emits `-translate-x-1/2` as the separate `translate` property.
+   They therefore stack instead of fighting — which matters for the
+   proxy popover, whose horizontal centring would otherwise be wiped
+   for the duration of the animation.
+
+   `duration-*` in that markup is Tailwind's transition-duration and
+   does NOT reach animation-duration; the spread was 100–200ms, so a
+   single value is used instead of chasing each one.
+   ============================================================ */
+@keyframes ui-enter {
+  from {
+    opacity: var(--enter-opacity, 1);
+    transform: translate3d(0, var(--enter-y, 0), 0) scale(var(--enter-scale, 1));
+  }
+}
+.animate-in {
+  animation: ui-enter var(--enter-dur, 180ms) var(--ease-spring-snappy) both;
+}
+.fade-in { --enter-opacity: 0; }
+.zoom-in-95 { --enter-scale: 0.95; }
+.slide-in-from-bottom-1 { --enter-y: 0.25rem; }
+.slide-in-from-bottom-2 { --enter-y: 0.5rem; }
+
 /* Respect users who prefer reduced motion — collapse to a near-instant
    cross-fade so nothing flies across the screen. The overlays are no longer
    listed here: useOverlayTransition checks the same media query in JS and
    skips its Motion animations outright. */
 @media (prefers-reduced-motion: reduce) {
-  .overlay-pop {
+  .overlay-pop,
+  .animate-in {
     animation-duration: 1ms;
     animation-timing-function: linear;
   }
