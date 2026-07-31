@@ -216,7 +216,10 @@
     "newline": "换行",
     "closeOverlay": "关闭当前面板 / 菜单",
     "focusInput": "聚焦输入框",
-    "focusInputKey": "任意字符键"
+    "focusInputKey": "任意字符键",
+    "hintText": "本房间支持键盘快捷键",
+    "hintAction": "查看全部（{key}）",
+    "hintDismiss": "关闭提示"
   },
   "timeline": {
     "title": "插入时间线分割",

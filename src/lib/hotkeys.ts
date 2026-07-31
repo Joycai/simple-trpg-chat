@@ -110,3 +110,7 @@ export const CHAT_INPUT_SELECTOR = `textarea[${CHAT_INPUT_ATTR}]`;
 
 /** Window CustomEvent asking the ChatInput to toggle its dice panel. */
 export const TOGGLE_DICE_EVENT = "trpg:toggle-dice";
+
+/** localStorage flag: the one-time "shortcuts are available" toast was seen
+ *  (shown once per browser, dismissed by closing it or opening the help). */
+export const HOTKEY_HINT_SEEN_KEY = "strpg:hotkey-hint-seen";

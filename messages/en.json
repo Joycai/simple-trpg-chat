@@ -216,7 +216,10 @@
     "newline": "New line",
     "closeOverlay": "Close current panel / menu",
     "focusInput": "Focus the input",
-    "focusInputKey": "Any character key"
+    "focusInputKey": "Any character key",
+    "hintText": "Keyboard shortcuts are available",
+    "hintAction": "View all ({key})",
+    "hintDismiss": "Dismiss"
   },
   "timeline": {
     "title": "Insert Timeline Divider",
