@@ -514,8 +514,12 @@ export function CharacterPanel({
           </button>
         </div>
 
-        {/* Profile band — avatar + colour (first page only, per design) */}
-        {!readOnly && activeTab === "attributes" && (
+        {/* Profile band — avatar + colour. Sits ABOVE the tab bar, so it must
+            not be tab-scoped: it used to render only on the 属性 tab, and
+            unmounting it shifted the tabs and the whole pane up by its height
+            on every switch to 技能 / 背景. Keeping it mounted costs ~96px of
+            vertical room on those tabs and buys a stable layout. */}
+        {!readOnly && (
           <div className="shrink-0 border-b border-border px-6 py-4 flex items-center gap-4">
             <div className="relative shrink-0">
               <div className="w-16 h-16 rounded-theme overflow-hidden flex items-center justify-center border-2"
