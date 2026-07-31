@@ -590,8 +590,9 @@ export function CharacterPanel({
           ))}
         </div>
 
-        {/* Tab content (scrolls). The scroll container stays put; only the pane
-            inside it swaps, so switching tabs also resets scroll to the top. */}
+        {/* Tab content (scrolls). The pane sits inside the scroll container,
+            not around it, so the scrollbar isn't recreated on every tab
+            switch — only the content it holds is replaced. */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
         <PaneTransition paneKey={activeTab}>
           {activeTab === "attributes" && (

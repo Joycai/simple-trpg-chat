@@ -35,6 +35,7 @@ import { NotebookEditor } from "./NotebookEditor";
 import { NotebookShareModal } from "./NotebookShareModal";
 import { DetailModal } from "@/components/room/inventory/InventoryModals";
 import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-helpers";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface NotebookPanelProps {
   roomId: number;
@@ -378,6 +379,14 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
           </Notice>
         )}
 
+        {/* Browse ↔ editor is a full-pane swap (新建手札 / 编辑), so it gets the
+            same fade-rise as a tab change. Keyed on the mode only — NOT on the
+            note being edited — so the search box inside the browse pane keeps
+            its identity while typing (see the IME note below). */}
+        <PaneTransition
+          paneKey={editing ? "editor" : "browse"}
+          className="flex-1 min-h-0 flex flex-col"
+        >
         {editing ? (
           <NotebookEditor
             note={editing.note}
@@ -454,7 +463,12 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
               <div className="px-3 pt-2.5 pb-1 text-[11px] text-text-dim select-none shrink-0">
                 {filterLabel} · {listNotes.length}
               </div>
-              <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1.5">
+              {/* The pane sits inside the scroll container, not around it, so
+                  the scrollbar isn't recreated on every category switch.
+                  `space-y` moves onto the pane because it styles direct
+                  children, and the pane is now the notes' parent. */}
+              <div className="flex-1 overflow-y-auto px-3 pb-2">
+                <PaneTransition paneKey={String(filter)} className="space-y-1.5">
                 {loading && <p className="text-xs text-text-dim px-1 py-4">{tCommon("loading")}</p>}
                 {!loading && error && notes.length === 0 && (
                   <LoadFailed onRetry={() => setRetryKey((k) => k + 1)} className="py-8" />
@@ -485,6 +499,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                     )}
                   </button>
                 ))}
+                </PaneTransition>
               </div>
               {!readOnly && (
                 <div className="p-3 shrink-0">
@@ -522,6 +537,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
           )}
         </div>
         )}
+        </PaneTransition>
 
         {/* Backpack detail of a clicked @-chip — view-only reuse of the
             inventory DetailModal (readOnly hides share/edit/distribute; the
