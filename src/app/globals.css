@@ -328,6 +328,24 @@ body {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
   }
+
+  /* The active bookmark joins the content area on its right: its own right
+     border goes transparent, and (with the `-mr-px` pull) its fill covers the
+     1px of rail divider behind it, so no line separates tab from page.
+     Two details make it actually seamless:
+       · the fill must be OPAQUE — `bg-primary/10` alone is 10% alpha and the
+         divider reads straight through it — so the primary tint is layered as
+         a gradient over an opaque surface fill rather than set as the colour;
+       · `background-clip` stays at its `border-box` default, which is what
+         paints that fill underneath the now-transparent right border. */
+  .backpack-bookmark[aria-pressed="true"] {
+    background-color: rgb(var(--theme-surface));
+    background-image: linear-gradient(
+      rgb(var(--theme-primary) / 0.1),
+      rgb(var(--theme-primary) / 0.1)
+    );
+    border-right-color: transparent;
+  }
 }
 
 /* ============================================================
