@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Search, Globe, Lock, Cpu, ArrowDownToLine, ArrowUpFromLine, Database, BarChart3, Layers, Trophy } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface UsageRecord {
   id: number;
@@ -326,7 +327,10 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* The whole table area is the pane. Animating <tbody> instead
+            would be more precise, but transform on a table row-group is a
+            CSS grey area; a plain div is unambiguous in every browser. */}
+        <PaneTransition paneKey={filterType} className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface-alt border-b border-border text-xs font-semibold text-text-dim uppercase tracking-wider">
@@ -339,6 +343,8 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                 <th className="px-6 py-4 text-right">{t("thTotal")}</th>
               </tr>
             </thead>
+            {/* Keyed on the type filter only — not the search box or date range,
+                which would replay the animation on every keystroke. */}
             <tbody className="divide-y divide-border text-sm text-text">
               {filteredUsages.length > 0 ? (
                 filteredUsages.map((record) => {
@@ -399,7 +405,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
               )}
             </tbody>
           </table>
-        </div>
+        </PaneTransition>
       </div>
     </div>
   );

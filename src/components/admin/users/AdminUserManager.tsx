@@ -12,6 +12,7 @@ import { AiPointsModal } from "./AiPointsModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { LoginHistoryModal } from "./LoginHistoryModal";
 import type { User, RoleFilter } from "./types";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface AdminUserManagerProps {
   users: User[];
@@ -191,7 +192,10 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
 
       {/* User table */}
       <div className="bg-surface theme-border border border-border rounded-theme shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* The whole table area is the pane. Animating <tbody> instead
+            would be more precise, but transform on a table row-group is a
+            CSS grey area; a plain div is unambiguous in every browser. */}
+        <PaneTransition paneKey={filter} className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-text-dim text-xs border-b border-border">
@@ -204,6 +208,8 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
                 <th className="px-5 py-3 font-medium text-right">{t("actions")}</th>
               </tr>
             </thead>
+            {/* Keyed on the role filter only — not `search`, which would replay
+                the animation on every keystroke. */}
             <tbody>
               {visibleUsers.length === 0 ? (
                 <tr><td colSpan={7} className="py-14 text-center text-text-dim text-sm">{t("noUsers")}</td></tr>
@@ -310,7 +316,7 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
               )}
             </tbody>
           </table>
-        </div>
+        </PaneTransition>
       </div>
 
       {/* Modals */}

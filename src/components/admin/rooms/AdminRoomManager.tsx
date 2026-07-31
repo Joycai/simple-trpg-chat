@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { deleteRoom, adminSetRoomFrozen, adminSetRoomStatus } from "@/app/admin/actions";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface Room {
   id: number;
@@ -155,7 +156,10 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
 
       {/* Room table */}
       <div className="bg-surface theme-border border border-border rounded-theme shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* The whole table area is the pane. Animating <tbody> instead
+            would be more precise, but transform on a table row-group is a
+            CSS grey area; a plain div is unambiguous in every browser. */}
+        <PaneTransition paneKey={filter} className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-text-dim text-xs border-b border-border">
@@ -166,6 +170,8 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
                 <th className="px-5 py-3 font-medium text-right">{t("actions")}</th>
               </tr>
             </thead>
+            {/* Keyed on the filter tab only — not `search`, which would replay
+                the animation on every keystroke. */}
             <tbody>
               {visibleRooms.length === 0 ? (
                 <tr><td colSpan={5} className="py-14 text-center text-text-dim text-sm">{t("noRooms")}</td></tr>
@@ -237,7 +243,7 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
               )}
             </tbody>
           </table>
-        </div>
+        </PaneTransition>
       </div>
     </div>
   );
