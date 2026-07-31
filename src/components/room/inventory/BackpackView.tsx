@@ -36,8 +36,12 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
        `sm` breakpoint, where there is no room to sit beside the grid, so the
        rail folds into a horizontally scrollable strip above it. Same shape as
        the settings panels' tab rail. */
-    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-      <div className="flex sm:flex-col gap-1 shrink-0 sm:w-28 overflow-x-auto sm:overflow-x-visible scrollbar-none border-b sm:border-b-0 sm:border-r border-border pb-2 sm:pb-0 sm:pr-2">
+    <div className="flex flex-col sm:flex-row sm:min-h-full gap-3 sm:gap-4">
+      {/* `sm:min-h-full` (with the flex row's default stretch) is what runs the
+          divider the whole height of the drawer body rather than stopping under
+          the last bookmark. Needs InventoryPanel's body to have a definite
+          height — it is `flex-1 min-h-0` there. */}
+      <div className="flex sm:flex-col gap-1.5 shrink-0 overflow-x-auto sm:overflow-x-visible scrollbar-none border-b sm:border-b-0 sm:border-r border-border pb-2 sm:pb-0">
         {categories.map(({ key, label, Icon }) => {
           const active = filterType === key;
           return (
@@ -45,14 +49,22 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
               key={key}
               onClick={() => onFilterChange(key)}
               aria-pressed={active}
-              className={`flex items-center gap-2 px-2.5 py-2 rounded-theme text-xs sm:text-sm font-medium transition-all duration-150 sm:w-full text-left shrink-0 cursor-pointer border ${
+              /* Bookmark: vertical text on desktop, flush against the divider
+                 so it reads as a tab on the edge of a page. `-mr-px` pulls the
+                 active tab over the divider line so the two visually join.
+                 The vertical writing mode and the flattened right corners come
+                 from `.backpack-bookmark` in globals.css — see the comment
+                 there for why they cannot be Tailwind utilities. */
+              className={`backpack-bookmark flex items-center justify-center gap-2 shrink-0 cursor-pointer transition-all duration-150 text-xs sm:text-sm font-medium border
+                px-2.5 py-2 rounded-theme
+                sm:px-2 sm:py-4 sm:-mr-px ${
                 active
                   ? "text-primary bg-primary/10 border-primary/40 font-semibold"
                   : "text-text-muted border-transparent hover:text-text hover:bg-surface-alt/50"
               }`}
             >
               <Icon className={`w-4 h-4 shrink-0 ${active ? "text-primary" : "text-text-dim"}`} />
-              <span className="truncate">{label}</span>
+              <span className="tracking-wide">{label}</span>
             </button>
           );
         })}

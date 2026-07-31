@@ -267,16 +267,20 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
       <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
-      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[36rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`} onClick={e => e.stopPropagation()}>
+      {/* Flex column rather than one scrolling block with a sticky header (the
+          shape CharacterPanel / NotebookPanel already use): it gives the body a
+          definite height, which is what lets the backpack's category rail — and
+          its divider — run the full height of the drawer. */}
+      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[36rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">
+        <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center">
           <h3 className="font-bold text-text text-xl font-theme-display">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>
           <button onClick={close} className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer" aria-label={tCommon("close")}>
             <Icons.X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           {loading ? (
             tab === "manage" && isHost ? <ManageSkeleton /> : <BackpackSkeleton />
           ) : tab === "manage" && isHost ? (

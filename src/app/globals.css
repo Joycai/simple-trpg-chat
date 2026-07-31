@@ -304,6 +304,33 @@ body {
 }
 
 /* ============================================================
+   Backpack category bookmarks (BackpackView).
+   ------------------------------------------------------------
+   Vertical text + a tab flattened against the rail's divider, so
+   the categories read as bookmarks on the edge of a page. Not
+   Tailwind utilities, deliberately:
+     · `rounded-r-none` is LOGICAL in v4, and `writing-mode:
+       vertical-rl` rotates the inline axis, so it flattens the
+       bottom corners instead of the right ones.
+     · The arbitrary-property escape hatch loses anyway — v4 emits
+       arbitrary properties BEFORE regular utilities, so the
+       `rounded-theme` shorthand overrides them at equal
+       specificity, `sm:` variant or not.
+     · `var(--radius-theme)` cannot be referenced at runtime: it is
+       declared in `@theme inline`, which substitutes at build time
+       rather than emitting a custom property.
+   Plain unlayered CSS sidesteps all three (it outranks @layer
+   utilities) and states the intent in physical terms.
+   ============================================================ */
+@media (min-width: 640px) {
+  .backpack-bookmark {
+    writing-mode: vertical-rl;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+/* ============================================================
    Per-theme DRAMATIC skeuomorphic effects now live in their own
    theme.css files (src/themes/<id>/theme.css) — see .theme-border
    and .filter-* overrides there. Nothing theme-specific belongs here.
