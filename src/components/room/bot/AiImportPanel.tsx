@@ -66,7 +66,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
   const tCommon = useTranslations("common");
   const tp = useTranslations("adminProviders");
   const router = useRouter();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
   const [step, setStep] = useState<Step>("input");
   const [rawText, setRawText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -184,8 +184,8 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex" onClick={close}>
-      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-[440px] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[440px] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">

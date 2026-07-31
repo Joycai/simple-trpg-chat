@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { formatContent, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface ManageViewProps {
   roomItems: InventoryItem[];
@@ -69,8 +70,9 @@ export function ManageView({
         </div>
       </div>
 
-      {/* Room items for distribution */}
-      <div>
+      {/* Room items for distribution. Two independent filters (type + status)
+          both re-cut this list, so the pane key combines them. */}
+      <PaneTransition paneKey={`${manageFilterType}:${manageFilterDist}`}>
         {(() => {
           const filteredRoomItems = roomItems.filter(item => {
             if (manageFilterType !== "all" && item.type !== manageFilterType) return false;
@@ -165,7 +167,7 @@ export function ManageView({
             </div>
           );
         })()}
-      </div>
+      </PaneTransition>
 
       {/* History */}
       <div>

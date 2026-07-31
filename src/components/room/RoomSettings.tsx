@@ -10,6 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import { RoomBackgroundManager } from "@/components/room/RoomBackgroundManager";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
@@ -113,8 +114,8 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
               })}
             </div>
 
-            {/* Content pane — keyed so it replays the fade-rise on tab change */}
-            <div key={tab} className="lobby-pane-in flex-1 overflow-y-auto p-5 md:p-6 bg-surface">
+            {/* Content pane — replays the fade-rise on tab change */}
+            <PaneTransition paneKey={tab} className="flex-1 overflow-y-auto p-5 md:p-6 bg-surface">
               {tab === "theme" && (
                 <div className="flex flex-col gap-3">
                   <div>
@@ -258,7 +259,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                   </div>
                 </div>
               )}
-            </div>
+            </PaneTransition>
           </div>
 
           {/* Footer — always visible, shared across tabs */}

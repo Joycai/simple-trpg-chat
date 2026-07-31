@@ -33,7 +33,7 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
   const playerLabel = usePlayerLabel();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [skillName, setSkillName] = useState("");
   const [diceType, setDiceType] = useState("d100");
@@ -156,8 +156,8 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
     : "bg-gradient-to-b from-accent to-accent/80 text-accent-foreground shadow-[0_0_18px_rgb(var(--theme-accent)/0.4)]";
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${backdropClass}`} onClick={close}>
-      <div className={`bg-surface theme-border overlay-modal rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
+      <div ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex justify-between items-center mb-5">

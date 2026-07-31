@@ -44,7 +44,9 @@ export function OverlayShell({
   portal = false,
   children,
 }: OverlayShellProps) {
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, variant, { closeOnEscape });
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, variant, {
+    closeOnEscape,
+  });
   // These overlays mount only on client interaction (never during SSR), so a
   // one-shot check for `document` is enough to portal — no effect needed, which
   // keeps clear of the set-state-in-effect lint rule.
@@ -53,8 +55,9 @@ export function OverlayShell({
   const tree =
     variant === "drawer" ? (
       <div className="fixed inset-0 z-50 flex" onClick={closeOnBackdrop ? close : undefined}>
-        <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+        <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
         <div
+          ref={panelRef}
           className={`relative ml-auto ${panelClassName} ${panelClass}`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -62,11 +65,18 @@ export function OverlayShell({
         </div>
       </div>
     ) : (
+      // The centered layer is both the scrim and the click target, so it takes
+      // the backdrop ref; the card inside is what springs.
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${backdropClass} ${rootClassName}`}
+        ref={backdropRef}
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${rootClassName}`}
         onClick={closeOnBackdrop ? close : undefined}
       >
-        <div className={`${panelClassName} ${panelClass}`} onClick={(e) => e.stopPropagation()}>
+        <div
+          ref={panelRef}
+          className={`${panelClassName} ${panelClass}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           {children(close)}
         </div>
       </div>

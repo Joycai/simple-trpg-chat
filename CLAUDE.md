@@ -175,6 +175,16 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   inline strip — pass `onDismiss` for a close button. Converted so far:
   `notebook` (all paths), `event` (hand-rolled equivalents, predates the
   shared component).
+- **Motion**: overlay enter/exit is driven by `motion` springs in
+  `src/lib/useOverlayTransition.ts` — attach its `panelRef` / `backdropRef`, and
+  call `close()` (never `onClose`) so the exit plays before the parent unmounts.
+  Do NOT reintroduce CSS keyframes for overlays: an earlier `linear()`-based
+  version silently disabled all overlay animation on the ~13% of browsers
+  lacking `linear()`, because a custom property that fails to parse invalidates
+  the whole `animation` declaration. The `overlay-drawer` / `overlay-modal`
+  classes still belong on the panel — they are now **theme styling hooks only**
+  (rainglass frosts them, shrine reshapes their corners), not animation classes.
+  Non-overlay motion (sidebar width, `.overlay-pop` dropdowns) stays in CSS.
 - **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`
 
 ## License

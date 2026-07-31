@@ -128,84 +128,75 @@ body[data-room-bg] .bg-bg .bg-bg {
 }
 
 /* ============================================================
-   Overlay / Modal motion — Apple-style non-linear transitions
+   Motion — the CSS half
    ------------------------------------------------------------
-   Drives the enter/exit of top-bar panels (character sheet,
-   inventory, skills, clue import, settings, dialogs…). Enter
-   animations run from a keyframe on mount; the `--closing`
-   modifiers play the reverse while React keeps the node mounted
-   for one exit cycle (see useOverlayTransition).
-   Durations here must stay in sync with EXIT_DURATION in
-   src/lib/useOverlayTransition.ts.
+   Overlays (drawers, modals, their backdrops) are NOT here: they
+   are driven by Motion springs in src/lib/useOverlayTransition.ts,
+   which integrates the spring in JS and needs no CSS feature
+   support. What lives here is the motion Motion doesn't own —
+   the conversation sidebar's width transition and the dropdown
+   pop — plus the shared easing vocabulary both halves speak.
    ============================================================ */
 :root {
-  /* Decelerating ease (enter) — the iOS sheet "settle". */
-  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);
-  /* Accelerating ease (exit) — sharp departure. */
-  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
-  /* Gentle spring overshoot for centered modals. */
-  --ease-spring: cubic-bezier(0.34, 1.42, 0.64, 1);
-  --overlay-enter-dur: 380ms;
-  --overlay-exit-dur: 260ms;
+  /* --- Baseline: bezier easings that every browser understands. -------------
+     These are NOT decorative fallbacks — they are load-bearing. A custom
+     property is substituted at computed-value time, so if a browser cannot
+     parse the value it receives, the *whole* declaration that used it becomes
+     invalid at computed-value time and resets to its initial value. For
+     `animation` that initial value is `animation-name: none`, i.e. the element
+     snaps into place with no animation at all rather than degrading to a
+     simpler curve. So the spring curves are layered on via @supports below
+     instead of being defined here directly. */
+  --ease-spring-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring-snappy: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Legacy alias — still consumed by inline styles (e.g. the sidebar vital
+     bar in ConversationPanel). Tracks the smooth curve, whichever tier is
+     active, so those inherit the same motion language. */
+  --ease-emphasized: var(--ease-spring-smooth);
+
+  --overlay-pop-dur: 320ms;
+  --sidebar-dur: 380ms;
 }
 
-/* Dimmed backdrop — fades the scrim (and, for centered modals, the
-   whole layer) in and out. */
-@keyframes overlay-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes overlay-backdrop-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-.overlay-backdrop {
-  animation: overlay-backdrop-in var(--overlay-enter-dur) var(--ease-emphasized) both;
-}
-.overlay-backdrop--closing {
-  animation: overlay-backdrop-out var(--overlay-exit-dur) var(--ease-exit) both;
-}
-
-/* Side drawer — slides in from the right edge. */
-@keyframes overlay-drawer-in {
-  from { transform: translateX(100%); opacity: 0.5; }
-  to { transform: translateX(0); opacity: 1; }
-}
-@keyframes overlay-drawer-out {
-  from { transform: translateX(0); opacity: 1; }
-  to { transform: translateX(100%); opacity: 0.5; }
-}
-.overlay-drawer {
-  animation: overlay-drawer-in var(--overlay-enter-dur) var(--ease-emphasized) both;
-  will-change: transform;
-}
-.overlay-drawer--closing {
-  animation: overlay-drawer-out var(--overlay-exit-dur) var(--ease-exit) both;
+/* --- Upgrade: real spring physics where linear() is available (~87% of users).
+   A bezier can only decelerate monotonically, so it cannot express "cover most
+   of the distance fast, tip past the target, sink back" — the macOS/iOS feel.
+   Each curve is spring(response, dampingFraction) (SwiftUI's formulation)
+   sampled at even intervals, which also makes the shape independent of the
+   duration it plays at: a shorter duration reads as a stiffer spring. These
+   mirror the Motion springs in useOverlayTransition.ts, where the same shapes
+   are expressed as visualDuration + bounce. Retune both with
+   `node scripts/gen-spring-easings.mjs`. */
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    /* spring(0.42, 0.94) — no overshoot. Width changes, where an overshoot
+       would visibly rubber-band the layout. 90% covered by ~50%. */
+    --ease-spring-smooth: linear(
+      0, 0.046, 0.15, 0.276, 0.403, 0.52, 0.622, 0.708, 0.777, 0.833, 0.876,
+      0.91, 0.935, 0.954, 0.968, 0.978, 0.985, 0.99, 0.993, 0.996, 0.998, 0.999, 1
+    );
+    /* spring(0.24, 0.84) — 0.8% overshoot. Dropdowns: near-instant, barely bounces. */
+    --ease-spring-snappy: linear(
+      0, 0.078, 0.243, 0.426, 0.592, 0.727, 0.829, 0.9, 0.948, 0.977, 0.994,
+      1.003, 1.007, 1.008, 1.007, 1.006, 1.004, 1.003, 1.002, 1.001, 1
+    );
+  }
 }
 
-/* Centered modal — lifts and scales up with a subtle spring. */
-@keyframes overlay-modal-in {
-  from { transform: scale(0.94) translateY(14px); opacity: 0; }
-  to { transform: scale(1) translateY(0); opacity: 1; }
-}
-@keyframes overlay-modal-out {
-  from { transform: scale(1) translateY(0); opacity: 1; }
-  to { transform: scale(0.96) translateY(8px); opacity: 0; }
-}
-.overlay-modal {
-  animation: overlay-modal-in var(--overlay-enter-dur) var(--ease-spring) both;
-  will-change: transform, opacity;
-}
-.overlay-modal--closing {
-  animation: overlay-modal-out var(--overlay-exit-dur) var(--ease-exit) both;
-}
+/* NOTE: the drawer / modal / backdrop keyframes that used to live here are
+   gone — those overlays are driven by Motion springs in
+   src/lib/useOverlayTransition.ts, which integrates the spring in JS and needs
+   no CSS feature support. What remains below is the motion that is NOT
+   overlay-hook-driven: the sidebar's width transition and the dropdown pop.
+   Both are plain transitions/keyframes, so they stay in CSS. */
 
 /* Conversation sidebar — smooth collapse/expand. Desktop animates width
    (chat reflows), mobile animates the drawer slide. Suppressed mid-drag via
    a class toggle so resizing stays instant. */
 .conv-sidebar-anim {
-  transition: width 300ms var(--ease-emphasized),
-              transform 300ms var(--ease-emphasized);
+  transition: width var(--sidebar-dur) var(--ease-spring-smooth),
+              transform var(--sidebar-dur) var(--ease-spring-smooth);
 }
 @media (prefers-reduced-motion: reduce) {
   .conv-sidebar-anim { transition-duration: 1ms; }
@@ -217,43 +208,22 @@ body[data-room-bg] .bg-bg .bg-bg {
   to { transform: scale(1) translateY(0); opacity: 1; }
 }
 .overlay-pop {
-  animation: overlay-pop-in 180ms var(--ease-emphasized) both;
+  animation: overlay-pop-in var(--overlay-pop-dur) var(--ease-spring-snappy) both;
   transform-origin: var(--overlay-pop-origin, top center);
 }
 
-/* Lobby tab panes — gentle fade-and-rise when switching filter tabs. Applied
-   to a `key`-ed container so it replays on every tab change. */
-@keyframes lobby-pane-in {
-  from { transform: translateY(8px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.lobby-pane-in {
-  animation: lobby-pane-in 280ms var(--ease-emphasized) both;
-}
+/* NOTE: `.lobby-pane-in` lived here. Tab/filter pane swaps are now
+   components/shared/PaneTransition.tsx (Motion), which covers the lobby, room
+   settings, the character sheet and the backpack under one mechanism. */
 
 /* Respect users who prefer reduced motion — collapse to a near-instant
-   cross-fade so nothing flies across the screen. */
+   cross-fade so nothing flies across the screen. The overlays are no longer
+   listed here: useOverlayTransition checks the same media query in JS and
+   skips its Motion animations outright. */
 @media (prefers-reduced-motion: reduce) {
-  .overlay-backdrop,
-  .overlay-backdrop--closing,
-  .overlay-drawer,
-  .overlay-drawer--closing,
-  .overlay-modal,
-  .overlay-modal--closing,
-  .overlay-pop,
-  .lobby-pane-in {
+  .overlay-pop {
     animation-duration: 1ms;
     animation-timing-function: linear;
-  }
-  .overlay-drawer,
-  .overlay-drawer--closing,
-  .overlay-modal,
-  .overlay-modal--closing {
-    animation-name: overlay-backdrop-in;
-  }
-  .overlay-drawer--closing,
-  .overlay-modal--closing {
-    animation-name: overlay-backdrop-out;
   }
 }
 

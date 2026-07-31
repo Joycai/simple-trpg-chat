@@ -610,7 +610,6 @@
     "resetPassword": "重置密码",
     "newPassword": "输入新密码（至少3位）",
     "confirm": "确认",
-    "cancel": "取消",
     "passwordTooShort": "密码至少3位",
     "passwordResetOk": "密码已重置",
     "passwordResetFail": "重置失败",
@@ -1031,7 +1030,9 @@
     "cluePushLog": "📤 向 {recipients} 发放了线索【{title}】",
     "defaultPlayers": "所有玩家",
     "defaultPlayer": "玩家",
-    "defaultTeammate": "队友"
+    "defaultTeammate": "队友",
+    "searchPlaceholder": "搜索道具...",
+    "emptyHint": "线索与物品会在 {host} 分发后出现在这里"
   },
   "clues": {
     "title": "线索管理",
@@ -1265,17 +1266,50 @@
   "commands": {
     "helpTitle": "指令帮助",
     "helpEntries": {
-      "st": { "cmd": ".st 名称 值", "desc": "设置技能 / 属性 / 资源（支持批量：.st 侦查50聆听60）" },
-      "stCoc": { "cmd": ".st 名称 值", "desc": "设置技能 / 属性 / 资源（支持批量：.st 侦查50聆听60；力量、理智值 等会写入角色卡）" },
-      "rcD100": { "cmd": ".rc / .ra 技能 [值]", "desc": "技能检定（d100 vs 设定值；带数值则按该值临时检定，不写入）" },
-      "rcD20": { "cmd": ".rc / .ra 名称[±调整值] [DC]", "desc": "d20 检定（1d20+调整值 vs DC，调整值可含骰子；如 .rc str+3 15、.rc athletics+1+1d6 12；DC 缺省为 10，DC 前空格不可省略）" },
-      "rcSh": { "cmd": ".rc / .ra 名称[+加骰数[±时髦骰数]] [DC]", "desc": "狩魂者检定（1d20+加骰d4 vs DC；如 .rc 侦查+3 12；加骰 0~20，时髦骰 -3~+3，DC 缺省为 10）" },
-      "rQuickSh": { "cmd": ".r+加骰数[±时髦骰数] [DC]", "desc": "无名称快速检定，等同 .rc 简写（如 .r+2+1 12）" },
-      "taR": { "cmd": ".r 6d4", "desc": "Triangle Agency 不使用 .rc 检定——直接掷 6d4，结果中「3」的数量即成功数" },
-      "rdr": { "cmd": ".rdN / .r 表达式", "desc": "投骰（如 .rd100、.r 2d6+3）" },
-      "rh": { "cmd": ".rh 表达式", "desc": "隐蔽投骰（仅自己可见）" },
-      "sc": { "cmd": ".sc 成功扣除/失败扣除", "desc": "理智检定（如 .sc 1/1d6，理智值写回角色卡）" },
-      "help": { "cmd": ".help", "desc": "显示本帮助" }
+      "st": {
+        "cmd": ".st 名称 值",
+        "desc": "设置技能 / 属性 / 资源（支持批量：.st 侦查50聆听60）"
+      },
+      "stCoc": {
+        "cmd": ".st 名称 值",
+        "desc": "设置技能 / 属性 / 资源（支持批量：.st 侦查50聆听60；力量、理智值 等会写入角色卡）"
+      },
+      "rcD100": {
+        "cmd": ".rc / .ra 技能 [值]",
+        "desc": "技能检定（d100 vs 设定值；带数值则按该值临时检定，不写入）"
+      },
+      "rcD20": {
+        "cmd": ".rc / .ra 名称[±调整值] [DC]",
+        "desc": "d20 检定（1d20+调整值 vs DC，调整值可含骰子；如 .rc str+3 15、.rc athletics+1+1d6 12；DC 缺省为 10，DC 前空格不可省略）"
+      },
+      "rcSh": {
+        "cmd": ".rc / .ra 名称[+加骰数[±时髦骰数]] [DC]",
+        "desc": "狩魂者检定（1d20+加骰d4 vs DC；如 .rc 侦查+3 12；加骰 0~20，时髦骰 -3~+3，DC 缺省为 10）"
+      },
+      "rQuickSh": {
+        "cmd": ".r+加骰数[±时髦骰数] [DC]",
+        "desc": "无名称快速检定，等同 .rc 简写（如 .r+2+1 12）"
+      },
+      "taR": {
+        "cmd": ".r 6d4",
+        "desc": "Triangle Agency 不使用 .rc 检定——直接掷 6d4，结果中「3」的数量即成功数"
+      },
+      "rdr": {
+        "cmd": ".rdN / .r 表达式",
+        "desc": "投骰（如 .rd100、.r 2d6+3）"
+      },
+      "rh": {
+        "cmd": ".rh 表达式",
+        "desc": "隐蔽投骰（仅自己可见）"
+      },
+      "sc": {
+        "cmd": ".sc 成功扣除/失败扣除",
+        "desc": "理智检定（如 .sc 1/1d6，理智值写回角色卡）"
+      },
+      "help": {
+        "cmd": ".help",
+        "desc": "显示本帮助"
+      }
     },
     "unknownCommand": "未知指令。输入 .help 查看可用指令。",
     "unknownCommandGuess": "未知指令。你是否想输入 {guess}？输入 .help 查看可用指令。",

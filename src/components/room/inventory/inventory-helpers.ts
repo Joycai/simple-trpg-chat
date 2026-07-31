@@ -107,6 +107,70 @@ export const typeActiveClass: Record<InventoryItemType, string> = {
   item: "border-success/60 bg-success/10",
 };
 
+/** The backpack's category rail selection, i.e. a type or the "all" bucket. */
+export type BackpackFilter = "all" | InventoryItemType;
+
+/* The three maps below carry the same hue per type as `typeColorClass`, so a
+   card, its icon chip and its rail entry all light up in one colour. Every
+   value is a literal string: Tailwind scans source text, so a class assembled
+   at runtime (`bg-${tone}/15`) would never be generated. */
+
+/**
+ * Per-type wash + inset edge for a backpack card, applied as an absolutely
+ * positioned OVERLAY child rather than to the card itself.
+ *
+ * `.inventory-card` is theme-owned: every theme.css sets its background, border
+ * and box-shadow with `!important` to give the card that theme's skeuomorphic
+ * surface (parchment's paper texture, cthulhu's fog, …). Tinting the card
+ * directly is therefore impossible — the theme wins, and all four types render
+ * identically. Painting the tint on a child layers the type colour ON TOP of
+ * whatever surface the theme drew, so both survive.
+ *
+ * The edge is a `ring` (box-shadow) for the same reason: `border` on the card
+ * is spoken for.
+ */
+export const typeOverlayClass: Record<InventoryItemType, string> = {
+  clue: "bg-primary/[0.07] ring-1 ring-inset ring-primary/35",
+  info: "bg-ai/[0.07] ring-1 ring-inset ring-ai/35",
+  character: "bg-accent/[0.07] ring-1 ring-inset ring-accent/35",
+  item: "bg-success/[0.07] ring-1 ring-inset ring-success/35",
+};
+
+/** Rounded icon chip inside a backpack card. */
+export const typeChipClass: Record<InventoryItemType, string> = {
+  clue: "bg-primary/15 text-primary",
+  info: "bg-ai/15 text-ai",
+  character: "bg-accent/15 text-accent",
+  item: "bg-success/15 text-success",
+};
+
+/** Selected category in the rail. "all" has no type of its own, so it takes the
+ *  app's primary accent. */
+export const filterActiveClass: Record<BackpackFilter, string> = {
+  all: "border-primary/45 bg-primary/10 text-primary",
+  clue: "border-primary/45 bg-primary/10 text-primary",
+  info: "border-ai/45 bg-ai/10 text-ai",
+  character: "border-accent/45 bg-accent/10 text-accent",
+  item: "border-success/45 bg-success/10 text-success",
+};
+
+/** The indicator bar down the selected category's leading edge. */
+export const filterBarClass: Record<BackpackFilter, string> = {
+  all: "bg-primary",
+  clue: "bg-primary",
+  info: "bg-ai",
+  character: "bg-accent",
+  item: "bg-success",
+};
+
+/** Distribution timestamp → "14:20". Local time, no date: the backpack lists a
+ *  single session's handouts, so the clock is the useful part. */
+export function formatDistTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 // Unread = freshly received OR edited-since-viewed. `updated` distinguishes the two
 // so the backpack can flag a host edit differently from a brand-new hand-off.
 export const isUnread = (d: { viewed?: boolean | number | null }) => d.viewed === false || d.viewed === 0;

@@ -87,7 +87,7 @@ function WithdrawConfirm({
 }) {
   const t = useTranslations("timeline");
   const hostLabel = useHostLabel();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onCancel);
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onCancel);
   const [busy, setBusy] = useState(false);
 
   const handleConfirm = async () => {
@@ -101,9 +101,9 @@ function WithdrawConfirm({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${backdropClass}`} onClick={close}>
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
       <div
-        className={`bg-surface theme-border overlay-modal rounded-theme shadow-2xl p-6 w-full max-w-sm ${panelClass}`}
+        ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-sm ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-3">
