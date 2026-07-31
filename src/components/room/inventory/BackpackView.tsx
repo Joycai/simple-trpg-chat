@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Package, Share2 } from "lucide-react";
+import { LayoutGrid, Package, Share2 } from "lucide-react";
 import { isUnread, isUpdated, isNew, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
 import { useHostLabel } from "@/components/shared/host-label";
 import { PaneTransition } from "@/components/shared/PaneTransition";
@@ -19,31 +19,48 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
   const hostLabel = useHostLabel();
   const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
 
+  // Categories carry their own icon/colour from the shared item maps, so the
+  // rail reads the same as the item cards it filters.
+  const categories = [
+    { key: "all" as const, label: t("filterAll"), Icon: LayoutGrid },
+    ...(["clue", "info", "character", "item"] as const).map((k) => ({
+      key: k,
+      label: typeTabLabel(k),
+      Icon: typeIcon[k],
+    })),
+  ];
+
   return (
-    /* === PLAYER BACKPACK VIEW (Unified RPG Grid with Filters) === */
-    <div className="flex flex-col gap-4">
-      {/* Filter Pills */}
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => onFilterChange("all")}
-          className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all duration-200 cursor-pointer ${
-            filterType === "all"
-              ? "bg-primary text-primary-foreground shadow-[var(--theme-glow)]"
-              : "text-text-muted hover:text-text border border-border bg-transparent hover:bg-surface-alt"
-          }`}>
-          {t("filterAll")}
-        </button>
-        {(["clue", "info", "character", "item"] as const).map(typeKey => (
-          <button key={typeKey} onClick={() => onFilterChange(typeKey)}
-            className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all duration-200 cursor-pointer ${
-              filterType === typeKey
-                ? "bg-primary text-primary-foreground shadow-[var(--theme-glow)]"
-                : "text-text-muted hover:text-text border border-border bg-transparent hover:bg-surface-alt"
-            }`}>
-            {typeTabLabel(typeKey)}
-          </button>
-        ))}
+    /* === PLAYER BACKPACK VIEW (Unified RPG Grid + category rail) ===
+       Rail left / grid right on desktop; the drawer goes full-width below the
+       `sm` breakpoint, where there is no room to sit beside the grid, so the
+       rail folds into a horizontally scrollable strip above it. Same shape as
+       the settings panels' tab rail. */
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+      <div className="flex sm:flex-col gap-1 shrink-0 sm:w-28 overflow-x-auto sm:overflow-x-visible scrollbar-none border-b sm:border-b-0 sm:border-r border-border pb-2 sm:pb-0 sm:pr-2">
+        {categories.map(({ key, label, Icon }) => {
+          const active = filterType === key;
+          return (
+            <button
+              key={key}
+              onClick={() => onFilterChange(key)}
+              aria-pressed={active}
+              className={`flex items-center gap-2 px-2.5 py-2 rounded-theme text-xs sm:text-sm font-medium transition-all duration-150 sm:w-full text-left shrink-0 cursor-pointer border ${
+                active
+                  ? "text-primary bg-primary/10 border-primary/40 font-semibold"
+                  : "text-text-muted border-transparent hover:text-text hover:bg-surface-alt/50"
+              }`}
+            >
+              <Icon className={`w-4 h-4 shrink-0 ${active ? "text-primary" : "text-text-dim"}`} />
+              <span className="truncate">{label}</span>
+            </button>
+          );
+        })}
       </div>
 
+      {/* min-w-0 so the grid can shrink inside the flex row instead of
+          overflowing the drawer. */}
+      <div className="flex-1 min-w-0">
       <PaneTransition paneKey={filterType}>
       {filteredItems.length === 0 ? (
         <div className="text-center text-text-muted py-12 text-sm">
@@ -107,6 +124,7 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
         })()
       )}
       </PaneTransition>
+      </div>
     </div>
   );
 }
