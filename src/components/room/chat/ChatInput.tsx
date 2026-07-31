@@ -255,7 +255,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     }
   };
 
-  const handleStickerPick = (url: string) => {
+  const handleStickerPick = (url: string): boolean => {
     setUploadError(null);
 
     // Resolve the private target the same way handleSend / handleImageSelect do.
@@ -265,17 +265,20 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     }
     if (!isPrivateLocked && isPrivate && !finalTargetId) {
       setUploadError(t("selectMember"));
-      return;
+      // Rejected — the picker stays open so the target can be chosen.
+      return false;
     }
 
     onSendMessage(url, "sticker", undefined, isPrivate, finalTargetId || undefined);
-    setShowStickers(false);
+    // The picker closes itself (animated); unmounting it here would cut the
+    // exit transition off.
 
     if (!isPrivateLocked) {
       setIsPrivate(false);
       setPrivateTargetId(null);
     }
     inputRef.current?.focus();
+    return true;
   };
 
   if (readOnly) {
