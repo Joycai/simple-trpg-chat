@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { getStickerManifestAction } from "@/app/actions/sticker";
+import { useEscapeToClose } from "@/lib/overlay-esc";
 import type { StickerPack } from "@/lib/stickers";
 
 interface StickerPickerProps {
@@ -42,19 +43,17 @@ export function StickerPicker({ onPick, onClose }: StickerPickerProps) {
     };
   }, []);
 
-  // Close on outside click / Escape.
+  // Escape closes via the shared overlay stack (topmost-only).
+  useEscapeToClose(onClose);
+
+  // Close on outside click.
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) onClose();
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
     document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
 

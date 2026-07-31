@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { fetchProviderModels } from "@/app/actions/ai-providers";
 import { getVendor } from "@/lib/provider-presets";
+import { useEscapeToClose } from "@/lib/overlay-esc";
 
 /**
  * Model combobox for the provider create/edit forms: free-text input plus a
@@ -49,16 +50,14 @@ export function ModelPicker({ value, onChange, vendor, endpoint, apiKey, provide
     const onDocClick = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  // Escape closes just this dropdown while it's the topmost overlay.
+  useEscapeToClose(() => setOpen(false), open);
 
   const presetModels = getVendor(vendor)?.models.map((m) => m.id) ?? [];
   const models = fetched ?? presetModels;

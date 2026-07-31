@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { parseLeadingDice } from "@/lib/roll-command";
+import { useEscapeToClose } from "@/lib/overlay-esc";
 
 const DICE_FACES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
 const MAX_COUNT = 20;
@@ -45,6 +46,9 @@ export function DiceRoller({ onRoll, onClose, defaultExpression }: DiceRollerPro
   const [selectedDie, setSelectedDie] = useState(initial.die);
   const [count, setCount] = useState(initial.count);
   const [isPrivate, setIsPrivate] = useState(false);
+
+  // Escape closes the panel (topmost-only, via the shared overlay stack).
+  useEscapeToClose(onClose);
 
   const handleRoll = () => {
     // The roll itself is performed server-side (rollDiceAction) so it is authoritative

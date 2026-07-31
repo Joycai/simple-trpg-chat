@@ -8,6 +8,7 @@ import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { useTranslations } from "next-intl";
 import { isRollCommand, normalizeRollCommand } from "@/lib/roll-command";
 import { recordRollCommand, useRecentRollCommands } from "@/components/room/hooks/useRecentRollCommands";
+import { CHAT_INPUT_ATTR, TOGGLE_DICE_EVENT } from "@/lib/hotkeys";
 
 interface MentionTarget {
   id: number;
@@ -67,6 +68,15 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Alt+R (useRoomHotkeys) asks for the dice panel via a window event — the
+  // panel's open state is local to this component.
+  useEffect(() => {
+    if (readOnly) return;
+    const onToggle = () => setShowDice((v) => !v);
+    window.addEventListener(TOGGLE_DICE_EVENT, onToggle);
+    return () => window.removeEventListener(TOGGLE_DICE_EVENT, onToggle);
+  }, [readOnly]);
 
   // Auto-resize textarea height based on content
   useEffect(() => {
@@ -386,6 +396,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
       }`}>
         <textarea
           ref={inputRef}
+          {...{ [CHAT_INPUT_ATTR]: "" }}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}

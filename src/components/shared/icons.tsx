@@ -13,7 +13,7 @@ import {
   RefreshCw, Share2, Box, File, Stamp,
   ArrowDown, ArrowUp, ChevronsUp, ChevronsDown, Ban, Sparkles, ScrollText, Flag,
   Sunrise, Sun, Moon, CalendarDays, Undo2,
-  NotebookPen, BookOpen, AtSign, Bold, Italic, Heading2, List, Quote, Link2, MoreVertical,
+  NotebookPen, BookOpen, AtSign, Bold, Italic, Heading2, List, Quote, Link2, MoreVertical, Keyboard,
   Maximize2, Minimize2,
   type LucideIcon,
 } from "lucide-react";
@@ -118,4 +118,5 @@ export const Icons = {
   ArrowUp: wrap(ArrowUp),
   ChevronsUp: wrap(ChevronsUp),
   ChevronsDown: wrap(ChevronsDown),
+  Keyboard: wrap(Keyboard),
 };

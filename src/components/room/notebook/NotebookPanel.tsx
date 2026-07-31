@@ -7,6 +7,7 @@ import { LoadFailed } from "@/components/shared/LoadFailed";
 import { Notice } from "@/components/shared/Notice";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useEscapeToClose } from "@/lib/overlay-esc";
 import {
   getMyNotebookAction,
   createNoteAction,
@@ -84,7 +85,10 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, readOnly = false }: NotebookPanelProps) {
   const t = useTranslations("notebook");
   const tCommon = useTranslations("common");
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
+  // Escape must route through the dirty-editor guard like every other close
+  // path, so the default Escape-closes behavior is disabled and re-registered
+  // below with `guardedClose` (declared after the guard's dependencies).
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer", { closeOnEscape: false });
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -343,6 +347,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
     else proceed();
   };
   const guardedClose = () => guardDiscard(close);
+  useEscapeToClose(guardedClose);
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={guardedClose}>

@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
+import { useEscapeToClose } from "@/lib/overlay-esc";
 
 /**
  * Shrine-styled custom dropdown — used by the rule-template and preset-provider
@@ -145,16 +146,15 @@ export function BadgeDropdown({
       if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
       setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  // Escape closes just this dropdown while it's the topmost overlay — via the
+  // shared stack, so a host modal doesn't close on the same keypress.
+  useEscapeToClose(() => setOpen(false), open);
 
   if (!selected) return null;
 
