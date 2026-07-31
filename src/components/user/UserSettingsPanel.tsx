@@ -13,6 +13,7 @@ import { AiProvidersTab } from "@/components/user/settings/AiProvidersTab";
 import { AiUsageTab } from "@/components/user/settings/AiUsageTab";
 import { AiPointsTab } from "@/components/user/settings/AiPointsTab";
 import { InvitesTab } from "@/components/user/settings/InvitesTab";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface UserSettingsPanelProps {
   userName: string;
@@ -118,15 +119,17 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
             })}
           </div>
 
-          {/* Content Pane */}
-          <div className="flex-1 overflow-y-auto p-5 md:p-6 bg-surface">
+          {/* Content pane — replays the fade-rise on tab change. The pane is
+              the scroll container itself (as in RoomSettings), so switching
+              tabs also lands you at the top of the new one. */}
+          <PaneTransition paneKey={tab} className="flex-1 overflow-y-auto p-5 md:p-6 bg-surface">
             {tab === "security" && <SecurityTab />}
             {tab === "history" && <LoginHistoryTab />}
             {tab === "ai" && <AiProvidersTab />}
             {tab === "ai-usage" && <AiUsageTab />}
             {tab === "ai-points" && <AiPointsTab userRole={userRole} />}
             {tab === "invites" && userRole === "host" && <InvitesTab />}
-          </div>
+          </PaneTransition>
         </div>
         </>
       )}
