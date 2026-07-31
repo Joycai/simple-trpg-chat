@@ -3,7 +3,7 @@
 import {
   User, Package, Ticket, Bot, Crosshair, Settings, BarChart3,
   Users, Info, Lock, Download, Dices, ClipboardList, Key,
-  Trash2, Pencil, X, Menu, ArrowLeft, LogOut, FileText,
+  Trash2, Pencil, X, Menu, ArrowLeft, LogOut, FileText, RotateCcw,
   Heart, Clover, Ruler, Home, Wand, Search, Plus, Zap, Skull, Image,
   ImagePlus, Smile, MessageSquareLock, EyeOff, Loader2, Send, Minus, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   ArrowUpToLine, ArrowDownToLine,
@@ -44,6 +44,7 @@ export const Icons = {
   ClipboardList: wrap(ClipboardList),
   Key: wrap(Key),
   Trash2: wrap(Trash2),
+  RotateCcw: wrap(RotateCcw),
   Pencil: wrap(Pencil),
   X: wrap(X),
   Menu: wrap(Menu),

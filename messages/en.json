@@ -360,7 +360,21 @@
       "d2": "d2",
       "d3": "d3"
     },
-    "privateHint": "Hidden roll - only you can see this"
+    "privateHint": "Hidden roll - only you can see this",
+    "mixedBadge": "Mixed rolls",
+    "dicePoolLabel": "DICE",
+    "dicePoolHint": "Tap to add one · hold to add five",
+    "presetsLabel": "PRESETS",
+    "lastUsed": "Last",
+    "trayLabel": "Combo",
+    "trayClear": "Clear",
+    "trayEmpty": "Pick a die on the left to start",
+    "modifier": "Modifier",
+    "range": "Range",
+    "rollN": "Roll {count} dice",
+    "removeTerm": "Remove",
+    "decrease": "Decrease",
+    "increase": "Increase"
   },
   "nickname": {
     "edit": "Edit Nickname",

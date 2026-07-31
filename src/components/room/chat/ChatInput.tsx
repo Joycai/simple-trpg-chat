@@ -40,6 +40,8 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
   const tRoom = useTranslations("room");
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
+  /** Last expression built in the dice panel, offered back as a "↺ 上次" preset. */
+  const [lastRollExpression, setLastRollExpression] = useState<string | undefined>(undefined);
   const recentRolls = useRecentRollCommands(roomId);
   const [_mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
@@ -179,9 +181,21 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     }
   };
 
-  const handleDiceRoll = (content: string, diceDetail: string) => {
-    const isSecret = content.includes("🔒");
-    onSendMessage(content, "dice", diceDetail, isSecret);
+  /**
+   * The dice panel builds an expression and nothing else — it is submitted as
+   * the very command a user could have typed, so mixed dice, modifiers and
+   * `kN` all resolve through the one server-side parser
+   * (`parseAndRollExpression`) instead of a second client-side implementation.
+   * `.rh` is already "hidden roll", which is exactly what 暗骰 means.
+   */
+  const handleDiceRoll = (expression: string, hidden: boolean) => {
+    setLastRollExpression(expression);
+    // Submitted exactly like a typed command, private-chat routing included.
+    let finalTargetId = privateTargetId;
+    if (!isPrivateLocked && isPrivate && !finalTargetId && mentions.length > 0) {
+      finalTargetId = mentions[0].id;
+    }
+    onSendMessage(`.${hidden ? "rh" : "r"} ${expression}`, "text", undefined, isPrivate, finalTargetId || undefined);
     // The panel closes itself (animated) after rolling — unmounting it here
     // would cut its exit transition off.
     inputRef.current?.focus();
@@ -282,6 +296,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
             onRoll={handleDiceRoll}
             onClose={() => setShowDice(false)}
             defaultExpression={defaultRollExpression}
+            lastExpression={lastRollExpression}
           />
         </div>
       )}
