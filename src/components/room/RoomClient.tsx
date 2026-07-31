@@ -12,6 +12,9 @@ import { ChatArea } from "@/components/room/chat/ChatArea";
 import { RoomOverlays } from "@/components/room/RoomOverlays";
 import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
+import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
+import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
+import { TOGGLE_DICE_EVENT, type RoomHotkeyAction } from "@/lib/hotkeys";
 import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction, withdrawTimelineDividerAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
@@ -98,6 +101,7 @@ export function RoomClient({
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
   // Inline room-name editing (host only, top bar)
   const [editingRoomName, setEditingRoomName] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState(room.name);
@@ -645,6 +649,49 @@ export function RoomClient({
     setUnreadItems(0);
   };
 
+  // Alt+↑/↓: cycle through the conversation tabs (public first, then the DM
+  // list in sidebar order). Wraps around at both ends.
+  const cycleTab = useCallback((dir: 1 | -1) => {
+    const order: ("public" | number)[] = ["public", ...dmConversations.map((c) => c.userId)];
+    const i = order.indexOf(activeTab);
+    handleTabChange(order[(Math.max(i, 0) + dir + order.length) % order.length]);
+  }, [dmConversations, activeTab, handleTabChange]);
+
+  // Room-wide keyboard shortcuts (bindings defined in src/lib/hotkeys.ts).
+  useRoomHotkeys({
+    isHost,
+    readOnly,
+    onAction: (action: RoomHotkeyAction) => {
+      switch (action) {
+        case "toggle-character": setShowCharacter((v) => !v); break;
+        case "toggle-inventory": handleToggleInventory(); break;
+        case "toggle-notebook": setShowNotebook((v) => !v); break;
+        case "toggle-events": setShowEvents((v) => !v); break;
+        case "toggle-sidebar": toggleSidebar(); break;
+        case "toggle-dice":
+          if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_DICE_EVENT));
+          break;
+        case "toggle-check":
+          // Mirrors the top-bar button: multi-mode rules get the dropdown,
+          // single-mode rules toggle the direct check dialog, no-check rules no-op.
+          if (ruleCapabilities.checkMenuModes.length > 1) setShowCheckMenu((v) => !v);
+          else if (ruleCapabilities.checkMenuModes.length === 1) setCheckMode((m) => (m === "check" ? null : "check"));
+          break;
+        case "toggle-item-manager": setShowItemManager((v) => !v); break;
+        case "toggle-timeline": setShowTimeline((v) => !v); break;
+        case "prev-tab": cycleTab(-1); break;
+        case "next-tab": cycleTab(1); break;
+        case "help": setShowHotkeyHelp((v) => !v); break;
+      }
+    },
+    // Escape with no overlay mounted: close whichever top-bar dropdown is open.
+    onEscape: () => {
+      setShowSystemMenu(false);
+      setShowAiMenu(false);
+      setShowCheckMenu(false);
+    },
+  });
+
   return (
     <RuleTemplateProvider ruleTemplate={room.ruleTemplate}>
     <EventDataProvider value={eventData}>
@@ -702,6 +749,7 @@ export function RoomClient({
         setShowExport={setShowExport}
         setShowSettings={setShowSettings}
         setShowUserSettings={setShowUserSettings}
+        setShowHotkeyHelp={setShowHotkeyHelp}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -865,6 +913,10 @@ export function RoomClient({
         onViewPlayerCard={handleViewPlayerCard}
         onStartDM={handleTabChange}
       />
+
+      {showHotkeyHelp && (
+        <RoomHotkeyHelp isHost={isHost} onClose={() => setShowHotkeyHelp(false)} />
+      )}
     </div>
     </EventDataProvider>
     </RuleTemplateProvider>

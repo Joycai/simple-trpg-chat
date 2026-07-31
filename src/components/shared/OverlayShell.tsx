@@ -15,6 +15,9 @@ interface OverlayShellProps {
   rootClassName?: string;
   /** Whether clicking the backdrop closes the overlay (default true). */
   closeOnBackdrop?: boolean;
+  /** Whether Escape closes the overlay (defaults to `closeOnBackdrop`, so a
+   *  non-dismissable overlay stays non-dismissable on both paths). */
+  closeOnEscape?: boolean;
   /**
    * Render into `document.body` instead of in place. Required for a centered
    * modal opened from inside a drawer/modal: an ancestor's enter/exit
@@ -37,10 +40,11 @@ export function OverlayShell({
   panelClassName,
   rootClassName = "",
   closeOnBackdrop = true,
+  closeOnEscape = closeOnBackdrop,
   portal = false,
   children,
 }: OverlayShellProps) {
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, variant);
+  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, variant, { closeOnEscape });
   // These overlays mount only on client interaction (never during SSR), so a
   // one-shot check for `document` is enough to portal — no effect needed, which
   // keeps clear of the set-state-in-effect lint rule.

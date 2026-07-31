@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useEscapeToClose } from "@/lib/overlay-esc";
 import { useTranslations } from "next-intl";
 import { ZoomIn, ZoomOut, Maximize2, Minimize2, Download, RotateCcw, X } from "lucide-react";
 
@@ -76,14 +77,18 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomBy]);
 
-  // Escape closes (unless in fullscreen, where Escape exits fullscreen first).
-  // Lock background scroll while open.
+  // Escape closes via the shared overlay stack, so with a preview stacked on
+  // another panel only the preview (topmost) closes — unless in fullscreen,
+  // where Escape exits fullscreen first.
+  useEscapeToClose(() => {
+    if (document.fullscreenElement) return;
+    onClose();
+  });
+
+  // Zoom keys. Lock background scroll while open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (document.fullscreenElement) return;
-        onClose();
-      } else if (e.key === "+" || e.key === "=") {
+      if (e.key === "+" || e.key === "=") {
         zoomBy(ZOOM_STEP);
       } else if (e.key === "-" || e.key === "_") {
         zoomBy(1 / ZOOM_STEP);
@@ -98,7 +103,7 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [onClose, zoomBy, reset]);
+  }, [zoomBy, reset]);
 
   // Track fullscreen state.
   useEffect(() => {

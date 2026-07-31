@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useClickOutside } from "@/lib/useClickOutside";
 import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
+import { formatHotkey } from "@/lib/hotkeys";
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
 import { useHostLabel } from "@/components/shared/host-label";
@@ -98,6 +99,7 @@ interface RoomTopBarProps {
   setShowExport: Dispatch<SetStateAction<boolean>>;
   setShowSettings: Dispatch<SetStateAction<boolean>>;
   setShowUserSettings: Dispatch<SetStateAction<boolean>>;
+  setShowHotkeyHelp: Dispatch<SetStateAction<boolean>>;
 }
 
 /**
@@ -178,6 +180,7 @@ export function RoomTopBar({
   setShowExport,
   setShowSettings,
   setShowUserSettings,
+  setShowHotkeyHelp,
 }: RoomTopBarProps) {
   const t = useTranslations("room");
   const tn = useTranslations("nav");
@@ -281,7 +284,7 @@ export function RoomTopBar({
           <button
             onClick={() => setShowCharacter(!showCharacter)}
             className={`${iconBtn} ${showCharacter ? iconNavActive : iconNavIdle}`}
-            title={`${t("tooltipCharacter")} · ${nickname}${characterHint ? ` · ${t("charHintUnset")}` : ""}`}
+            title={`${t("tooltipCharacter")} · ${nickname}${characterHint ? ` · ${t("charHintUnset")}` : ""} (${formatHotkey("KeyC")})`}
             aria-pressed={showCharacter}
           >
             <Icons.User className="w-[18px] h-[18px]" />
@@ -295,7 +298,7 @@ export function RoomTopBar({
           <button
             onClick={onToggleInventory}
             className={`${iconBtn} ${showInventory ? iconNavActive : iconNavIdle}`}
-            title={t("tooltipInventory")}
+            title={`${t("tooltipInventory")} (${formatHotkey("KeyB")})`}
             aria-pressed={showInventory}
           >
             <Icons.Package className="w-[18px] h-[18px]" />
@@ -308,7 +311,7 @@ export function RoomTopBar({
           <button
             onClick={() => setShowNotebook(!showNotebook)}
             className={`${iconBtn} ${showNotebook ? iconNavActive : iconNavIdle}`}
-            title={t("tooltipNotebook")}
+            title={`${t("tooltipNotebook")} (${formatHotkey("KeyN")})`}
             aria-pressed={showNotebook}
           >
             <Icons.NotebookPen className="w-[18px] h-[18px]" />
@@ -316,7 +319,7 @@ export function RoomTopBar({
           <button
             onClick={() => setShowEvents(!showEvents)}
             className={`${iconBtn} ${showEvents ? iconAccentActive : iconAccentIdle}`}
-            title={t("tooltipEvents")}
+            title={`${t("tooltipEvents")} (${formatHotkey("KeyV")})`}
             aria-pressed={showEvents}
           >
             <Icons.Flag className="w-[18px] h-[18px]" />
@@ -329,7 +332,7 @@ export function RoomTopBar({
           <button
             onClick={onToggleSidebar}
             className={`${iconBtn} ${!sidebarCollapsed ? iconNavActive : iconNavIdle}`}
-            title={sidebarCollapsed ? t("tooltipExpandDm") : t("tooltipCollapseSidebar")}
+            title={`${sidebarCollapsed ? t("tooltipExpandDm") : t("tooltipCollapseSidebar")} (${formatHotkey("KeyM")})`}
             aria-pressed={!sidebarCollapsed}
           >
             <Icons.Users className="w-[18px] h-[18px]" />
@@ -383,6 +386,10 @@ export function RoomTopBar({
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                     <Icons.User className="w-4 h-4" /> {ts("title")}
                   </button>
+                  <button onClick={() => { setShowHotkeyHelp(true); }}
+                    className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
+                    <Icons.Keyboard className="w-4 h-4" /> {t("menuHotkeys")} <span className="ml-auto text-xs text-text-muted font-mono">{formatHotkey("Slash")}</span>
+                  </button>
                   {/* Player-local background intensity — only offered while the host
                       has a background set. stopPropagation keeps the wrapper's
                       close-on-click from firing while dragging the slider. */}
@@ -428,7 +435,7 @@ export function RoomTopBar({
                   <button
                     onClick={() => setShowCheckMenu(!showCheckMenu)}
                     className={`${iconBtn} ${checkMode || showCheckMenu ? iconAccentActive : iconAccentIdle}`}
-                    title={t("tooltipCheck")}
+                    title={`${t("tooltipCheck")} (${formatHotkey("KeyK")})`}
                     aria-pressed={!!checkMode || showCheckMenu}
                   >
                     <Icons.Crosshair className="w-[18px] h-[18px]" />
@@ -469,7 +476,7 @@ export function RoomTopBar({
                 <button
                   onClick={() => setCheckMode(checkMode === "check" ? null : "check")}
                   className={`${iconBtn} ${checkMode === "check" ? iconAccentActive : iconAccentIdle}`}
-                  title={t("tooltipCheck")}
+                  title={`${t("tooltipCheck")} (${formatHotkey("KeyK")})`}
                   aria-pressed={checkMode === "check"}
                 >
                   <Icons.Crosshair className="w-[18px] h-[18px]" />
@@ -523,7 +530,7 @@ export function RoomTopBar({
               <button
                 onClick={() => setShowTimeline(!showTimeline)}
                 className={`${iconBtn} ${showTimeline ? iconAccentActive : iconAccentIdle}`}
-                title={t("tooltipTimeline")}
+                title={`${t("tooltipTimeline")} (${formatHotkey("KeyT")})`}
                 aria-pressed={showTimeline}
               >
                 <Icons.Sunrise className="w-[18px] h-[18px]" />
