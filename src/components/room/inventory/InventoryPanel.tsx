@@ -33,7 +33,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
 
   // Each entry point (背包 / 道具管理) opens a fixed view; the manage view requires host.
   const tab = view === "manage" && isHost ? "manage" : "backpack";
@@ -266,8 +266,8 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
-      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-[36rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`} onClick={e => e.stopPropagation()}>
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[36rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-xl font-theme-display">{tab === "manage" ? t("tabManage") : t("tabBackpack")}</h3>

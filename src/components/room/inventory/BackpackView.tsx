@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Package, Share2 } from "lucide-react";
 import { isUnread, isUpdated, isNew, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
 import { useHostLabel } from "@/components/shared/host-label";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface BackpackViewProps {
   filteredItems: Distribution[];
@@ -43,6 +44,7 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
         ))}
       </div>
 
+      <PaneTransition paneKey={filterType}>
       {filteredItems.length === 0 ? (
         <div className="text-center text-text-muted py-12 text-sm">
           <Package className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -104,6 +106,7 @@ export function BackpackView({ filteredItems, filterType, onFilterChange, userId
           );
         })()
       )}
+      </PaneTransition>
     </div>
   );
 }

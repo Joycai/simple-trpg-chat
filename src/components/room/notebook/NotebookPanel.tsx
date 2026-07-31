@@ -88,7 +88,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   // Escape must route through the dirty-editor guard like every other close
   // path, so the default Escape-closes behavior is disabled and re-registered
   // below with `guardedClose` (declared after the guard's dependencies).
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer", { closeOnEscape: false });
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer", { closeOnEscape: false });
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -351,9 +351,9 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={guardedClose}>
-      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
       <div
-        className={`notebook-panel relative ml-auto w-full sm:w-[44rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
+        ref={panelRef} className={`notebook-panel relative ml-auto w-full sm:w-[44rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Panel header */}

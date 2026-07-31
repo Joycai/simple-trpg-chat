@@ -34,7 +34,7 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
   const router = useRouter();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(room.name);
   const [savingName, setSavingName] = useState(false);
@@ -93,8 +93,8 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex" onClick={close}>
-      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-[26rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[26rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">
           <h3 className="font-bold text-text text-xl font-theme-display">{t("title")}</h3>

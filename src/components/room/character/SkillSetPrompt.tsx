@@ -22,7 +22,7 @@ const MAX = 99;
 export function SkillSetPrompt({ skillName, onConfirm, onClose }: Props) {
   const t = useTranslations("room");
   const tCommon = useTranslations("common");
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose);
   const [value, setValue] = useState("50");
 
   const parsed = parseInt(value, 10);
@@ -34,8 +34,8 @@ export function SkillSetPrompt({ skillName, onConfirm, onClose }: Props) {
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${backdropClass}`} onClick={close}>
-      <div className={`bg-surface theme-border overlay-modal rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
+      <div ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-3">
           <h3 className="font-bold text-xl text-text font-theme-display">{t("skillSetTitle")}</h3>

@@ -16,6 +16,7 @@ import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 import {
   getRule, DEFAULT_RULE_ID, type ResourcePatch,
   type CocAttributes, type D20Attributes, type D20Sheet,
@@ -66,7 +67,7 @@ export function CharacterPanel({
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose, "drawer");
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
 
   // Avatar photo: shows the uploaded image when present, falling back to a
   // colored initial. `avatarOverride` reflects a just-cropped image instantly,
@@ -446,8 +447,8 @@ export function CharacterPanel({
   // Shared drawer chrome for the loading / empty states.
   const drawerShell = (body: React.ReactNode) => (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
-      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center">
           <h3 className="font-bold text-text text-xl font-theme-display truncate">{t("titleOther", { name: currentNickname })}</h3>
@@ -483,8 +484,8 @@ export function CharacterPanel({
   return (
     <>
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
-      <div className={`absolute inset-0 bg-black/30 ${backdropClass}`} />
-      <div className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={panelRef} className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
 
         {/* Header — 角色卡 · 昵称 (click to edit) + close */}
@@ -589,8 +590,10 @@ export function CharacterPanel({
           ))}
         </div>
 
-        {/* Tab content (scrolls) */}
+        {/* Tab content (scrolls). The scroll container stays put; only the pane
+            inside it swaps, so switching tabs also resets scroll to the top. */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
+        <PaneTransition paneKey={activeTab}>
           {activeTab === "attributes" && (
             <AttributesTab
               ruleTemplate={ruleTemplate}
@@ -646,6 +649,7 @@ export function CharacterPanel({
               onLevelChange={setD20Level}
             />
           )}
+        </PaneTransition>
         </div>
 
         {/* Footer — 导出 / 保存 */}

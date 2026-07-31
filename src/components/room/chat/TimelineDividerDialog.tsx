@@ -34,7 +34,7 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
   const t = useTranslations("timeline");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const { close, backdropClass, panelClass } = useOverlayTransition(onClose);
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose);
 
   const [mode, setMode] = useState<TimelineMode>("day");
   const [day, setDay] = useState(1);
@@ -89,9 +89,9 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
     "w-full h-12 px-3.5 border border-input-border bg-input-bg rounded-theme text-text text-sm outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent placeholder:text-text-dim transition";
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${backdropClass}`} onClick={close}>
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
       <div
-        className={`bg-surface theme-border overlay-modal rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
+        ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

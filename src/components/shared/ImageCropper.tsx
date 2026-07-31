@@ -52,7 +52,7 @@ export function ImageCropper({
 }: ImageCropperProps) {
   const t = useTranslations("cropper");
   const tCommon = useTranslations("common");
-  const { close, backdropClass, panelClass } = useOverlayTransition(onCancel);
+  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onCancel);
 
   const [src, setSrc] = useState<string | null>(null);
   const [geom, setGeom] = useState<ImgGeom | null>(null);
@@ -327,11 +327,11 @@ export function ImageCropper({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 ${backdropClass}`}
+      ref={backdropRef} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
       onClick={close}
     >
       <div
-        className={`bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border ${panelClass}`}
+        ref={panelRef} className={`bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">

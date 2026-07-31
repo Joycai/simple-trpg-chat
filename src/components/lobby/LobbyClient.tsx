@@ -12,6 +12,7 @@ import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import Link from "next/link";
 import { DEFAULT_RULE_ID } from "@/lib/rules";
 import { useHostLabelResolver, usePlayerLabelResolver, useRuleLabelResolver } from "@/components/shared/host-label";
+import { PaneTransition } from "@/components/shared/PaneTransition";
 
 /** Shared input/select styling for the create-room modal (rainglass spec). */
 const FIELD_CLS =
@@ -289,8 +290,8 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
         </>
       )}
 
-      {/* Room list — keyed so it re-animates on each filter-tab switch */}
-      <div key={filter} className="lobby-pane-in">
+      {/* Room list — re-animates on each filter-tab switch */}
+      <PaneTransition paneKey={filter}>
       {filteredRooms.length === 0 ? (
         <div className="text-center text-text-muted py-16">
           <div className="mb-4 flex justify-center">
@@ -426,7 +427,7 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
           })}
         </div>
       )}
-      </div>
+      </PaneTransition>
     </div>
   );
 }
