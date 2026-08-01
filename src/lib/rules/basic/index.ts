@@ -31,8 +31,8 @@ const capabilities: RuleCapabilities = {
   hasManaPoints: false,
   checkMenuModes: ["check"],
   // Same command surface as today minus `.sc` (which is gated to COC).
-  supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
-  helpEntryIds: ["st", "rcD100", "rdr", "rh", "help"],
+  supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcD100", "rch", "rdr", "rh", "help"],
   resourceBars: [],
   attributeKeys: [],
   // No preset resources at all, so the hover card is entirely player-defined
@@ -42,6 +42,14 @@ const capabilities: RuleCapabilities = {
   requiresStoredTarget: true,
   hasRoleLevel: false,
   quickRolls: [".rc 侦查", ".rd100"],
+  // Quick-check panel: stored skills only — basic has no structured sheet, so
+  // there are no attributes/resources to list, and no dice extras to configure.
+  quickCheckPanel: {
+    skills: true,
+    attributes: false,
+    nameField: "select",
+    hiddenToggle: true,
+  },
 };
 
 export const basicRule: RuleModule = {
@@ -139,6 +147,15 @@ export const basicRule: RuleModule = {
       return { skillName, explicitTarget: value };
     }
     return { skillName: trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed };
+  },
+
+  /** Quick-check panel → `.rc <skill>` (server re-resolves the stored value). */
+  buildCheckCommand(input) {
+    const name = input.name.trim();
+    if (!name) return null;
+    const command = `${input.hidden ? ".rch" : ".rc"} ${name}`;
+    const preview = typeof input.value === "number" ? `1d100 ≤ ${input.value}` : "1d100";
+    return { command, preview };
   },
 
   // Basic has no structured sheet — `.st` writes never reach attribute/

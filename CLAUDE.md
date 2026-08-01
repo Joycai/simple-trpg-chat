@@ -100,12 +100,37 @@ if (process.env.NODE_ENV !== "production") {
 Prefix `.` or `。` (Chinese full-stop accepted):
 
 - `.st <skill> <value>` — set skill (batch: `.st 侦查50聆听60`)
-- `.rc <skill>` — d100 roll check vs skill value
+- `.rc <skill>` — roll check, syntax owned by the room's rule module (COC:
+  `.rc b2 侦查` bonus dice / `.rc p 侦查` penalty dice — extra tens dice
+  replace the tens digit, keep lowest/highest; `.rc 侦查+1`/`-1` is the suffix
+  alias; d20: `.rc 运动+5 15`, advantage `.rc 优势 运动+5 15` / 劣势 rolls
+  2d20 keep highest/lowest (nameless: `.r 优势+2 15`); 狩魂者:
+  `.rc 侦查+2-1 12`)
+- `.rd100b[n]` / `.rd100p[n]` — COC plain bonus/penalty roll, no judgment
+  (`.rh100b2` = hidden); the chat card shows each die face, the original
+  d100, and the replaced result
+- `.rch` / `.rah` — hidden check (same as `.rc`/`.ra`, result visible only to
+  the roller — the check-flow counterpart of `.rh`)
 - `.sc <s>/<f>` — sanity check (COC 7th)
 - `.rd<N>` / `.r<N>` — dice roll (supports expressions like `3d100k2+2d20`)
 - `.help` — show help
 
 Engine: `src/lib/commands.ts`
+
+### Quick-Check Panel (快速检定面板)
+
+The ◎ button left of the chat input (Alt+Q) opens a rule-aware panel where a
+player picks one of their own stats (stored skills / sheet attributes / 理智)
+and rolls the room rule's check without typing. **This is rule-template
+territory**: what the panel renders comes from `capabilities.quickCheckPanel`
+(pure data — COC gets a bonus/penalty-die toggle, d20 gets modifier + DC
+fields, 狩魂者 gets 加骰/时髦骰 steppers, triangle declares nothing and shows
+no button), and the command it sends is produced by the rule's
+`buildCheckCommand` — so it always equals a hand-typed `.rc`-family command
+and the server stays the single resolver. **When adding or changing a
+ruleset, this panel spec must be part of the change** — see the
+`simple-trpg-chat-rules` skill (§3 `quickCheckPanel`) for the contract.
+Component: `src/components/room/chat/QuickCheckPanel.tsx`.
 
 ### Avatar System
 

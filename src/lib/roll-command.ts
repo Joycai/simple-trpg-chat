@@ -4,13 +4,14 @@
  * Kept separate from `commands.ts` on purpose: that module imports the DB
  * layer, so client components must never import it. The prefix list below
  * mirrors the roll-type subset of the engine's command regex
- * (`commands.ts` — `/^(help|st|rc|sc|rd|ra|rh|r)\s*(.*)$/i`), excluding
- * non-roll commands (`st`, `help`).
+ * (`commands.ts` — `/^(help|st|rch|rah|rc|sc|rd|ra|rh|r)\s*(.*)$/i`),
+ * excluding non-roll commands (`st`, `help`).
  */
 
-// Multi-letter prefixes must precede the bare `r`, matching the engine's
-// left-to-right alternation so `.ra侦查` / `.rh100` aren't read as `.r`.
-export const ROLL_COMMANDS = ["rd", "ra", "rh", "rc", "sc", "r"] as const;
+// Longer prefixes must precede their prefixes (`rch`/`rah` before `rc`/`ra`/
+// `rh`, all before the bare `r`), matching the engine's left-to-right
+// alternation so `.rch侦查` / `.ra侦查` / `.rh100` aren't read as `.r`.
+export const ROLL_COMMANDS = ["rch", "rah", "rd", "ra", "rh", "rc", "sc", "r"] as const;
 
 const ROLL_COMMAND_RE = new RegExp(`^(${ROLL_COMMANDS.join("|")})\\s*(.*)$`, "i");
 

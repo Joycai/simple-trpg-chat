@@ -62,7 +62,7 @@ export interface TermResult {
 }
 
 /** Known commands, used for "did you mean …?" suggestions on typos. */
-const KNOWN_COMMANDS = ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"];
+const KNOWN_COMMANDS = ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r", "sc"];
 
 /** Map a rule's visual grade to the player-facing label + icon. */
 function gradeDisplay(
@@ -182,10 +182,11 @@ export async function executeCommand(
 
   const body = trimmed.slice(1);
   // Regex matches: command prefix + optional spaces + arguments.
-  // NOTE: order matters — alternation is left-to-right. Multi-letter variants
-  // (`ra`, `rh`, `rd`) must precede the bare `r` so `.ra侦查` / `.rh100` aren't
-  // swallowed by the `.r` dice command.
-  const match = body.match(/^(help|st|rc|sc|rd|ra|rh|r)\s*(.*)$/i);
+  // NOTE: order matters — alternation is left-to-right. Longer variants must
+  // precede their prefixes (`rch`/`rah` before `rc`/`ra`/`rh`, those before
+  // the bare `r`) so `.rch侦查` / `.ra侦查` / `.rh100` aren't swallowed by a
+  // shorter command.
+  const match = body.match(/^(help|st|rch|rah|rc|sc|rd|ra|rh|r)\s*(.*)$/i);
   if (!match) {
     return { success: false, isCommand: true, error: unknownCommandError(body, t) };
   }
@@ -203,9 +204,11 @@ export async function executeCommand(
     return await handleSetSkill(roomId, userId, args, t, ctx);
   }
 
-  // --- .rc / .ra (Roll Check — identical variants per spec) ---
-  if (cmd === "rc" || cmd === "ra") {
-    return await handleRollCheck(roomId, userId, args, t, ctx, trimmed);
+  // --- .rc / .ra (Roll Check — identical variants per spec) and their
+  // hidden twins .rch / .rah (same check, result visible only to the roller —
+  // the check-flow counterpart of `.rh`) ---
+  if (cmd === "rc" || cmd === "ra" || cmd === "rch" || cmd === "rah") {
+    return await handleRollCheck(roomId, userId, args, t, ctx, trimmed, cmd === "rch" || cmd === "rah");
   }
 
   // --- .sc (Sanity Check) ---
@@ -240,6 +243,26 @@ async function handleDiceRoll(
 ): Promise<CommandResult> {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const rule = getRuleForRoom(room || {});
+
+  // Rule-special plain rolls get the very first claim — COC's `.rd100b2`
+  // bonus/penalty roll would otherwise be mangled by the numeric-prefix
+  // rewrite below ("100b2" → "1d100b2" → parse error). Hidden rolls are
+  // included on purpose: `.rh100b2` is a legitimate 暗投.
+  if (rawArgs.trim() && rule.resolvePlainRoll) {
+    const special = rule.resolvePlainRoll(rawArgs.trim());
+    if (special) {
+      const content = `🎲 ${special.notation}: ${special.display} = ${special.total}`;
+      const vis = hidden
+        ? visibilityFor(ctx, userId, "self")
+        : visibilityFor(ctx, userId, "channel");
+      const detail = attachProxy(
+        JSON.stringify({ ...special.detail, command: rawCommand }),
+        ctx?.proxiedBy
+      );
+      const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
+      return { success: true, isCommand: true, message: msg };
+    }
+  }
 
   // Give the rule first refusal on non-empty args: 狩魂者 claims `.r+x±y [DC]`
   // as a nameless shorthand check. Hidden rolls (`.rh`) stay plain dice.
@@ -502,7 +525,8 @@ async function handleRollCheck(
   args: string,
   t: (key: string, opts?: Record<string, string | number | Date>) => string,
   ctx: CommandContext | undefined,
-  rawCommand: string
+  rawCommand: string,
+  hidden = false
 ): Promise<CommandResult> {
   const trimmedArgs = args.trim();
   if (!trimmedArgs) return { success: false, isCommand: true, error: t("rcUsageError") };
@@ -517,7 +541,7 @@ async function handleRollCheck(
     return { success: false, isCommand: true, error: t(rule.rcUsageKey ?? "rcUsageError") };
   }
 
-  return await runRuleCheck(roomId, userId, parsed, rule, t, ctx, rawCommand);
+  return await runRuleCheck(roomId, userId, parsed, rule, t, ctx, rawCommand, hidden);
 }
 
 /**
@@ -529,11 +553,12 @@ async function handleRollCheck(
 async function runRuleCheck(
   roomId: number,
   userId: number,
-  parsed: { skillName: string; explicitTarget?: number; modifierExpression?: string },
+  parsed: { skillName: string; explicitTarget?: number; modifierExpression?: string; ruleData?: Record<string, unknown> },
   rule: RuleModule,
   t: (key: string, opts?: Record<string, string | number | Date>) => string,
   ctx: CommandContext | undefined,
-  rawCommand: string
+  rawCommand: string,
+  hidden = false
 ): Promise<CommandResult> {
   // Evaluate the modifier formula (rolling any embedded dice) if the rule
   // surfaced one. Result is passed as raw number + display string so the
@@ -594,7 +619,8 @@ async function runRuleCheck(
     modifierDisplay,
     modifierTerms,
     sheet,
-  });
+    ruleData: parsed.ruleData,
+  }, hidden);
 }
 
 /**
@@ -630,6 +656,7 @@ interface PerformCheckExtras {
   modifierDisplay?: string;
   modifierTerms?: CheckRequest["modifierTerms"];
   sheet: CharacterData | null;
+  ruleData?: Record<string, unknown>;
 }
 
 /**
@@ -647,7 +674,8 @@ async function performSkillCheck(
   t: (key: string, opts?: Record<string, string | number | Date>) => string,
   ctx: CommandContext | undefined,
   rawCommand: string,
-  extras?: PerformCheckExtras
+  extras?: PerformCheckExtras,
+  hidden = false
 ): Promise<CommandResult> {
   const result = rule.resolveCheck({
     skillName,
@@ -658,6 +686,7 @@ async function performSkillCheck(
     modifierDisplay: extras?.modifierDisplay,
     modifierTerms: extras?.modifierTerms,
     sheet: extras?.sheet ?? null,
+    ruleData: extras?.ruleData,
   });
   const { successLevel, icon } = gradeDisplay(result.grade, t);
 
@@ -686,7 +715,9 @@ async function performSkillCheck(
         successLevel,
         icon,
       });
-  const vis = visibilityFor(ctx, userId, "channel");
+  // `.rch/.rah` keep the result to the roller (same "self" semantics as `.rh`),
+  // still pinned to the channel the command was issued in.
+  const vis = visibilityFor(ctx, userId, hidden ? "self" : "channel");
   const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
   return { success: true, isCommand: true, message: msg };
 }

@@ -206,6 +206,7 @@
     "events": "事件志",
     "sidebar": "会话侧栏",
     "dice": "骰子面板",
+    "quickCheck": "快速检定",
     "check": "发起检定",
     "itemManager": "道具管理",
     "timeline": "时间线分割",
@@ -317,7 +318,22 @@
     "mentionTip": "↑↓ 选择 · Tab/Enter 确认 · Esc 取消",
     "privateChatTarget": "私聊对象:",
     "selectMember": "选择成员...",
+    "bpTitleBonus": "奖励骰投掷",
+    "bpTitlePenalty": "惩罚骰投掷",
+    "bpOriginalRow": "原始 d100",
+    "bpDiceRowBonus": "奖励骰",
+    "bpDiceRowPenalty": "惩罚骰",
+    "bpKeepLow": "取低",
+    "bpKeepHigh": "取高",
+    "bpFromCandidates": "（候选 {list}）",
+    "d20CheckTitle": "检定",
+    "d20RollRow": "d20 出目",
+    "d20AdvantageMark": "优势取高",
+    "d20DisadvantageMark": "劣势取低",
+    "d20ModifierRow": "加值",
+    "d20TotalRow": "合计",
     "btnRollTooltip": "投骰子",
+    "btnQuickCheckTooltip": "快速检定",
     "btnPrivateTooltip": "开启私聊模式",
     "whisperingPlaceholder": "正在进行悄悄话...",
     "resourceUnavailable": "未设置资源状态",
@@ -373,6 +389,39 @@
     "range": "范围",
     "rollN": "投出 {count} 颗骰",
     "removeTerm": "移除",
+    "decrease": "减少",
+    "increase": "增加"
+  },
+  "quickCheck": {
+    "title": "技能检定",
+    "searchPlaceholder": "搜索技能或属性...",
+    "selectHint": "↑↓ 选择",
+    "recentLabel": "常用",
+    "recentSortHint": "按最近使用排序",
+    "attributesLabel": "属性",
+    "skillsLabel": "技能",
+    "emptyList": "暂无可检定的技能——先用 .st 或角色卡设置",
+    "emptyFiltered": "没有匹配的技能或属性",
+    "nameLabel": "检定名",
+    "namePlaceholder": "可留空",
+    "bpLabel": "奖励 / 惩罚骰",
+    "advLabel": "优势 / 劣势",
+    "advNone": "无",
+    "advAdvantage": "优势",
+    "advDisadvantage": "劣势",
+    "bpNone": "无",
+    "bpBonus": "{count, plural, =1 {奖励} other {奖励×#}}",
+    "bpPenalty": "{count, plural, =1 {惩罚} other {惩罚×#}}",
+    "modifierLabel": "加值",
+    "bonusDiceLabel": "加投（d4）",
+    "styleDiceLabel": "时髦投（d6）",
+    "dcLabel": "DC",
+    "dcPlaceholder": "默认 10",
+    "hidden": "暗骰",
+    "hiddenHint": "暗检定 - 结果仅你可见",
+    "rollNamed": "投 {name} · {preview}",
+    "rollPreview": "投 · {preview}",
+    "selectFirst": "先选择技能或属性",
     "decrease": "减少",
     "increase": "增加"
   },
@@ -1292,9 +1341,25 @@
         "cmd": ".rc / .ra 技能 [值]",
         "desc": "技能检定（d100 vs 设定值；带数值则按该值临时检定，不写入）"
       },
+      "rcBp": {
+        "cmd": ".rc b[n] / p[n] 技能",
+        "desc": "奖励骰（b，多掷 n 颗十位骰替换十位取低）/ 惩罚骰（p，取高），n 缺省 1、上限 3；如 .rc b 侦查、.rc p2 侦查 60；也可写作 .rc 侦查+1 / -1"
+      },
+      "rdBp": {
+        "cmd": ".rd100b[n] / .rd100p[n]",
+        "desc": "奖励/惩罚骰纯投掷（不判定；.rh100b2 为暗投），卡片展示各骰出目、原始 d100 与替换后结果"
+      },
+      "rch": {
+        "cmd": ".rch / .rah 同 .rc",
+        "desc": "暗检定（结果仅自己可见）"
+      },
       "rcD20": {
         "cmd": ".rc / .ra 名称[±调整值] [DC]",
         "desc": "d20 检定（1d20+调整值 vs DC，调整值可含骰子；如 .rc str+3 15、.rc athletics+1+1d6 12；DC 缺省为 10，DC 前空格不可省略）"
+      },
+      "rcD20Adv": {
+        "cmd": ".rc 优势/劣势 名称[±调整值] [DC]",
+        "desc": "优势（双 d20 取高）/ 劣势（取低）检定，不可叠加；无名称简写 .r 优势+2 15；大成功/大失败按被采用的那颗 d20 判定"
       },
       "rcSh": {
         "cmd": ".rc / .ra 名称[+加骰数[±时髦骰数]] [DC]",

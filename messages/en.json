@@ -206,6 +206,7 @@
     "events": "Event log",
     "sidebar": "Conversation sidebar",
     "dice": "Dice panel",
+    "quickCheck": "Quick check",
     "check": "Start a check",
     "itemManager": "Item manager",
     "timeline": "Timeline divider",
@@ -317,7 +318,22 @@
     "mentionTip": "↑↓ Select · Tab/Enter Confirm · Esc Cancel",
     "privateChatTarget": "Private Chat:",
     "selectMember": "Select member...",
+    "bpTitleBonus": "Bonus Dice Roll",
+    "bpTitlePenalty": "Penalty Dice Roll",
+    "bpOriginalRow": "Original d100",
+    "bpDiceRowBonus": "Bonus dice",
+    "bpDiceRowPenalty": "Penalty dice",
+    "bpKeepLow": "Keep lowest",
+    "bpKeepHigh": "Keep highest",
+    "bpFromCandidates": "(from {list})",
+    "d20CheckTitle": "Check",
+    "d20RollRow": "d20 roll",
+    "d20AdvantageMark": "advantage · high",
+    "d20DisadvantageMark": "disadvantage · low",
+    "d20ModifierRow": "Modifier",
+    "d20TotalRow": "Total",
     "btnRollTooltip": "Roll Dice",
+    "btnQuickCheckTooltip": "Quick Check",
     "btnPrivateTooltip": "Toggle Private Chat",
     "whisperingPlaceholder": "Whispering...",
     "resourceUnavailable": "Resources not configured",
@@ -373,6 +389,39 @@
     "range": "Range",
     "rollN": "Roll {count} dice",
     "removeTerm": "Remove",
+    "decrease": "Decrease",
+    "increase": "Increase"
+  },
+  "quickCheck": {
+    "title": "Skill Check",
+    "searchPlaceholder": "Search skills or attributes...",
+    "selectHint": "↑↓ Select",
+    "recentLabel": "RECENT",
+    "recentSortHint": "sorted by last use",
+    "attributesLabel": "ATTRIBUTES",
+    "skillsLabel": "SKILLS",
+    "emptyList": "Nothing to check yet — set skills via .st or the character sheet",
+    "emptyFiltered": "No matching skill or attribute",
+    "nameLabel": "Check name",
+    "namePlaceholder": "optional",
+    "bpLabel": "Bonus / Penalty die",
+    "advLabel": "Advantage / Disadvantage",
+    "advNone": "None",
+    "advAdvantage": "Advantage",
+    "advDisadvantage": "Disadvantage",
+    "bpNone": "None",
+    "bpBonus": "{count, plural, =1 {Bonus} other {Bonus ×#}}",
+    "bpPenalty": "{count, plural, =1 {Penalty} other {Penalty ×#}}",
+    "modifierLabel": "Modifier",
+    "bonusDiceLabel": "Bonus dice (d4)",
+    "styleDiceLabel": "Style dice (d6)",
+    "dcLabel": "DC",
+    "dcPlaceholder": "default 10",
+    "hidden": "Hidden",
+    "hiddenHint": "Hidden check - visible only to you",
+    "rollNamed": "Roll {name} · {preview}",
+    "rollPreview": "Roll · {preview}",
+    "selectFirst": "Select a skill or attribute first",
     "decrease": "Decrease",
     "increase": "Increase"
   },
@@ -1292,9 +1341,25 @@
         "cmd": ".rc / .ra [Skill] [Value]",
         "desc": "Skill check (d100 vs target; trailing value gives a one-off check that is not persisted)"
       },
+      "rcBp": {
+        "cmd": ".rc b[n] / p[n] [Skill]",
+        "desc": "Bonus dice (b: n extra tens dice replace the tens digit, keep lowest) / penalty dice (p: keep highest); n defaults to 1, max 3. E.g. .rc b Spot, .rc p2 Spot 60; the suffix form .rc Spot+1 / -1 also works"
+      },
+      "rdBp": {
+        "cmd": ".rd100b[n] / .rd100p[n]",
+        "desc": "Plain bonus/penalty roll (no judgment; .rh100b2 for a hidden roll) — the card shows each die face, the original d100, and the replaced result"
+      },
+      "rch": {
+        "cmd": ".rch / .rah = hidden .rc",
+        "desc": "Hidden check (result visible only to you)"
+      },
       "rcD20": {
         "cmd": ".rc / .ra name[±mod] [DC]",
         "desc": "d20 check (1d20+mod vs DC; mods may embed dice, e.g. .rc str+3 15, .rc athletics+1+1d6 12; DC defaults to 10, space before DC required)"
+      },
+      "rcD20Adv": {
+        "cmd": ".rc 优势/劣势 name[±mod] [DC]",
+        "desc": "Advantage (2d20 keep highest) / disadvantage (keep lowest) check, never stacked; nameless shorthand .r 优势+2 15; crit/fumble judged by the kept die"
       },
       "rcSh": {
         "cmd": ".rc / .ra name[+bonus[±style]] [DC]",

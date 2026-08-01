@@ -10,7 +10,11 @@
  *    vs DC. Default DC = 10. Modifier formula may embed dice (e.g. `+1+1d6`)
  *    — the engine evaluates it before calling `resolveCheck`.
  *  - nat 20 → critical; nat 1 → fumble; pass = total ≥ DC.
- *  - NO advantage/disadvantage, NO saves, NO class system in v1.
+ *  - Advantage/disadvantage (优势/劣势): `.rc 优势 <name>[±mod] [DC]` rolls
+ *    2d20 keeping the highest (劣势 keeps the lowest); DnD 5e never stacks
+ *    them, so it is a 3-state toggle, never a count. `.r 优势[±mod] [DC]` is
+ *    the nameless shorthand. Crit/fumble grade by the KEPT die's face.
+ *  - NO saves, NO class system in v1.
  */
 
 import { rollDie } from "@/lib/utils";
@@ -48,6 +52,34 @@ const D20_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
   { key: "hp", labelKey: "hp" },
 ];
 
+/** Modifier formula validator shared by `.rc` and the `.r 优势` shorthand. */
+const MOD_FORMULA_RE = /^[+-]([0-9]+([dD][0-9]+)?)([+-][0-9]+([dD][0-9]+)?)*$/;
+
+/** Read a clamped advantage state (1 / −1 / 0) out of untrusted ruleData. */
+function readAdvantage(ruleData: Record<string, unknown> | undefined): number {
+  const raw = ruleData?.advantage;
+  if (raw === 1 || raw === -1) return raw;
+  return 0;
+}
+
+/**
+ * Structured d20 check payload persisted in the dice detail — the chat card
+ * renders the die faces (both, for 优势/劣势, marking the kept one), the flat
+ * modifier, and the total from this.
+ */
+export interface D20CheckRoll {
+  /** Every d20 face rolled (1 entry normally, 2 with 优势/劣势). */
+  rolls: number[];
+  /** The face that counts (highest for 优势, lowest for 劣势). */
+  kept: number;
+  /** 1 = 优势 (keep highest), −1 = 劣势 (keep lowest), 0 = single die. */
+  advantage: number;
+  /** Evaluated flat modifier added to the kept die. */
+  modifier: number;
+  /** Human-readable modifier expression (e.g. `"+1+1d6([3])=+4"`), if any. */
+  modifierDisplay: string | null;
+}
+
 const capabilities: RuleCapabilities = {
   hostLabelKey: "dm",
   playerLabelKey: "adventurer",
@@ -56,8 +88,8 @@ const capabilities: RuleCapabilities = {
   hasManaPoints: false,
   checkMenuModes: ["check"],
   // No `.sc` — d20 has no sanity. `.st/.rc/.ra/.rh/.rd/.r` all supported.
-  supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
-  helpEntryIds: ["st", "rcD20", "rdr", "rh", "help"],
+  supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcD20", "rcD20Adv", "rch", "rdr", "rh", "help"],
   resourceBars: D20_RESOURCE_BARS,
   attributeKeys: D20_ATTRIBUTE_KEYS,
   // AC is the one number a d20 table asks for constantly ("what's your AC?"),
@@ -69,6 +101,20 @@ const capabilities: RuleCapabilities = {
   // HP max is free-set (no auto-derivation), so the panel lets players edit it.
   resourceMaxEditable: true,
   quickRolls: [".rd20", ".rc 力量+2 15"],
+  // Quick-check panel: roll20-style — pick a stored skill (its stored value
+  // seeds the modifier stepper), adjust the flat bonus, optionally type a DC.
+  // Attributes stay out: d20 ability *scores* are not modifiers, and this
+  // module derives nothing (v1 free-set design).
+  quickCheckPanel: {
+    skills: true,
+    attributes: false,
+    nameField: "select",
+    modifierField: true,
+    dcField: true,
+    // 3-state 劣势/无/优势 — never a counter (5e doesn't stack them).
+    advantageField: true,
+    hiddenToggle: true,
+  },
 };
 
 /** HP clamp helper — the only "derived" calculation in v1. */
@@ -194,8 +240,17 @@ export const dnd5eRule: RuleModule = {
    * documented; players supply DC after a space.
    */
   parseRcArgs(args) {
-    const trimmed = args.trim();
+    let trimmed = args.trim();
     if (!trimmed) return null;
+
+    // 0) Optional leading 优势/劣势 token (must be followed by a space so a
+    // skill legitimately starting with those characters isn't swallowed).
+    let advantage = 0;
+    const advMatch = trimmed.match(/^(优势|劣势)\s+(.+)$/);
+    if (advMatch) {
+      advantage = advMatch[1] === "优势" ? 1 : -1;
+      trimmed = advMatch[2].trim();
+    }
 
     // 1) Optional trailing " <digits>" → DC. Must be space-separated.
     let body = trimmed;
@@ -216,7 +271,7 @@ export const dnd5eRule: RuleModule = {
     if (modMatch) {
       const candidate = modMatch[2];
       // Reject a stray sign with nothing valid after it.
-      if (/^[+-]([0-9]+([dD][0-9]+)?)([+-][0-9]+([dD][0-9]+)?)*$/.test(candidate)) {
+      if (MOD_FORMULA_RE.test(candidate)) {
         modifierExpression = candidate;
         body = modMatch[1].trim();
       }
@@ -226,7 +281,53 @@ export const dnd5eRule: RuleModule = {
     if (!skillName) return null;
     if (skillName.length > 50) skillName = skillName.slice(0, 50);
 
-    return { skillName, explicitTarget, modifierExpression };
+    return {
+      skillName,
+      explicitTarget,
+      modifierExpression,
+      ruleData: advantage !== 0 ? { advantage } : undefined,
+    };
+  },
+
+  /**
+   * `.r 优势[±mod] [DC]` / `.r 劣势 +1 15` — nameless shorthand check with
+   * advantage/disadvantage (same mechanics as `.rc 优势 <name>`, skillName
+   * left empty). Only claims args that START with the 优势/劣势 keyword;
+   * everything else stays a plain dice roll.
+   */
+  parseQuickCheckArgs(args) {
+    const m = args.trim().match(/^(优势|劣势)\s*([+-][0-9dD+\-]+)?(?:\s+([0-9]{1,3}))?$/);
+    if (!m) return null;
+    if (m[2] !== undefined && !MOD_FORMULA_RE.test(m[2])) return null;
+    return {
+      skillName: "",
+      explicitTarget: m[3] !== undefined ? parseInt(m[3], 10) : undefined,
+      modifierExpression: m[2],
+      ruleData: { advantage: m[1] === "优势" ? 1 : -1 },
+    };
+  },
+
+  /**
+   * Quick-check panel → `.rc [优势/劣势 ]<name>[±mod][ <DC>]`. The modifier IS
+   * embedded in the command (unlike COC's server-side lookup) because that is
+   * this rule's design: the player-typed flat bonus is the entire modifier
+   * story.
+   */
+  buildCheckCommand(input) {
+    const name = input.name.trim();
+    if (!name) return null;
+    const adv = input.advantage === 1 ? 1 : input.advantage === -1 ? -1 : 0;
+    const advPart = adv === 1 ? "优势 " : adv === -1 ? "劣势 " : "";
+    const mod = Math.trunc(input.modifier ?? 0);
+    const modPart = mod > 0 ? `+${mod}` : mod < 0 ? `${mod}` : "";
+    const dc = input.dc !== undefined && Number.isFinite(input.dc)
+      ? Math.min(999, Math.max(0, Math.trunc(input.dc)))
+      : undefined;
+    const dcPart = dc !== undefined ? ` ${dc}` : "";
+    const command = `${input.hidden ? ".rch" : ".rc"} ${advPart}${name}${modPart}${dcPart}`;
+    const dieStr = adv === 1 ? "2d20kh" : adv === -1 ? "2d20kl" : "1d20";
+    const preview = `${dieStr}${modPart} ≥ ${dc ?? 10}`;
+    return { command, preview };
   },
 
   applyStatWrite(sheet, route, value) {
@@ -278,23 +379,30 @@ export const dnd5eRule: RuleModule = {
   resolveCheck(req: CheckRequest): CheckResult {
     const dc = req.explicitTarget ?? 10;
     const modifier = req.modifierValue ?? 0;
-    const roll = rollDie(20);
-    const total = roll + modifier;
+    const advantage = readAdvantage(req.ruleData);
+
+    // 优势/劣势 rolls two d20 and keeps the highest/lowest — never more than
+    // two (5e doesn't stack). Crit/fumble grade by the KEPT die's face.
+    const rolls = advantage === 0 ? [rollDie(20)] : [rollDie(20), rollDie(20)];
+    const kept = advantage >= 0 ? Math.max(...rolls) : Math.min(...rolls);
+    const total = kept + modifier;
     const passed = total >= dc;
     const grade: VisualGrade =
-      roll === 20 ? "critical"
-      : roll === 1 ? "fumble"
+      kept === 20 ? "critical"
+      : kept === 1 ? "fumble"
       : passed ? "success" : "failure";
 
     const modStr =
       modifier === 0 ? "" :
       modifier > 0 ? `+${modifier}` : `${modifier}`;
-    const notation = `1d20${modStr}`;
+    // kh/kl is the community-standard notation for keep-highest/lowest.
+    const dieStr = advantage === 1 ? "2d20kh" : advantage === -1 ? "2d20kl" : "1d20";
+    const notation = `${dieStr}${modStr}`;
 
     return {
       skillName: req.skillName,
       notation,
-      rolls: [roll],
+      rolls,
       total,
       target: dc,
       passed,
@@ -303,8 +411,8 @@ export const dnd5eRule: RuleModule = {
         // `dice: "d20"` is the discriminator the engine uses to pick the
         // d20 chat message template.
         dice: "d20",
-        count: 1,
-        results: [roll],
+        count: rolls.length,
+        results: rolls,
         sum: total,
         notation,
         check: {
@@ -313,9 +421,20 @@ export const dnd5eRule: RuleModule = {
           roll: total,            // bubble renders `roll/target` directly
           success: passed,
           grade,
-          raw: roll,              // original d20 face, for future UI ("d20=14, +3=17")
+          raw: kept,              // kept d20 face (back-compat with older UI)
           modifier,
           modifierExpression: req.modifierDisplay ?? null,
+          // Structured payload → chat renders the d20 check card (die faces
+          // with the kept one marked, modifier, total). Its presence is the
+          // data-driven signal for the card layout, so every new dnd5e check
+          // gets a card while older messages keep the inline rendering.
+          d20: {
+            rolls,
+            kept,
+            advantage,
+            modifier,
+            modifierDisplay: req.modifierDisplay ?? null,
+          } satisfies D20CheckRoll,
         },
       },
     };
@@ -341,7 +460,9 @@ export const dnd5eRule: RuleModule = {
         "Room Dice Rules: DnD 5e (d20) " +
         "(roll d20 + player-supplied modifier vs DC. " +
         "Nat 20 = Critical Success (大成功), Nat 1 = Fumble/Critical Failure (大失败). " +
-        "Total ≥ DC means success. All character attributes (str/dex/con/int/wis/cha/pb/ac) " +
+        "Total ≥ DC means success. Advantage/disadvantage: `.rc 优势 <name>[±mod] [DC]` rolls 2d20 " +
+        "keeping the highest (劣势 keeps the lowest; never stacked); `.r 优势[±mod] [DC]` is the " +
+        "nameless shorthand. All character attributes (str/dex/con/int/wis/cha/pb/ac) " +
         "are free-set numbers with NO auto-derivation in this room — players supply modifiers " +
         "explicitly in their .rc commands).",
       sheetToolSchemaFields: {
