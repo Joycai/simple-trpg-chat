@@ -244,6 +244,26 @@ async function handleDiceRoll(
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const rule = getRuleForRoom(room || {});
 
+  // Rule-special plain rolls get the very first claim — COC's `.rd100b2`
+  // bonus/penalty roll would otherwise be mangled by the numeric-prefix
+  // rewrite below ("100b2" → "1d100b2" → parse error). Hidden rolls are
+  // included on purpose: `.rh100b2` is a legitimate 暗投.
+  if (rawArgs.trim() && rule.resolvePlainRoll) {
+    const special = rule.resolvePlainRoll(rawArgs.trim());
+    if (special) {
+      const content = `🎲 ${special.notation}: ${special.display} = ${special.total}`;
+      const vis = hidden
+        ? visibilityFor(ctx, userId, "self")
+        : visibilityFor(ctx, userId, "channel");
+      const detail = attachProxy(
+        JSON.stringify({ ...special.detail, command: rawCommand }),
+        ctx?.proxiedBy
+      );
+      const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
+      return { success: true, isCommand: true, message: msg };
+    }
+  }
+
   // Give the rule first refusal on non-empty args: 狩魂者 claims `.r+x±y [DC]`
   // as a nameless shorthand check. Hidden rolls (`.rh`) stay plain dice.
   if (!hidden && rawArgs.trim() && rule.parseQuickCheckArgs) {

@@ -578,6 +578,31 @@ export interface RuleModule {
   };
 
   /**
+   * Optional: claim a `.rd/.r/.rh <args>` invocation as a rule-special PLAIN
+   * roll (no target, no pass/fail) with mechanics the generic expression
+   * parser cannot express — COC's `.rd100b2` / `.rd100p1` bonus/penalty roll,
+   * where extra tens dice replace the original d100's tens digit. Called
+   * FIRST in the dice-roll handler (before the numeric-prefix rewrite and
+   * generic parsing), for hidden rolls too (`.rh100b2` is a legit 暗投).
+   * Returning `null` falls through to the normal dice pipeline.
+   *
+   * The rule rolls its own dice (like `resolveCheck`) and returns the pieces
+   * the engine needs to emit the message: dice notation, a human-readable
+   * inline display, the final value, and the diceDetail body (the engine adds
+   * `command` + proxy attribution before persisting).
+   */
+  resolvePlainRoll?(args: string): null | {
+    /** Dice notation, e.g. `"1d100b2"`. */
+    notation: string;
+    /** Inline text for the chat content line, e.g. `"65 → 25"`. */
+    display: string;
+    /** Final value after the rule's mechanic. */
+    total: number;
+    /** diceDetail JSON body — must NOT include `command` (engine adds it). */
+    detail: Record<string, unknown>;
+  };
+
+  /**
    * Optional: turn the quick-check panel's state into the exact chat command
    * a player could have typed (plus a human-readable dice preview for the
    * roll button, e.g. `1d100 ≤ 60`). Present iff

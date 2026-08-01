@@ -318,6 +318,14 @@
     "mentionTip": "↑↓ Select · Tab/Enter Confirm · Esc Cancel",
     "privateChatTarget": "Private Chat:",
     "selectMember": "Select member...",
+    "bpTitleBonus": "Bonus Dice Roll",
+    "bpTitlePenalty": "Penalty Dice Roll",
+    "bpOriginalRow": "Original d100",
+    "bpDiceRowBonus": "Bonus dice",
+    "bpDiceRowPenalty": "Penalty dice",
+    "bpKeepLow": "Keep lowest",
+    "bpKeepHigh": "Keep highest",
+    "bpFromCandidates": "(from {list})",
     "btnRollTooltip": "Roll Dice",
     "btnQuickCheckTooltip": "Quick Check",
     "btnPrivateTooltip": "Toggle Private Chat",
@@ -1324,8 +1332,12 @@
         "desc": "Skill check (d100 vs target; trailing value gives a one-off check that is not persisted)"
       },
       "rcBp": {
-        "cmd": ".rc [Skill]+n / -n",
-        "desc": "Bonus dice (+n: roll n extra tens dice, keep lowest) / penalty dice (-n: keep highest), n ≤ 3; e.g. .rc Spot+1 or .rc Spot-1 60"
+        "cmd": ".rc b[n] / p[n] [Skill]",
+        "desc": "Bonus dice (b: n extra tens dice replace the tens digit, keep lowest) / penalty dice (p: keep highest); n defaults to 1, max 3. E.g. .rc b Spot, .rc p2 Spot 60; the suffix form .rc Spot+1 / -1 also works"
+      },
+      "rdBp": {
+        "cmd": ".rd100b[n] / .rd100p[n]",
+        "desc": "Plain bonus/penalty roll (no judgment; .rh100b2 for a hidden roll) — the card shows each die face, the original d100, and the replaced result"
       },
       "rch": {
         "cmd": ".rch / .rah = hidden .rc",

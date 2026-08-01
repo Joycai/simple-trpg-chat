@@ -58,7 +58,7 @@ description: >
 
 ## 2. `RuleModule` 接口
 
-共 **23 个成员**(5 个元数据 + 15 个必填方法 + 3 个可选方法)。`coc7th/index.ts` 和 `shouhun/index.ts` 是最完整的两个范例——前者字段最全,后者用到了最多可选钩子。
+共 **24 个成员**(5 个元数据 + 15 个必填方法 + 4 个可选方法)。`coc7th/index.ts` 和 `shouhun/index.ts` 是最完整的两个范例——前者字段最全,后者用到了最多可选钩子。
 
 ### 元数据
 
@@ -96,6 +96,7 @@ description: >
 | `parseQuickCheckArgs?(args)` | 把 `.r <args>` 认领成简写检定。在通用表达式解析**之前**被调用;返 null 则回落为普通掷骰。狩魂者 用它实现 `.r+x±y [DC]` |
 | `naturalGrade?(roll, faces, count)` | 普通掷骰(`.rd`/`.r`,非检定)的文化/机制解读,供 AI bot 反应。COC 认 1d100 的 01–05/96–100,basic 给 CoC 文化提示(1/100),其余省略(返 null)。取代 `ai_agent.ts` 里原本的 `id === "coc7th"/"basic"` 分支。PR #176 新增 |
 | `buildCheckCommand?(input)` | **快速检定面板**(输入框左侧 ◎)把面板状态变成"玩家本可手打的命令"+ 投掷按钮预览(`{command, preview}`)。与 `capabilities.quickCheckPanel` **成对声明**(`rules.test.ts` 有配对断言);返 null = 该组合无法表达(狩魂者 无名+暗骰),面板禁用按钮。必须纯函数、client-safe。v0.19 新增 |
+| `resolvePlainRoll?(args)` | 把 `.rd/.r/.rh <args>` 认领成**规则专属纯投掷**(COC 的 `.rd100b2` 奖惩骰投——额外 d10 替换十位)。在数字前缀改写与通用表达式解析**之前**、且**含 `.rh` 暗投**地被调用;规则自己掷骰,返回 `{notation, display, total, detail}`(引擎补 `command` 与代投标记);返 null 落回普通掷骰。v0.19 新增 |
 
 另:`parseRcArgs` / `parseQuickCheckArgs` 的返回值多了可选 `ruleData?: Record<string, unknown>` 槽——规则专属的语法附加物(COC 的奖励/惩罚骰数)经引擎**原样透传**到 `CheckRequest.ruleData`,`resolveCheck` 自取自清洗。引擎不认识其中任何字段。
 

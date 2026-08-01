@@ -318,6 +318,14 @@
     "mentionTip": "↑↓ 选择 · Tab/Enter 确认 · Esc 取消",
     "privateChatTarget": "私聊对象:",
     "selectMember": "选择成员...",
+    "bpTitleBonus": "奖励骰投掷",
+    "bpTitlePenalty": "惩罚骰投掷",
+    "bpOriginalRow": "原始 d100",
+    "bpDiceRowBonus": "奖励骰",
+    "bpDiceRowPenalty": "惩罚骰",
+    "bpKeepLow": "取低",
+    "bpKeepHigh": "取高",
+    "bpFromCandidates": "（候选 {list}）",
     "btnRollTooltip": "投骰子",
     "btnQuickCheckTooltip": "快速检定",
     "btnPrivateTooltip": "开启私聊模式",
@@ -1324,8 +1332,12 @@
         "desc": "技能检定（d100 vs 设定值；带数值则按该值临时检定，不写入）"
       },
       "rcBp": {
-        "cmd": ".rc 技能+n / -n",
-        "desc": "奖励骰（+n，多掷 n 颗十位骰取低）/ 惩罚骰（-n，取高），n ≤ 3；如 .rc 侦查+1 或 .rc 侦查-1 60"
+        "cmd": ".rc b[n] / p[n] 技能",
+        "desc": "奖励骰（b，多掷 n 颗十位骰替换十位取低）/ 惩罚骰（p，取高），n 缺省 1、上限 3；如 .rc b 侦查、.rc p2 侦查 60；也可写作 .rc 侦查+1 / -1"
+      },
+      "rdBp": {
+        "cmd": ".rd100b[n] / .rd100p[n]",
+        "desc": "奖励/惩罚骰纯投掷（不判定；.rh100b2 为暗投），卡片展示各骰出目、原始 d100 与替换后结果"
       },
       "rch": {
         "cmd": ".rch / .rah 同 .rc",

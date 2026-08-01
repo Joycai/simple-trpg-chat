@@ -143,6 +143,19 @@ type ShBreakdown = {
   style: { count: number; rolls: number[]; sum: number } | null;
 };
 
+/** COC 奖励/惩罚骰 structured payload (shape mirrors `CocBpRoll` in
+ *  rules/coc7th) — extra tens dice replace the original d100's tens digit;
+ *  bonus keeps the lowest candidate, penalty the highest. */
+type CocBp = {
+  type: "bonus" | "penalty";
+  count: number;
+  units: number;
+  originalTens: number;
+  original: number;
+  extra: Array<{ face: number; value: number }>;
+  final: number;
+};
+
 type DiceDetailJson = {
   notation?: string;
   dice?: string;
@@ -166,7 +179,11 @@ type DiceDetailJson = {
     rollDisplay?: string;
     /** 狩魂者 structured breakdown → triggers the 狩魂 card layout. */
     breakdown?: ShBreakdown;
+    /** COC 奖励/惩罚骰 check → triggers the 奖惩骰 card layout. */
+    bp?: CocBp;
   };
+  /** COC 奖励/惩罚骰 PLAIN roll (`.rd100b2`) → the same 奖惩骰 card, minus judgment. */
+  bpRoll?: CocBp;
   sanityCheck?: {
     oldSanity: number;
     newSanity: number;
@@ -188,9 +205,10 @@ function getRollKind(d: DiceDetailJson): RollKind {
  *  structured payload picks the layout, never a rule id: `sanityCheck` → COC
  *  理智卡; `check.breakdown` → 狩魂卡; `highlightFace` (a plain pool roll such
  *  as Triangle Agency's 6d4) → pool 数成功卡. */
-function diceCardType(d: DiceDetailJson): "sanity" | "breakdown" | "pool" | null {
+function diceCardType(d: DiceDetailJson): "sanity" | "breakdown" | "pool" | "bp" | null {
   if (d.sanityCheck) return "sanity";
   if (d.check?.breakdown) return "breakdown";
+  if (d.check?.bp || d.bpRoll) return "bp";
   if (typeof d.highlightFace === "number") return "pool";
   return null;
 }
@@ -386,6 +404,67 @@ function ShBreakdownCard({ d, t }: { d: DiceDetailJson; t: DiceTFn }) {
   );
 }
 
+/** Sample 4 — COC 奖励/惩罚骰 card, for both checks (`check.bp`, with target +
+ *  grade) and plain rolls (`bpRoll`, no judgment). Every number of the
+ *  mechanic is spelled out: each extra die's face and the value it produces,
+ *  the original d100, and the kept (lowest/highest) final result. Extra die
+ *  faces render as 0..9 — the tens digit the die contributes. */
+function CocBpCard({ d, t }: { d: DiceDetailJson; t: DiceTFn }) {
+  const bp = (d.check?.bp ?? d.bpRoll)!;
+  const check = d.check?.bp ? d.check : null;
+  const isBonus = bp.type === "bonus";
+  const notation = `1d100${isBonus ? "b" : "p"}${bp.count}`;
+  const diceLabel = isBonus ? t("bpDiceRowBonus") : t("bpDiceRowPenalty");
+  const keepLabel = isBonus ? t("bpKeepLow") : t("bpKeepHigh");
+  const finalGrade: Exclude<DiceGrade, "none"> | null = check
+    ? check.grade && check.grade !== "none" ? check.grade : check.success ? "success" : "failure"
+    : null;
+  return (
+    <div className="check-card sc-card bg-dice-card-bg border border-dice-card-border rounded-theme overflow-hidden min-w-[300px]">
+      <div className="check-card-header sc-card-header flex items-center gap-2.5 px-3 py-2 border-b border-border">
+        <span className={`dice-icon inline-flex items-center justify-center w-7 h-7 rounded-theme shrink-0 ${
+          check ? "bg-accent/10 text-accent border border-accent/30" : "bg-primary/10 text-primary border border-primary/30"
+        }`}>
+          {check ? <Icons.Target className="w-4 h-4" /> : <Icons.Dices className="w-4 h-4" />}
+        </span>
+        <span className={`dice-skill sc-card-title flex-1 font-semibold text-sm${check ? " check-card-skill text-accent" : ""}`}>
+          {check ? check.skillName : isBonus ? t("bpTitleBonus") : t("bpTitlePenalty")}
+        </span>
+        <span className="sc-card-summary inline-flex items-baseline gap-1 font-theme-mono">
+          <span className="dice-formula text-text-dim text-xs">{notation} = </span>
+          <span className="dice-value text-base font-semibold">{padD100(bp.final)}</span>
+          {check && <span className="dice-target text-text-dim text-xs"> / {check.target}</span>}
+        </span>
+        {finalGrade && <DiceResultGrade grade={finalGrade} t={t} />}
+      </div>
+      <dl className="check-card-body sc-card-body grid grid-cols-[minmax(64px,auto)_1fr] gap-x-4 gap-y-1 px-3 py-2 text-xs m-0">
+        <div className="sc-card-row contents">
+          <dt className="text-text-muted">{t("bpOriginalRow")}</dt>
+          <dd className="font-theme-mono text-text m-0">{padD100(bp.original)}</dd>
+        </div>
+        <div className="sc-card-row contents">
+          <dt className="text-text-muted">{diceLabel} ×{bp.count}</dt>
+          <dd className="font-theme-mono text-text m-0">
+            {bp.extra.map((e, i) => (
+              <span key={i}>
+                {i > 0 ? " · " : ""}
+                {"["}{e.face}{"] → "}{padD100(e.value)}
+              </span>
+            ))}
+          </dd>
+        </div>
+        <div className="sc-card-row contents">
+          <dt className="text-text-muted">{keepLabel}</dt>
+          <dd className="font-theme-mono m-0">
+            <span className="dice-value text-accent font-semibold">{padD100(bp.final)}</span>
+            <span className="text-text-dim"> {t("bpFromCandidates", { list: [bp.original, ...bp.extra.map((e) => e.value)].map((v) => padD100(v)).join(", ") })}</span>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 /**
  * Structured renderer for `diceDetail`. Parallels `formatDiceResult` but emits
  * DOM hooks (`.dice-result-skill`, `.dice-result-grade`, `.dice-result-insanity`)
@@ -453,6 +532,9 @@ function DiceResultDisplay({
     );
   }
 
+  // COC 奖励/惩罚骰 plain roll (`.rd100b2`) — card layout, no judgment.
+  if (d.bpRoll) return <CocBpCard d={d} t={t} />;
+
   const rawNotation = d.notation || d.dice || "";
   const showResults = Array.isArray(d.results) && d.results.length > 1;
   const isD100Check = !!d.check;
@@ -460,6 +542,8 @@ function DiceResultDisplay({
   if (d.check) {
     const { skillName, target, success, grade, successLevel, rollDisplay, breakdown } = d.check;
     if (breakdown) return <ShBreakdownCard d={d} t={t} />;
+    // COC 奖励/惩罚骰 check — card layout with target + grade.
+    if (d.check.bp) return <CocBpCard d={d} t={t} />;
     const finalGrade: Exclude<DiceGrade, "none"> =
       grade && grade !== "none" ? grade : success ? "success" : "failure";
     return (
@@ -1444,7 +1528,7 @@ export const ChatMessage = memo(function ChatMessage({
   // of the bubble: echo into the header line, kind onto a data-attr for theming.
   let diceCommandEcho: string | null = null;
   let diceRollKind: RollKind = "plain";
-  let diceCardKind: "sanity" | "breakdown" | "pool" | null = null;
+  let diceCardKind: "sanity" | "breakdown" | "pool" | "bp" | null = null;
   let diceProxyNick: string | null = null;
   if (isDice && diceDetail) {
     try {

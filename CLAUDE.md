@@ -101,8 +101,12 @@ Prefix `.` or `。` (Chinese full-stop accepted):
 
 - `.st <skill> <value>` — set skill (batch: `.st 侦查50聆听60`)
 - `.rc <skill>` — roll check, syntax owned by the room's rule module (COC:
-  `.rc 侦查+1` adds a bonus die / `-1` a penalty die; d20: `.rc 运动+5 15`;
-  狩魂者: `.rc 侦查+2-1 12`)
+  `.rc b2 侦查` bonus dice / `.rc p 侦查` penalty dice — extra tens dice
+  replace the tens digit, keep lowest/highest; `.rc 侦查+1`/`-1` is the suffix
+  alias; d20: `.rc 运动+5 15`; 狩魂者: `.rc 侦查+2-1 12`)
+- `.rd100b[n]` / `.rd100p[n]` — COC plain bonus/penalty roll, no judgment
+  (`.rh100b2` = hidden); the chat card shows each die face, the original
+  d100, and the replaced result
 - `.rch` / `.rah` — hidden check (same as `.rc`/`.ra`, result visible only to
   the roller — the check-flow counterpart of `.rh`)
 - `.sc <s>/<f>` — sanity check (COC 7th)
