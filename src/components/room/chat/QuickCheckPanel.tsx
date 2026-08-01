@@ -115,6 +115,7 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
 
   // Dice extras — only the ones the spec declares ever render or get sent.
   const [bonusPenalty, setBonusPenalty] = useState(0);
+  const [advantage, setAdvantage] = useState(0);
   const [modifier, setModifier] = useState(0);
   const [bonusDice, setBonusDice] = useState(0);
   const [styleDice, setStyleDice] = useState(0);
@@ -228,6 +229,7 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
     dc: dcValue,
     modifier,
     bonusPenalty,
+    advantage,
     bonusDice,
     styleDice,
     hidden,
@@ -430,6 +432,28 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
                   }`}
                 >
                   {n === 0 ? t("bpNone") : n > 0 ? t("bpBonus", { count: n }) : t("bpPenalty", { count: -n })}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {spec.advantageField && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted">{t("advLabel")}</span>
+            <div className="ml-auto flex items-center gap-1">
+              {([-1, 0, 1] as const).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setAdvantage(n)}
+                  aria-pressed={advantage === n}
+                  className={`px-2.5 py-1.5 rounded-theme border text-xs transition cursor-pointer ${
+                    advantage === n
+                      ? "border-accent/60 bg-accent/10 text-accent font-bold"
+                      : "border-border text-text-muted hover:text-text hover:bg-surface-alt"
+                  }`}
+                >
+                  {n === 0 ? t("advNone") : n > 0 ? t("advAdvantage") : t("advDisadvantage")}
                 </button>
               ))}
             </div>

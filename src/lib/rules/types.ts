@@ -342,6 +342,11 @@ export interface QuickCheckPanelSpec {
    * (positive = 奖励骰, negative = 惩罚骰).
    */
   bonusPenaltyDice?: { max: number };
+  /**
+   * d20 advantage/disadvantage 3-state control (劣势 / 无 / 优势). DnD 5e
+   * never stacks them, so this is a single toggle — never a counter.
+   */
+  advantageField?: boolean;
   /** 狩魂者 加骰 (d4 count) stepper, 0..max. */
   bonusDiceField?: { max: number };
   /** 狩魂者 时髦骰 (d6 count) stepper, min..max (negatives subtract). */
@@ -370,6 +375,8 @@ export interface QuickCheckInput {
   modifier?: number;
   /** Bonus(+)/penalty(−) dice count (`bonusPenaltyDice`). */
   bonusPenalty?: number;
+  /** d20 advantage state (`advantageField`): 1 = 优势, −1 = 劣势, 0/absent = none. */
+  advantage?: number;
   /** 加骰 count (`bonusDiceField`). */
   bonusDice?: number;
   /** 时髦骰 count (`styleDiceField`), may be negative. */

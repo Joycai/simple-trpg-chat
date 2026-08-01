@@ -103,7 +103,9 @@ Prefix `.` or `。` (Chinese full-stop accepted):
 - `.rc <skill>` — roll check, syntax owned by the room's rule module (COC:
   `.rc b2 侦查` bonus dice / `.rc p 侦查` penalty dice — extra tens dice
   replace the tens digit, keep lowest/highest; `.rc 侦查+1`/`-1` is the suffix
-  alias; d20: `.rc 运动+5 15`; 狩魂者: `.rc 侦查+2-1 12`)
+  alias; d20: `.rc 运动+5 15`, advantage `.rc 优势 运动+5 15` / 劣势 rolls
+  2d20 keep highest/lowest (nameless: `.r 优势+2 15`); 狩魂者:
+  `.rc 侦查+2-1 12`)
 - `.rd100b[n]` / `.rd100p[n]` — COC plain bonus/penalty roll, no judgment
   (`.rh100b2` = hidden); the chat card shows each die face, the original
   d100, and the replaced result

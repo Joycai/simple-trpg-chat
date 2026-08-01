@@ -184,6 +184,7 @@ quickCheckPanel?: {
   dcField?: boolean;                            // DC 输入框(d20 / 狩魂者)
   modifierField?: boolean;                      // 平加值步进器;选中存储技能会以其存值播种(d20 roll20 流)
   bonusPenaltyDice?: { max: number };           // COC 奖励/惩罚骰分段控件(-max..+max)
+  advantageField?: boolean;                     // d20 优势/劣势三态(5e 不叠加,永远不是计数器)
   bonusDiceField?: { max: number };             // 狩魂者 加骰步进器
   styleDiceField?: { min: number; max: number };// 狩魂者 时髦骰步进器
   hiddenToggle: boolean;                        // 暗骰开关(命令换成 .rch 变体)

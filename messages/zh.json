@@ -326,6 +326,12 @@
     "bpKeepLow": "取低",
     "bpKeepHigh": "取高",
     "bpFromCandidates": "（候选 {list}）",
+    "d20CheckTitle": "检定",
+    "d20RollRow": "d20 出目",
+    "d20AdvantageMark": "优势取高",
+    "d20DisadvantageMark": "劣势取低",
+    "d20ModifierRow": "加值",
+    "d20TotalRow": "合计",
     "btnRollTooltip": "投骰子",
     "btnQuickCheckTooltip": "快速检定",
     "btnPrivateTooltip": "开启私聊模式",
@@ -399,6 +405,10 @@
     "nameLabel": "检定名",
     "namePlaceholder": "可留空",
     "bpLabel": "奖励 / 惩罚骰",
+    "advLabel": "优势 / 劣势",
+    "advNone": "无",
+    "advAdvantage": "优势",
+    "advDisadvantage": "劣势",
     "bpNone": "无",
     "bpBonus": "{count, plural, =1 {奖励} other {奖励×#}}",
     "bpPenalty": "{count, plural, =1 {惩罚} other {惩罚×#}}",
@@ -1346,6 +1356,10 @@
       "rcD20": {
         "cmd": ".rc / .ra 名称[±调整值] [DC]",
         "desc": "d20 检定（1d20+调整值 vs DC，调整值可含骰子；如 .rc str+3 15、.rc athletics+1+1d6 12；DC 缺省为 10，DC 前空格不可省略）"
+      },
+      "rcD20Adv": {
+        "cmd": ".rc 优势/劣势 名称[±调整值] [DC]",
+        "desc": "优势（双 d20 取高）/ 劣势（取低）检定，不可叠加；无名称简写 .r 优势+2 15；大成功/大失败按被采用的那颗 d20 判定"
       },
       "rcSh": {
         "cmd": ".rc / .ra 名称[+加骰数[±时髦骰数]] [DC]",

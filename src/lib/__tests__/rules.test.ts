@@ -1156,10 +1156,12 @@ describe("shouhunRule.parseQuickCheckArgs (.r shorthand)", () => {
     expect(shouhunRule.parseQuickCheckArgs!("+2-4")).toBeNull();  // |y| out of range
   });
 
-  it("other rules do not implement the shorthand", () => {
+  it("rules without a `.r` shorthand do not implement it", () => {
+    // dnd5e joined the shorthand club with `.r 优势[±mod] [DC]` — its cases
+    // live in the "dnd5eRule 优势/劣势" describe block.
     expect(coc7thRule.parseQuickCheckArgs).toBeUndefined();
-    expect(dnd5eRule.parseQuickCheckArgs).toBeUndefined();
     expect(basicRule.parseQuickCheckArgs).toBeUndefined();
+    expect(triangleRule.parseQuickCheckArgs).toBeUndefined();
   });
 });
 
@@ -1339,7 +1341,7 @@ describe("helpEntryIds", () => {
   const EXPECTED: Record<string, string[]> = {
     coc7th: ["stCoc", "rcD100", "rcBp", "rdBp", "rch", "rdr", "rh", "sc", "help"],
     basic: ["st", "rcD100", "rch", "rdr", "rh", "help"],
-    dnd5e: ["st", "rcD20", "rch", "rdr", "rh", "help"],
+    dnd5e: ["st", "rcD20", "rcD20Adv", "rch", "rdr", "rh", "help"],
     shouhun: ["st", "rcSh", "rQuickSh", "rch", "rdr", "rh", "help"],
     triangle: ["st", "taR", "rdr", "rh", "help"],
   };
@@ -2107,5 +2109,98 @@ describe("quickCheckPanel ⇔ buildCheckCommand", () => {
       expect(cmds.includes("rch"), rule.id).toBe(cmds.includes("rc"));
       expect(cmds.includes("rah"), rule.id).toBe(cmds.includes("rc"));
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DnD 5e 优势/劣势 — 双 d20 取高/低 + 结构化 d20 卡片载荷
+// ---------------------------------------------------------------------------
+
+describe("dnd5eRule 优势/劣势", () => {
+  it("parseRcArgs:优势/劣势 前缀进 ruleData,须跟空格", () => {
+    expect(dnd5eRule.parseRcArgs("优势 运动+5 15")).toMatchObject({
+      skillName: "运动", modifierExpression: "+5", explicitTarget: 15,
+      ruleData: { advantage: 1 },
+    });
+    expect(dnd5eRule.parseRcArgs("劣势 str")).toMatchObject({
+      skillName: "str", ruleData: { advantage: -1 },
+    });
+    // 无前缀 → 无 ruleData(legacy 行为不变)
+    expect(dnd5eRule.parseRcArgs("str+3 15")).toMatchObject({
+      skillName: "str", modifierExpression: "+3", explicitTarget: 15,
+    });
+    expect(dnd5eRule.parseRcArgs("str+3 15")!.ruleData).toBeUndefined();
+    // 技能名恰好以"优势"开头且无空格分隔 → 不吞
+    expect(dnd5eRule.parseRcArgs("优势判断")).toMatchObject({ skillName: "优势判断" });
+  });
+
+  it("parseQuickCheckArgs:.r 优势[±mod] [DC] 无名简写;其余不认领", () => {
+    expect(dnd5eRule.parseQuickCheckArgs!("优势+1 15")).toMatchObject({
+      skillName: "", modifierExpression: "+1", explicitTarget: 15,
+      ruleData: { advantage: 1 },
+    });
+    expect(dnd5eRule.parseQuickCheckArgs!("劣势")).toMatchObject({
+      skillName: "", ruleData: { advantage: -1 },
+    });
+    expect(dnd5eRule.parseQuickCheckArgs!("优势 +1+1d6 12")).toMatchObject({
+      modifierExpression: "+1+1d6", explicitTarget: 12,
+    });
+    expect(dnd5eRule.parseQuickCheckArgs!("3d6")).toBeNull();
+    expect(dnd5eRule.parseQuickCheckArgs!("+2 15")).toBeNull();
+    expect(dnd5eRule.parseQuickCheckArgs!("优势 运动")).toBeNull();
+  });
+
+  it("resolveCheck:优势取高、劣势取低,d20 载荷完整,crit 按被采用骰判定", () => {
+    mockRollDie.mockReturnValueOnce(17).mockReturnValueOnce(4);
+    const adv = dnd5eRule.resolveCheck({
+      skillName: "运动", target: 15, explicitTarget: 15, modifierValue: 5, sheet: null,
+      ruleData: { advantage: 1 },
+    });
+    expect(adv.total).toBe(22);
+    expect(adv.rolls).toEqual([17, 4]);
+    expect(adv.notation).toBe("2d20kh+5");
+    expect(adv.passed).toBe(true);
+    expect((adv.detail.check as { d20: unknown }).d20).toEqual({
+      rolls: [17, 4], kept: 17, advantage: 1, modifier: 5, modifierDisplay: null,
+    });
+
+    mockRollDie.mockReturnValueOnce(17).mockReturnValueOnce(4);
+    const dis = dnd5eRule.resolveCheck({
+      skillName: "运动", target: 15, explicitTarget: 15, sheet: null,
+      ruleData: { advantage: -1 },
+    });
+    expect(dis.total).toBe(4);
+    expect(dis.notation).toBe("2d20kl");
+    expect(dis.passed).toBe(false);
+
+    // 劣势下即使另一颗是 20,采用的是低骰 → 不判大成功
+    mockRollDie.mockReturnValueOnce(20).mockReturnValueOnce(1);
+    const keptLow = dnd5eRule.resolveCheck({
+      skillName: "运动", target: 5, explicitTarget: 5, sheet: null,
+      ruleData: { advantage: -1 },
+    });
+    expect(keptLow.grade).toBe("fumble");
+  });
+
+  it("resolveCheck:无优势时单骰路径不变,但同样携带 d20 卡片载荷", () => {
+    mockRollDie.mockReturnValueOnce(20);
+    const r = dnd5eRule.resolveCheck({
+      skillName: "运动", target: 15, explicitTarget: 15, modifierValue: 3, sheet: null,
+    });
+    expect(r.notation).toBe("1d20+3");
+    expect(r.rolls).toEqual([20]);
+    expect(r.grade).toBe("critical");
+    expect((r.detail.check as { d20: { advantage: number; kept: number } }).d20)
+      .toMatchObject({ advantage: 0, kept: 20 });
+  });
+
+  it("buildCheckCommand:优势/劣势 前缀进指令并可往返解析", () => {
+    const adv = dnd5eRule.buildCheckCommand!({ name: "运动", modifier: 5, dc: 15, advantage: 1, hidden: false })!;
+    expect(adv).toEqual({ command: ".rc 优势 运动+5 15", preview: "2d20kh+5 ≥ 15" });
+    expect(dnd5eRule.buildCheckCommand!({ name: "运动", advantage: -1, hidden: true })!.command)
+      .toBe(".rch 劣势 运动");
+    expect(dnd5eRule.parseRcArgs(adv.command.replace(/^\.rc\s+/, ""))).toMatchObject({
+      skillName: "运动", modifierExpression: "+5", explicitTarget: 15, ruleData: { advantage: 1 },
+    });
   });
 });

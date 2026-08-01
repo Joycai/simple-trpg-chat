@@ -156,6 +156,16 @@ type CocBp = {
   final: number;
 };
 
+/** DnD 5e d20 check payload (shape mirrors `D20CheckRoll` in rules/dnd5e) —
+ *  die faces (2 with 优势/劣势, the kept one marked), flat modifier, total. */
+type D20Check = {
+  rolls: number[];
+  kept: number;
+  advantage: number;
+  modifier: number;
+  modifierDisplay: string | null;
+};
+
 type DiceDetailJson = {
   notation?: string;
   dice?: string;
@@ -181,6 +191,8 @@ type DiceDetailJson = {
     breakdown?: ShBreakdown;
     /** COC 奖励/惩罚骰 check → triggers the 奖惩骰 card layout. */
     bp?: CocBp;
+    /** DnD 5e structured d20 payload → triggers the d20 check card layout. */
+    d20?: D20Check;
   };
   /** COC 奖励/惩罚骰 PLAIN roll (`.rd100b2`) → the same 奖惩骰 card, minus judgment. */
   bpRoll?: CocBp;
@@ -205,10 +217,11 @@ function getRollKind(d: DiceDetailJson): RollKind {
  *  structured payload picks the layout, never a rule id: `sanityCheck` → COC
  *  理智卡; `check.breakdown` → 狩魂卡; `highlightFace` (a plain pool roll such
  *  as Triangle Agency's 6d4) → pool 数成功卡. */
-function diceCardType(d: DiceDetailJson): "sanity" | "breakdown" | "pool" | "bp" | null {
+function diceCardType(d: DiceDetailJson): "sanity" | "breakdown" | "pool" | "bp" | "d20" | null {
   if (d.sanityCheck) return "sanity";
   if (d.check?.breakdown) return "breakdown";
   if (d.check?.bp || d.bpRoll) return "bp";
+  if (d.check?.d20) return "d20";
   if (typeof d.highlightFace === "number") return "pool";
   return null;
 }
@@ -465,6 +478,85 @@ function CocBpCard({ d, t }: { d: DiceDetailJson; t: DiceTFn }) {
   );
 }
 
+/** Sample 5 — DnD 5e d20 check card, always rendered for new dnd5e checks.
+ *  Shows the die face(s) (both dice with the kept one marked for 优势/劣势),
+ *  the flat modifier, and the total — with the same grade badge the COC card
+ *  uses (nat 20 = 大成功, nat 1 = 大失败). Driven by `check.d20`. */
+function D20CheckCard({ d, t }: { d: DiceDetailJson; t: DiceTFn }) {
+  const c = d.check!;
+  const roll = c.d20!;
+  const finalGrade: Exclude<DiceGrade, "none"> =
+    c.grade && c.grade !== "none" ? c.grade : c.success ? "success" : "failure";
+  const advMark =
+    roll.advantage === 1 ? t("d20AdvantageMark") : roll.advantage === -1 ? t("d20DisadvantageMark") : null;
+  const modStr = roll.modifier > 0 ? `+${roll.modifier}` : `${roll.modifier}`;
+  return (
+    <div className="check-card sc-card bg-dice-card-bg border border-dice-card-border rounded-theme overflow-hidden min-w-[300px]">
+      <div className="check-card-header sc-card-header flex items-center gap-2.5 px-3 py-2 border-b border-border">
+        <span className="dice-icon inline-flex items-center justify-center w-7 h-7 rounded-theme bg-accent/10 text-accent border border-accent/30 shrink-0">
+          <Icons.Target className="w-4 h-4" />
+        </span>
+        <span className={`dice-skill sc-card-title flex-1 font-semibold text-sm${c.skillName?.trim() ? " check-card-skill text-accent" : ""}`}>
+          {c.skillName?.trim() || t("d20CheckTitle")}
+        </span>
+        <span className="sc-card-summary inline-flex items-baseline gap-1 font-theme-mono">
+          <span className="dice-formula text-text-dim text-xs">{trimSingleDieNotation(d.notation)} = </span>
+          <span className="dice-value text-base font-semibold">{d.sum}</span>
+          <span className="dice-target text-text-dim text-xs"> / {c.target}</span>
+        </span>
+        <DiceResultGrade grade={finalGrade} t={t} />
+      </div>
+      <dl className="check-card-body sc-card-body grid grid-cols-[minmax(64px,auto)_1fr] gap-x-4 gap-y-1 px-3 py-2 text-xs m-0">
+        <div className="sc-card-row contents">
+          <dt className="text-text-muted">{t("d20RollRow")}{advMark ? ` ×${roll.rolls.length}` : ""}</dt>
+          <dd className="font-theme-mono text-text m-0">
+            {roll.rolls.length > 1 ? (
+              <>
+                {"["}
+                {roll.rolls.map((r, i) => {
+                  // Mark only the FIRST occurrence of the kept value so a
+                  // double roll of the same face doesn't highlight both.
+                  const keptIdx = roll.rolls.indexOf(roll.kept);
+                  return (
+                    <span key={i}>
+                      {i > 0 ? ", " : ""}
+                      {i === keptIdx
+                        ? <span className="dice-kept-hit text-primary font-semibold underline decoration-primary/40 underline-offset-2">{r}</span>
+                        : <span className="dice-drop text-text-dim opacity-70">{r}</span>}
+                    </span>
+                  );
+                })}
+                {"] → "}{roll.kept}
+                {advMark && <span className="text-text-muted"> · {advMark}</span>}
+              </>
+            ) : (
+              roll.kept
+            )}
+          </dd>
+        </div>
+        {(roll.modifier !== 0 || roll.modifierDisplay) && (
+          <div className="sc-card-row contents">
+            <dt className="text-text-muted">{t("d20ModifierRow")}</dt>
+            {/* The engine's display ("+1+1d6([3])=+4") only adds information
+                when the formula embedded dice; a flat "+5=+5" is just noise. */}
+            <dd className="font-theme-mono text-text m-0">
+              {roll.modifierDisplay && /d/i.test(roll.modifierDisplay) ? roll.modifierDisplay : modStr}
+            </dd>
+          </div>
+        )}
+        {roll.modifier !== 0 && (
+          <div className="sc-card-row contents">
+            <dt className="text-text-muted">{t("d20TotalRow")}</dt>
+            <dd className="font-theme-mono m-0">
+              {roll.kept} {roll.modifier > 0 ? `+ ${roll.modifier}` : `- ${-roll.modifier}`} = <span className="dice-value text-accent font-semibold">{d.sum}</span>
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
 /**
  * Structured renderer for `diceDetail`. Parallels `formatDiceResult` but emits
  * DOM hooks (`.dice-result-skill`, `.dice-result-grade`, `.dice-result-insanity`)
@@ -544,6 +636,8 @@ function DiceResultDisplay({
     if (breakdown) return <ShBreakdownCard d={d} t={t} />;
     // COC 奖励/惩罚骰 check — card layout with target + grade.
     if (d.check.bp) return <CocBpCard d={d} t={t} />;
+    // DnD 5e check — d20 card (die faces / modifier / total + grade badge).
+    if (d.check.d20) return <D20CheckCard d={d} t={t} />;
     const finalGrade: Exclude<DiceGrade, "none"> =
       grade && grade !== "none" ? grade : success ? "success" : "failure";
     return (
@@ -1528,7 +1622,7 @@ export const ChatMessage = memo(function ChatMessage({
   // of the bubble: echo into the header line, kind onto a data-attr for theming.
   let diceCommandEcho: string | null = null;
   let diceRollKind: RollKind = "plain";
-  let diceCardKind: "sanity" | "breakdown" | "pool" | "bp" | null = null;
+  let diceCardKind: "sanity" | "breakdown" | "pool" | "bp" | "d20" | null = null;
   let diceProxyNick: string | null = null;
   if (isDice && diceDetail) {
     try {

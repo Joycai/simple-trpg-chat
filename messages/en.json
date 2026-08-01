@@ -326,6 +326,12 @@
     "bpKeepLow": "Keep lowest",
     "bpKeepHigh": "Keep highest",
     "bpFromCandidates": "(from {list})",
+    "d20CheckTitle": "Check",
+    "d20RollRow": "d20 roll",
+    "d20AdvantageMark": "advantage · high",
+    "d20DisadvantageMark": "disadvantage · low",
+    "d20ModifierRow": "Modifier",
+    "d20TotalRow": "Total",
     "btnRollTooltip": "Roll Dice",
     "btnQuickCheckTooltip": "Quick Check",
     "btnPrivateTooltip": "Toggle Private Chat",
@@ -399,6 +405,10 @@
     "nameLabel": "Check name",
     "namePlaceholder": "optional",
     "bpLabel": "Bonus / Penalty die",
+    "advLabel": "Advantage / Disadvantage",
+    "advNone": "None",
+    "advAdvantage": "Advantage",
+    "advDisadvantage": "Disadvantage",
     "bpNone": "None",
     "bpBonus": "{count, plural, =1 {Bonus} other {Bonus ×#}}",
     "bpPenalty": "{count, plural, =1 {Penalty} other {Penalty ×#}}",
@@ -1346,6 +1356,10 @@
       "rcD20": {
         "cmd": ".rc / .ra name[±mod] [DC]",
         "desc": "d20 check (1d20+mod vs DC; mods may embed dice, e.g. .rc str+3 15, .rc athletics+1+1d6 12; DC defaults to 10, space before DC required)"
+      },
+      "rcD20Adv": {
+        "cmd": ".rc 优势/劣势 name[±mod] [DC]",
+        "desc": "Advantage (2d20 keep highest) / disadvantage (keep lowest) check, never stacked; nameless shorthand .r 优势+2 15; crit/fumble judged by the kept die"
       },
       "rcSh": {
         "cmd": ".rc / .ra name[+bonus[±style]] [DC]",
