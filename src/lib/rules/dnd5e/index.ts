@@ -56,8 +56,8 @@ const capabilities: RuleCapabilities = {
   hasManaPoints: false,
   checkMenuModes: ["check"],
   // No `.sc` — d20 has no sanity. `.st/.rc/.ra/.rh/.rd/.r` all supported.
-  supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
-  helpEntryIds: ["st", "rcD20", "rdr", "rh", "help"],
+  supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcD20", "rch", "rdr", "rh", "help"],
   resourceBars: D20_RESOURCE_BARS,
   attributeKeys: D20_ATTRIBUTE_KEYS,
   // AC is the one number a d20 table asks for constantly ("what's your AC?"),
@@ -69,6 +69,18 @@ const capabilities: RuleCapabilities = {
   // HP max is free-set (no auto-derivation), so the panel lets players edit it.
   resourceMaxEditable: true,
   quickRolls: [".rd20", ".rc 力量+2 15"],
+  // Quick-check panel: roll20-style — pick a stored skill (its stored value
+  // seeds the modifier stepper), adjust the flat bonus, optionally type a DC.
+  // Attributes stay out: d20 ability *scores* are not modifiers, and this
+  // module derives nothing (v1 free-set design).
+  quickCheckPanel: {
+    skills: true,
+    attributes: false,
+    nameField: "select",
+    modifierField: true,
+    dcField: true,
+    hiddenToggle: true,
+  },
 };
 
 /** HP clamp helper — the only "derived" calculation in v1. */
@@ -227,6 +239,25 @@ export const dnd5eRule: RuleModule = {
     if (skillName.length > 50) skillName = skillName.slice(0, 50);
 
     return { skillName, explicitTarget, modifierExpression };
+  },
+
+  /**
+   * Quick-check panel → `.rc <name>[±mod][ <DC>]`. The modifier IS embedded in
+   * the command (unlike COC's server-side lookup) because that is this rule's
+   * design: the player-typed flat bonus is the entire modifier story.
+   */
+  buildCheckCommand(input) {
+    const name = input.name.trim();
+    if (!name) return null;
+    const mod = Math.trunc(input.modifier ?? 0);
+    const modPart = mod > 0 ? `+${mod}` : mod < 0 ? `${mod}` : "";
+    const dc = input.dc !== undefined && Number.isFinite(input.dc)
+      ? Math.min(999, Math.max(0, Math.trunc(input.dc)))
+      : undefined;
+    const dcPart = dc !== undefined ? ` ${dc}` : "";
+    const command = `${input.hidden ? ".rch" : ".rc"} ${name}${modPart}${dcPart}`;
+    const preview = `1d20${modPart} ≥ ${dc ?? 10}`;
+    return { command, preview };
   },
 
   applyStatWrite(sheet, route, value) {

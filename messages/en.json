@@ -206,6 +206,7 @@
     "events": "Event log",
     "sidebar": "Conversation sidebar",
     "dice": "Dice panel",
+    "quickCheck": "Quick check",
     "check": "Start a check",
     "itemManager": "Item manager",
     "timeline": "Timeline divider",
@@ -318,6 +319,7 @@
     "privateChatTarget": "Private Chat:",
     "selectMember": "Select member...",
     "btnRollTooltip": "Roll Dice",
+    "btnQuickCheckTooltip": "Quick Check",
     "btnPrivateTooltip": "Toggle Private Chat",
     "whisperingPlaceholder": "Whispering...",
     "resourceUnavailable": "Resources not configured",
@@ -373,6 +375,35 @@
     "range": "Range",
     "rollN": "Roll {count} dice",
     "removeTerm": "Remove",
+    "decrease": "Decrease",
+    "increase": "Increase"
+  },
+  "quickCheck": {
+    "title": "Skill Check",
+    "searchPlaceholder": "Search skills or attributes...",
+    "selectHint": "↑↓ Select",
+    "recentLabel": "RECENT",
+    "recentSortHint": "sorted by last use",
+    "attributesLabel": "ATTRIBUTES",
+    "skillsLabel": "SKILLS",
+    "emptyList": "Nothing to check yet — set skills via .st or the character sheet",
+    "emptyFiltered": "No matching skill or attribute",
+    "nameLabel": "Check name",
+    "namePlaceholder": "optional",
+    "bpLabel": "Bonus / Penalty die",
+    "bpNone": "None",
+    "bpBonus": "{count, plural, =1 {Bonus} other {Bonus ×#}}",
+    "bpPenalty": "{count, plural, =1 {Penalty} other {Penalty ×#}}",
+    "modifierLabel": "Modifier",
+    "bonusDiceLabel": "Bonus dice (d4)",
+    "styleDiceLabel": "Style dice (d6)",
+    "dcLabel": "DC",
+    "dcPlaceholder": "default 10",
+    "hidden": "Hidden",
+    "hiddenHint": "Hidden check - visible only to you",
+    "rollNamed": "Roll {name} · {preview}",
+    "rollPreview": "Roll · {preview}",
+    "selectFirst": "Select a skill or attribute first",
     "decrease": "Decrease",
     "increase": "Increase"
   },
@@ -1291,6 +1322,14 @@
       "rcD100": {
         "cmd": ".rc / .ra [Skill] [Value]",
         "desc": "Skill check (d100 vs target; trailing value gives a one-off check that is not persisted)"
+      },
+      "rcBp": {
+        "cmd": ".rc [Skill]+n / -n",
+        "desc": "Bonus dice (+n: roll n extra tens dice, keep lowest) / penalty dice (-n: keep highest), n ≤ 3; e.g. .rc Spot+1 or .rc Spot-1 60"
+      },
+      "rch": {
+        "cmd": ".rch / .rah = hidden .rc",
+        "desc": "Hidden check (result visible only to you)"
       },
       "rcD20": {
         "cmd": ".rc / .ra name[±mod] [DC]",

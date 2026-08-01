@@ -27,13 +27,14 @@ import {
   type CocDerived,
 } from "./sheet";
 import { resolveCocStat } from "./stats";
-import { clampAttributes } from "../patch-utils";
+import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
   AttributeKeySpec,
   CharacterStatus,
   CheckRequest,
   CheckResult,
+  QuickCheckInput,
   ResourceBarSpec,
   ResourcePatch,
   RuleCapabilities,
@@ -41,6 +42,17 @@ import type {
   StatRoute,
   VisualGrade,
 } from "../types";
+
+// Hard cap on bonus/penalty dice in the `.rc <name>±n` syntax. COC 7th play
+// rarely stacks past 2; 3 leaves headroom without inviting typo'd garbage.
+const MAX_BONUS_PENALTY = 3;
+
+/** Read a clamped bonus(+)/penalty(−) dice count out of untrusted ruleData. */
+function readBonusPenalty(ruleData: Record<string, unknown> | undefined): number {
+  const raw = ruleData?.bonusPenalty;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
+  return clampInt(raw, -MAX_BONUS_PENALTY, MAX_BONUS_PENALTY, 0);
+}
 
 // Order + label keys come straight from AttributesTab.tsx's `cocAttrKeys`,
 // so the panel renders the same grid when it switches to capability-driven
@@ -70,8 +82,8 @@ const capabilities: RuleCapabilities = {
   hasPsychologyRoll: true,
   hasManaPoints: true,
   checkMenuModes: ["check", "psychology", "sancheck"],
-  supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r", "sc"],
-  helpEntryIds: ["stCoc", "rcD100", "rdr", "rh", "sc", "help"],
+  supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r", "sc"],
+  helpEntryIds: ["stCoc", "rcD100", "rcBp", "rch", "rdr", "rh", "sc", "help"],
   resourceBars: COC_RESOURCE_BARS,
   attributeKeys: COC_ATTRIBUTE_KEYS,
   // Only 幸运 joins the hover card — the other 8 attributes belong to the
@@ -83,6 +95,18 @@ const capabilities: RuleCapabilities = {
   // HP/SAN/MP currents live on cocDerived and are host-adjustable via action.
   resourceCurrentsViaAction: true,
   quickRolls: [".rc 侦查", ".sc 1/1d6", ".rd100"],
+  // Quick-check panel: pick any stored skill, any of the 9 attributes, or 理智
+  // (the one resource `.rc` can target via lookupFallback), with a ±1
+  // bonus/penalty-die toggle and an 暗骰 switch. Commands omit the target so
+  // the server re-resolves the live stored value.
+  quickCheckPanel: {
+    skills: true,
+    attributes: true,
+    resourceKeys: ["san"],
+    nameField: "select",
+    bonusPenaltyDice: { max: 1 },
+    hiddenToggle: true,
+  },
 };
 
 export const coc7thRule: RuleModule = {
@@ -198,7 +222,35 @@ export const coc7thRule: RuleModule = {
 
   resolveCheck(req: CheckRequest): CheckResult {
     const { skillName, target } = req;
-    const roll = rollDie(100);
+    const bp = readBonusPenalty(req.ruleData);
+
+    let roll: number;
+    let rolls: number[];
+    let notation = "1d100";
+    let rollDisplay: string | undefined;
+
+    if (bp === 0) {
+      // Legacy path, byte-for-byte.
+      roll = rollDie(100);
+      rolls = [roll];
+    } else {
+      // COC 7th bonus/penalty dice: one units die, 1+|n| tens dice. Each
+      // candidate = tens×10 + units, with the 00+0 combination reading as
+      // 100. Bonus keeps the LOWEST candidate, penalty the HIGHEST.
+      const units = rollDie(10) - 1; // 0..9
+      const candidates = Array.from({ length: 1 + Math.abs(bp) }, () => {
+        const tens = rollDie(10) - 1; // 0..9
+        const v = tens * 10 + units;
+        return v === 0 ? 100 : v;
+      });
+      roll = bp > 0 ? Math.min(...candidates) : Math.max(...candidates);
+      rolls = candidates;
+      // Language-neutral marker, mirroring the `.rc` syntax: b = bonus (奖励),
+      // p = penalty (惩罚). Shown by the check bubble in place of the notation.
+      notation = `1d100${bp > 0 ? `b${bp}` : `p${-bp}`}`;
+      rollDisplay = `${notation}[${candidates.join(", ")}]`;
+    }
+
     const passed = roll <= target;
     // Quirk #1 preserved: success boolean stays as raw (roll <= target);
     // grade may upgrade/downgrade to critical/fumble independent of it.
@@ -207,41 +259,79 @@ export const coc7thRule: RuleModule = {
 
     return {
       skillName,
-      notation: "1d100",
-      rolls: [roll],
+      notation,
+      rolls,
       total: roll,
       target,
       passed,
       grade,
-      // Shape preserved from legacy `performSkillCheck`.
+      // Shape preserved from legacy `performSkillCheck`; bonus/penalty rolls
+      // add `rollDisplay` + the candidate pool without disturbing it.
       detail: {
         dice: "d100",
-        count: 1,
-        results: [roll],
+        count: rolls.length,
+        results: rolls,
         sum: roll,
-        notation: "1d100",
-        check: { skillName, target, roll, success: passed, grade },
+        notation,
+        check: {
+          skillName,
+          target,
+          roll,
+          success: passed,
+          grade,
+          ...(bp !== 0 ? { bonusPenalty: bp, rollDisplay } : {}),
+        },
       },
     };
   },
 
   /**
-   * Replicates the legacy engine regex `/^(.+?)\s*([0-9]+)$/` byte-for-byte:
-   * trailing integer is the target threshold, with optional whitespace
-   * separator. Honoring `.rc 侦查50` (no space) is mandatory for back-compat.
+   * `.rc` argument parser: `<name>[±n][\s*<target>]`.
+   *
+   * The legacy grammar (`/^(.+?)\s*([0-9]+)$/` — trailing integer is the
+   * threshold, whitespace optional, so `.rc 侦查50` must keep working) gains
+   * one optional group between name and target: a signed single digit `+n`
+   * (奖励骰) / `-n` (惩罚骰), n ≤ 3. Compact forms bind the sign group first:
+   * `.rc 侦查+150` reads as 侦查, 1 bonus die, threshold 50.
+   *
+   * The count travels to `resolveCheck` via `ruleData.bonusPenalty` — the
+   * generic parsed shape has no slot for it and the engine just forwards it.
    */
   parseRcArgs(args) {
     const trimmed = args.trim();
     if (!trimmed) return null;
-    const m = trimmed.match(/^(.+?)\s*([0-9]+)$/);
-    if (m) {
-      let skillName = m[1].trim();
-      const value = parseInt(m[2], 10);
-      if (skillName.length > 50) skillName = skillName.slice(0, 50);
-      if (!skillName || value < 0 || value > 999) return null;
-      return { skillName, explicitTarget: value };
+    const m = trimmed.match(/^(.+?)(?:([+-][1-3]))?(?:\s*([0-9]+))?$/);
+    if (!m) return null;
+
+    let skillName = m[1].trim();
+    if (skillName.length > 50) skillName = skillName.slice(0, 50);
+    if (!skillName) return null;
+
+    const bonusPenalty = m[2] !== undefined ? parseInt(m[2], 10) : 0;
+    const ruleData = bonusPenalty !== 0 ? { bonusPenalty } : undefined;
+
+    if (m[3] !== undefined) {
+      const value = parseInt(m[3], 10);
+      if (value < 0 || value > 999) return null;
+      return { skillName, explicitTarget: value, ruleData };
     }
-    return { skillName: trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed };
+    return { skillName, ruleData };
+  },
+
+  /**
+   * Quick-check panel → command string. The command never embeds the stored
+   * value (the server re-resolves it), so a stale client list can't roll
+   * against an outdated threshold; the value only feeds the preview.
+   */
+  buildCheckCommand(input: QuickCheckInput) {
+    const name = input.name.trim();
+    if (!name) return null;
+    const bp = clampInt(input.bonusPenalty ?? 0, -MAX_BONUS_PENALTY, MAX_BONUS_PENALTY, 0);
+    const suffix = bp > 0 ? `+${bp}` : bp < 0 ? `${bp}` : "";
+    const command = `${input.hidden ? ".rch" : ".rc"} ${name}${suffix}`;
+    const dieLabel = `1d100${bp > 0 ? `b${bp}` : bp < 0 ? `p${-bp}` : ""}`;
+    const preview = typeof input.value === "number" ? `${dieLabel} ≤ ${input.value}` : dieLabel;
+    return { command, preview };
   },
 
   /**
@@ -351,11 +441,12 @@ export const coc7thRule: RuleModule = {
 
   describeForAI(): AiRuleHints {
     return {
-      // Verbatim from the legacy ai_agent.ts `rulesExplanation` coc7th branch.
       rulesPrompt:
         "Room Dice Rules: COC 7th edition " +
         "(d100 rolls: 1-5 is Critical Success (大成功), 96-100 is Fumble/Critical Failure (大失败). " +
-        "Lower results are better in skill checks).",
+        "Lower results are better in skill checks. " +
+        "Checks may carry bonus/penalty dice (奖励骰/惩罚骰): `.rc <skill>+n` rolls n extra tens dice " +
+        "keeping the lowest result, `-n` keeps the highest; `.rch` is the same check visible only to the roller).",
       sheetToolSchemaFields: {
         cocAttributes: {
           type: "object",

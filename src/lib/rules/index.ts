@@ -5,6 +5,8 @@ export type {
   CheckMenuMode,
   CheckRequest,
   CheckResult,
+  QuickCheckInput,
+  QuickCheckPanelSpec,
   ResourceBarSpec,
   ResourcePatch,
   RuleCapabilities,

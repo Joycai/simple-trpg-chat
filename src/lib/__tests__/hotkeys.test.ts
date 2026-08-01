@@ -24,6 +24,7 @@ describe("matchRoomHotkey", () => {
     expect(matchRoomHotkey(combo("KeyV"), false)).toBe("toggle-events");
     expect(matchRoomHotkey(combo("KeyM"), false)).toBe("toggle-sidebar");
     expect(matchRoomHotkey(combo("KeyR"), false)).toBe("toggle-dice");
+    expect(matchRoomHotkey(combo("KeyQ"), false)).toBe("toggle-quick-check");
     expect(matchRoomHotkey(combo("ArrowUp"), false)).toBe("prev-tab");
     expect(matchRoomHotkey(combo("ArrowDown"), false)).toBe("next-tab");
     expect(matchRoomHotkey(combo("Slash"), false)).toBe("help");

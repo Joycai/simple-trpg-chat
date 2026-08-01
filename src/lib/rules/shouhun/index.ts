@@ -107,8 +107,8 @@ const capabilities: RuleCapabilities = {
   hasManaPoints: false,
   checkMenuModes: ["check"],
   // No `.sc` — 狩魂者 has no sanity mechanic.
-  supportedCommands: ["help", "st", "rc", "ra", "rh", "rd", "r"],
-  helpEntryIds: ["st", "rcSh", "rQuickSh", "rdr", "rh", "help"],
+  supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
+  helpEntryIds: ["st", "rcSh", "rQuickSh", "rch", "rdr", "rh", "help"],
   resourceBars: SH_RESOURCE_BARS,
   attributeKeys: SH_ATTRIBUTE_KEYS,
   // 术法强度 (= ⌊智慧/2⌋) is surfaced as a read-only derived card in the
@@ -132,6 +132,18 @@ const capabilities: RuleCapabilities = {
     styleDiceField: { min: -MAX_STYLE_DICE, max: MAX_STYLE_DICE },
     skillNameOptional: true,
     responderBonusDice: { max: MAX_BONUS_DICE },
+  },
+  // Quick-check panel: no stored lists at all (x/y are always player-typed in
+  // this system) — an optional free-text name plus 加骰/时髦骰 steppers and an
+  // optional DC. A nameless check goes out as the `.r+x±y [DC]` shorthand.
+  quickCheckPanel: {
+    skills: false,
+    attributes: false,
+    nameField: "optionalText",
+    dcField: true,
+    bonusDiceField: { max: MAX_BONUS_DICE },
+    styleDiceField: { min: -MAX_STYLE_DICE, max: MAX_STYLE_DICE },
+    hiddenToggle: true,
   },
 };
 
@@ -323,6 +335,40 @@ export const shouhunRule: RuleModule = {
       explicitTarget: m[2] !== undefined ? parseInt(m[2], 10) : undefined,
       modifierExpression: xy.modifierExpression,
     };
+  },
+
+  /**
+   * Quick-check panel → `.rc <name>+x±y [DC]`, or the nameless `.r+x±y [DC]`
+   * shorthand when the name field was left empty. A nameless check with zero
+   * counts still needs a group for `parseQuickCheckArgs` to claim it, so it
+   * goes out as `.r+0`. Nameless + hidden is unexpressible (`.rh` stays a
+   * plain roll and `.rch` needs a name) → null disables the panel button.
+   */
+  buildCheckCommand(input) {
+    const x = clampInt(input.bonusDice ?? 0, 0, MAX_BONUS_DICE, 0);
+    const y = clampInt(input.styleDice ?? 0, -MAX_STYLE_DICE, MAX_STYLE_DICE, 0);
+    const dc = input.dc !== undefined && Number.isFinite(input.dc)
+      ? Math.min(999, Math.max(0, Math.trunc(input.dc)))
+      : undefined;
+    const dcPart = dc !== undefined ? ` ${dc}` : "";
+
+    // `+x[±y]` — 时髦骰 without 加骰 needs the explicit `+0` (a lone positive
+    // group always reads as x); a lone negative group is 时髦骰 by itself.
+    let group = "";
+    if (x > 0 || y > 0) group = `+${x}`;
+    if (y > 0) group += `+${y}`;
+    else if (y < 0) group = x > 0 ? `+${x}${y}` : `${y}`;
+
+    const name = input.name.trim().slice(0, 50);
+    const preview =
+      `1d20${x > 0 ? `+${x}d4` : ""}${y > 0 ? `+${y}d6` : y < 0 ? `-${-y}d6` : ""} ≥ ${dc ?? 10}`;
+
+    if (name) {
+      const command = `${input.hidden ? ".rch" : ".rc"} ${name}${group}${dcPart}`;
+      return { command, preview };
+    }
+    if (input.hidden) return null;
+    return { command: `.r${group || "+0"}${dcPart}`, preview };
   },
 
   applyStatWrite(sheet, route, value) {

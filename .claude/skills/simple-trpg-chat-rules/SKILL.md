@@ -48,6 +48,7 @@ description: >
 | `src/components/room/character/CharacterPanel.tsx` | 可编辑角色卡面板。**PR #176 后完全能力位驱动、零 rule-id 分支**:属性宫格走 `read/writeAttributes`,资源上限/当前值/衍生页脚走 `draftStatusFor()`(见 §5) |
 | `src/components/room/character/resource-visuals.ts` | `RESOURCE_ICON` / `DERIVED_ICON`:client-only 的 key→图标/颜色映射。未命中的 key 用主色兜底,所以新规则**不必**改这里 |
 | `src/components/room/character/CharacterRuleGate.tsx` | 房间规则与成员角色卡不匹配时的重建引导(主持人切规则会触发) |
+| `src/components/room/chat/QuickCheckPanel.tsx` | 玩家快速检定面板(输入框 ◎ / Alt+Q)。完全由 `capabilities.quickCheckPanel` 驱动、经 `rule.buildCheckCommand` 产出命令,零 rule-id 分支——新规则不用改它 |
 | `src/lib/__tests__/rules.test.ts` | 209 个用例。新规则上线必须补等量边界覆盖 |
 | `src/db/schema.ts` | `RULE_TEMPLATES` 常量数组(**必须**与注册表同步)+ `rooms.rule_template` 列 |
 
@@ -57,7 +58,7 @@ description: >
 
 ## 2. `RuleModule` 接口
 
-共 **22 个成员**(5 个元数据 + 15 个必填方法 + 2 个可选方法)。`coc7th/index.ts` 和 `shouhun/index.ts` 是最完整的两个范例——前者字段最全,后者用到了最多可选钩子。
+共 **23 个成员**(5 个元数据 + 15 个必填方法 + 3 个可选方法)。`coc7th/index.ts` 和 `shouhun/index.ts` 是最完整的两个范例——前者字段最全,后者用到了最多可选钩子。
 
 ### 元数据
 
@@ -94,6 +95,9 @@ description: >
 | --- | --- |
 | `parseQuickCheckArgs?(args)` | 把 `.r <args>` 认领成简写检定。在通用表达式解析**之前**被调用;返 null 则回落为普通掷骰。狩魂者 用它实现 `.r+x±y [DC]` |
 | `naturalGrade?(roll, faces, count)` | 普通掷骰(`.rd`/`.r`,非检定)的文化/机制解读,供 AI bot 反应。COC 认 1d100 的 01–05/96–100,basic 给 CoC 文化提示(1/100),其余省略(返 null)。取代 `ai_agent.ts` 里原本的 `id === "coc7th"/"basic"` 分支。PR #176 新增 |
+| `buildCheckCommand?(input)` | **快速检定面板**(输入框左侧 ◎)把面板状态变成"玩家本可手打的命令"+ 投掷按钮预览(`{command, preview}`)。与 `capabilities.quickCheckPanel` **成对声明**(`rules.test.ts` 有配对断言);返 null = 该组合无法表达(狩魂者 无名+暗骰),面板禁用按钮。必须纯函数、client-safe。v0.19 新增 |
+
+另:`parseRcArgs` / `parseQuickCheckArgs` 的返回值多了可选 `ruleData?: Record<string, unknown>` 槽——规则专属的语法附加物(COC 的奖励/惩罚骰数)经引擎**原样透传**到 `CheckRequest.ruleData`,`resolveCheck` 自取自清洗。引擎不认识其中任何字段。
 
 ### `CheckRequest` → `CheckResult`
 
@@ -153,6 +157,7 @@ interface CheckResult {
 | `quickRolls` | `string[]` | 聊天输入框上方的快捷命令 chips |
 | `highlightDieFace?` | `number` | 写入 `diceDetail.highlightFace`,渲染器逐骰标亮该面(triangle=3) |
 | `checkRequestOptions?` | 见下 | **主持人发起检定的整个交互流程** |
+| `quickCheckPanel?` | 见下 | **玩家侧快速检定面板**(输入框左侧 ◎ 入口);缺省 = 不渲染入口(triangle) |
 
 ### `checkRequestOptions` —— 唯一能改写主持人流程的能力
 
@@ -166,6 +171,29 @@ checkRequestOptions?: {
 ```
 
 声明后:主持人对话框把 diceType 选择器换成上述字段;请求 detail 携带 `{dc, styleDice}`;响应方被提示填加骰数,服务端据此合成该规则的 `.rc name+x±y DC` 命令。目前只有 shouhun 用。消费方:`actions/room.ts`、`RoomOverlays.tsx`、`HostCheckDialog.tsx`。
+
+### `quickCheckPanel` —— 玩家快速检定面板(v0.19 新增)
+
+```ts
+quickCheckPanel?: {
+  skills: boolean;                              // 列出玩家自己的 room_skills 行
+  attributes: boolean;                          // 列出 attributeKeys(值走 readAttributes;仅当 .rc 能按名解析属性时才开)
+  resourceKeys?: string[];                      // 可检定的资源当前值(coc = ["san"])
+  nameField: "select" | "optionalText";         // 检定名来源:列表选择 / 可留空的自由文本(狩魂者)
+  dcField?: boolean;                            // DC 输入框(d20 / 狩魂者)
+  modifierField?: boolean;                      // 平加值步进器;选中存储技能会以其存值播种(d20 roll20 流)
+  bonusPenaltyDice?: { max: number };           // COC 奖励/惩罚骰分段控件(-max..+max)
+  bonusDiceField?: { max: number };             // 狩魂者 加骰步进器
+  styleDiceField?: { min: number; max: number };// 狩魂者 时髦骰步进器
+  hiddenToggle: boolean;                        // 暗骰开关(命令换成 .rch 变体)
+}
+```
+
+面板(`QuickCheckPanel.tsx`,由 `ChatInput.tsx` 的 ◎ 按钮挂载,Alt+Q)**从不掷骰**:每次打开新拉数据(`getMySkillsAction` + `getCharacterDataAction`,经规则自己的 `readAttributes`/`readStatus` 摊平),把面板状态交给规则的 **`buildCheckCommand(input)`** 换取 `{command, preview}`,然后把 command 当作玩家手打的聊天输入原样提交——服务端检定流仍是唯一裁决者。列表项的命令名统一经 `canonicalStatName(key)` 归一(如 `san → 理智值`),存储值**不进命令**(服务端回查最新值),只用于预览。选中项的 MRU 顺序存 localStorage(`strpg:quick-check-recent:<roomId>`)。
+
+**声明 `quickCheckPanel` 而不实现 `buildCheckCommand`(或反之)= 面板静默失效**——与 `sheetToolSchemaFields` 同款陷阱,`rules.test.ts` 的配对断言会红。
+
+配套引擎设施(规则无关,已就绪,新规则**不用**动):`.rch` / `.rah` 是 `.rc` / `.ra` 的暗检定孪生(结果仅投掷者可见,visibility="self"),`commands.ts` 与 `roll-command.ts` 的前缀表已含;声明了 `rc` 的规则应把 `rch`/`rah` 一并放进 `supportedCommands`,并在 `helpEntryIds` 里加 `rch` 条目(配对测试会验)。
 
 ### 两条硬约束
 
@@ -187,7 +215,7 @@ checkRequestOptions?: {
 
 ### Step 1 — 模块文件
 
-`src/lib/rules/<id>/index.ts`,实现 §2 的 22 个成员。TypeScript 会逼你填齐必填项;**最容易漏的是 `parseRcArgs`、`applyStatWrite`、`applySheetPatch`、`readAttributes`/`writeAttributes`、`applyResourcePatch`** 这几个不在"元数据"直觉里的方法。规则自己的角色卡数据模型(属性/资源接口 + 默认值 + `compute*Derived`)放 `src/lib/rules/<id>/sheet.ts`(抄 `coc7th/sheet.ts`;自包含,不 import `character-types`),再在 barrel `rules/index.ts` 加一行 `export ... from "./<id>/sheet"`,并给 `CharacterData` 加一个 `import type` + 可选字段。若规则有 `.st` 别名/属性/资源路由,再建 `src/lib/rules/<id>/stats.ts` 写解析器(抄 `coc7th/stats.ts`),只被本模块 import。
+`src/lib/rules/<id>/index.ts`,实现 §2 的 23 个成员。TypeScript 会逼你填齐必填项;**最容易漏的是 `parseRcArgs`、`applyStatWrite`、`applySheetPatch`、`readAttributes`/`writeAttributes`、`applyResourcePatch`** 这几个不在"元数据"直觉里的方法。**支持 `.rc` 的规则还要决定快速检定面板长什么样**:声明 `capabilities.quickCheckPanel` + 实现 `buildCheckCommand`(两者成对,见 §3),并把 `rch`/`rah` 放进 `supportedCommands`、`rch` 放进 `helpEntryIds`;不支持 `.rc` 的规则(如 triangle)两者都不声明,入口按钮自动消失。**调整既有规则的检定语法时同理——别忘了同步它的 `quickCheckPanel`/`buildCheckCommand`,否则面板会继续生成旧语法命令。**规则自己的角色卡数据模型(属性/资源接口 + 默认值 + `compute*Derived`)放 `src/lib/rules/<id>/sheet.ts`(抄 `coc7th/sheet.ts`;自包含,不 import `character-types`),再在 barrel `rules/index.ts` 加一行 `export ... from "./<id>/sheet"`,并给 `CharacterData` 加一个 `import type` + 可选字段。若规则有 `.st` 别名/属性/资源路由,再建 `src/lib/rules/<id>/stats.ts` 写解析器(抄 `coc7th/stats.ts`),只被本模块 import。
 
 ### Step 2 — 注册
 
@@ -236,7 +264,7 @@ UI 侧不用改。
 
 ### 不需要改的地方(验证抽象成立)
 
-`commands.ts`(命令引擎)、`actions/room.ts`(主持人动作 + 检定请求)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai_agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
+`commands.ts`(命令引擎)、`actions/room.ts`(主持人动作 + 检定请求)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai_agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、**`QuickCheckPanel.tsx`(快速检定面板,能力位 + `buildCheckCommand` 驱动)**、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
 
 **只要模块把 22 个成员实现全、capabilities 填对,以上文件一律零改动**——这是本次(PR #176)把 CharacterPanel 的 24 处分支全部收敛后达成的验收状态。如果你发现必须改上面某个文件才能让新规则工作,先回头检查模块定义:大概率是某个 capability 没填、`readStatus`/`readAttributes` 没摊平对、或某个新方法(`writeAttributes`/`applyResourcePatch`)没实现。**确实**表达不了再扩 `RuleCapabilities`(纯数据),而不是加 id 分支。
 

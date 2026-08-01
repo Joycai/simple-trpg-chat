@@ -18,6 +18,7 @@ export type RoomHotkeyAction =
   | "toggle-events"
   | "toggle-sidebar"
   | "toggle-dice"
+  | "toggle-quick-check"
   | "toggle-check"
   | "toggle-item-manager"
   | "toggle-timeline"
@@ -41,6 +42,7 @@ export const ROOM_HOTKEYS: readonly RoomHotkeyBinding[] = [
   { code: "KeyV", action: "toggle-events", hostOnly: false, labelKey: "events" },
   { code: "KeyM", action: "toggle-sidebar", hostOnly: false, labelKey: "sidebar" },
   { code: "KeyR", action: "toggle-dice", hostOnly: false, labelKey: "dice" },
+  { code: "KeyQ", action: "toggle-quick-check", hostOnly: false, labelKey: "quickCheck" },
   { code: "KeyK", action: "toggle-check", hostOnly: true, labelKey: "check" },
   { code: "KeyI", action: "toggle-item-manager", hostOnly: true, labelKey: "itemManager" },
   { code: "KeyT", action: "toggle-timeline", hostOnly: true, labelKey: "timeline" },
@@ -110,6 +112,9 @@ export const CHAT_INPUT_SELECTOR = `textarea[${CHAT_INPUT_ATTR}]`;
 
 /** Window CustomEvent asking the ChatInput to toggle its dice panel. */
 export const TOGGLE_DICE_EVENT = "trpg:toggle-dice";
+
+/** Window CustomEvent asking the ChatInput to toggle the quick-check panel. */
+export const TOGGLE_QUICK_CHECK_EVENT = "trpg:toggle-quick-check";
 
 /** localStorage flag: the one-time "shortcuts are available" toast was seen
  *  (shown once per browser, dismissed by closing it or opening the help). */

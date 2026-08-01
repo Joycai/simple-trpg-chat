@@ -96,6 +96,15 @@ export interface CheckRequest {
   modifierTerms?: ReadonlyArray<ModifierTerm>;
   /** Character sheet of the rolling user (always loaded by the engine now). */
   sheet: CharacterData | null;
+  /**
+   * Opaque rule-owned payload produced by the same rule's `parseRcArgs` /
+   * `parseQuickCheckArgs` and forwarded verbatim by the engine. Lets a rule
+   * carry syntax extras the generic parsed shape has no slot for (COC's
+   * bonus/penalty dice count) without the engine learning the field. Rules
+   * must treat it as untrusted (it round-trips through their own parser, but
+   * defensive clamping keeps `resolveCheck` total).
+   */
+  ruleData?: Record<string, unknown>;
 }
 
 export interface CheckResult {
@@ -283,6 +292,90 @@ export interface RuleCapabilities {
     /** Responder must supply a bonus-dice count (加骰 x), 0..max. */
     responderBonusDice?: { max: number };
   };
+  /**
+   * Player-side quick-check panel (the ◎ button left of the chat input) —
+   * pure data describing which pickers and fields the panel renders for this
+   * rule. Absent ⇒ no entry button at all (triangle has no `.rc`).
+   *
+   * The panel never rolls: it builds a command string via the rule's
+   * `buildCheckCommand` and submits it exactly like typed chat input, so the
+   * one server-side check flow stays the single resolver. Declaring this
+   * capability and implementing `buildCheckCommand` are two halves of the
+   * same contract (mirroring `checkRequestOptions` ↔ host dialog);
+   * `rules.test.ts` asserts the pairing.
+   */
+  quickCheckPanel?: QuickCheckPanelSpec;
+}
+
+/** See `RuleCapabilities.quickCheckPanel`. */
+export interface QuickCheckPanelSpec {
+  /** List the player's own `room_skills` rows as pickable entries. */
+  skills: boolean;
+  /**
+   * List `capabilities.attributeKeys` (values via `readAttributes`) as
+   * pickable entries. Only meaningful for rules whose `.rc` can resolve an
+   * attribute by name (COC's `lookupFallback`); d20 leaves it false because
+   * ability *scores* are not modifiers.
+   */
+  attributes: boolean;
+  /**
+   * Checkable resource currents (COC's 理智值), keyed into `resourceBars`.
+   * Values come from `readStatus().resources[key].current`.
+   */
+  resourceKeys?: ReadonlyArray<string>;
+  /**
+   * How the check name is supplied: `"select"` — picked from the lists above;
+   * `"optionalText"` — free text that may stay empty (狩魂者's nameless
+   * `.r+x±y` shorthand).
+   */
+  nameField: "select" | "optionalText";
+  /** Free DC input (blank → rule default; d20/狩魂者). */
+  dcField?: boolean;
+  /**
+   * Flat modifier stepper (d20 加值). Selecting a stored skill seeds it with
+   * that skill's stored value — the roll20-style "my stored number IS my
+   * bonus" flow.
+   */
+  modifierField?: boolean;
+  /**
+   * COC bonus/penalty dice segmented control, rendered as −max..+max
+   * (positive = 奖励骰, negative = 惩罚骰).
+   */
+  bonusPenaltyDice?: { max: number };
+  /** 狩魂者 加骰 (d4 count) stepper, 0..max. */
+  bonusDiceField?: { max: number };
+  /** 狩魂者 时髦骰 (d6 count) stepper, min..max (negatives subtract). */
+  styleDiceField?: { min: number; max: number };
+  /** Show the 暗骰 toggle (command swaps to the hidden `.rch` variant). */
+  hiddenToggle: boolean;
+}
+
+/**
+ * Panel state handed to `buildCheckCommand`. Fields mirror
+ * `QuickCheckPanelSpec` — the panel only populates what the spec declared,
+ * and the rule ignores anything it didn't ask for.
+ */
+export interface QuickCheckInput {
+  /** Selected/typed stat name; `""` for a nameless 狩魂者 check. */
+  name: string;
+  /**
+   * Stored value of the selected entry (skill value / attribute / resource
+   * current), when one was selected. Preview-only — commands omit it so the
+   * server re-resolves the live value.
+   */
+  value?: number;
+  /** Typed DC (`dcField`). */
+  dc?: number;
+  /** Flat modifier (`modifierField`). */
+  modifier?: number;
+  /** Bonus(+)/penalty(−) dice count (`bonusPenaltyDice`). */
+  bonusPenalty?: number;
+  /** 加骰 count (`bonusDiceField`). */
+  bonusDice?: number;
+  /** 时髦骰 count (`styleDiceField`), may be negative. */
+  styleDice?: number;
+  /** 暗骰 toggle state (`hiddenToggle`). */
+  hidden: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -464,6 +557,8 @@ export interface RuleModule {
     explicitTarget?: number;
     /** Modifier formula string the engine must evaluate (e.g. `"+1+1d6"`). */
     modifierExpression?: string;
+    /** Rule-owned extras forwarded into `CheckRequest.ruleData` untouched. */
+    ruleData?: Record<string, unknown>;
   };
 
   /**
@@ -478,7 +573,22 @@ export interface RuleModule {
     skillName: string;
     explicitTarget?: number;
     modifierExpression?: string;
+    /** Rule-owned extras forwarded into `CheckRequest.ruleData` untouched. */
+    ruleData?: Record<string, unknown>;
   };
+
+  /**
+   * Optional: turn the quick-check panel's state into the exact chat command
+   * a player could have typed (plus a human-readable dice preview for the
+   * roll button, e.g. `1d100 ≤ 60`). Present iff
+   * `capabilities.quickCheckPanel` is declared — the two are one contract.
+   *
+   * Returns `null` for combinations the rule's syntax cannot express (狩魂者
+   * nameless + hidden); the panel disables its roll button then. Must be
+   * pure and client-safe (no server imports) — the panel runs it on every
+   * keystroke to keep the preview live.
+   */
+  buildCheckCommand?(input: QuickCheckInput): { command: string; preview: string } | null;
 
   // ----- `.st` attribute/resource write -----------------------------------
 

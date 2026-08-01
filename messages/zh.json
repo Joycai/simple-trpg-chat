@@ -206,6 +206,7 @@
     "events": "事件志",
     "sidebar": "会话侧栏",
     "dice": "骰子面板",
+    "quickCheck": "快速检定",
     "check": "发起检定",
     "itemManager": "道具管理",
     "timeline": "时间线分割",
@@ -318,6 +319,7 @@
     "privateChatTarget": "私聊对象:",
     "selectMember": "选择成员...",
     "btnRollTooltip": "投骰子",
+    "btnQuickCheckTooltip": "快速检定",
     "btnPrivateTooltip": "开启私聊模式",
     "whisperingPlaceholder": "正在进行悄悄话...",
     "resourceUnavailable": "未设置资源状态",
@@ -373,6 +375,35 @@
     "range": "范围",
     "rollN": "投出 {count} 颗骰",
     "removeTerm": "移除",
+    "decrease": "减少",
+    "increase": "增加"
+  },
+  "quickCheck": {
+    "title": "技能检定",
+    "searchPlaceholder": "搜索技能或属性...",
+    "selectHint": "↑↓ 选择",
+    "recentLabel": "常用",
+    "recentSortHint": "按最近使用排序",
+    "attributesLabel": "属性",
+    "skillsLabel": "技能",
+    "emptyList": "暂无可检定的技能——先用 .st 或角色卡设置",
+    "emptyFiltered": "没有匹配的技能或属性",
+    "nameLabel": "检定名",
+    "namePlaceholder": "可留空",
+    "bpLabel": "奖励 / 惩罚骰",
+    "bpNone": "无",
+    "bpBonus": "{count, plural, =1 {奖励} other {奖励×#}}",
+    "bpPenalty": "{count, plural, =1 {惩罚} other {惩罚×#}}",
+    "modifierLabel": "加值",
+    "bonusDiceLabel": "加投（d4）",
+    "styleDiceLabel": "时髦投（d6）",
+    "dcLabel": "DC",
+    "dcPlaceholder": "默认 10",
+    "hidden": "暗骰",
+    "hiddenHint": "暗检定 - 结果仅你可见",
+    "rollNamed": "投 {name} · {preview}",
+    "rollPreview": "投 · {preview}",
+    "selectFirst": "先选择技能或属性",
     "decrease": "减少",
     "increase": "增加"
   },
@@ -1291,6 +1322,14 @@
       "rcD100": {
         "cmd": ".rc / .ra 技能 [值]",
         "desc": "技能检定（d100 vs 设定值；带数值则按该值临时检定，不写入）"
+      },
+      "rcBp": {
+        "cmd": ".rc 技能+n / -n",
+        "desc": "奖励骰（+n，多掷 n 颗十位骰取低）/ 惩罚骰（-n，取高），n ≤ 3；如 .rc 侦查+1 或 .rc 侦查-1 60"
+      },
+      "rch": {
+        "cmd": ".rch / .rah 同 .rc",
+        "desc": "暗检定（结果仅自己可见）"
       },
       "rcD20": {
         "cmd": ".rc / .ra 名称[±调整值] [DC]",

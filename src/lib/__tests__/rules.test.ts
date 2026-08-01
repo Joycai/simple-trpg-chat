@@ -1337,10 +1337,10 @@ describe("helpEntryIds", () => {
   // row lists so a syntax change (or a new rule) can't silently show players
   // the wrong command reference.
   const EXPECTED: Record<string, string[]> = {
-    coc7th: ["stCoc", "rcD100", "rdr", "rh", "sc", "help"],
-    basic: ["st", "rcD100", "rdr", "rh", "help"],
-    dnd5e: ["st", "rcD20", "rdr", "rh", "help"],
-    shouhun: ["st", "rcSh", "rQuickSh", "rdr", "rh", "help"],
+    coc7th: ["stCoc", "rcD100", "rcBp", "rch", "rdr", "rh", "sc", "help"],
+    basic: ["st", "rcD100", "rch", "rdr", "rh", "help"],
+    dnd5e: ["st", "rcD20", "rch", "rdr", "rh", "help"],
+    shouhun: ["st", "rcSh", "rQuickSh", "rch", "rdr", "rh", "help"],
     triangle: ["st", "taR", "rdr", "rh", "help"],
   };
 
@@ -1885,5 +1885,172 @@ describe("rules/sheet-state", () => {
     expect(attributesUnset(sh, shouhunRule)).toBe(true);
     const shEdited: CharacterData = { ...sh, shAttributes: { ...sh.shAttributes!, phy: 5 } };
     expect(attributesUnset(shEdited, shouhunRule)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// COC 7th 奖励/惩罚骰 — `.rc <name>±n` 语法与掷骰
+// ---------------------------------------------------------------------------
+
+describe("coc7thRule 奖励/惩罚骰", () => {
+  it("parseRcArgs:legacy 形态逐字保留(名称 / 空格阈值 / 紧凑阈值)", () => {
+    expect(coc7thRule.parseRcArgs("侦查")).toEqual({ skillName: "侦查", ruleData: undefined });
+    expect(coc7thRule.parseRcArgs("侦查 50")).toMatchObject({ skillName: "侦查", explicitTarget: 50 });
+    expect(coc7thRule.parseRcArgs("侦查50")).toMatchObject({ skillName: "侦查", explicitTarget: 50 });
+    expect(coc7thRule.parseRcArgs("图书馆使用 70")).toMatchObject({ skillName: "图书馆使用", explicitTarget: 70 });
+    expect(coc7thRule.parseRcArgs("")).toBeNull();
+    // 阈值超界仍整体拒绝(legacy:value > 999 → null)
+    expect(coc7thRule.parseRcArgs("abc123456")).toBeNull();
+  });
+
+  it("parseRcArgs:±n 解析为 ruleData.bonusPenalty", () => {
+    expect(coc7thRule.parseRcArgs("侦查+1")).toEqual({ skillName: "侦查", ruleData: { bonusPenalty: 1 } });
+    expect(coc7thRule.parseRcArgs("侦查-2 60")).toMatchObject({
+      skillName: "侦查", explicitTarget: 60, ruleData: { bonusPenalty: -2 },
+    });
+    // 紧凑形态:符号组先绑定 → +1 为奖励骰、50 为阈值
+    expect(coc7thRule.parseRcArgs("侦查+150")).toMatchObject({
+      skillName: "侦查", explicitTarget: 50, ruleData: { bonusPenalty: 1 },
+    });
+  });
+
+  it("resolveCheck:奖励骰取候选值最低,惩罚骰取最高", () => {
+    // units=5(mock 6),两颗十位骰 6/2(mock 7/3)→ 候选 [65, 25]
+    mockRollDie.mockReturnValueOnce(6).mockReturnValueOnce(7).mockReturnValueOnce(3);
+    const bonus = coc7thRule.resolveCheck({
+      skillName: "侦查", target: 50, sheet: null, ruleData: { bonusPenalty: 1 },
+    });
+    expect(bonus.total).toBe(25);
+    expect(bonus.rolls).toEqual([65, 25]);
+    expect(bonus.notation).toBe("1d100b1");
+    expect(bonus.passed).toBe(true);
+    expect((bonus.detail.check as { rollDisplay?: string }).rollDisplay).toBe("1d100b1[65, 25]");
+
+    mockRollDie.mockReturnValueOnce(6).mockReturnValueOnce(7).mockReturnValueOnce(3);
+    const penalty = coc7thRule.resolveCheck({
+      skillName: "侦查", target: 50, sheet: null, ruleData: { bonusPenalty: -1 },
+    });
+    expect(penalty.total).toBe(65);
+    expect(penalty.notation).toBe("1d100p1");
+    expect(penalty.passed).toBe(false);
+  });
+
+  it("resolveCheck:十位 0 + 个位 0 读作 100(大失败面保留)", () => {
+    // units=0(mock 1),tens 0/0(mock 1/1)→ 候选 [100, 100]
+    mockRollDie.mockReturnValueOnce(1).mockReturnValueOnce(1).mockReturnValueOnce(1);
+    const r = coc7thRule.resolveCheck({
+      skillName: "侦查", target: 50, sheet: null, ruleData: { bonusPenalty: 1 },
+    });
+    expect(r.total).toBe(100);
+    expect(r.grade).toBe("fumble");
+  });
+
+  it("resolveCheck:无 ruleData 时保持 legacy 单骰路径", () => {
+    mockRollDie.mockReturnValueOnce(42);
+    const r = coc7thRule.resolveCheck({ skillName: "侦查", target: 50, sheet: null });
+    expect(r.notation).toBe("1d100");
+    expect(r.rolls).toEqual([42]);
+    expect((r.detail.check as Record<string, unknown>).rollDisplay).toBeUndefined();
+    expect((r.detail.check as Record<string, unknown>).bonusPenalty).toBeUndefined();
+  });
+
+  it("resolveCheck:ruleData 为垃圾值时按 0 处理", () => {
+    mockRollDie.mockReturnValueOnce(42);
+    const r = coc7thRule.resolveCheck({
+      skillName: "侦查", target: 50, sheet: null, ruleData: { bonusPenalty: "many" },
+    });
+    expect(r.notation).toBe("1d100");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// quickCheckPanel / buildCheckCommand — 快速检定面板契约
+// ---------------------------------------------------------------------------
+
+describe("quickCheckPanel ⇔ buildCheckCommand", () => {
+  it("声明能力位与实现方法必须成对出现(缺一即静默失效)", () => {
+    for (const rule of listRules()) {
+      const declared = rule.capabilities.quickCheckPanel !== undefined;
+      const implemented = typeof rule.buildCheckCommand === "function";
+      expect(implemented, rule.id).toBe(declared);
+    }
+  });
+
+  it("triangle 不声明面板(无 .rc 检定)", () => {
+    expect(triangleRule.capabilities.quickCheckPanel).toBeUndefined();
+  });
+
+  it("coc7th:命令省略阈值(服务端回查),±骰与暗骰进指令", () => {
+    expect(coc7thRule.buildCheckCommand!({ name: "侦查", value: 60, hidden: false }))
+      .toEqual({ command: ".rc 侦查", preview: "1d100 ≤ 60" });
+    expect(coc7thRule.buildCheckCommand!({ name: "侦查", value: 60, bonusPenalty: 1, hidden: false })!.command)
+      .toBe(".rc 侦查+1");
+    expect(coc7thRule.buildCheckCommand!({ name: "侦查", bonusPenalty: -1, hidden: true })!.command)
+      .toBe(".rch 侦查-1");
+    expect(coc7thRule.buildCheckCommand!({ name: "", hidden: false })).toBeNull();
+  });
+
+  it("coc7th:面板生成的命令能被自家 parseRcArgs 原样解析(往返闭环)", () => {
+    const built = coc7thRule.buildCheckCommand!({ name: "侦查", bonusPenalty: -1, hidden: false })!;
+    const args = built.command.replace(/^\.rc\s+/, "");
+    expect(coc7thRule.parseRcArgs(args)).toMatchObject({
+      skillName: "侦查", ruleData: { bonusPenalty: -1 },
+    });
+  });
+
+  it("basic:纯技能名命令", () => {
+    expect(basicRule.buildCheckCommand!({ name: "侦查", value: 40, hidden: false }))
+      .toEqual({ command: ".rc 侦查", preview: "1d100 ≤ 40" });
+    expect(basicRule.buildCheckCommand!({ name: "侦查", hidden: true })!.command).toBe(".rch 侦查");
+  });
+
+  it("dnd5e:加值与 DC 内嵌进命令,预览含缺省 DC 10", () => {
+    expect(dnd5eRule.buildCheckCommand!({ name: "运动", modifier: 5, dc: 15, hidden: false }))
+      .toEqual({ command: ".rc 运动+5 15", preview: "1d20+5 ≥ 15" });
+    expect(dnd5eRule.buildCheckCommand!({ name: "运动", modifier: -2, hidden: false }))
+      .toEqual({ command: ".rc 运动-2", preview: "1d20-2 ≥ 10" });
+    expect(dnd5eRule.buildCheckCommand!({ name: "运动", hidden: true })!.command).toBe(".rch 运动");
+  });
+
+  it("dnd5e:往返闭环——生成的命令能被自家 parseRcArgs 解析", () => {
+    const built = dnd5eRule.buildCheckCommand!({ name: "运动", modifier: 5, dc: 15, hidden: false })!;
+    expect(dnd5eRule.parseRcArgs(built.command.replace(/^\.rc\s+/, ""))).toMatchObject({
+      skillName: "运动", modifierExpression: "+5", explicitTarget: 15,
+    });
+  });
+
+  it("shouhun:具名 .rc 与无名 .r 简写;时髦骰单独存在时补 +0", () => {
+    expect(shouhunRule.buildCheckCommand!({ name: "侦查", bonusDice: 2, styleDice: 1, dc: 12, hidden: false })!.command)
+      .toBe(".rc 侦查+2+1 12");
+    expect(shouhunRule.buildCheckCommand!({ name: "侦查", bonusDice: 2, styleDice: -1, hidden: false })!.command)
+      .toBe(".rc 侦查+2-1");
+    expect(shouhunRule.buildCheckCommand!({ name: "", bonusDice: 2, styleDice: 1, dc: 12, hidden: false })!.command)
+      .toBe(".r+2+1 12");
+    // 无加投无时髦投的无名检定仍要一个符号组才会被 parseQuickCheckArgs 认领
+    expect(shouhunRule.buildCheckCommand!({ name: "", hidden: false })!.command).toBe(".r+0");
+    // 时髦骰为正、加投为 0:必须显式 +0(孤立正组会被读成加投)
+    expect(shouhunRule.buildCheckCommand!({ name: "", styleDice: 2, hidden: false })!.command).toBe(".r+0+2");
+    expect(shouhunRule.buildCheckCommand!({ name: "", styleDice: -2, hidden: false })!.command).toBe(".r-2");
+  });
+
+  it("shouhun:无名 + 暗骰不可表达 → null(面板据此禁用按钮)", () => {
+    expect(shouhunRule.buildCheckCommand!({ name: "", bonusDice: 2, hidden: true })).toBeNull();
+    expect(shouhunRule.buildCheckCommand!({ name: "侦查", bonusDice: 2, hidden: true })!.command).toBe(".rch 侦查+2");
+  });
+
+  it("shouhun:往返闭环——无名简写能被 parseQuickCheckArgs 认领", () => {
+    const built = shouhunRule.buildCheckCommand!({ name: "", bonusDice: 2, styleDice: -1, dc: 12, hidden: false })!;
+    const args = built.command.replace(/^\.r/, "");
+    expect(shouhunRule.parseQuickCheckArgs!(args)).toMatchObject({
+      skillName: "", explicitTarget: 12, modifierExpression: "+2d4-1d6",
+    });
+  });
+
+  it("supportedCommands:声明 .rc 的规则同时声明 .rch/.rah", () => {
+    for (const rule of listRules()) {
+      const cmds = rule.capabilities.supportedCommands;
+      expect(cmds.includes("rch"), rule.id).toBe(cmds.includes("rc"));
+      expect(cmds.includes("rah"), rule.id).toBe(cmds.includes("rc"));
+    }
   });
 });

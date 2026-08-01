@@ -14,7 +14,7 @@ import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
-import { TOGGLE_DICE_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/hotkeys";
+import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/hotkeys";
 import { Icons } from "@/components/shared/icons";
 import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction, withdrawTimelineDividerAction } from "@/app/actions/room";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
@@ -724,6 +724,10 @@ export function RoomClient({
         case "toggle-sidebar": toggleSidebar(); break;
         case "toggle-dice":
           if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_DICE_EVENT));
+          break;
+        case "toggle-quick-check":
+          // The ChatInput no-ops this when the rule declares no quickCheckPanel.
+          if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_QUICK_CHECK_EVENT));
           break;
         case "toggle-check":
           // Mirrors the top-bar button: multi-mode rules get the dropdown,

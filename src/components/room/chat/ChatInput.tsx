@@ -2,13 +2,15 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { DiceRoller } from "@/components/room/chat/DiceRoller";
+import { QuickCheckPanel } from "@/components/room/chat/QuickCheckPanel";
 import { StickerPicker } from "@/components/room/chat/StickerPicker";
 import { Icons } from "@/components/shared/icons";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
+import { useRoomRule } from "@/components/shared/host-label";
 import { useTranslations } from "next-intl";
 import { isRollCommand, normalizeRollCommand } from "@/lib/roll-command";
 import { recordRollCommand, useRecentRollCommands } from "@/components/room/hooks/useRecentRollCommands";
-import { CHAT_INPUT_ATTR, TOGGLE_DICE_EVENT } from "@/lib/hotkeys";
+import { CHAT_INPUT_ATTR, TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT } from "@/lib/hotkeys";
 
 interface MentionTarget {
   id: number;
@@ -38,8 +40,12 @@ const IMAGE_MAX_BYTES = 1024 * 1024;
 export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice, quickCommands = [], defaultRollExpression }: ChatInputProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
+  // Rule-gated quick-check entry: no `quickCheckPanel` capability (triangle)
+  // → no button, no panel, no hotkey response.
+  const quickCheckSpec = useRoomRule().capabilities.quickCheckPanel;
   const [message, setMessage] = useState("");
   const [showDice, setShowDice] = useState(false);
+  const [showQuickCheck, setShowQuickCheck] = useState(false);
   /** Last expression built in the dice panel, offered back as a "↺ 上次" preset. */
   const [lastRollExpression, setLastRollExpression] = useState<string | undefined>(undefined);
   const recentRolls = useRecentRollCommands(roomId);
@@ -71,14 +77,27 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     inputRef.current?.focus();
   }, []);
 
-  // Alt+R (useRoomHotkeys) asks for the dice panel via a window event — the
-  // panel's open state is local to this component.
+  // Alt+R / Alt+Q (useRoomHotkeys) ask for the dice / quick-check panel via
+  // window events — both panels' open state is local to this component, and
+  // they share the space above the input, so opening one closes the other.
   useEffect(() => {
     if (readOnly) return;
-    const onToggle = () => setShowDice((v) => !v);
-    window.addEventListener(TOGGLE_DICE_EVENT, onToggle);
-    return () => window.removeEventListener(TOGGLE_DICE_EVENT, onToggle);
-  }, [readOnly]);
+    const onToggleDice = () => {
+      setShowDice((v) => !v);
+      setShowQuickCheck(false);
+    };
+    const onToggleQuickCheck = () => {
+      if (!quickCheckSpec) return;
+      setShowQuickCheck((v) => !v);
+      setShowDice(false);
+    };
+    window.addEventListener(TOGGLE_DICE_EVENT, onToggleDice);
+    window.addEventListener(TOGGLE_QUICK_CHECK_EVENT, onToggleQuickCheck);
+    return () => {
+      window.removeEventListener(TOGGLE_DICE_EVENT, onToggleDice);
+      window.removeEventListener(TOGGLE_QUICK_CHECK_EVENT, onToggleQuickCheck);
+    };
+  }, [readOnly, quickCheckSpec]);
 
   // Auto-resize textarea height based on content
   useEffect(() => {
@@ -201,6 +220,21 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
     inputRef.current?.focus();
   };
 
+  /**
+   * The quick-check panel hands over a finished `.rc`-family command (built by
+   * the rule's `buildCheckCommand`) — submitted exactly like typed input, so
+   * the server-side check flow stays the single resolver.
+   */
+  const handleQuickCheck = (command: string) => {
+    let finalTargetId = privateTargetId;
+    if (!isPrivateLocked && isPrivate && !finalTargetId && mentions.length > 0) {
+      finalTargetId = mentions[0].id;
+    }
+    onSendMessage(command, "text", undefined, isPrivate, finalTargetId || undefined);
+    // The panel closes itself (animated) after rolling.
+    inputRef.current?.focus();
+  };
+
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Reset the input so selecting the same file again re-triggers onChange.
@@ -300,6 +334,17 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
             onClose={() => setShowDice(false)}
             defaultExpression={defaultRollExpression}
             lastExpression={lastRollExpression}
+          />
+        </div>
+      )}
+
+      {/* Quick-check panel (rule-gated — see quickCheckSpec) */}
+      {showQuickCheck && quickCheckSpec && (
+        <div className="absolute bottom-full left-0 right-0 mb-2 z-10">
+          <QuickCheckPanel
+            roomId={roomId}
+            onSubmit={handleQuickCheck}
+            onClose={() => setShowQuickCheck(false)}
           />
         </div>
       )}
@@ -413,6 +458,18 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
       <div className={`flex items-end gap-1.5 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
         isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
       }`}>
+        {quickCheckSpec && (
+          <button
+            onClick={() => { setShowQuickCheck((v) => !v); setShowDice(false); }}
+            className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+              showQuickCheck ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
+            }`}
+            title={t("btnQuickCheckTooltip")}
+            aria-label={t("btnQuickCheckTooltip")}
+          >
+            <Icons.Target className="w-[18px] h-[18px]" />
+          </button>
+        )}
         <textarea
           ref={inputRef}
           {...{ [CHAT_INPUT_ATTR]: "" }}
@@ -460,7 +517,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         </div>
 
         <button
-          onClick={() => setShowDice(!showDice)}
+          onClick={() => { setShowDice(!showDice); setShowQuickCheck(false); }}
           className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
             showDice ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
           }`}
