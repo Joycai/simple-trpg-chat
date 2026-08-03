@@ -14,11 +14,11 @@
 6. Heartbeat every 15s to prevent proxy timeout
 
 ## Bot Activation
-1. Message contains `@botNickname` → `runAgent(botUserId, roomId)` triggered (in `src/lib/ai_agent.ts`)
-2. `buildAgentContext()` assembles: system prompt + inventory items (knowledge base) + sliding window (20 recent messages) + historical summary
-3. POST to Host AI endpoint (`ai_providers`) with tool definitions
+1. Message contains `@botNickname` (or is a DM to the bot) → `runAgent(botUserId, roomId)` triggered (in `src/lib/ai_agent.ts`). Bots with `activation: "manual"` skip these auto-triggers and only run on explicit host acts (trigger button, check requests) — resolver `botActivationMode` in `src/lib/botStatus.ts`. A 3s per-bot cooldown throttles auto-triggers; explicit host acts bypass it.
+2. `buildAgentContext()` assembles: system prompt + rule module's AI prompt + inventory items (knowledge base) + sliding window (50 recent messages) + historical summary
+3. POST to Host AI endpoint (`ai_providers`) with tool definitions (13 tools, per-bot `enableTools` filter)
 4. LLM responds with text OR function_call → tool executor runs → result fed back to LLM
-5. Final text response sent as chat message via `sendMessageAction`
+5. Free-text content is broadcast directly via `dispatchMessage` (no tool needed)
 6. History compression: when messages exceed threshold (30), old messages summarized into `historicalSummary`
 
 ## Dice Roll (.rc command)

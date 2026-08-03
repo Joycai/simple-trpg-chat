@@ -19,6 +19,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { getRule, getRuleForRoom } from "@/lib/rules";
+import { botActivationMode } from "@/lib/botStatus";
 import type { CharacterData } from "@/lib/character-types";
 
 // --- Room Actions ---
@@ -321,7 +322,9 @@ export async function sendMessageAction(
   if (type === "text" && !senderUser?.isBot) {
     if (isPrivate && targetUserId) {
       const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
-      if (targetUser && targetUser.isBot) {
+      // Bots set to "manual" activation only respond to explicit host acts
+      // (trigger button, check requests) — not to auto-triggers.
+      if (targetUser && targetUser.isBot && botActivationMode(targetUser.botConfigJson) !== "manual") {
         // Trigger Agent (async)
         import("@/lib/ai_agent")
           .then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true }))
@@ -339,7 +342,7 @@ export async function sendMessageAction(
             with: { user: true }
           });
           for (const m of roomBots) {
-            if (m.user.isBot && (capturedContent.includes(`@${m.user.displayName}`) || capturedContent.includes(`@${m.nickname}`))) {
+            if (m.user.isBot && botActivationMode(m.user.botConfigJson) !== "manual" && (capturedContent.includes(`@${m.user.displayName}`) || capturedContent.includes(`@${m.nickname}`))) {
               await runAgent(m.userId, capturedRoomId, { triggeringUserId: capturedUserId, isPrivate: false });
             }
           }
@@ -476,7 +479,7 @@ export async function requestSkillCheckAction(
     .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
   for (const bot of botTargets) {
     import("@/lib/ai_agent")
-      .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate }))
+      .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate, bypassCooldown: true }))
       .catch((err) => console.error("[requestSkillCheckAction] Failed to trigger bot:", err));
   }
 
@@ -851,7 +854,7 @@ export async function requestSanCheckAction(
     .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
   for (const bot of botTargets) {
     import("@/lib/ai_agent")
-      .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate }))
+      .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate, bypassCooldown: true }))
       .catch((err) => console.error("[requestSanityCheckAction] Failed to trigger bot:", err));
   }
 

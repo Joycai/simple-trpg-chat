@@ -1,3 +1,18 @@
+/**
+ * Resolve a bot's activation mode from its config JSON. The UI stores
+ * "@mention" while the agent config schema defaults to "mention" — anything
+ * other than an explicit "manual" counts as mention-triggered, so legacy or
+ * malformed values never silently mute a bot.
+ */
+export function botActivationMode(botConfigJson: string | null | undefined): "mention" | "manual" {
+  try {
+    const cfg = JSON.parse(botConfigJson || "{}");
+    return cfg?.activation === "manual" ? "manual" : "mention";
+  } catch {
+    return "mention";
+  }
+}
+
 export interface BotStatus {
   isBotDisabled: boolean;
   isProviderError: boolean;

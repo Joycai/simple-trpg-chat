@@ -1,10 +1,13 @@
 import { db, sqlNow } from "@/db";
 import { recordTokenUsage } from "@/lib/ai_usage";
 import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig } from "@/db/schema";
-import { eq, and, asc, desc, gt, sql, or, isNull } from "drizzle-orm";
+import { eq, and, asc, desc, gt, sql, or, isNull, inArray } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom, emitToUser } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
+import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
+import { shareItemCore } from "@/lib/inventory-share";
+import { getTranslations } from "next-intl/server";
 import { rollDice } from "@/lib/utils";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { executeCommand } from "@/lib/commands";
@@ -210,7 +213,18 @@ const AGENT_COOLDOWN_MS = 3000;
 export async function runAgent(
   botUserId: number,
   roomId: number,
-  triggeringInfo?: { triggeringUserId: number; isPrivate: boolean }
+  triggeringInfo?: {
+    triggeringUserId: number;
+    isPrivate: boolean;
+    /**
+     * Explicit host acts (check requests, the manual trigger button) must not
+     * be silently dropped by the anti-storm cooldown — a host who mentions the
+     * bot and issues a check within 3s would otherwise never get a response.
+     * The cooldown timestamp is still recorded so the mention/DM path stays
+     * throttled.
+     */
+    bypassCooldown?: boolean;
+  }
 ) {
   const now = Date.now();
   // Prune stale cooldown entries to prevent the map from growing indefinitely
@@ -218,7 +232,7 @@ export async function runAgent(
     if (now - ts > AGENT_COOLDOWN_MS) agentCooldowns.delete(id);
   }
   const lastRun = agentCooldowns.get(botUserId) || 0;
-  if (now - lastRun < AGENT_COOLDOWN_MS) {
+  if (!triggeringInfo?.bypassCooldown && now - lastRun < AGENT_COOLDOWN_MS) {
     console.log(`[RateLimit] Bot ${botUserId} skipped due to 3s cooldown`);
     return;
   }
@@ -313,6 +327,59 @@ export async function runAgent(
             checkRequestId: { type: "integer", description: "Optional message id of a specific pending check request. Omit to respond to the most recent check still awaiting you." }
           },
           required: []
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "roll_skill_check",
+        description: "Proactively roll a skill/attribute check against YOUR OWN character sheet, using the room rule's `.rc` syntax (see [Room Rules] for the syntax of this room's rule). Use this when someone asks you in plain chat to make a check and there is NO formal pending check request — for a host-issued check request, use respond_check instead. If you have no value set for the skill/stat, set it first via set_character_card.",
+        parameters: {
+          type: "object",
+          properties: {
+            expression: { type: "string", description: "Everything after '.rc' in the room rule's check syntax — e.g. '侦查' (COC), 'b2 侦查' (COC bonus dice), '运动+5 15' (d20 modifier vs DC)." },
+            isPrivate: { type: "boolean", description: "Roll privately in the current DM. Defaults to matching the channel you were triggered in." }
+          },
+          required: ["expression"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "list_members",
+        description: "List this room's members with their user ids, nicknames, and roles. Use this to resolve a nickname to a userId before calling give_item or reveal_clue.",
+        parameters: { type: "object", properties: {}, required: [] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "give_item",
+        description: "Give an item from YOUR inventory to another player: the item is added to their backpack and they (plus the host) are notified. You must actually possess the item (check my_inventory). You cannot give to yourself or to another bot. Use list_members to find the recipient's userId.",
+        parameters: {
+          type: "object",
+          properties: {
+            itemId: { type: "integer", description: "Id of an item you possess (see my_inventory)" },
+            toUserId: { type: "integer", description: "The recipient's userId (see list_members)" }
+          },
+          required: ["itemId", "toUserId"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "reveal_clue",
+        description: "Reveal a clue card that YOU can see (check my_clues) to specific players: the clue appears in their clue list and they (plus the host) are notified. Use this when your role decides to hand game information to players. You cannot reveal to bots. Use list_members to find user ids.",
+        parameters: {
+          type: "object",
+          properties: {
+            clueId: { type: "integer", description: "Id of a clue visible to you (see my_clues)" },
+            targetUserIds: { type: "array", items: { type: "integer" }, description: "userIds of the players to reveal the clue to (see list_members)" }
+          },
+          required: ["clueId", "targetUserIds"]
         }
       }
     },
@@ -741,7 +808,160 @@ export async function runAgent(
                     userId: row.userId,
                     targetUserId: row.targetUserId,
                   });
-                  result = { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck };
+                  const outcome = (cmdResult.message as { content?: string } | undefined)?.content;
+                  result = { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck, ...(outcome ? { outcome } : {}) };
+                }
+              }
+            }
+          } else if (functionName === "roll_skill_check") {
+            const raw = typeof args.expression === "string" ? args.expression.trim() : "";
+            // Tolerate the model echoing the command prefix back.
+            const expression = raw.replace(/^[.。]\s*rc\s*/i, "");
+            if (!expression || expression.length > 100) {
+              result = { success: false, error: "expression must be a non-empty string up to 100 characters (the text after '.rc')" };
+            } else {
+              // Default to the triggering channel so a DM-triggered bot doesn't
+              // leak its roll into the public feed.
+              const priv = typeof args.isPrivate === "boolean" ? args.isPrivate : replyIsPrivate;
+              const ctx = priv && targetUserId ? { isPrivate: true, targetUserId } : undefined;
+              const cmdResult = await executeCommand(roomId, botUserId, `.rc ${expression}`, ctx);
+              if (!cmdResult.success) {
+                result = {
+                  success: false,
+                  error: cmdResult.error,
+                  needsSkill: cmdResult.code === "STAT_NOT_SET",
+                  hint: cmdResult.code === "STAT_NOT_SET"
+                    ? "Set the skill/stat via set_character_card, then call roll_skill_check again."
+                    : undefined,
+                };
+              } else {
+                const outcome = (cmdResult.message as { content?: string } | undefined)?.content;
+                result = { success: true, ...(outcome ? { outcome } : {}) };
+              }
+            }
+          } else if (functionName === "list_members") {
+            const members = await db.select({
+              userId: roomMembers.userId,
+              nickname: roomMembers.nickname,
+              isBot: users.isBot,
+            }).from(roomMembers)
+              .innerJoin(users, eq(roomMembers.userId, users.id))
+              .where(eq(roomMembers.roomId, roomId))
+              .limit(100);
+            result = {
+              count: members.length,
+              members: members.map(m => ({
+                userId: m.userId,
+                nickname: m.nickname,
+                isHost: m.userId === room.hostId,
+                isBot: !!m.isBot,
+                isSelf: m.userId === botUserId,
+              })),
+            };
+          } else if (functionName === "give_item") {
+            const itemId = Number(args.itemId);
+            const toUserId = Number(args.toUserId);
+            if (!Number.isInteger(itemId) || !Number.isInteger(toUserId)) {
+              result = { success: false, error: "itemId and toUserId must be integers" };
+            } else if (toUserId === botUserId) {
+              result = { success: false, error: "You cannot give an item to yourself." };
+            } else {
+              const [recipientUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, toUserId));
+              if (!recipientUser) {
+                result = { success: false, error: "Recipient user not found" };
+              } else if (recipientUser.isBot) {
+                result = { success: false, error: "You cannot give items to another bot." };
+              } else {
+                const shareResult = await shareItemCore({
+                  roomId,
+                  itemId,
+                  fromUserId: botUserId,
+                  toUserId,
+                  senderName: botNickname,
+                });
+                result = shareResult.success
+                  ? { success: true, itemTitle: shareResult.itemTitle, recipient: shareResult.recipientName }
+                  : { success: false, code: shareResult.code, error: shareResult.error };
+              }
+            }
+          } else if (functionName === "reveal_clue") {
+            const clueId = Number(args.clueId);
+            const rawTargets: unknown[] = Array.isArray(args.targetUserIds) ? args.targetUserIds : [];
+            const targetIds = [...new Set(rawTargets.map(Number).filter(n => Number.isInteger(n)))].slice(0, 30);
+            if (!Number.isInteger(clueId) || targetIds.length === 0) {
+              result = { success: false, error: "clueId (integer) and a non-empty targetUserIds array are required" };
+            } else {
+              const [clue] = await db.select().from(clueCards)
+                .where(and(eq(clueCards.id, clueId), eq(clueCards.roomId, roomId)));
+              if (!clue) {
+                result = { success: false, error: "Clue not found in this room" };
+              } else {
+                const visRows = await db.select({ userId: clueVisibility.userId })
+                  .from(clueVisibility)
+                  .where(eq(clueVisibility.clueId, clueId));
+                const isPublic = visRows.some(v => v.userId === null);
+                // Scoped down from the host's reveal power: the bot may only
+                // pass on clues it has itself been given.
+                if (!isPublic && !visRows.some(v => v.userId === botUserId)) {
+                  result = { success: false, error: "Unauthorized: this clue has not been revealed to you" };
+                } else if (isPublic) {
+                  result = { success: true, alreadyPublic: true, revealedTo: [] };
+                } else {
+                  const memberRows = await db.select({ userId: roomMembers.userId, isBot: users.isBot })
+                    .from(roomMembers)
+                    .innerJoin(users, eq(roomMembers.userId, users.id))
+                    .where(eq(roomMembers.roomId, roomId));
+                  const humanMembers = new Set(memberRows.filter(m => !m.isBot).map(m => m.userId));
+                  const alreadyVisible = new Set(visRows.map(v => v.userId));
+                  const invalid = targetIds.filter(uid => !humanMembers.has(uid));
+                  if (invalid.length > 0) {
+                    result = { success: false, error: `Invalid target user ids (not human members of this room): ${invalid.join(", ")}` };
+                  } else {
+                    const newTargets = targetIds.filter(uid => !alreadyVisible.has(uid));
+                    if (newTargets.length === 0) {
+                      result = { success: true, revealedTo: [], note: "All targets can already see this clue." };
+                    } else {
+                      await db.insert(clueVisibility).values(newTargets.map(uid => ({ clueId, userId: uid })));
+                      const tClue = await getTranslations("clueActions");
+                      for (const uid of newTargets) {
+                        await dispatchMessage({
+                          roomId,
+                          actorUserId: botUserId,
+                          nickname: botNickname,
+                          type: "system",
+                          audience: "recipient",
+                          targetUserId: uid,
+                          systemKind: "inventory-receipt",
+                          content: tClue("clueReceived", { title: clue.title }),
+                          diceDetail: buildReceiptPayload({
+                            action: "received",
+                            itemType: "clue",
+                            itemTitle: clue.title,
+                          }),
+                        });
+                      }
+                      const recipients = await db.select({ name: users.displayName })
+                        .from(users)
+                        .where(inArray(users.id, newTargets));
+                      const recipientNames = recipients.map(r => r.name).join(", ");
+                      await dispatchMessage({
+                        roomId,
+                        actorUserId: botUserId,
+                        nickname: botNickname,
+                        type: "system",
+                        audience: "gm",
+                        systemKind: "inventory-dispatch",
+                        content: tClue("cluePushLog", { recipients: recipientNames || tClue("defaultPlayers"), title: clue.title }),
+                        diceDetail: buildDispatchPayload({
+                          action: "push",
+                          itemType: "clue",
+                          itemTitle: clue.title,
+                          recipient: { kind: "user", name: recipientNames || tClue("defaultPlayers") },
+                        }),
+                      });
+                      result = { success: true, clueTitle: clue.title, revealedTo: newTargets };
+                    }
+                  }
                 }
               }
             }

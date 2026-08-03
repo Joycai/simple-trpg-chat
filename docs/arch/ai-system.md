@@ -8,14 +8,24 @@ Bots are regular `users` rows with `isBot: true` and `botConfigJson` holding the
 
 Runs an OpenAI-compatible tool-use loop triggered when a message is sent in a room that has an active bot. Summarizes history incrementally after every 30 messages.
 
-### Supported Tools (9)
+### Activation & cooldown
+
+`botConfigJson.activation` gates the auto-triggers: `"manual"` bots ignore @mentions and DMs and only run on explicit host acts (the manual trigger button, host-issued check requests); any other value (`"@mention"` from the UI, `"mention"` schema default, legacy/absent) means mention-triggered. Resolver: `botActivationMode` in `src/lib/botStatus.ts`.
+
+A per-bot 3s cooldown throttles the mention/DM path against storms. Explicit host acts pass `bypassCooldown` so a check request issued right after a mention is never silently dropped.
+
+### Supported Tools (13)
 
 Free-text replies are **not** a tool — they are broadcast directly from the model's message content (R3), so a bot can always talk even with zero tools enabled. Which tools a bot may call is configured per bot (`botConfigJson.enableTools`); default is `["roll_dice", "respond_check"]`.
 
 | Tool | Description |
 | ---- | ----------- |
 | `roll_dice` | Roll dice (1–20 dice, 1–1000 faces); optional privacy flag |
-| `respond_check` | Respond to a host-issued skill/sanity check targeting the bot — rolls `.rc`/`.sc` against its own sheet, records `respondedUserIds`, broadcasts `check_update` (same as a player clicking the check message) |
+| `respond_check` | Respond to a host-issued skill/sanity check targeting the bot — rolls `.rc`/`.sc` against its own sheet, records `respondedUserIds`, broadcasts `check_update` (same as a player clicking the check message); the tool result includes the roll outcome text so the bot can roleplay it |
+| `roll_skill_check` | Proactively roll `.rc <expression>` against the bot's own sheet when someone asks in plain chat (no formal check request) — expression syntax is owned by the room's rule module; defaults to the triggering channel's privacy |
+| `list_members` | List room members (`userId`, nickname, host/bot flags) — resolves nicknames to ids for `give_item` / `reveal_clue` |
+| `give_item` | Give an item the bot possesses to a human member — same core as the player share flow (`src/lib/inventory-share.ts`): backpack insert + recipient/GM notices; self and bot recipients rejected |
+| `reveal_clue` | Reveal a clue *the bot can itself see* to specific human members — inserts `clue_visibility` rows + recipient/GM notices; deliberately scoped below the host's reveal power |
 | `send_image` | Show an image — an internal `/api/rooms/<thisRoom>/images/…` path or a public `https://` URL (http and other rooms' paths rejected) — see [`send_image` trust model](#send_image-trust-model) |
 | `inspect_item` | Read an inventory item's details (validates ownership) |
 | `search_history` | Search chat history by keyword (up to 20 results) |

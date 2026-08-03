@@ -12,7 +12,7 @@ description: >-
 
 | Concept | Key Idea |
 |---------|----------|
-| **Bot (AI Agent)** | Bot-as-User: `is_bot=true` + `botConfigJson`. 8 tools. Triggered by @mention. LLM via `ai_providers` table (AES-256-GCM encrypted keys). |
+| **Bot (AI Agent)** | Bot-as-User: `is_bot=true` + `botConfigJson`. 13 tools. Triggered by @mention or DM (unless `activation: "manual"`). LLM via `ai_providers` table (AES-256-GCM encrypted keys). |
 | **Message Audience Router** | Central visibility model in `src/lib/messaging/`. Two orthogonal dims: `audience` (WHO: `everyone`/`self`/`recipient` target-only/`directed` actor+target/`dm`/`gm`) + `channelUserId` (WHERE: null=public, else the DM it renders in). Senders call `dispatchMessage({ audience, channelPartnerId? })`; consumers use `canSee` / `channelOf` / `countsAsDmUnread` / `messageVisibilityWhere`. No scattered `isPrivate`/type sniffing. |
 | **DM/Private Chat** | `audience='dm'` between two users. `room_dm_reads` tracks unread per pair. Rendered in left-sidebar tab. |
 | **Character** | `room_members.character_data` JSON, shape varies by the room's **rule template** (basic / coc7th / dnd5e / triangle / shouhun). Skills in separate `room_skills`. Rule behavior (attributes, checks, resources, AI sheet) is a pluggable `RuleModule` — see the **`simple-trpg-chat-rules`** skill before touching anything rule-related. |
@@ -41,7 +41,7 @@ description: >-
 | File | Purpose |
 |------|---------|
 | `src/db/schema.ts` | All 16 table definitions |
-| `src/lib/ai_agent.ts` | Bot Agent engine (8 tools) |
+| `src/lib/ai_agent.ts` | Bot Agent engine (13 tools) |
 | `src/lib/commands.ts` | `.st` / `.rc` / `.sc` / `.rd` parser |
 | `src/lib/messaging/audience.ts` | Pure visibility predicates (`canSee`/`channelOf`/`countsAsDmUnread`) — shared client+server |
 | `src/lib/messaging/router.ts` | `dispatchMessage()` (insert+broadcast) + `messageVisibilityWhere()` SQL |

@@ -181,7 +181,7 @@ export async function triggerBotAction(roomId: number, botUserId: number) {
   const { userId } = await checkRoomAccess(roomId, true);
 
   // Async trigger — bot responds in the background
-  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false })).catch(console.error);
+  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);
 
   return { success: true };
 }
