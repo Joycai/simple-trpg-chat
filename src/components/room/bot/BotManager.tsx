@@ -10,7 +10,8 @@ import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Icons } from "@/components/shared/icons";
 import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
-import { SlidersHorizontal, AtSign, MousePointerClick } from "lucide-react";
+import { SlidersHorizontal, AtSign, MousePointerClick, Sparkles } from "lucide-react";
+import { BUILTIN_BOT_PRESETS } from "@/lib/bot-preset-defaults";
 
 interface BotInfo {
   id: number;
@@ -91,6 +92,17 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     setSelectedPresetId(presetIdVal);
     if (!presetIdVal) {
       setAllowEditPrompt(true);
+      return;
+    }
+    // Built-in presets carry a role-appropriate tool set; DB presets only
+    // cover name/nickname/prompt and leave the tool toggles untouched.
+    const builtin = BUILTIN_BOT_PRESETS.find(p => p.id === presetIdVal);
+    if (builtin) {
+      setBotName(builtin.name);
+      setBotNickname(builtin.defaultNickname);
+      setSystemPrompt(builtin.systemPrompt);
+      setAllowEditPrompt(builtin.allowEditPrompt);
+      setEnableTools([...builtin.enableTools]);
       return;
     }
     const preset = presets.find(p => p.id === parseInt(presetIdVal));
@@ -278,25 +290,28 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
               <div className="bg-surface-alt/30 rounded-theme p-5 border border-ai/30 flex flex-col gap-4">
                 <h4 className="font-bold text-ai text-base font-theme-display">{editingBot ? t("editBot") : t("createBot")}</h4>
 
-                {presets.length > 0 && (
-                  <div>
-                    <label className={labelCls}>{t("presetSelect")}</label>
-                    <BadgeDropdown
-                      value={String(selectedPresetId)}
-                      onChange={handlePresetChange}
-                      headerText={t("presetHeader")}
-                      tone="primary"
-                      items={[
-                        { id: "", label: t("manualPreset"), badge: { Icon: SlidersHorizontal } },
-                        ...presets.map((p): BadgeDropdownItem => ({
-                          id: String(p.id),
-                          label: p.name,
-                          badge: { letters: p.name.slice(0, 2).toUpperCase() },
-                        })),
-                      ]}
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className={labelCls}>{t("presetSelect")}</label>
+                  <BadgeDropdown
+                    value={String(selectedPresetId)}
+                    onChange={handlePresetChange}
+                    headerText={t("presetHeader")}
+                    tone="primary"
+                    items={[
+                      { id: "", label: t("manualPreset"), badge: { Icon: SlidersHorizontal } },
+                      ...BUILTIN_BOT_PRESETS.map((p): BadgeDropdownItem => ({
+                        id: p.id,
+                        label: p.name,
+                        badge: { Icon: Sparkles },
+                      })),
+                      ...presets.map((p): BadgeDropdownItem => ({
+                        id: String(p.id),
+                        label: p.name,
+                        badge: { letters: p.name.slice(0, 2).toUpperCase() },
+                      })),
+                    ]}
+                  />
+                </div>
 
                 {/* Name + nickname */}
                 <div className="grid grid-cols-2 gap-3">

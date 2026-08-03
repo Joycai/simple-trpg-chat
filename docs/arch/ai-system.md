@@ -65,4 +65,7 @@ Each host configures their own provider via the `aiProviders` table:
 
 ## Bot Presets
 
-Admin-created templates in `botPresets` (system prompt, default nickname, `allowEditPrompt` flag). Applied when creating or configuring bot users. Managed via `/admin/ai` (`AdminBotPresets.tsx`).
+Two sources, merged in the room-side picker (`BotManager.tsx`):
+
+- **Built-in presets** (`src/lib/bot-preset-defaults.ts`) — four predefined role configs shipped with the app: COC AI player, COC NPC, COC rules assistant, DnD 5e rules assistant. Unlike DB presets they also carry a role-appropriate `enableTools` set, applied to the tool toggles on selection. They live in code (no seed/migration, stay in sync with tool names), use `builtin-*` string ids outside the DB numeric id space, and do not appear in the admin panel (not editable).
+- **Admin-created templates** in `botPresets` (system prompt, default nickname, `allowEditPrompt` flag). Managed via `/admin/ai` (`AdminBotPresets.tsx`). Selecting one fills name/nickname/prompt but leaves the tool toggles untouched.
