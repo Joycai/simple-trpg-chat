@@ -184,6 +184,10 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const TOOLS = [
     { key: "roll_dice", label: "toolRollDice" },
     { key: "respond_check", label: "toolRespondCheck" },
+    { key: "roll_skill_check", label: "toolRollSkillCheck" },
+    { key: "list_members", label: "toolListMembers" },
+    { key: "give_item", label: "toolGiveItem" },
+    { key: "reveal_clue", label: "toolRevealClue" },
     { key: "send_image", label: "toolSendImage" },
     { key: "inspect_item", label: "toolInspectItem" },
     { key: "my_inventory", label: "toolMyInventory" },

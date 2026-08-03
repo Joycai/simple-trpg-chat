@@ -10,6 +10,7 @@ import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
+import { shareItemCore } from "@/lib/inventory-share";
 
 /**
  * createInventoryItemAction
@@ -341,83 +342,8 @@ export async function shareItemAction(
   const session = await auth();
   const senderName = session?.user?.name || t("defaultPlayer");
 
-  // Verify that the item exists and belongs to the room
-  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  if (!item) throw new Error("Item not found");
-  if (item.roomId !== roomId) throw new Error("Item room mismatch");
-
-  // Verify recipient is a member of the room
-  const [recipientMember] = await db.select().from(roomMembers).where(
-    and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, toUserId))
-  );
-  if (!recipientMember) throw new Error("Recipient is not a member of this room");
-
-  const [own] = await db.select().from(inventoryDistributions).where(
-    and(
-      eq(inventoryDistributions.roomId, roomId),
-      eq(inventoryDistributions.itemId, itemId),
-      eq(inventoryDistributions.toUserId, fromUserId)
-    )
-  );
-  if (!own) throw new Error("You don't have this item in this room");
-
-  // Check if recipient already has it
-  const [hasAlready] = await db.select().from(inventoryDistributions).where(
-    and(
-      eq(inventoryDistributions.roomId, roomId),
-      eq(inventoryDistributions.itemId, itemId),
-      eq(inventoryDistributions.toUserId, toUserId)
-    )
-  );
-  if (hasAlready) {
-    throw new Error(t("alreadyOwned"));
-  }
-
-  await db.insert(inventoryDistributions).values({
-    roomId,
-    itemId,
-    fromUserId,
-    toUserId,
-    action: "shared",
-  });
-
-  const [recipient] = await db.select({ name: users.displayName }).from(users).where(eq(users.id, toUserId));
-  const recipientName = recipient?.name || t("defaultTeammate");
-
-  // 1. Notify the recipient only (the sharer initiated it and doesn't need the notice).
-  await dispatchMessage({
-    roomId,
-    actorUserId: fromUserId,
-    nickname: "SYSTEM",
-    type: "system",
-    audience: "recipient",
-    targetUserId: toUserId,
-    systemKind: "inventory-receipt",
-    content: t("sharedReceived", { sender: senderName, title: item?.title }),
-    diceDetail: buildReceiptPayload({
-      action: "shared-received",
-      itemType: item.type as "clue" | "info" | "character" | "item",
-      itemTitle: item.title,
-      sender: senderName,
-    }),
-  });
-
-  // 2. Notify the sharer & host (GM sees what players share).
-  await dispatchMessage({
-    roomId,
-    actorUserId: fromUserId,
-    nickname: "SYSTEM",
-    type: "system",
-    audience: "gm",
-    systemKind: "inventory-dispatch",
-    content: t("sharedSent", { title: item?.title, recipient: recipientName }),
-    diceDetail: buildDispatchPayload({
-      action: "share",
-      itemType: item.type as "clue" | "info" | "character" | "item",
-      itemTitle: item.title,
-      recipient: { kind: "user", name: recipientName },
-    }),
-  });
+  const result = await shareItemCore({ roomId, itemId, fromUserId, toUserId, senderName });
+  if (!result.success) throw new Error(result.error);
 
   revalidatePath(`/rooms/${roomId}`);
 }
