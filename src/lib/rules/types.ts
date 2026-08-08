@@ -531,6 +531,15 @@ export interface RuleModule {
    * resource value); basic d100 returns null.
    */
   lookupFallback(name: string, sheet: CharacterData | null): { name: string; value: number } | null;
+  /**
+   * Optional: alternate spellings of `name` also worth trying against
+   * room_skills before falling back to `lookupFallback` (COC's 侦查/侦察).
+   * The engine tries the typed name first, then each returned candidate in
+   * order, via the same exact-match query. Rules without skill aliases omit
+   * this method entirely — the engine treats a missing method as "no
+   * aliases", so behavior is unchanged for every other rule.
+   */
+  skillAliasCandidates?(name: string): string[];
 
   // ----- Check resolution ---------------------------------------------------
 

@@ -28,9 +28,9 @@ const ATTRIBUTE_ALIASES: Record<string, CocAttributeKey> = {
   体型: "siz", siz: "siz",
   敏捷: "dex", dex: "dex",
   外貌: "app", 魅力: "app", app: "app",
-  智力: "int", int: "int",
+  智力: "int", int: "int", 灵感: "int",
   意志: "pow", pow: "pow",
-  教育: "edu", edu: "edu",
+  教育: "edu", edu: "edu", 知识: "edu",
   幸运: "luck", luk: "luck", luck: "luck",
 };
 
@@ -70,4 +70,23 @@ export function resolveCocStat(name: string): CocStatResolution {
   }
 
   return { kind: "skill", canonical: name.trim() };
+}
+
+// Alternate spellings of the same skill that should resolve to the same
+// room_skills row (players commonly store one and type the other at the
+// table). Order within a group doesn't matter. To add another pair/group,
+// just append an array here — no other code needs to change.
+const SKILL_ALIAS_GROUPS: ReadonlyArray<ReadonlyArray<string>> = [
+  ["侦查", "侦察"],
+];
+
+/**
+ * Other spellings of `name` worth also trying against room_skills when the
+ * typed name itself doesn't match a stored row, excluding `name` itself.
+ * Returns `[]` for names with no known alias group.
+ */
+export function getSkillAliasCandidates(name: string): string[] {
+  const trimmed = name.trim();
+  const group = SKILL_ALIAS_GROUPS.find((g) => g.includes(trimmed));
+  return group ? group.filter((n) => n !== trimmed) : [];
 }

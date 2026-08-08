@@ -739,20 +739,29 @@ export async function getProxyCheckTargetsAction(
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, pending)));
   const memberByUid = new Map(members.map((m) => [m.userId, m]));
 
-  const skillRows = await db.select().from(roomSkills)
-    .where(and(
-      eq(roomSkills.roomId, roomId),
-      inArray(roomSkills.userId, pending),
-      eq(roomSkills.skillName, cr.skillName),
-    ));
-  const valueByUid = new Map(skillRows.map((r: { userId: number; skillValue: number }) => [r.userId, r.skillValue]));
-
   // Rule-specific fallback (attribute / resource current value) for users
   // without an explicit room_skills row. Sanity check always reads the
   // player's current 理智值, so the lookup name is forced to "san" then.
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const rule = room ? getRuleForRoom(room) : null;
   const lookupName = cr.sanCheck ? "san" : cr.skillName;
+
+  // Also match any alternate spelling of the same skill (COC's 侦查/侦察) so
+  // a host typing one spelling still finds players who stored the other.
+  const skillNameCandidates = [cr.skillName, ...(rule?.skillAliasCandidates?.(cr.skillName) ?? [])];
+  const skillRows = await db.select().from(roomSkills)
+    .where(and(
+      eq(roomSkills.roomId, roomId),
+      inArray(roomSkills.userId, pending),
+      inArray(roomSkills.skillName, skillNameCandidates),
+    ));
+  // Exact-name rows win over alias rows for the same user (rare double-store edge case).
+  const aliasRows = skillRows.filter((r: { skillName: string }) => r.skillName !== cr.skillName);
+  const exactRows = skillRows.filter((r: { skillName: string }) => r.skillName === cr.skillName);
+  const valueByUid = new Map<number, number>([
+    ...aliasRows.map((r: { userId: number; skillValue: number }) => [r.userId, r.skillValue] as const),
+    ...exactRows.map((r: { userId: number; skillValue: number }) => [r.userId, r.skillValue] as const),
+  ]);
 
   const targets = pending.map((uid: number) => {
     const m = memberByUid.get(uid);

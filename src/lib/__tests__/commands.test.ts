@@ -261,6 +261,36 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
     expect(detail.check.skillName).toBe("体质");
     expect(detail.check.target).toBe(70);
   });
+
+  it("should resolve a skill alias when the stored skill uses a different spelling (.rc 侦察 → 侦查 row)", async () => {
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    vi.mocked(dispatchMessage).mockClear();
+
+    let roomSkillsCalls = 0;
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) {
+            return [{ id: 1, ruleTemplate: "coc7th" }];
+          }
+          if (table === roomSkills) {
+            roomSkillsCalls++;
+            // 1st call: exact "侦察" match (miss). 2nd call: alias "侦查" (hit).
+            if (roomSkillsCalls === 1) return [];
+            return [{ roomId: 1, userId: 1, skillName: "侦查", skillValue: 65 }];
+          }
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".rc 侦察");
+    expect(result.success).toBe(true);
+    const detail = JSON.parse(vi.mocked(dispatchMessage).mock.calls[0][0].diceDetail as string);
+    // Displays the actually-stored skill name, not the typed alias.
+    expect(detail.check.skillName).toBe("侦查");
+    expect(detail.check.target).toBe(65);
+  });
 });
 
 describe("Commands - hidden roll (.rh) and channel visibility", () => {

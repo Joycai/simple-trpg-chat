@@ -26,7 +26,7 @@ import {
   type CocAttributes,
   type CocDerived,
 } from "./sheet";
-import { resolveCocStat } from "./stats";
+import { getSkillAliasCandidates, resolveCocStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
 import type {
   AiRuleHints,
@@ -274,6 +274,10 @@ export const coc7thRule: RuleModule = {
     const cur = d?.[`${resolved.key}_current`] ?? d?.[resolved.key];
     if (typeof cur === "number") return { name: resolved.canonical, value: cur };
     return null;
+  },
+
+  skillAliasCandidates(name: string): string[] {
+    return getSkillAliasCandidates(name);
   },
 
   resolveCheck(req: CheckRequest): CheckResult {

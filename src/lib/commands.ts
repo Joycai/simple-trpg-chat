@@ -667,14 +667,26 @@ async function lookupCheckTarget(
   skillName: string,
   rule: RuleModule
 ): Promise<{ name: string; value: number } | null> {
-  const [skill] = await db.select().from(roomSkills).where(
-    and(
-      eq(roomSkills.roomId, roomId),
-      eq(roomSkills.userId, userId),
-      eq(roomSkills.skillName, skillName)
-    )
-  );
-  if (skill) return { name: skillName, value: skill.skillValue };
+  const tryExact = async (name: string) => {
+    const [skill] = await db.select().from(roomSkills).where(
+      and(
+        eq(roomSkills.roomId, roomId),
+        eq(roomSkills.userId, userId),
+        eq(roomSkills.skillName, name)
+      )
+    );
+    return skill ?? null;
+  };
+
+  const exact = await tryExact(skillName);
+  if (exact) return { name: exact.skillName, value: exact.skillValue };
+
+  // Alternate spellings of the same skill (COC's 侦查/侦察) — the rule owns
+  // the alias table, the engine just tries each candidate the same way.
+  for (const alias of rule.skillAliasCandidates?.(skillName) ?? []) {
+    const hit = await tryExact(alias);
+    if (hit) return { name: hit.skillName, value: hit.skillValue };
+  }
 
   // Skill row missing — defer to the rule's fallback strategy.
   const sheet = await getCharacterData(roomId, userId);
