@@ -291,9 +291,36 @@ describe("lookupFallback", () => {
     expect(coc7thRule.lookupFallback("力量", null)).toBeNull();
   });
 
+  it("COC: 灵感 (Idea) resolves through 智力 (no ×5 — 7th ed attributes are already percentile)", () => {
+    expect(coc7thRule.lookupFallback("灵感", cocSheet())).toEqual({ name: "智力", value: 50 });
+  });
+
+  it("COC: 知识 (Know) resolves through 教育", () => {
+    expect(coc7thRule.lookupFallback("知识", cocSheet())).toEqual({ name: "教育", value: 50 });
+  });
+
   it("basic: always null", () => {
     expect(basicRule.lookupFallback("力量", cocSheet())).toBeNull();
     expect(basicRule.lookupFallback("san", null)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// skillAliasCandidates — alternate spellings of the same skill (侦查/侦察).
+// ---------------------------------------------------------------------------
+
+describe("skillAliasCandidates", () => {
+  it("COC: returns the other spelling in the alias group", () => {
+    expect(coc7thRule.skillAliasCandidates?.("侦察")).toEqual(["侦查"]);
+    expect(coc7thRule.skillAliasCandidates?.("侦查")).toEqual(["侦察"]);
+  });
+
+  it("COC: unknown skill name has no aliases", () => {
+    expect(coc7thRule.skillAliasCandidates?.("图书馆")).toEqual([]);
+  });
+
+  it("basic: optional method is not implemented", () => {
+    expect(basicRule.skillAliasCandidates).toBeUndefined();
   });
 });
 
