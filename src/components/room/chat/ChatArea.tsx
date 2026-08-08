@@ -92,6 +92,7 @@ export function ChatArea({
                 hostId={hostId}
                 avatarColor={playerData?.room_members?.avatarColor}
                 avatar={playerData?.room_members?.avatar}
+                players={players}
               />
             );
           })}

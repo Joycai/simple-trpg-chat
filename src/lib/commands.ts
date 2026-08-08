@@ -8,6 +8,7 @@ import { rollDie } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import type { CharacterData } from "@/lib/character-types";
 import { getRuleForRoom, type CheckRequest, type RuleModule, type VisualGrade } from "@/lib/rules";
+import { resolveAnnouncer, attachAnnouncer, scheduleQuip, type RollSummary } from "@/lib/dice-announcer";
 
 /** Command Execution Result */
 export interface CommandResult {
@@ -102,6 +103,11 @@ function visibilityFor(
 /**
  * Emit a command-feedback message through the central router, carrying the
  * issuer's nickname (dice/check results read as "<player> 🎲 …").
+ *
+ * For `type === "dice"` messages, also applies the room's 投娘 (dice
+ * announcer) tag when one is configured — see docs/design/dice-announcer.md.
+ * `rollSummary` carries the roll-specific fields (notation/grade/skillName)
+ * each dice call site already has in scope; omitted for non-dice messages.
  */
 async function emitCommandMessage(
   roomId: number,
@@ -110,24 +116,44 @@ async function emitCommandMessage(
   type: MessageType,
   vis: { audience: Audience; targetUserId?: number; channelPartnerId?: number },
   diceDetail?: string,
-  systemKind?: SystemKind | null
+  systemKind?: SystemKind | null,
+  rollSummary?: Omit<RollSummary, "rollerNickname" | "hidden">
 ) {
   const [m] = await db
     .select({ nickname: roomMembers.nickname })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-  return dispatchMessage({
+  const nickname = m?.nickname || "SYSTEM";
+
+  let finalDetail = diceDetail;
+  const announcer = type === "dice" && diceDetail ? await resolveAnnouncer(roomId, userId) : null;
+  if (announcer && diceDetail) {
+    finalDetail = attachAnnouncer(diceDetail, announcer);
+  }
+
+  const msg = await dispatchMessage({
     roomId,
     actorUserId: userId,
-    nickname: m?.nickname || "SYSTEM",
+    nickname,
     type,
     audience: vis.audience,
     targetUserId: vis.targetUserId,
     channelPartnerId: vis.channelPartnerId,
     content,
-    diceDetail,
+    diceDetail: finalDetail,
     systemKind,
   });
+
+  if (announcer && msg && rollSummary) {
+    scheduleQuip({
+      roomId,
+      messageId: msg.id,
+      announcer,
+      roll: { ...rollSummary, rollerNickname: nickname, hidden: vis.audience === "self" },
+    }).catch((err) => console.error("[dice-announcer] scheduleQuip failed:", err));
+  }
+
+  return msg;
 }
 
 /** Minimal edit distance for typo suggestions. */
@@ -259,7 +285,10 @@ async function handleDiceRoll(
         JSON.stringify({ ...special.detail, command: rawCommand }),
         ctx?.proxiedBy
       );
-      const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
+      const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail, undefined, {
+        notation: special.notation,
+        resultText: content,
+      });
       return { success: true, isCommand: true, message: msg };
     }
   }
@@ -301,7 +330,10 @@ async function handleDiceRoll(
     : visibilityFor(ctx, userId, "channel");
 
   const taggedDetail = attachProxy(diceDetail, ctx?.proxiedBy);
-  const msg = await emitCommandMessage(roomId, userId, rollMsgContent, "dice", vis, taggedDetail);
+  const msg = await emitCommandMessage(roomId, userId, rollMsgContent, "dice", vis, taggedDetail, undefined, {
+    notation: rollResult.notation,
+    resultText: rollMsgContent,
+  });
   return { success: true, isCommand: true, message: msg };
 }
 
@@ -718,7 +750,12 @@ async function performSkillCheck(
   // `.rch/.rah` keep the result to the roller (same "self" semantics as `.rh`),
   // still pinned to the channel the command was issued in.
   const vis = visibilityFor(ctx, userId, hidden ? "self" : "channel");
-  const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail);
+  const msg = await emitCommandMessage(roomId, userId, content, "dice", vis, detail, undefined, {
+    skillName: result.skillName,
+    notation: result.notation,
+    resultText: content,
+    grade: result.grade,
+  });
   return { success: true, isCommand: true, message: msg };
 }
 
@@ -811,7 +848,12 @@ async function handleSanityCheck(
   }), ctx?.proxiedBy);
 
   const vis = visibilityFor(ctx, userIdArg, "channel");
-  const msg = await emitCommandMessage(roomId, userIdArg, content, "dice", vis, detail);
+  const msg = await emitCommandMessage(roomId, userIdArg, content, "dice", vis, detail, undefined, {
+    skillName: "理智值",
+    notation: "1d100",
+    resultText: content,
+    grade: isSuccess ? "success" : "failure",
+  });
   return { success: true, isCommand: true, message: msg };
 }
 

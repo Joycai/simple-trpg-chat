@@ -15,6 +15,7 @@ import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
 import { EventCard } from "@/components/room/event/EventCard";
 import { parseEventCardPayload, parseEventReceiptPayload } from "@/lib/story-events";
 import type { Audience } from "@/lib/messaging/audience";
+import type { PlayerEntry } from "@/components/room/types";
 import { useHostLabel, useRoomRule } from "@/components/shared/host-label";
 
 // Stable `useSyncExternalStore` callbacks. The store never changes, so subscribe
@@ -1175,6 +1176,9 @@ interface ChatMessageProps {
   hostId?: number;
   avatarColor?: string | null;
   avatar?: string | null;
+  /** Full member roster — used to resolve the 投娘 (dice announcer) bot's own
+   *  avatar/color when a dice card is re-skinned under its identity. */
+  players?: PlayerEntry[];
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -1205,6 +1209,7 @@ export const ChatMessage = memo(function ChatMessage({
   hostId,
   avatarColor,
   avatar,
+  players,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
   const tRoom = useTranslations("room");
@@ -1222,6 +1227,24 @@ export const ChatMessage = memo(function ChatMessage({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [proxyOpen, setProxyOpen] = useState(false);
   const [proxyTargets, setProxyTargets] = useState<Array<{ userId: number; nickname: string; value: number | null }> | null>(null);
+  // 投娘 quip placeholder: shown while quipPending, auto-hidden after 8s so a
+  // missed SSE patch doesn't breathe forever (re-appears if the quip patches
+  // in later, or on next full reload once it's landed in diceDetail).
+  const [showQuipPlaceholder, setShowQuipPlaceholder] = useState(true);
+  useEffect(() => {
+    if (type !== "dice" || !diceDetail) return;
+    let pending = false;
+    try {
+      const d = JSON.parse(diceDetail) as { announcer?: { quipPending?: boolean } };
+      pending = !!d.announcer?.quipPending;
+    } catch { /* malformed diceDetail — no placeholder to arm */ }
+    if (!pending) return;
+    const timer = setTimeout(() => setShowQuipPlaceholder(false), 8000);
+    return () => clearTimeout(timer);
+    // Mount-once: each ChatMessage instance is keyed by message id in ChatArea,
+    // so it never needs to re-arm for the same card.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [proxyLoading, setProxyLoading] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
   const proxyAnchorRef = useRef<HTMLDivElement>(null);
@@ -1624,9 +1647,13 @@ export const ChatMessage = memo(function ChatMessage({
   let diceRollKind: RollKind = "plain";
   let diceCardKind: "sanity" | "breakdown" | "pool" | "bp" | "d20" | null = null;
   let diceProxyNick: string | null = null;
+  let diceAnnouncer: { userId: number; nickname: string; quip?: string; quipPending?: boolean } | null = null;
   if (isDice && diceDetail) {
     try {
-      const d = JSON.parse(diceDetail) as DiceDetailJson & { proxiedByNickname?: string };
+      const d = JSON.parse(diceDetail) as DiceDetailJson & {
+        proxiedByNickname?: string;
+        announcer?: { userId: number; nickname: string; quip?: string; quipPending?: boolean };
+      };
       if (typeof d.command === "string" && d.command.trim()) {
         diceCommandEcho = d.command.trim();
       }
@@ -1635,10 +1662,24 @@ export const ChatMessage = memo(function ChatMessage({
       if (typeof d.proxiedByNickname === "string" && d.proxiedByNickname) {
         diceProxyNick = d.proxiedByNickname;
       }
+      if (d.announcer) {
+        diceAnnouncer = d.announcer;
+      }
     } catch {
       /* malformed diceDetail — skip echo */
     }
   }
+
+  // 投娘 (dice announcer): re-skin the card's avatar/name under the bot's
+  // identity. The message keeps its real ownership (audience/isOwn/etc. all
+  // stay keyed on the roller) — only the header visuals swap.
+  const announcerMember = diceAnnouncer
+    ? players?.find((p) => (p.users?.id ?? p.user?.id ?? p.user_id) === diceAnnouncer!.userId)
+    : undefined;
+  const displayNickname = diceAnnouncer ? diceAnnouncer.nickname : nickname;
+  const displayAvatar = diceAnnouncer ? announcerMember?.room_members?.avatar ?? null : avatar;
+  const displayAvatarColor = diceAnnouncer ? announcerMember?.room_members?.avatarColor ?? null : avatarColor;
+  const displayIsBot = diceAnnouncer ? true : isBot;
 
   // Visibility badge shown next to the nickname. Driven by the message audience
   // (not the legacy isPrivate flag) so a DM whisper isn't mislabelled as a GM
@@ -1659,12 +1700,12 @@ export const ChatMessage = memo(function ChatMessage({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {avatar ? (
+        {displayAvatar ? (
           // Avatar is a base64 data URL — next/image can't optimize these.
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={avatar}
-            alt={nickname}
+            src={displayAvatar}
+            alt={displayNickname}
             className={`w-8 h-8 rounded-theme flex-shrink-0 transition shadow-sm ${
               isPrivate
                 ? "border-2 border-private-border"
@@ -1683,11 +1724,11 @@ export const ChatMessage = memo(function ChatMessage({
                 : "border border-border"
             }`}
             style={{
-              backgroundColor: avatarColor || getRandomColorForUser(senderId || 0),
-              color: getContrastColor(avatarColor || getRandomColorForUser(senderId || 0)),
+              backgroundColor: displayAvatarColor || getRandomColorForUser((diceAnnouncer ? diceAnnouncer.userId : senderId) || 0),
+              color: getContrastColor(displayAvatarColor || getRandomColorForUser((diceAnnouncer ? diceAnnouncer.userId : senderId) || 0)),
             }}
           >
-            {nickname.charAt(0).toUpperCase()}
+            {displayNickname.charAt(0).toUpperCase()}
           </div>
         )}
 
@@ -1705,18 +1746,27 @@ export const ChatMessage = memo(function ChatMessage({
       <div className={`flex flex-col max-w-[90%] sm:max-w-[85%] md:max-w-[80%] ${isOwn ? "items-end" : ""}`}>
         <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""} relative`}>
           <span
-            className={`text-[13px] font-semibold text-text-muted inline-flex items-center gap-1 ${(!isBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
+            className={`text-[13px] font-semibold text-text-muted inline-flex items-center gap-1 ${(!displayIsBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
             onClick={(e) => {
-              if (!isBot && !isOwn && senderId) {
+              if (!displayIsBot && !isOwn && senderId) {
                 e.stopPropagation();
                 setShowMenu(!showMenu);
               }
             }}
           >
-            {nickname}
-            {isBot && <Icons.Bot className="w-3.5 h-3.5 text-ai" aria-label="Bot" />}
+            {displayNickname}
+            {displayIsBot && <Icons.Bot className="w-3.5 h-3.5 text-ai" aria-label="Bot" />}
           </span>
-          {senderId !== undefined && hostId !== undefined && senderId === hostId && (
+          {diceAnnouncer && (
+            <span
+              className="dice-announcer-chip inline-flex items-center gap-1 text-[10px] text-ai border border-dashed border-ai/50 bg-ai/[0.06] rounded px-1.5 py-0.5"
+              title={t("announcerBadgeTitle", { nickname: diceAnnouncer.nickname })}
+            >
+              <Icons.Bot className="w-3 h-3" />
+              {t("announcerBadge")}
+            </span>
+          )}
+          {!diceAnnouncer && senderId !== undefined && hostId !== undefined && senderId === hostId && (
             <span className="text-[10px] font-bold text-ai bg-ai/15 border border-ai/30 px-1.5 py-0.5 rounded">
               {hostLabel}
             </span>
@@ -1790,6 +1840,12 @@ export const ChatMessage = memo(function ChatMessage({
             {mounted ? formatTime(createdAt, t) : ""}
           </span>
         </div>
+
+        {diceAnnouncer && (
+          <div className={`dice-announcer-roller text-[11px] text-text-dim mb-0.5 ${isOwn ? "text-right" : ""}`}>
+            <span className="font-bold text-text">{nickname}</span> {t("announcerRollerSuffix")}
+          </div>
+        )}
 
         <div
           className={`chat-bubble ${isOwn ? "chat-bubble-own" : "chat-bubble-other"} ${
@@ -1875,6 +1931,18 @@ export const ChatMessage = memo(function ChatMessage({
             )
           ) : (
             <MarkdownRenderer content={content} />
+          )}
+
+          {isDice && diceAnnouncer && (
+            diceAnnouncer.quip ? (
+              <div className="dice-announcer-quip mt-1.5 pt-1.5 border-t border-dice-card-border/60 text-xs italic text-text-dim">
+                “{diceAnnouncer.quip}”
+              </div>
+            ) : showQuipPlaceholder ? (
+              <div className="dice-announcer-quip mt-1.5 pt-1.5 border-t border-dice-card-border/60 text-xs italic text-text-dim animate-pulse">
+                ···
+              </div>
+            ) : null
           )}
         </div>
       </div>

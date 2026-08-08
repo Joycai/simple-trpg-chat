@@ -96,6 +96,24 @@ export function useRoomEvents({
             }));
             return;
           }
+          if (data.type === "dice_quip_update") {
+            // 投娘 (dice announcer) generated its quip asynchronously — patch it
+            // into the already-delivered dice card. Mirrors check_update above.
+            const idStr = String(data.messageId);
+            setMessages((prev) => prev.map((m) => {
+              if (String(m.id) !== idStr || !m.diceDetail) return m;
+              try {
+                const detail = JSON.parse(m.diceDetail);
+                if (detail?.announcer) {
+                  detail.announcer.quip = data.quip;
+                  delete detail.announcer.quipPending;
+                  return { ...m, diceDetail: JSON.stringify(detail) };
+                }
+              } catch { /* */ }
+              return m;
+            }));
+            return;
+          }
           if (data.type === "inventory_updated") {
             // Host edited an item — bump the key so any open InventoryPanel reloads
             // the edited content (distributed copies sync via the item relation).

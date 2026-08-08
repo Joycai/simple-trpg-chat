@@ -314,6 +314,9 @@
     "proxyRawRollHint": "玩家未设该技能 · 将直接投出 d100 不判定成败",
     "proxyRolledBy": "代投 · {hostNick}",
     "proxyRolledByTitle": "由{host} {hostNick} 代为投掷",
+    "announcerBadge": "播报",
+    "announcerBadgeTitle": "本次掷骰由投娘 {nickname} 播报",
+    "announcerRollerSuffix": "的掷骰",
     "visKpOnly": "仅{host}可见",
     "mentionTip": "↑↓ 选择 · Tab/Enter 确认 · Esc 取消",
     "privateChatTarget": "私聊对象:",
@@ -1643,6 +1646,59 @@
     "intensityLabel": "背景强度",
     "intensityOff": "已关闭",
     "intensityHint": "仅影响你自己的显示，0 为完全关闭。"
+  },
+  "diceAnnouncer": {
+    "sectionTitle": "投娘（掷骰播报）",
+    "toggleLabel": "启用投娘播报",
+    "toggleHint": "开启后，玩家的每次掷骰都会改由该 bot 播报，并附上一句点评。",
+    "noBotsHint": "房间内没有 bot，先在 Bot 管理中创建一个。",
+    "botSelectLabel": "播报 bot",
+    "providerHint": "未配置 AI provider 的 bot 也可担任投娘，将使用预置台词。",
+    "unknownBot": "（未知 bot）",
+    "errorNotHost": "仅主持人可管理投娘设置",
+    "errorBotNotFound": "指定的 bot 不存在或已不在本房间",
+    "quips": {
+      "critical": [
+        "哇哦～骰子都为你鼓掌了！",
+        "这一把简直是命运在偏心你。",
+        "教科书式的完美，抄作业都没这么准。",
+        "老天爷看你顺眼，今天就这一次。",
+        "骰子女神今天心情很好呢～",
+        "好家伙，直接把上限打穿了！"
+      ],
+      "success": [
+        "稳稳拿下，不过分也不敷衍。",
+        "该有的运气都到位了。",
+        "不算惊艳，但很扎实。",
+        "刚好够用，别浪费了这份运气。",
+        "中规中矩地成功，继续加油。",
+        "运气君今天准时上班了。"
+      ],
+      "failure": [
+        "唉，这把骰子有点不给面子。",
+        "运气去便利店买烟了，还没回来。",
+        "别灰心，下一把说不定就翻身了。",
+        "骰子今天心情不太好，别往心里去。",
+        "差了那么一点，可惜。",
+        "这波不亏，纯粹是运气欠费。"
+      ],
+      "fumble": [
+        "哈哈哈这波真的可以截图留念了。",
+        "骰子直接摆烂，谁也拦不住。",
+        "建议原地立个墓碑，纪念这一掷。",
+        "这就是所谓的天塌了吧。",
+        "别问，问就是一把辛酸泪。",
+        "运气欠的债，这把全还了。"
+      ],
+      "plain": [
+        "骰子已经落地，结果自己看啦～",
+        "这把不判成败，纯粹是随缘。",
+        "数字已经出来了，别赖投娘。",
+        "骰子转啊转，最后停在了这。",
+        "投完啦，剩下的交给命运。",
+        "咕噜咕噜——就这个数。"
+      ]
+    }
   },
   "roomInfo": {
     "title": "房间信息",
