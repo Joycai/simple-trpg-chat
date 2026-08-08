@@ -21,6 +21,7 @@ import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, ty
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { botActivationMode } from "@/lib/botStatus";
 import type { CharacterData } from "@/lib/character-types";
+import { resolveAnnouncer, attachAnnouncer, scheduleQuip } from "@/lib/dice-announcer";
 
 // --- Room Actions ---
 
@@ -378,12 +379,20 @@ export async function rollDiceAction(
     .select({ nickname: roomMembers.nickname })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+  const nickname = member?.nickname || "SYSTEM";
 
   const audience: Audience = hidden ? "self" : channelPartnerId ? "dm" : "everyone";
-  return await dispatchMessage({
+
+  // 投娘 (dice announcer) tag — see docs/design/dice-announcer.md. Mirrors the
+  // injection in commands.ts's emitCommandMessage; this is the 🎲 panel's own
+  // dispatch path, which doesn't go through executeCommand.
+  const announcer = await resolveAnnouncer(roomId, userId);
+  const finalDetail = announcer ? attachAnnouncer(detail, announcer) : detail;
+
+  const msg = await dispatchMessage({
     roomId,
     actorUserId: userId,
-    nickname: member?.nickname || "SYSTEM",
+    nickname,
     type: "dice",
     audience,
     // dm targets the partner (WHO); a hidden roll has no audience target. Either way
@@ -391,8 +400,76 @@ export async function rollDiceAction(
     targetUserId: audience === "dm" ? channelPartnerId : undefined,
     channelPartnerId: channelPartnerId ?? undefined,
     content: hidden ? `🔒 ${content}` : content,
-    diceDetail: detail,
+    diceDetail: finalDetail,
   });
+
+  if (announcer && msg) {
+    scheduleQuip({
+      roomId,
+      messageId: msg.id,
+      announcer,
+      roll: { rollerNickname: nickname, notation, resultText: content, hidden },
+    }).catch((err) => console.error("[dice-announcer] scheduleQuip failed:", err));
+  }
+
+  return msg;
+}
+
+// --- Dice Announcer (投娘) settings — docs/design/dice-announcer.md ---
+
+async function requireDiceAnnouncerHost(roomId: number): Promise<boolean> {
+  try {
+    await checkRoomAccess(roomId, true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Current selection + the room's bot roster, for the settings dropdown (host only). */
+export async function getDiceAnnouncerSettingsAction(roomId: number) {
+  const t = await getTranslations("diceAnnouncer");
+  if (!Number.isInteger(roomId) || !(await requireDiceAnnouncerHost(roomId))) {
+    return { success: false as const, error: t("errorNotHost") };
+  }
+
+  const [room] = await db.select({ diceAnnouncerBotId: rooms.diceAnnouncerBotId }).from(rooms).where(eq(rooms.id, roomId));
+  const botRows = await db
+    .select({ id: users.id, nickname: roomMembers.nickname })
+    .from(roomMembers)
+    .innerJoin(users, eq(roomMembers.userId, users.id))
+    .where(and(eq(roomMembers.roomId, roomId), eq(users.isBot, true)));
+
+  return {
+    success: true as const,
+    botId: room?.diceAnnouncerBotId ?? null,
+    bots: botRows,
+  };
+}
+
+/** Designate (or clear, with `botUserId: null`) the room's dice-announcer bot. */
+export async function setDiceAnnouncerAction(roomId: number, botUserId: number | null) {
+  const t = await getTranslations("diceAnnouncer");
+  if (!Number.isInteger(roomId) || !(await requireDiceAnnouncerHost(roomId))) {
+    return { success: false as const, error: t("errorNotHost") };
+  }
+
+  if (botUserId !== null) {
+    if (!Number.isInteger(botUserId)) {
+      return { success: false as const, error: t("errorBotNotFound") };
+    }
+    const [bot] = await db
+      .select({ id: users.id })
+      .from(roomMembers)
+      .innerJoin(users, eq(roomMembers.userId, users.id))
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId), eq(users.isBot, true)));
+    if (!bot) return { success: false as const, error: t("errorBotNotFound") };
+  }
+
+  await db.update(rooms).set({ diceAnnouncerBotId: botUserId }).where(eq(rooms.id, roomId));
+  broadcastToRoom(roomId, { type: "room_settings_updated" });
+  revalidatePath(`/rooms/${roomId}`);
+  return { success: true as const };
 }
 
 // --- Host Skill Check Request ---

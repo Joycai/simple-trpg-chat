@@ -10,6 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import { RoomBackgroundManager } from "@/components/room/RoomBackgroundManager";
+import { DiceAnnouncerSettings } from "@/components/room/DiceAnnouncerSettings";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
@@ -30,6 +31,7 @@ type SettingsTab = "theme" | "general" | "background";
 export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode, currentRuleTemplate, isHost = false, onClose }: RoomSettingsProps) {
   const t = useTranslations("roomSettings");
   const tb = useTranslations("roomBackground");
+  const tAnnouncer = useTranslations("diceAnnouncer");
   const tm = useTranslations("themeMode");
   const locale = useLocale();
   const tCommon = useTranslations("common");
@@ -257,6 +259,13 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                     />
                     <p className="text-xs text-text-muted">{t("ruleTemplateHint")}</p>
                   </div>
+
+                  {isHost && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs text-text-dim font-medium">{tAnnouncer("sectionTitle")}</label>
+                      <DiceAnnouncerSettings roomId={roomId} />
+                    </div>
+                  )}
                 </div>
               )}
             </PaneTransition>

@@ -148,6 +148,10 @@ export const rooms = pgTable('rooms', {
   // delete so removing a background can never leave a dangling reference —
   // see docs/design/room-background.md.
   backgroundId: integer('background_id').references((): AnyPgColumn => roomBackgrounds.id, { onDelete: 'set null' }),
+  // 投娘：被指定为掷骰播报员的 bot 用户。null = 功能关闭。
+  // set null 级联：删除 bot（users 行）时自动关闭播报，不留悬空引用。
+  // 见 docs/design/dice-announcer.md。
+  diceAnnouncerBotId: integer('dice_announcer_bot_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });

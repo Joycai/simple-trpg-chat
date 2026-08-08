@@ -314,6 +314,9 @@
     "proxyRawRollHint": "Player has not set this skill — rolls a raw d100 without success/failure grading",
     "proxyRolledBy": "Proxied by {hostNick}",
     "proxyRolledByTitle": "Rolled on this player's behalf by {host} {hostNick}",
+    "announcerBadge": "Announced",
+    "announcerBadgeTitle": "This roll is announced by {nickname}",
+    "announcerRollerSuffix": "'s roll",
     "visKpOnly": "{host} only",
     "mentionTip": "↑↓ Select · Tab/Enter Confirm · Esc Cancel",
     "privateChatTarget": "Private Chat:",
@@ -1643,6 +1646,59 @@
     "intensityLabel": "Background intensity",
     "intensityOff": "Off",
     "intensityHint": "Only affects your own display; 0 turns it off entirely."
+  },
+  "diceAnnouncer": {
+    "sectionTitle": "Dice Announcer",
+    "toggleLabel": "Enable dice announcer",
+    "toggleHint": "When on, every roll's card is re-skinned as this bot, with a short quip about the result.",
+    "noBotsHint": "This room has no bots yet — create one in Bot Manager first.",
+    "botSelectLabel": "Announcer bot",
+    "providerHint": "A bot without an AI provider can still be the announcer — it'll just use preset lines.",
+    "unknownBot": "(unknown bot)",
+    "errorNotHost": "Only the host can manage the dice announcer",
+    "errorBotNotFound": "The selected bot doesn't exist or isn't in this room",
+    "quips": {
+      "critical": [
+        "Whoa, even the dice are cheering for you!",
+        "Fate is clearly playing favorites tonight.",
+        "Textbook perfect — almost suspiciously so.",
+        "The RNG gods smiled on you, just this once.",
+        "Someone's dice are feeling generous today~",
+        "Absolutely obliterated the cap on that one!"
+      ],
+      "success": [
+        "Solid roll — nothing fancy, gets the job done.",
+        "The luck showed up right on time.",
+        "Not flashy, but reliable.",
+        "Just enough — don't push your luck further.",
+        "A perfectly average success. Onward!",
+        "Luck clocked in right on schedule."
+      ],
+      "failure": [
+        "Ouch, the dice weren't feeling generous.",
+        "Your luck stepped out for a smoke break.",
+        "Don't sweat it, next roll could flip the script.",
+        "The dice are in a mood today. Not personal.",
+        "So close, yet so far.",
+        "No shame in it — the RNG just ran dry."
+      ],
+      "fumble": [
+        "Oh no, screenshot this one for the memories.",
+        "The dice just gave up entirely.",
+        "Might want to build a little memorial for this roll.",
+        "Well, that's what they call the sky falling.",
+        "Don't ask — it's a whole tragic saga.",
+        "Every debt luck owed just got called in."
+      ],
+      "plain": [
+        "The dice have landed — see for yourself~",
+        "No grading on this one, just pure chance.",
+        "Numbers are in, don't blame the announcer.",
+        "Round and round it went, and there it stopped.",
+        "Rolled and done — fate takes it from here.",
+        "Rattle rattle — that's the number."
+      ]
+    }
   },
   "roomInfo": {
     "title": "Room Info",
