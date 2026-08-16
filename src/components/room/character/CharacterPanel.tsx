@@ -67,7 +67,7 @@ export function CharacterPanel({
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
+  const { close, panelRef, backdropRef, panelClass, afterEnter } = useOverlayTransition(onClose, "drawer");
 
   // Avatar photo: shows the uploaded image when present, falling back to a
   // colored initial. `avatarOverride` reflects a just-cropped image instantly,
@@ -131,14 +131,20 @@ export function CharacterPanel({
       setInitDone(true);
       return;
     }
+    // Deferred to `afterEnter`: the action revalidates `/rooms/:id` and this
+    // then calls `router.refresh()`, so the response re-renders the entire room
+    // tree. Landing that inside the drawer's slide is the difference between a
+    // smooth open and a visible hitch.
     initCharacterAction(roomId).then((data) => {
-      setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities, data.shAttributes));
-      if (data.d20Sheet) {
-        setD20Role(data.d20Sheet.role ?? "");
-        setD20Level(data.d20Sheet.level ?? "");
-      }
-      setInitDone(true);
-      router.refresh();
+      afterEnter(() => {
+        setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities, data.shAttributes));
+        if (data.d20Sheet) {
+          setD20Role(data.d20Sheet.role ?? "");
+          setD20Level(data.d20Sheet.level ?? "");
+        }
+        setInitDone(true);
+        router.refresh();
+      });
     }).catch(() => {});
     // intentionally omits `router` and `ruleTemplate` from deps — initial-mount-only effect
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,13 +187,17 @@ export function CharacterPanel({
   useEffect(() => {
     if (readOnly && targetUserId) {
       getRoomSkills(roomId, targetUserId).then((data) => {
-        setSkills(data.map(s => ({ id: s.id, skillName: s.skillName, skillValue: s.skillValue })));
-        setSkillsLoaded(true);
+        afterEnter(() => {
+          setSkills(data.map(s => ({ id: s.id, skillName: s.skillName, skillValue: s.skillValue })));
+          setSkillsLoaded(true);
+        });
       }).catch(() => {});
     } else {
-      getMySkillsAction(roomId).then((data) => { setSkills(data); setSkillsLoaded(true); }).catch(() => {});
+      getMySkillsAction(roomId).then((data) => {
+        afterEnter(() => { setSkills(data); setSkillsLoaded(true); });
+      }).catch(() => {});
     }
-  }, [roomId, readOnly, targetUserId, refreshKey]);
+  }, [roomId, readOnly, targetUserId, refreshKey, afterEnter]);
 
   // "No skills yet" nudge on the 技能 tab: only for the owner, only when this
   // rule uses a structured sheet (basic/通用 d100 never hints), and only once

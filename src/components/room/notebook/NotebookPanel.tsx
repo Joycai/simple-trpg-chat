@@ -89,7 +89,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   // Escape must route through the dirty-editor guard like every other close
   // path, so the default Escape-closes behavior is disabled and re-registered
   // below with `guardedClose` (declared after the guard's dependencies).
-  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer", { closeOnEscape: false });
+  const { close, panelRef, backdropRef, panelClass, afterEnter } = useOverlayTransition(onClose, "drawer", { closeOnEscape: false });
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -137,12 +137,19 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
       ]);
       if (!alive) return;
 
+      // Everything below is a state commit, so it goes through `afterEnter`:
+      // rendering the note list mid-slide is exactly the main-thread work that
+      // used to show up as a stuttering drawer. The fetch itself already ran.
+      const commit: (() => void)[] = [];
+
       if (notebook.status === "fulfilled") {
-        setNotes(notebook.value.notes as Note[]);
-        setCategories(notebook.value.categories as Category[]);
-        setError(false);
+        commit.push(() => {
+          setNotes(notebook.value.notes as Note[]);
+          setCategories(notebook.value.categories as Category[]);
+          setError(false);
+        });
       } else {
-        setError(true);
+        commit.push(() => setError(true));
       }
 
       // Mentions degrade gracefully: with no entities `segmentMentions` returns
@@ -167,12 +174,15 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
           linkable.push({ id: -ev.id, type: "event", title: ev.title });
         }
       }
-      setEntities(linkable);
-      setDistsById(byId);
-      setLoading(false);
+      afterEnter(() => {
+        for (const apply of commit) apply();
+        setEntities(linkable);
+        setDistsById(byId);
+        setLoading(false);
+      });
     })();
     return () => { alive = false; };
-  }, [roomId, retryKey]);
+  }, [roomId, retryKey, afterEnter]);
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
   const categoryOf = (id: number | null) => categories.find((c) => c.id === id) ?? null;

@@ -42,6 +42,43 @@ const BACKDROP_ENTER = { duration: 0.3, ease: [0.33, 1, 0.68, 1] } as const;
  */
 const EXIT = { duration: 0.22, ease: [0.32, 0, 0.67, 0] } as const;
 
+/**
+ * Keyframes are whole `transform` strings, never Motion's `x` / `y` / `scale`
+ * shorthands. That distinction decides whether these animations run on the
+ * compositor or on the main thread.
+ *
+ * Motion only hands a value to WAAPI when its name is in its `acceleratedValues`
+ * set — `opacity`, `transform`, `filter`, `clipPath`, `backgroundColor`. `x` is
+ * NOT in it: it is an independent MotionValue that Motion composes into a
+ * transform string itself, writing inline style every frame from a rAF loop.
+ * Firefox can only run CSS/WAAPI animations off the main thread, so the `x`
+ * form meant a full-height drawer re-rasterising on the main thread each frame,
+ * in lockstep with whatever React was doing — a mount-time fetch resolving
+ * mid-slide was enough to drop frames. Composing the transform ourselves costs
+ * nothing (nothing else animates these panels' transforms) and hands the whole
+ * slide to the compositor.
+ *
+ * Springs survive the trip: Motion expands the generator into pregenerated
+ * keyframes plus a `linear()` easing before handing it to WAAPI. Where
+ * `linear()` is missing, that path degrades to ~300ms easeOut — a plainer
+ * curve, but still an animation, unlike the old CSS approach which degraded to
+ * no animation at all.
+ */
+const ENTER_KEYFRAMES = {
+  drawer: { transform: ["translateX(100%)", "translateX(0%)"] },
+  modal: { transform: ["scale(0.92)", "scale(1)"], opacity: [0, 1] },
+  popover: {
+    transform: ["translateY(10px) scale(0.97)", "translateY(0px) scale(1)"],
+    opacity: [0, 1],
+  },
+};
+
+const EXIT_KEYFRAMES = {
+  drawer: { transform: "translateX(100%)" },
+  modal: { transform: "scale(0.97)", opacity: 0 },
+  popover: { transform: "translateY(6px) scale(0.98)", opacity: 0 },
+};
+
 export interface OverlayTransitionOptions {
   /**
    * Escape closes the topmost overlay by default (same animated `close` the
@@ -60,6 +97,25 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
+ * Marks the panel as in-flight for the duration of a transition.
+ *
+ * `will-change` asks for the layer up front; `data-animating` is the CSS hook
+ * that suppresses `backdrop-filter` while the panel moves (globals.css). A
+ * moving backdrop-filter has to re-sample and re-blur everything behind it on
+ * every frame, which no amount of compositing fixes — the only cure is not
+ * having one mid-flight.
+ */
+function beginMotion(el: HTMLElement, variant: OverlayVariant) {
+  el.style.willChange = variant === "drawer" ? "transform" : "transform, opacity";
+  el.setAttribute("data-animating", "");
+}
+
+function endMotion(el: HTMLElement) {
+  el.style.willChange = "";
+  el.removeAttribute("data-animating");
+}
+
+/**
  * Drives enter/exit transitions for overlays whose mount is owned by a parent
  * boolean (the common `{showX && <Panel onClose={...} />}` pattern).
  *
@@ -70,6 +126,10 @@ function prefersReducedMotion(): boolean {
  *
  * Call `close()` everywhere the panel would have called `onClose` (close
  * button, backdrop click, cancel, post-save).
+ *
+ * Heavy work a panel kicks off on mount (data fetches, and above all the state
+ * commits and route revalidations they trigger) should be routed through
+ * `afterEnter` so the render lands after the motion instead of inside it.
  */
 export function useOverlayTransition(
   onClose: () => void,
@@ -85,26 +145,70 @@ export function useOverlayTransition(
   // replacement would appear already at rest and the motion would visibly jump.
   // After it completes, a swap is just a content change and must not re-animate.
   const enteredRef = useRef(false);
+  // Work parked by `afterEnter` while the panel is still moving.
+  const pendingRef = useRef<(() => void)[]>([]);
+
+  const flushPending = useCallback(() => {
+    const queued = pendingRef.current;
+    pendingRef.current = [];
+    for (const fn of queued) fn();
+  }, []);
+
+  const markEntered = useCallback(() => {
+    enteredRef.current = true;
+    flushPending();
+  }, [flushPending]);
+
+  /**
+   * Runs `fn` once the panel has settled — immediately if it already has, or if
+   * there is no animation to wait for (reduced motion, cancelled enter). Every
+   * path that ends the enter calls `markEntered`, so queued work can never be
+   * stranded.
+   */
+  const afterEnter = useCallback(
+    (fn: () => void) => {
+      if (enteredRef.current || closedRef.current) {
+        fn();
+        return;
+      }
+      pendingRef.current.push(fn);
+    },
+    [],
+  );
+
   // Callback refs, not useLayoutEffect: React attaches them during commit,
   // before paint, so the "from" keyframe lands before the browser draws —
   // and unlike an effect they fire again if the element is replaced.
   const panelRef = useCallback(
     (el: HTMLDivElement | null) => {
       panelEl.current = el;
-      if (!el || enteredRef.current || closedRef.current || prefersReducedMotion()) return;
-      const ctrl =
-        variant === "drawer"
-          ? animate(el, { x: ["100%", "0%"] }, ENTER_SPRING.drawer)
-          : variant === "popover"
-            ? animate(el, { y: [10, 0], scale: [0.97, 1], opacity: [0, 1] }, ENTER_SPRING.popover)
-            : animate(el, { scale: [0.92, 1], opacity: [0, 1] }, ENTER_SPRING.modal);
+      if (!el || enteredRef.current || closedRef.current) return;
+      if (prefersReducedMotion()) {
+        markEntered();
+        return;
+      }
+      beginMotion(el, variant);
+      const ctrl = animate(el, ENTER_KEYFRAMES[variant], ENTER_SPRING[variant]);
       ctrl.finished
         .then(() => {
-          enteredRef.current = true;
+          endMotion(el);
+          // Motion commits the final keyframe as inline style. Dropping it
+          // restores the resting `transform: none` the old `x`-based animation
+          // ended on, which matters beyond tidiness: a non-none transform makes
+          // the panel the containing block for `position: fixed` descendants,
+          // which would trap any nested modal inside the drawer.
+          el.style.transform = "";
+          markEntered();
         })
-        .catch(() => {});
+        // Cancelled mid-flight (the node was swapped out). Deliberately not
+        // `markEntered`: the replacement node must still animate. But queued
+        // work has to run — nothing else is coming to release it.
+        .catch(() => {
+          endMotion(el);
+          flushPending();
+        });
     },
-    [variant],
+    [variant, markEntered, flushPending],
   );
 
   const backdropRef = useCallback((el: HTMLDivElement | null) => {
@@ -126,16 +230,21 @@ export function useOverlayTransition(
     }
 
     if (backdrop) animate(backdrop, { opacity: 0 }, EXIT);
-    const exit =
-      variant === "drawer"
-        ? animate(panel, { x: "100%" }, EXIT)
-        : variant === "popover"
-          ? animate(panel, { y: 6, scale: 0.98, opacity: 0 }, EXIT)
-          : animate(panel, { scale: 0.97, opacity: 0 }, EXIT);
+    beginMotion(panel, variant);
+    const exit = animate(panel, EXIT_KEYFRAMES[variant], EXIT);
 
     // `.finished` rejects if the animation is cancelled by an unmount; the
-    // parent has already dropped us in that case, so swallow it.
-    exit.finished.then(() => onClose()).catch(() => {});
+    // parent has already dropped us in that case, so swallow it. The panel's
+    // transform is deliberately left in place — it holds the off-screen
+    // position until the parent unmounts.
+    exit.finished
+      .then(() => {
+        // The transform is deliberately NOT cleared — it holds the panel
+        // off-screen for the frame between here and the parent's unmount.
+        endMotion(panel);
+        onClose();
+      })
+      .catch(() => {});
   }, [variant, onClose]);
 
   useEscapeToClose(close, closeOnEscape);
@@ -149,5 +258,5 @@ export function useOverlayTransition(
    */
   const panelClass = variant === "drawer" ? "overlay-drawer" : "overlay-modal";
 
-  return { close, panelRef, backdropRef, panelClass };
+  return { close, panelRef, backdropRef, panelClass, afterEnter };
 }

@@ -191,6 +191,28 @@ body[data-room-bg] .bg-bg .bg-bg {
    overlay-hook-driven: the sidebar's width transition and the dropdown pop.
    Both are plain transitions/keyframes, so they stay in CSS. */
 
+/* --- No frost while an overlay is in flight. -------------------------------
+   useOverlayTransition sets `data-animating` on the panel for the duration of
+   its enter/exit. A `backdrop-filter` on a *moving* element has to re-sample
+   and re-blur everything behind it on every single frame — the one cost that
+   compositing the transform does not remove, and the reason a frosted theme
+   (rainglass) drops frames on a drawer that an opaque theme slides fine.
+   Descendants are included: the drawer's cards carry their own frost, and a
+   hundred small re-blurs cost as much as one big one.
+
+   `!important` is load-bearing, not laziness: the per-theme frost rules are
+   more specific than anything reasonable here (rainglass's dark variant is
+   `[data-theme][data-mode] .overlay-drawer`), so specificity alone loses.
+   The panels are ≥94% opaque under the frost, so the suppressed blur is not
+   perceptible mid-motion — it returns the moment the panel settles. */
+.overlay-drawer[data-animating],
+.overlay-modal[data-animating],
+.overlay-drawer[data-animating] *,
+.overlay-modal[data-animating] * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* Conversation sidebar — smooth collapse/expand. Desktop animates width
    (chat reflows), mobile animates the drawer slide. Suppressed mid-drag via
    a class toggle so resizing stays instant. */
