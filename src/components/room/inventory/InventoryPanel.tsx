@@ -33,7 +33,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
-  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
+  const { close, panelRef, backdropRef, panelClass, afterEnter } = useOverlayTransition(onClose, "drawer");
 
   // Each entry point (背包 / 道具管理) opens a fixed view; the manage view requires host.
   const tab = view === "manage" && isHost ? "manage" : "backpack";
@@ -67,6 +67,12 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   const [shareItem, setShareItem] = useState<InventoryItem | null>(null);
   const [shareDist, setShareDist] = useState<Distribution | null>(null);
 
+  // The fetch starts immediately; only the *commit* waits for the drawer to
+  // finish sliding. Rendering a full backpack is the single heaviest thing this
+  // panel does, and landing it mid-animation is what a player sees as a stutter
+  // (see useOverlayTransition on why the motion no longer shares that thread —
+  // this keeps the paint out of the way too). By the time a real network round
+  // trip returns, the 420ms enter is usually over and `afterEnter` is a no-op.
   const loadData = async () => {
     setLoading(true);
     try {
@@ -76,25 +82,38 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
           getDistributionHistory(roomId),
           getMyInventory(roomId),
         ]);
-        setRoomItems(items as InventoryItem[]);
-        setHistory(dists as Distribution[]);
-        setMyItems(mine as Distribution[]);
+        afterEnter(() => {
+          setRoomItems(items as InventoryItem[]);
+          setHistory(dists as Distribution[]);
+          setMyItems(mine as Distribution[]);
+          setLoading(false);
+        });
       } else {
         const mine = await getMyInventory(roomId);
-        setMyItems(mine as Distribution[]);
+        afterEnter(() => {
+          setMyItems(mine as Distribution[]);
+          setLoading(false);
+        });
       }
-    } catch { /* */ }
-    setLoading(false);
+    } catch {
+      afterEnter(() => setLoading(false));
+    }
   };
 
   // On open: load the inventory FIRST (so freshly-received "new" and edited
   // "updated" copies still render their highlight this session), THEN acknowledge
   // them server-side so the next open is clean. Marking before the read would clear
   // the flags mid-race and the highlight would never appear.
+  //
+  // The acknowledgement is deferred too, and for a bigger reason than its own
+  // cost: it ends in `revalidatePath("/rooms/:id")`, so its response carries a
+  // fresh RSC payload for the *whole room* and React re-renders the entire page
+  // tree. Fired during the slide, that is the largest single stall in the
+  // sequence.
   useEffect(() => {
     void (async () => {
       await loadData();
-      await markInventoryViewedAction(roomId);
+      afterEnter(() => void markInventoryViewedAction(roomId));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

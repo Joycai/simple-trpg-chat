@@ -33,7 +33,25 @@ export function PaneTransition({ paneKey, className, children }: PaneTransitionP
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // Short and unbouncy: this fires on every tab click, so anything longer
     // reads as lag rather than polish.
-    animate(el, { opacity: [0, 1], y: [6, 0] }, { type: "spring", visualDuration: 0.24, bounce: 0 });
+    //
+    // `transform` as a whole string, not Motion's `y` shorthand — only the
+    // former is in Motion's accelerated-value set and reaches WAAPI. See the
+    // long note in useOverlayTransition.ts; the same reasoning applies here,
+    // where the pane being faded in is often a large list.
+    el.style.willChange = "transform, opacity";
+    const ctrl = animate(
+      el,
+      { opacity: [0, 1], transform: ["translateY(6px)", "translateY(0px)"] },
+      { type: "spring", visualDuration: 0.24, bounce: 0 },
+    );
+    const settle = () => {
+      el.style.willChange = "";
+      // Motion commits the final keyframe inline. Clearing it restores the
+      // resting `transform: none`, so the pane never becomes the containing
+      // block for a `position: fixed` modal opened from inside it.
+      el.style.transform = "";
+    };
+    ctrl.finished.then(settle).catch(settle);
   }, []);
 
   return (
