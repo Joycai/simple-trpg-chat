@@ -540,6 +540,10 @@ export function RoomClient({
   // predate the window).
   const { setRoomMode } = useTheme();
   const followsTimeline = room.themeMode === "timeline";
+  // Last divider-resolved mode ever seen in this session. Needed because the
+  // message-window cap can trim the divider row itself out of `messages` —
+  // without this, the mode would silently snap back to the page-load initial.
+  const lastDividerModeRef = useRef<ThemeMode | null>(null);
   const effectiveRoomMode = useMemo<ThemeMode>(() => {
     if (!followsTimeline) return (room.themeMode as ThemeMode) || "auto";
     let latest: Message | null = null;
@@ -548,8 +552,10 @@ export function RoomClient({
         latest = m;
       }
     }
-    if (!latest) return initialTimelineMode ?? "light";
-    return resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
+    if (!latest) return lastDividerModeRef.current ?? initialTimelineMode ?? "light";
+    const mode = resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
+    lastDividerModeRef.current = mode;
+    return mode;
   }, [followsTimeline, room.themeMode, messages, initialTimelineMode]);
 
   useEffect(() => {
