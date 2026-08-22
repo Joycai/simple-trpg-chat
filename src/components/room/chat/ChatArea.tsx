@@ -136,14 +136,14 @@ export function ChatArea({
 
       {showScrollButton && (
         <button onClick={() => scrollToBottom(true)} className="absolute bottom-28 right-8 z-10 bg-scroll-btn hover:opacity-90 text-white w-10 h-10 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group" title={t("scrollToBottom")}>
-          <Icons.ArrowDown className="w-5 h-5 group-hover:animate-bounce" />
+          <Icons.ArrowDown className="w-5 h-5" />
         </button>
       )}
 
       <div className="bg-surface-alt room-shell-frost border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
           {activeTab !== "public" && (
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20">
               <span>{t("dmPrefix", { nickname: dmConversations.find(c => c.userId === activeTab)?.nickname ?? "" })}</span>
               <button onClick={() => onStartDM("public")} className="ml-auto text-text-muted hover:text-accent font-bold cursor-pointer">{t("dmExit")}</button>
             </div>

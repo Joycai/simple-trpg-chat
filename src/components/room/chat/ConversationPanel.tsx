@@ -139,13 +139,13 @@ export function ConversationPanel({
                 </span>
               )}
               {conv.isBot && !conv.isBotDisabled && conv.isProviderError && (
-                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 shrink-0 animate-pulse">
+                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 shrink-0">
                   {t("tagProviderError")}
                 </span>
               )}
             </span>
             {conv.unread > 0 && (
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-danger text-white text-[9px] font-bold px-1 animate-pulse">
+              <span key={conv.unread} className="absolute right-2.5 top-1/2 -translate-y-1/2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-danger text-white text-[9px] font-bold px-1 badge-in">
                 {conv.unread > 9 ? "9+" : conv.unread}
               </span>
             )}
