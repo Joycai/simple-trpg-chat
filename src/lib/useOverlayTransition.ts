@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { animate } from "motion";
 import { useEscapeToClose } from "@/lib/overlay-esc";
 
@@ -151,7 +151,16 @@ export function useOverlayTransition(
   const flushPending = useCallback(() => {
     const queued = pendingRef.current;
     pendingRef.current = [];
-    for (const fn of queued) fn();
+    // Isolated per callback: the tail of a queue is often a server action (the
+    // inventory read acknowledgement), and letting an earlier panel's render
+    // commit throw it away is a data bug, not a paint bug.
+    for (const fn of queued) {
+      try {
+        fn();
+      } catch {
+        /* each queued callback owns its own failure */
+      }
+    }
   }, []);
 
   const markEntered = useCallback(() => {
@@ -160,21 +169,42 @@ export function useOverlayTransition(
   }, [flushPending]);
 
   /**
-   * Runs `fn` once the panel has settled — immediately if it already has, or if
-   * there is no animation to wait for (reduced motion, cancelled enter). Every
-   * path that ends the enter calls `markEntered`, so queued work can never be
-   * stranded.
+   * Runs `fn` once the panel has settled — immediately if it already has,
+   * which includes the reduced-motion path (`panelRef` marks it entered at
+   * once, without animating). Anything else is queued.
+   *
+   * Note what is deliberately NOT grounds for running immediately: `closedRef`.
+   * `close()` raises that flag at the *start* of a 220ms exit, so treating it
+   * as "no animation left to wait for" would land the panel's heaviest render
+   * inside the outgoing slide — the same stutter this hook exists to remove,
+   * just on the way out. Work that arrives after a close waits for the unmount
+   * flush below instead.
    */
-  const afterEnter = useCallback(
-    (fn: () => void) => {
-      if (enteredRef.current || closedRef.current) {
-        fn();
-        return;
-      }
-      pendingRef.current.push(fn);
-    },
-    [],
-  );
+  const afterEnter = useCallback((fn: () => void) => {
+    if (enteredRef.current) {
+      fn();
+      return;
+    }
+    pendingRef.current.push(fn);
+  }, []);
+
+  /**
+   * The queue's guaranteed release point — and the reason it is here rather
+   * than on an animation callback.
+   *
+   * Motion's `finished` promise has no reject path at all: `WithPromise` only
+   * ever captures a `resolve`, and `stop()` — which is exactly what starting
+   * the exit on the same `transform` value does to a running enter — cancels
+   * the underlying WAAPI animation, so `onfinish` never fires and the promise
+   * never settles. Neither `.then` nor `.catch` runs. Closing a drawer inside
+   * its own enter would therefore strand everything queued, silently dropping
+   * real writes (the inventory read acknowledgement) on the floor.
+   *
+   * Flushing on unmount is safe *because* the component is already gone: state
+   * setters are no-ops at that point, while the side effects the panel promised
+   * — server actions, `router.refresh()` — still go out.
+   */
+  useEffect(() => () => flushPending(), [flushPending]);
 
   // Callback refs, not useLayoutEffect: React attaches them during commit,
   // before paint, so the "from" keyframe lands before the browser draws —
@@ -200,15 +230,15 @@ export function useOverlayTransition(
           el.style.transform = "";
           markEntered();
         })
-        // Cancelled mid-flight (the node was swapped out). Deliberately not
-        // `markEntered`: the replacement node must still animate. But queued
-        // work has to run — nothing else is coming to release it.
+        // Defensive only. Motion never rejects `finished` (see the unmount
+        // effect above), so nothing may be made to depend on this running —
+        // in particular not the pending queue. Deliberately not `markEntered`
+        // either: if it ever did fire, the replacement node must still animate.
         .catch(() => {
           endMotion(el);
-          flushPending();
         });
     },
-    [variant, markEntered, flushPending],
+    [variant, markEntered],
   );
 
   const backdropRef = useCallback((el: HTMLDivElement | null) => {
@@ -233,10 +263,10 @@ export function useOverlayTransition(
     beginMotion(panel, variant);
     const exit = animate(panel, EXIT_KEYFRAMES[variant], EXIT);
 
-    // `.finished` rejects if the animation is cancelled by an unmount; the
-    // parent has already dropped us in that case, so swallow it. The panel's
-    // transform is deliberately left in place — it holds the off-screen
-    // position until the parent unmounts.
+    // The trailing `.catch` is a formality — Motion's `finished` never rejects.
+    // Nothing can interrupt this exit either: `closedRef` blocks a second
+    // `close()`, and `panelRef` refuses to re-animate once closed, so no other
+    // `animate()` call can stop it and leave `onClose` unfired.
     exit.finished
       .then(() => {
         // The transform is deliberately NOT cleared — it holds the panel
