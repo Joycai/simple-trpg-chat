@@ -14,6 +14,7 @@ import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { roomBackgroundUrl } from "@/lib/backgrounds";
 import { getRuleForRoom } from "@/lib/rules";
 import { sanitizeBotConfigForClient } from "@/lib/botStatus";
+import { roomAvatarUrl } from "@/lib/avatars";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
@@ -79,12 +80,21 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         .innerJoin(users, eq(roomMembers.userId, users.id))
         .where(eq(roomMembers.roomId, roomId));
     }
-    // The client only needs providerId (getBotStatus) — strip prompts,
-    // summaries, and every other bot-config field before serialization.
-    return rows.map((m) => ({
-      ...m,
-      users: { ...m.users, botConfigJson: sanitizeBotConfigForClient(m.users.botConfigJson) },
-    }));
+    // Two transforms before anything is serialized to the client:
+    //  - botConfigJson → providerId only (getBotStatus is the sole consumer);
+    //  - avatar base64 → reference URL, so the blob is fetched once by the
+    //    browser instead of being duplicated into every SSR'd message.
+    return rows.map((m) => {
+      const rm = m.room_members as typeof m.room_members & { avatar?: string | null };
+      return {
+        ...m,
+        room_members: {
+          ...rm,
+          avatar: rm.avatar ? roomAvatarUrl(roomId, rm.userId, rm.avatar) : null,
+        },
+        users: { ...m.users, botConfigJson: sanitizeBotConfigForClient(m.users.botConfigJson) },
+      };
+    });
   };
 
   // 1. Get all room members (for player list)

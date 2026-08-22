@@ -85,6 +85,33 @@ export function parseAvatarDataUrl(dataUrl: string): AvatarParseResult {
 }
 
 /**
+ * Cache-busting version tag for an avatar data URL — FNV-1a over the string.
+ * Dependency-free on purpose: this module is imported from client bundles for
+ * the size constants, so no node:crypto here. Collisions only cost a stale
+ * cache hit until the next hard reload, so 32×2 bits is plenty.
+ */
+export function avatarVersion(dataUrl: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x811c9dc5;
+  for (let i = 0; i < dataUrl.length; i++) {
+    const c = dataUrl.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ ((c << 8) | (i & 0xff)), 0x01000193) >>> 0;
+  }
+  return h1.toString(36) + h2.toString(36);
+}
+
+/**
+ * Reference URL for a member's avatar. Members' base64 avatars must never be
+ * serialized into the page payload (an active chatter's avatar would otherwise
+ * be duplicated into every SSR'd message) — the page ships this URL instead
+ * and the browser fetches/caches the image once via the avatars API route.
+ */
+export function roomAvatarUrl(roomId: number, userId: number, dataUrl: string): string {
+  return `/api/rooms/${roomId}/avatars/${userId}?v=${avatarVersion(dataUrl)}`;
+}
+
+/**
  * Parse width/height from a JPEG SOFn (Start Of Frame) marker. Walks segments
  * until it hits the first SOF, ignoring DHT/DAC/JPG which sit inside the same
  * 0xC0..0xCF range but don't carry frame dimensions.
