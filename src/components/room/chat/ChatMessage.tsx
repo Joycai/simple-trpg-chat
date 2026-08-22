@@ -1536,7 +1536,7 @@ export const ChatMessage = memo(function ChatMessage({
                 <Icons.Stamp className="w-3.5 h-3.5" />
               </button>
               {proxyOpen && pendingIds.length > 1 && (
-                <div className="check-request-proxy-popover absolute top-full mt-2 left-1/2 -translate-x-1/2 z-30 min-w-[260px] bg-surface border border-border rounded-theme shadow-2xl py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                <div className="check-request-proxy-popover absolute top-full mt-2 left-1/2 -translate-x-1/2 z-30 min-w-[260px] bg-surface border border-border rounded-theme shadow-2xl py-1.5 animate-in fade-in zoom-in-95">
                   <div className="check-request-proxy-header flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider text-text-muted border-b border-border/60">
                     <Icons.Stamp className="w-3 h-3" />
                     <span>{t("proxyRollHeader", { skillName: cr?.skillName ?? "" })}</span>
@@ -1861,7 +1861,7 @@ export const ChatMessage = memo(function ChatMessage({
 
           {showMenu && senderId && (
             <div
-              className={`absolute bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[120px] z-30 animate-in fade-in zoom-in-95 duration-100 ${
+              className={`absolute bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[120px] z-30 animate-in fade-in zoom-in-95 ${
                 isOwn ? "right-0" : "left-0"
               }`}
               style={{ top: "100%" }}

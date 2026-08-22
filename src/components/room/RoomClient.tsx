@@ -1042,7 +1042,7 @@ export function RoomClient({
 
       {showHotkeyHint && (
         <div className="fixed bottom-24 right-4 z-30 flex items-center gap-2.5 bg-surface theme-border rounded-theme shadow-xl pl-3.5 pr-2 py-2.5 overlay-pop"
-          style={{ transformOrigin: "bottom right" }} role="status">
+          style={{ transformOrigin: "bottom right", "--overlay-pop-y": "6px" } as React.CSSProperties} role="status">
           <Icons.Keyboard className="w-4 h-4 text-primary shrink-0" />
           <span className="text-sm text-text">{tHotkeys("hintText")}</span>
           <button

@@ -252,7 +252,7 @@ body[data-room-bg] .bg-bg .bg-bg {
 
 /* Dropdown menus — quick, origin-aware pop. */
 @keyframes overlay-pop-in {
-  from { transform: scale(0.95) translateY(-6px); opacity: 0; }
+  from { transform: scale(0.95) translateY(var(--overlay-pop-y, -6px)); opacity: 0; }
   to { transform: scale(1) translateY(0); opacity: 1; }
 }
 .overlay-pop {

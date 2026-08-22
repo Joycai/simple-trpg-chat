@@ -171,7 +171,7 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   return createPortal(
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden animate-in fade-in duration-150"
+      className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
