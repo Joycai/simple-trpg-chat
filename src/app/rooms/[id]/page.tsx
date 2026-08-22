@@ -13,6 +13,7 @@ import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { roomBackgroundUrl } from "@/lib/backgrounds";
 import { getRuleForRoom } from "@/lib/rules";
+import { sanitizeBotConfigForClient } from "@/lib/botStatus";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
@@ -41,34 +42,53 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const isHost = room.hostId === userId;
   const isAdmin = user.role === "admin";
 
+  // Explicit column lists only — the joined `users` row must never reach the
+  // client whole (it carries passwordHash / sessionToken / full bot config).
+  const memberUserColumns = {
+    id: users.id,
+    isBot: users.isBot,
+    displayName: users.displayName,
+    username: users.username,
+    botConfigJson: users.botConfigJson,
+  };
+  const memberColumns = {
+    id: roomMembers.id,
+    roomId: roomMembers.roomId,
+    userId: roomMembers.userId,
+    nickname: roomMembers.nickname,
+    joinedAt: roomMembers.joinedAt,
+    characterData: roomMembers.characterData,
+    avatarColor: roomMembers.avatarColor,
+  };
+  const fetchMembers = async () => {
+    let rows;
+    try {
+      rows = await db
+        .select({
+          room_members: { ...memberColumns, avatar: roomMembers.avatar },
+          users: memberUserColumns,
+        })
+        .from(roomMembers)
+        .innerJoin(users, eq(roomMembers.userId, users.id))
+        .where(eq(roomMembers.roomId, roomId));
+    } catch {
+      // Fallback if avatar column doesn't exist yet
+      rows = await db
+        .select({ room_members: memberColumns, users: memberUserColumns })
+        .from(roomMembers)
+        .innerJoin(users, eq(roomMembers.userId, users.id))
+        .where(eq(roomMembers.roomId, roomId));
+    }
+    // The client only needs providerId (getBotStatus) — strip prompts,
+    // summaries, and every other bot-config field before serialization.
+    return rows.map((m) => ({
+      ...m,
+      users: { ...m.users, botConfigJson: sanitizeBotConfigForClient(m.users.botConfigJson) },
+    }));
+  };
+
   // 1. Get all room members (for player list)
-  let members;
-  try {
-    members = await db
-      .select({
-        room_members: {
-          id: roomMembers.id,
-          roomId: roomMembers.roomId,
-          userId: roomMembers.userId,
-          nickname: roomMembers.nickname,
-          joinedAt: roomMembers.joinedAt,
-          characterData: roomMembers.characterData,
-          avatarColor: roomMembers.avatarColor,
-          avatar: roomMembers.avatar,
-        },
-        users: users,
-      })
-      .from(roomMembers)
-      .innerJoin(users, eq(roomMembers.userId, users.id))
-      .where(eq(roomMembers.roomId, roomId));
-  } catch {
-    // Fallback if avatar column doesn't exist yet
-    members = await db
-      .select()
-      .from(roomMembers)
-      .innerJoin(users, eq(roomMembers.userId, users.id))
-      .where(eq(roomMembers.roomId, roomId));
-  }
+  let members = await fetchMembers();
 
   // 2. Check if user is a member (lookup in memory first to save DB query)
   let currentMemberJoint = members.find(m => m.room_members.userId === userId);
@@ -83,13 +103,9 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       avatarColor: getRandomColorForUser(userId),
       characterData: JSON.stringify(getRuleForRoom(room).initCharacter()),
     });
-    
+
     // Re-fetch members to include the host
-    members = await db
-      .select()
-      .from(roomMembers)
-      .innerJoin(users, eq(roomMembers.userId, users.id))
-      .where(eq(roomMembers.roomId, roomId));
+    members = await fetchMembers();
     currentMemberJoint = members.find(m => m.room_members.userId === userId);
     currentMember = currentMemberJoint?.room_members || null;
   } else if (!currentMember && !isAdmin) {
@@ -179,11 +195,15 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       initialTimelineMode = resolvedModeFromDivider(parseTimelinePayload(lastDivider.diceDetail)) ?? "light";
     }
   }
+  // The room key is host-only UI (RoomInfoPanel gates on isHost); never ship
+  // it to other members — they would keep it even after a host regenerates.
+  const clientRoom = { ...room, secretKey: isHost ? room.secretKey : "" };
+
   return (
     <>
       <RoomThemeSetter roomId={roomId} theme={(room.theme as ThemeId) || "default"} />
       <RoomClient
-        room={room as Parameters<typeof RoomClient>[0]["room"]}
+        room={clientRoom as Parameters<typeof RoomClient>[0]["room"]}
         players={members}
         messages={visibleMessages as Parameters<typeof RoomClient>[0]["messages"]}
         userId={userId}
