@@ -628,7 +628,7 @@ async function runRuleCheck(
   // stored values.)
   let stored: { name: string; value: number } | null = null;
   if (parsed.explicitTarget === undefined) {
-    stored = await lookupCheckTarget(roomId, userId, parsed.skillName, rule);
+    stored = await lookupCheckTarget(roomId, userId, parsed.skillName, rule, sheet);
     if (stored === null && rule.capabilities.requiresStoredTarget) {
       return {
         success: false,
@@ -665,31 +665,28 @@ async function lookupCheckTarget(
   roomId: number,
   userId: number,
   skillName: string,
-  rule: RuleModule
+  rule: RuleModule,
+  sheet: CharacterData | null
 ): Promise<{ name: string; value: number } | null> {
-  const tryExact = async (name: string) => {
-    const [skill] = await db.select().from(roomSkills).where(
-      and(
-        eq(roomSkills.roomId, roomId),
-        eq(roomSkills.userId, userId),
-        eq(roomSkills.skillName, name)
-      )
-    );
-    return skill ?? null;
-  };
-
-  const exact = await tryExact(skillName);
-  if (exact) return { name: exact.skillName, value: exact.skillValue };
-
-  // Alternate spellings of the same skill (COC's 侦查/侦察) — the rule owns
-  // the alias table, the engine just tries each candidate the same way.
-  for (const alias of rule.skillAliasCandidates?.(skillName) ?? []) {
-    const hit = await tryExact(alias);
+  // One round-trip for the name plus every alias (COC's 侦查/侦察 — the rule
+  // owns the alias table). This is the hottest command in play: the previous
+  // shape was one sequential SELECT per candidate.
+  const candidates = [skillName, ...(rule.skillAliasCandidates?.(skillName) ?? [])];
+  const rows = await db.select().from(roomSkills).where(
+    and(
+      eq(roomSkills.roomId, roomId),
+      eq(roomSkills.userId, userId),
+      inArray(roomSkills.skillName, candidates)
+    )
+  );
+  // Preserve the old priority: exact name first, then alias order.
+  for (const name of candidates) {
+    const hit = rows.find((r) => r.skillName === name);
     if (hit) return { name: hit.skillName, value: hit.skillValue };
   }
 
-  // Skill row missing — defer to the rule's fallback strategy.
-  const sheet = await getCharacterData(roomId, userId);
+  // Skill row missing — defer to the rule's fallback strategy against the
+  // sheet the caller already loaded (this used to re-fetch it).
   return rule.lookupFallback(skillName, sheet);
 }
 

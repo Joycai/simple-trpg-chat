@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { ChatMessage } from "@/components/room/chat/ChatMessage";
 import { ChatInput } from "@/components/room/chat/ChatInput";
@@ -56,12 +57,24 @@ export function ChatArea({
 }: ChatAreaProps) {
   const t = useTranslations("room");
 
+  // O(1) sender lookup per message — the per-row `players.find` was
+  // O(messages × members) on every list render, with the tolerant multi-key
+  // probe making each miss non-trivial.
+  const playersById = useMemo(() => {
+    const map = new Map<number, PlayerEntry>();
+    for (const p of players) {
+      const uid = p.users?.id ?? p.user?.id ?? p.user_id;
+      if (uid !== undefined) map.set(uid, p);
+    }
+    return map;
+  }, [players]);
+
   return (
     <div className="flex-1 flex flex-col relative min-w-0">
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
         <div className="max-w-4xl mx-auto flex flex-col gap-1">
           {tabMessages.map((msg) => {
-            const playerData = players.find((p) => (p.users?.id || p.user_id || p.user?.id) === msg.userId);
+            const playerData = playersById.get(msg.userId);
             return (
               <ChatMessage
                 key={msg.id}
@@ -127,7 +140,7 @@ export function ChatArea({
         </button>
       )}
 
-      <div className="bg-surface-alt border-t border-border px-4 py-3 shrink-0">
+      <div className="bg-surface-alt room-shell-frost border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
           {activeTab !== "public" && (
             <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">

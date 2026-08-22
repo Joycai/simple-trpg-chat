@@ -7,8 +7,9 @@ interface ActiveConnection {
   cleanup: () => void;
 }
 
+// Keyed "userId:roomId" — see the SSE route, which owns this map.
 declare global {
-  var __userConnections: Map<number, Set<ActiveConnection>> | undefined;
+  var __userConnections: Map<string, Set<ActiveConnection>> | undefined;
 }
 
 // Format a Date object as YYYY-MM-DD UTC string
@@ -27,13 +28,15 @@ export function getTodayString(): string {
 export function getLiveOnlineCount(): number {
   const userConnections = globalThis.__userConnections;
   if (!userConnections) return 0;
-  let count = 0;
-  for (const [_, conns] of userConnections.entries()) {
+  // Entries are per (user, room) — dedupe on the userId prefix so a user
+  // with several room tabs still counts once.
+  const users = new Set<string>();
+  for (const [key, conns] of userConnections.entries()) {
     if (conns && conns.size > 0) {
-      count++;
+      users.add(key.split(":")[0]);
     }
   }
-  return count;
+  return users.size;
 }
 
 export async function recordPageVisit() {

@@ -1286,18 +1286,31 @@ export const ChatMessage = memo(function ChatMessage({
 
     updatePosition();
 
+    // rAF-throttled like the main chat scroll handler: the raw scroll event
+    // fires several times per frame, and each updatePosition is a forced
+    // layout (getBoundingClientRect) plus a React commit on this message.
+    let rafId: number | null = null;
+    const scheduleUpdate = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updatePosition();
+      });
+    };
+
     // Find nearest scrollable container
     const scrollParent = avatarRef.current?.closest(".overflow-y-auto");
     if (scrollParent) {
-      scrollParent.addEventListener("scroll", updatePosition);
+      scrollParent.addEventListener("scroll", scheduleUpdate);
     }
-    window.addEventListener("resize", updatePosition);
+    window.addEventListener("resize", scheduleUpdate);
 
     return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
       if (scrollParent) {
-        scrollParent.removeEventListener("scroll", updatePosition);
+        scrollParent.removeEventListener("scroll", scheduleUpdate);
       }
-      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("resize", scheduleUpdate);
     };
   }, [isHovered, canView]);
 

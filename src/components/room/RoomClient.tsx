@@ -82,7 +82,7 @@ export function RoomClient({
   roomTheme,
   roomThemeMode,
   initialTimelineMode,
-  players = [],
+  players: initialPlayers = [],
   characterData,
   aiEnabled = false,
   validProviderIds = [],
@@ -106,6 +106,18 @@ export function RoomClient({
     messagesRef.current = messages;
   }, [messages]);
   const [nickname, setNickname] = useState(currentNickname);
+  // Live member list: seeded from the server, patched in place by
+  // `member_updated` SSE deltas (nickname / color / avatar changes) so those
+  // no longer cost every client a full router.refresh(). A real server
+  // re-render (navigation, or the remaining refresh events) re-seeds it via
+  // the render-time reset below (React's derive-state-from-props pattern —
+  // re-renders immediately without committing the stale tree).
+  const [players, setPlayers] = useState(initialPlayers);
+  const [seededPlayers, setSeededPlayers] = useState(initialPlayers);
+  if (seededPlayers !== initialPlayers) {
+    setSeededPlayers(initialPlayers);
+    setPlayers(initialPlayers);
+  }
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -456,11 +468,17 @@ export function RoomClient({
               return [...filteredOlder, ...prev];
             });
 
-            // Adjust scroll position after rendering to keep it stable
+            // Adjust scroll position after rendering to keep it stable.
+            // Must be an explicit `instant` scroll: the container carries
+            // `scroll-smooth`, and a bare scrollTop assignment scrolls with
+            // behavior `auto` — which scroll-behavior turns into an ANIMATED
+            // glide from ~0 down to delta. Besides the visible lurch, the
+            // intermediate scroll events still satisfy `scrollTop < 10` after
+            // `loadingMore` resets, spuriously fetching a second page.
             requestAnimationFrame(() => {
               if (scrollRef.current) {
                 const delta = scrollRef.current.scrollHeight - prevScrollHeight;
-                scrollRef.current.scrollTop = delta;
+                scrollRef.current.scrollTo({ top: delta, behavior: "instant" });
               }
             });
           }
@@ -481,6 +499,19 @@ export function RoomClient({
     }
   }, [tabMessages, typingBots]); // Re-scroll when switching tabs or typing state changes
 
+  // Cap the in-memory list: SSE only ever appends, so a multi-hour session
+  // accumulates thousands of mounted ChatMessage trees. While the user sits at
+  // the bottom (i.e. not reading scrollback), trim to the newest window and
+  // re-arm `hasMore` — scrolling up refetches the trimmed rows via
+  // loadMoreMessagesAction exactly like the initial 100-row page.
+  useEffect(() => {
+    const MAX = 400, KEEP = 300;
+    if (messages.length > MAX && isAtBottomRef.current) {
+      setMessages((prev) => (prev.length > MAX ? prev.slice(prev.length - KEEP) : prev));
+      setHasMore(true);
+    }
+  }, [messages.length]);
+
   // Single SSE connection: routes inbound events into the right state setter.
   useRoomEvents({
     roomId: room.id,
@@ -490,6 +521,7 @@ export function RoomClient({
     seenIdsRef,
     messagesRef,
     setMessages,
+    setPlayers,
     setStatus,
     setUnreadCounts,
     setTypingBots,

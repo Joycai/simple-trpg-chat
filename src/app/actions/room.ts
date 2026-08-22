@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray, or, desc, asc, lt, gt, isNull, not } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, lt, gt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -14,7 +14,7 @@ import { rollDice, rollDie } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { isValidStickerRef } from "@/lib/stickers";
-import { parseAvatarDataUrl } from "@/lib/avatars";
+import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/avatars";
 import { getTranslations, getLocale } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
@@ -115,30 +115,8 @@ export async function joinRoomAction(formData: FormData) {
 }
 
 // --- Nickname & Character Actions ---
-
-export async function updateCharacterDataAction(roomId: number, characterData: Record<string, unknown>) {
-  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
-
-  // Row-locked merge: this is a read-modify-write on a JSON column, and a
-  // concurrent writer (sheet edit racing a `.st` command or a bot tool) would
-  // otherwise have its fields silently erased by whoever commits last.
-  await db.transaction(async (tx) => {
-    const [member] = await tx
-      .select({ characterData: roomMembers.characterData })
-      .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)))
-      .for("update");
-
-    const existingData = member?.characterData ? JSON.parse(member.characterData) : {};
-    const newData = { ...existingData, ...characterData };
-
-    await tx.update(roomMembers)
-      .set({ characterData: JSON.stringify(newData) })
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-  });
-
-  revalidatePath(`/rooms/${roomId}`);
-}
+// (Sheet writes live in actions/character.ts — the old updateCharacterDataAction
+// here had no callers and accepted unbounded JSON, so it was removed.)
 
 export async function updateNicknameAction(roomId: number, nickname: string) {
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
@@ -152,11 +130,10 @@ export async function updateNicknameAction(roomId: number, nickname: string) {
     .set({ nickname: trimmed })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  broadcastToRoom(roomId, {
-    type: "room_settings_updated",
-  });
-
-  revalidatePath(`/rooms/${roomId}`);
+  // Member-level delta: clients patch their live player list in place —
+  // no router.refresh() fan-out, no revalidatePath (the room page is fully
+  // dynamic; the next real navigation re-renders regardless).
+  broadcastToRoom(roomId, { type: "member_updated", userId, nickname: trimmed });
 }
 
 export async function updateRoomMemberColorAction(roomId: number, targetUserId: number, color: string) {
@@ -195,11 +172,8 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
     .set({ avatarColor: color })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, targetUserId)));
 
-  broadcastToRoom(roomId, {
-    type: "room_settings_updated",
-  });
-
-  revalidatePath(`/rooms/${roomId}`);
+  // Member-level delta — see updateNicknameAction for the rationale.
+  broadcastToRoom(roomId, { type: "member_updated", userId: targetUserId, avatarColor: color });
 }
 
 // --- Message & Dice Actions ---
@@ -1147,16 +1121,10 @@ export async function regenerateRoomPasswordAction(roomId: number) {
 }
 
 // --- Data Fetching ---
-
-export async function getRoomMessages(roomId: number) {
-  const { userId, isHost } = await checkRoomAccess(roomId, false);
-
-  return await db
-    .select()
-    .from(messages)
-    .where(messageVisibilityWhere(roomId, userId, isHost))
-    .orderBy(asc(messages.id));
-}
+// (No unbounded full-history fetch here on purpose: the page query and
+// loadMoreMessagesAction / catchUpMessagesAction are all limit-bounded, and
+// every exported "use server" function is callable by any authenticated
+// member with a crafted POST.)
 
 export async function getRoomSkills(roomId: number, userId: number) {
   await checkRoomAccess(roomId, false);
@@ -1299,8 +1267,10 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
       target: [roomDmReads.roomId, roomDmReads.userId, roomDmReads.partnerUserId],
       set: { lastReadAt: sqlNow() },
     });
-  
-  revalidatePath(`/rooms/${roomId}`);
+  // No revalidatePath here: unread state is client-managed (setUnreadCounts),
+  // and this action fires for EVERY inbound DM while its tab is active — the
+  // revalidate was embedding a full room-page RSC render into each response
+  // (per message, during bot streaming). The DB write alone is the contract.
 }
 
 export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
@@ -1363,10 +1333,13 @@ export async function uploadAvatarAction(
     .set({ avatar: imageData })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
+  // Member-level delta carrying the new reference URL (fresh `v` hash busts
+  // the immutable cache) — this event used to trigger a router.refresh() on
+  // every client, re-shipping all members' avatars and sheets for one upload.
   broadcastToRoom(roomId, {
-    type: "room_settings_updated",
+    type: "member_updated",
+    userId,
+    avatar: roomAvatarUrl(roomId, userId, imageData),
   });
-
-  revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }
