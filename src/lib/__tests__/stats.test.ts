@@ -45,10 +45,12 @@ describe("Traffic and Online Statistics Helpers", () => {
   });
 
   it("should return correct live online count based on unique active connections", () => {
+    // Keys are "userId:roomId" — user 101 sits in two rooms and must count once.
     globalThis.__userConnections = new Map([
-      [101, new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
-      [102, new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }, { controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
-      [103, new Set([])], // empty connections set
+      ["101:1", new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
+      ["101:2", new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
+      ["102:1", new Set([{ controller: {} as ReadableStreamDefaultController, cleanup: () => {} }, { controller: {} as ReadableStreamDefaultController, cleanup: () => {} }])],
+      ["103:1", new Set([])], // empty connections set
     ]);
 
     const count = getLiveOnlineCount();

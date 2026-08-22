@@ -23,13 +23,16 @@ interface RoomEvent {
   [key: string]: unknown;
 }
 
-// Next.js HMR workaround: persist userConnections on globalThis during development
+// Next.js HMR workaround: persist userConnections on globalThis during development.
+// Keyed per (userId, roomId): a global per-user cap silently killed the 4th
+// room tab of a multi-room host — after the client's retries all 429'd, that
+// room stayed rendered but never updated again.
 declare global {
-  var __userConnections: Map<number, Set<ActiveConnection>> | undefined;
+  var __userConnections: Map<string, Set<ActiveConnection>> | undefined;
   var __roomPresence: Map<number, Map<number, number>> | undefined;
 }
 
-const userConnections = globalThis.__userConnections || new Map<number, Set<ActiveConnection>>();
+const userConnections = globalThis.__userConnections || new Map<string, Set<ActiveConnection>>();
 globalThis.__userConnections = userConnections;
 
 // Tracks active SSE connection counts per room per user: roomId → (userId → count).
@@ -62,11 +65,12 @@ export async function GET(
     return new Response(err instanceof Error ? err.message : "Forbidden", { status: 403 });
   }
 
-  // Get or initialize active connections set for this user
-  let connections = userConnections.get(userId);
+  // Get or initialize active connections set for this user in this room
+  const connKey = `${userId}:${roomId}`;
+  let connections = userConnections.get(connKey);
   if (!connections) {
     connections = new Set();
-    userConnections.set(userId, connections);
+    userConnections.set(connKey, connections);
   }
 
   // Active validation: ping all existing connections to prune any dead/closed ones
@@ -81,9 +85,9 @@ export async function GET(
     }
   }
 
-  // SSE Connection limit per user (R5)
+  // SSE Connection limit per user per room (R5)
   if (connections.size >= 3) {
-    return new Response("Too many SSE connections (maximum 3)", { status: 429 });
+    return new Response("Too many SSE connections for this room (maximum 3)", { status: 429 });
   }
 
   const connRecord: ActiveConnection = {
@@ -134,7 +138,12 @@ export async function GET(
         try {
           controller.enqueue(encoder.encode(payload));
         } catch {
-          // controller closed, ignore
+          // Controller closed — the very signal this stream is dead. Behind
+          // buffering proxies neither req.signal abort nor cancel() may ever
+          // fire, so tear down here or the room/user listeners, the conn
+          // record, and the presence count all leak (ghost-online members)
+          // until the same user happens to reconnect and trip the prune.
+          cleanup();
         }
       };
 
@@ -161,7 +170,8 @@ export async function GET(
           sentIds.add(idStr);
         }
         const payload = `data: ${JSON.stringify(data)}\n\n`;
-        try { controller.enqueue(encoder.encode(payload)); } catch { /* */ }
+        // Same dead-stream teardown as the room listener above.
+        try { controller.enqueue(encoder.encode(payload)); } catch { cleanup(); }
       };
       const userUnsubscribe = subscribeToUser(roomId, userId, userListener);
 
@@ -173,7 +183,9 @@ export async function GET(
         try {
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
         } catch {
-          clearInterval(heartbeat);
+          // Dead stream — full teardown, not just the interval (see the room
+          // listener's catch). cleanup() clears this interval itself.
+          cleanup();
         }
       }, 15000);
 
@@ -199,11 +211,11 @@ export async function GET(
         }
 
         // Decrement connection count
-        const conns = userConnections.get(userId);
+        const conns = userConnections.get(connKey);
         if (conns) {
           conns.delete(connRecord);
           if (conns.size === 0) {
-            userConnections.delete(userId);
+            userConnections.delete(connKey);
           }
         }
         updatePeakOnline().catch((err) => {
