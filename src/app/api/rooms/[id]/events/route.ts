@@ -35,6 +35,24 @@ declare global {
 const userConnections = globalThis.__userConnections || new Map<string, Set<ActiveConnection>>();
 globalThis.__userConnections = userConnections;
 
+// One serialization+encode per broadcast, not per connection: the EventEmitter
+// hands every listener the SAME object reference, so the encoded SSE frame is
+// cached per event object (WeakMap — entries die with the event, no growth).
+// A 50-connection room previously stringified the identical payload 50 times.
+const frameEncoder = new TextEncoder();
+const framedEvents = new WeakMap<object, Uint8Array>();
+function sseFrame(data: unknown): Uint8Array {
+  if (typeof data !== "object" || data === null) {
+    return frameEncoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+  }
+  let frame = framedEvents.get(data);
+  if (!frame) {
+    frame = frameEncoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+    framedEvents.set(data, frame);
+  }
+  return frame;
+}
+
 // Tracks active SSE connection counts per room per user: roomId → (userId → count).
 // Used to broadcast presence_update events when users come online/go offline.
 const roomPresence = globalThis.__roomPresence || new Map<number, Map<number, number>>();
@@ -134,9 +152,8 @@ export async function GET(
           }
         }
 
-        const payload = `data: ${JSON.stringify(data)}\n\n`;
         try {
-          controller.enqueue(encoder.encode(payload));
+          controller.enqueue(sseFrame(data));
         } catch {
           // Controller closed — the very signal this stream is dead. Behind
           // buffering proxies neither req.signal abort nor cancel() may ever
@@ -169,9 +186,8 @@ export async function GET(
           if (sentIds.has(idStr)) return;
           sentIds.add(idStr);
         }
-        const payload = `data: ${JSON.stringify(data)}\n\n`;
         // Same dead-stream teardown as the room listener above.
-        try { controller.enqueue(encoder.encode(payload)); } catch { cleanup(); }
+        try { controller.enqueue(sseFrame(data)); } catch { cleanup(); }
       };
       const userUnsubscribe = subscribeToUser(roomId, userId, userListener);
 
