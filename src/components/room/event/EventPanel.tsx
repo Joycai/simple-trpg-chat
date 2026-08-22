@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -29,13 +28,17 @@ export function EventPanel({ roomId, onClose, onChanged, onOpenEvent }: EventPan
 
   // Mark read once per open; refresh the badge only. Re-fetching here would
   // immediately clear every `updated` flag we just rendered the highlight for.
-  useEffect(() => {
+  //
+  // Routed through `onEntered` rather than a mount effect: the action ends in
+  // `revalidatePath`, so `onChanged` re-renders off a response carrying a fresh
+  // payload for the whole room — the largest single stall if it lands inside
+  // the drawer's slide.
+  const markRead = () => {
     markEventsViewedAction(roomId).then(() => onChanged()).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  };
 
   return (
-    <OverlayShell onClose={onClose} variant="drawer" panelClassName="w-full max-w-xl h-full bg-surface theme-border border-l border-border shadow-2xl flex flex-col overflow-hidden">
+    <OverlayShell onClose={onClose} variant="drawer" onEntered={markRead} panelClassName="w-full max-w-xl h-full bg-surface theme-border border-l border-border shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border shrink-0">

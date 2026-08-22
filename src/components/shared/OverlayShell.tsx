@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayTransition, type OverlayVariant } from "@/lib/useOverlayTransition";
 
@@ -25,8 +25,19 @@ interface OverlayShellProps {
    * otherwise center this overlay within that ancestor rather than the screen.
    */
   portal?: boolean;
-  /** Receives the animated `close` so inner controls can trigger the exit. */
-  children: (close: () => void) => ReactNode;
+  /**
+   * Mount-time work to run once the enter animation has settled — typically a
+   * server action that ends in `revalidatePath`, whose response re-renders the
+   * whole route and would otherwise stall the slide. Captured on mount, so it
+   * must not depend on later props.
+   */
+  onEntered?: () => void;
+  /**
+   * Receives the animated `close` so inner controls can trigger the exit, and
+   * `afterEnter` so content can defer its own heavy commits (see
+   * `useOverlayTransition`).
+   */
+  children: (close: () => void, afterEnter: (fn: () => void) => void) => ReactNode;
 }
 
 /**
@@ -42,11 +53,22 @@ export function OverlayShell({
   closeOnBackdrop = true,
   closeOnEscape = closeOnBackdrop,
   portal = false,
+  onEntered,
   children,
 }: OverlayShellProps) {
-  const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, variant, {
-    closeOnEscape,
-  });
+  const { close, panelRef, backdropRef, panelClass, afterEnter } = useOverlayTransition(
+    onClose,
+    variant,
+    { closeOnEscape },
+  );
+
+  // Mount-only: `panelRef` has already run by the time effects fire, so the
+  // enter is either in flight (queued) or was skipped for reduced motion
+  // (immediate). Re-registering on every render would queue duplicates.
+  useEffect(() => {
+    if (onEntered) afterEnter(onEntered);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // These overlays mount only on client interaction (never during SSR), so a
   // one-shot check for `document` is enough to portal — no effect needed, which
   // keeps clear of the set-state-in-effect lint rule.
@@ -61,7 +83,7 @@ export function OverlayShell({
           className={`relative ml-auto ${panelClassName} ${panelClass}`}
           onClick={(e) => e.stopPropagation()}
         >
-          {children(close)}
+          {children(close, afterEnter)}
         </div>
       </div>
     ) : (
@@ -77,7 +99,7 @@ export function OverlayShell({
           className={`${panelClassName} ${panelClass}`}
           onClick={(e) => e.stopPropagation()}
         >
-          {children(close)}
+          {children(close, afterEnter)}
         </div>
       </div>
     );
