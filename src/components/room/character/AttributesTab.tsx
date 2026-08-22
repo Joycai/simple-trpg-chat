@@ -199,7 +199,7 @@ function ResourceCard({ label, icon, color, current, max, editable, maxEditable,
         )}
       </div>
       <div className="h-2 bg-bg rounded-full overflow-hidden mb-3">
-        <div className="h-full rounded-full transition-all"
+        <div className="h-full rounded-full transition-[width] duration-300"
           style={{ width: `${pct}%`, backgroundImage: `linear-gradient(90deg, rgb(${color} / 0.7), rgb(${color}))` }} />
       </div>
       <div className="flex items-end gap-3">

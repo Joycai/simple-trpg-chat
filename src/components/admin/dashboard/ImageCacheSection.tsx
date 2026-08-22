@@ -53,7 +53,7 @@ export function ImageCacheSection({ stats }: { stats: ImageCacheStatsView | null
           </div>
           <div className="w-full bg-border/40 h-2 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-warning transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-primary to-warning transition-[width] duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>

@@ -208,7 +208,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                 <div key={d.day} className="flex-1 flex flex-col items-center gap-2 min-w-0">
                   <div className="w-full flex items-end justify-center h-36">
                     <div
-                      className="w-full max-w-[2.75rem] rounded-t-md bg-gradient-to-t from-primary/30 to-primary shadow-[var(--theme-glow)] transition-all"
+                      className="w-full max-w-[2.75rem] rounded-t-md bg-gradient-to-t from-primary/30 to-primary shadow-[var(--theme-glow)] transition-[height] duration-300"
                       style={{ height: `${daily.max > 0 ? Math.max(4, (d.value / daily.max) * 100) : 0}%` }}
                       title={d.value.toLocaleString()}
                     />

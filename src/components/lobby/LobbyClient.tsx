@@ -262,10 +262,10 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
           <div className="filter-tabs-container relative flex border-b border-border">
             {/* Sliding indicator */}
             <div
-              className="filter-indicator absolute bottom-0 h-[2px] rounded-full transition-all duration-300 ease-out"
+              className="filter-indicator absolute bottom-0 left-0 h-[2px] rounded-full transition-transform duration-200 ease-[var(--ease-spring-snappy)]"
               style={{
-                left: `${tabIndex * 33.33}%`,
                 width: '33.33%',
+                transform: `translateX(${tabIndex * 100}%)`,
               }}
             />
 
