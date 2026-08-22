@@ -109,11 +109,15 @@ export function RoomClient({
   // Live member list: seeded from the server, patched in place by
   // `member_updated` SSE deltas (nickname / color / avatar changes) so those
   // no longer cost every client a full router.refresh(). A real server
-  // re-render (navigation, or the remaining refresh events) re-seeds it.
+  // re-render (navigation, or the remaining refresh events) re-seeds it via
+  // the render-time reset below (React's derive-state-from-props pattern —
+  // re-renders immediately without committing the stale tree).
   const [players, setPlayers] = useState(initialPlayers);
-  useEffect(() => {
+  const [seededPlayers, setSeededPlayers] = useState(initialPlayers);
+  if (seededPlayers !== initialPlayers) {
+    setSeededPlayers(initialPlayers);
     setPlayers(initialPlayers);
-  }, [initialPlayers]);
+  }
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
   const [loadingMore, setLoadingMore] = useState(false);
