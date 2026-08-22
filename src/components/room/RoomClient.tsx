@@ -489,6 +489,19 @@ export function RoomClient({
     }
   }, [tabMessages, typingBots]); // Re-scroll when switching tabs or typing state changes
 
+  // Cap the in-memory list: SSE only ever appends, so a multi-hour session
+  // accumulates thousands of mounted ChatMessage trees. While the user sits at
+  // the bottom (i.e. not reading scrollback), trim to the newest window and
+  // re-arm `hasMore` — scrolling up refetches the trimmed rows via
+  // loadMoreMessagesAction exactly like the initial 100-row page.
+  useEffect(() => {
+    const MAX = 400, KEEP = 300;
+    if (messages.length > MAX && isAtBottomRef.current) {
+      setMessages((prev) => (prev.length > MAX ? prev.slice(prev.length - KEEP) : prev));
+      setHasMore(true);
+    }
+  }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Single SSE connection: routes inbound events into the right state setter.
   useRoomEvents({
     roomId: room.id,
