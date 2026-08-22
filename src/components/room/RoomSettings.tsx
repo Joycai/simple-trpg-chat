@@ -103,7 +103,7 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
                     key={key}
                     type="button"
                     onClick={() => setTab(key)}
-                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-xs md:text-sm font-medium transition-all duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer border ${
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-xs md:text-sm font-medium transition-[color,background-color,border-color] duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer border ${
                       isActive
                         ? "text-primary bg-primary/10 border-primary/40 font-semibold"
                         : "text-text-muted border-transparent hover:text-text hover:bg-surface-alt/50"

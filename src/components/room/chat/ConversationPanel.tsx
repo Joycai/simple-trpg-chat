@@ -266,7 +266,7 @@ export function ConversationPanel({
                 <div className="relative z-50" style={{ flexShrink: 0 }} ref={isDropdownOpen ? dropdownRef : undefined}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setOpenDropdown(isDropdownOpen ? null : conv.userId); }}
-                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded hover:bg-border text-text-muted hover:text-text transition-all cursor-pointer"
+                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded hover:bg-border text-text-muted hover:text-text transition-[opacity,background-color,color] cursor-pointer"
                     style={{ width: 20, height: 20, fontSize: 13, lineHeight: 1 }}
                     title={t("memberOptions")}
                   >

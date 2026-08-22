@@ -166,7 +166,10 @@ body[data-room-bg] .bg-bg .bg-bg {
      active, so those inherit the same motion language. */
   --ease-emphasized: var(--ease-spring-smooth);
 
-  --overlay-pop-dur: 320ms;
+  /* Dropdowns open dozens of times a day — the snappy spring covers ~90% of
+     the distance by half-time, so the tail past ~260ms was pure settle that
+     read as lag on the highest-frequency popover in the app. */
+  --overlay-pop-dur: 260ms;
   --sidebar-dur: 380ms;
 }
 
