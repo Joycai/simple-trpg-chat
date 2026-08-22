@@ -464,11 +464,17 @@ export function RoomClient({
               return [...filteredOlder, ...prev];
             });
 
-            // Adjust scroll position after rendering to keep it stable
+            // Adjust scroll position after rendering to keep it stable.
+            // Must be an explicit `instant` scroll: the container carries
+            // `scroll-smooth`, and a bare scrollTop assignment scrolls with
+            // behavior `auto` — which scroll-behavior turns into an ANIMATED
+            // glide from ~0 down to delta. Besides the visible lurch, the
+            // intermediate scroll events still satisfy `scrollTop < 10` after
+            // `loadingMore` resets, spuriously fetching a second page.
             requestAnimationFrame(() => {
               if (scrollRef.current) {
                 const delta = scrollRef.current.scrollHeight - prevScrollHeight;
-                scrollRef.current.scrollTop = delta;
+                scrollRef.current.scrollTo({ top: delta, behavior: "instant" });
               }
             });
           }
