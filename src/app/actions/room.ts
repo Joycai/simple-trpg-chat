@@ -14,7 +14,7 @@ import { rollDice, rollDie } from "@/lib/utils";
 import { checkRoomAccess } from "@/lib/auth-helpers";
 import { checkSensitiveWords } from "@/lib/sensitive-words";
 import { isValidStickerRef } from "@/lib/stickers";
-import { parseAvatarDataUrl } from "@/lib/avatars";
+import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/avatars";
 import { getTranslations, getLocale } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/avatar-colors";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
@@ -152,11 +152,10 @@ export async function updateNicknameAction(roomId: number, nickname: string) {
     .set({ nickname: trimmed })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  broadcastToRoom(roomId, {
-    type: "room_settings_updated",
-  });
-
-  revalidatePath(`/rooms/${roomId}`);
+  // Member-level delta: clients patch their live player list in place —
+  // no router.refresh() fan-out, no revalidatePath (the room page is fully
+  // dynamic; the next real navigation re-renders regardless).
+  broadcastToRoom(roomId, { type: "member_updated", userId, nickname: trimmed });
 }
 
 export async function updateRoomMemberColorAction(roomId: number, targetUserId: number, color: string) {
@@ -195,11 +194,8 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
     .set({ avatarColor: color })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, targetUserId)));
 
-  broadcastToRoom(roomId, {
-    type: "room_settings_updated",
-  });
-
-  revalidatePath(`/rooms/${roomId}`);
+  // Member-level delta — see updateNicknameAction for the rationale.
+  broadcastToRoom(roomId, { type: "member_updated", userId: targetUserId, avatarColor: color });
 }
 
 // --- Message & Dice Actions ---
@@ -1363,10 +1359,13 @@ export async function uploadAvatarAction(
     .set({ avatar: imageData })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
+  // Member-level delta carrying the new reference URL (fresh `v` hash busts
+  // the immutable cache) — this event used to trigger a router.refresh() on
+  // every client, re-shipping all members' avatars and sheets for one upload.
   broadcastToRoom(roomId, {
-    type: "room_settings_updated",
+    type: "member_updated",
+    userId,
+    avatar: roomAvatarUrl(roomId, userId, imageData),
   });
-
-  revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }

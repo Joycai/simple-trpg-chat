@@ -82,7 +82,7 @@ export function RoomClient({
   roomTheme,
   roomThemeMode,
   initialTimelineMode,
-  players = [],
+  players: initialPlayers = [],
   characterData,
   aiEnabled = false,
   validProviderIds = [],
@@ -106,6 +106,14 @@ export function RoomClient({
     messagesRef.current = messages;
   }, [messages]);
   const [nickname, setNickname] = useState(currentNickname);
+  // Live member list: seeded from the server, patched in place by
+  // `member_updated` SSE deltas (nickname / color / avatar changes) so those
+  // no longer cost every client a full router.refresh(). A real server
+  // re-render (navigation, or the remaining refresh events) re-seeds it.
+  const [players, setPlayers] = useState(initialPlayers);
+  useEffect(() => {
+    setPlayers(initialPlayers);
+  }, [initialPlayers]);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -490,6 +498,7 @@ export function RoomClient({
     seenIdsRef,
     messagesRef,
     setMessages,
+    setPlayers,
     setStatus,
     setUnreadCounts,
     setTypingBots,

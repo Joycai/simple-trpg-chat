@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { markDMReadAction, catchUpMessagesAction } from "@/app/actions/room";
 import { canSee, isAudience, countsAsDmUnread } from "@/lib/messaging/audience";
-import type { Message, ConnectionStatus, TypingBots } from "@/components/room/types";
+import type { Message, ConnectionStatus, TypingBots, PlayerEntry } from "@/components/room/types";
 import type { StatusEntry } from "@/lib/rules";
 
 interface UseRoomEventsParams {
@@ -16,6 +16,7 @@ interface UseRoomEventsParams {
   /** Live view of the loaded messages — read on reconnect to compute the catch-up cursor. */
   messagesRef: React.RefObject<Message[]>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  setPlayers: React.Dispatch<React.SetStateAction<PlayerEntry[]>>;
   setStatus: React.Dispatch<React.SetStateAction<ConnectionStatus>>;
   setUnreadCounts: React.Dispatch<React.SetStateAction<Record<number, number>>>;
   setTypingBots: React.Dispatch<React.SetStateAction<TypingBots>>;
@@ -36,6 +37,7 @@ export function useRoomEvents({
   seenIdsRef,
   messagesRef,
   setMessages,
+  setPlayers,
   setStatus,
   setUnreadCounts,
   setTypingBots,
@@ -112,6 +114,26 @@ export function useRoomEvents({
           const data = JSON.parse(event.data);
           if (data.type === "room_settings_updated") {
             router.refresh();
+            return;
+          }
+          if (data.type === "member_updated") {
+            // Member-level delta (nickname / color / avatar). These used to
+            // ride room_settings_updated, costing every client a full
+            // router.refresh() — a multi-MB re-render fan-out in a 10-member
+            // room for a one-field change. Patch the live list in place.
+            setPlayers((prev) => prev.map((p) => {
+              const uid = p.users?.id ?? p.user?.id ?? p.user_id;
+              if (uid !== data.userId) return p;
+              return {
+                ...p,
+                room_members: {
+                  ...p.room_members,
+                  ...(data.nickname !== undefined ? { nickname: data.nickname as string } : {}),
+                  ...(data.avatarColor !== undefined ? { avatarColor: data.avatarColor as string } : {}),
+                  ...(data.avatar !== undefined ? { avatar: data.avatar as string | null } : {}),
+                },
+              };
+            }));
             return;
           }
           if (data.type === "ai_import_result") {
