@@ -234,9 +234,9 @@ export async function GET(
             userConnections.delete(connKey);
           }
         }
-        updatePeakOnline().catch((err) => {
-          console.error("[STATS] Error updating peak online on disconnect:", err);
-        });
+        // No updatePeakOnline here: a disconnect can only lower the live
+        // count, so it can never raise the recorded peak — the write was a
+        // pure DB upsert per disconnect (doubled by mobile reconnect churn).
       };
       // Assign real cleanup to connRecord now that it's fully defined
       connRecord.cleanup = cleanup;
