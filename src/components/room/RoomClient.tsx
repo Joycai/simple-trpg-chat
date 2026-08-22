@@ -488,6 +488,7 @@ export function RoomClient({
     isHost,
     activeTabRef,
     seenIdsRef,
+    messagesRef,
     setMessages,
     setStatus,
     setUnreadCounts,

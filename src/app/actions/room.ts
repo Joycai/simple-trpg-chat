@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray, or, desc, asc, lt, isNull, not } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, asc, lt, gt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -1252,6 +1252,27 @@ export async function loadMoreMessagesAction(roomId: number, beforeMessageId: nu
     .select()
     .from(messages)
     .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, beforeMessageId)))
+    .orderBy(desc(messages.id))
+    .limit(limit);
+
+  return results.reverse();
+}
+
+/**
+ * Reconnect catch-up: everything visible to this user newer than the last
+ * message the client saw before its SSE stream dropped. The server emits no
+ * `id:` field on SSE frames, so Last-Event-ID replay can't work — the client
+ * heals the gap itself (see useRoomEvents). Newest-first + reverse mirrors
+ * the initial page query; the limit bounds a very long offline gap, in which
+ * case the newest `limit` rows win (same trade-off as a fresh page load).
+ */
+export async function catchUpMessagesAction(roomId: number, sinceMessageId: number, limit = 300) {
+  const { userId, isHost } = await checkRoomAccess(roomId, false);
+
+  const results = await db
+    .select()
+    .from(messages)
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, sinceMessageId)))
     .orderBy(desc(messages.id))
     .limit(limit);
 
