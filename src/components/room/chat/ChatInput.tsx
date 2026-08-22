@@ -384,7 +384,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
 
       {/* Private Chat Target Selector (Only show if manually toggled, not locked to tab) */}
       {!isPrivateLocked && isPrivate && (
-        <div className="absolute bottom-full left-12 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
+        <div className="absolute bottom-full left-12 mb-2 z-10 animate-in slide-in-from-bottom-2">
           <div className="bg-private-bg border border-private-border rounded-theme shadow-lg p-2 flex items-center gap-2">
             <span className="text-[10px] font-bold text-accent uppercase tracking-wider ml-1">{t("privateChatTarget")}</span>
             <ThemedSelect
