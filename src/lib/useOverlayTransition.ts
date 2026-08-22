@@ -200,16 +200,19 @@ export function useOverlayTransition(
   }, []);
 
   /**
-   * The queue's guaranteed release point — and the reason it is here rather
-   * than on an animation callback.
+   * Backstop, not the primary release point — the enter's `.then` is, and it
+   * does fire even when the panel is closed mid-flight. Measured: the exit's
+   * WAAPI animation *replaces* the enter on `transform` rather than cancelling
+   * it through Motion, and a replaced animation still fires `finish`, so
+   * `markEntered` runs on schedule (~700ms — `visualDuration: 0.42` is
+   * time-to-target, the spring's settle tail runs past it).
    *
-   * Motion's `finished` promise has no reject path at all: `WithPromise` only
-   * ever captures a `resolve`, and `stop()` — which is exactly what starting
-   * the exit on the same `transform` value does to a running enter — cancels
-   * the underlying WAAPI animation, so `onfinish` never fires and the promise
-   * never settles. Neither `.then` nor `.catch` runs. Closing a drawer inside
-   * its own enter would therefore strand everything queued, silently dropping
-   * real writes (the inventory read acknowledgement) on the floor.
+   * It is still worth having, because that release genuinely can not arrive.
+   * Motion's `finished` has no reject path at all — `WithPromise` only ever
+   * captures a `resolve` — so an enter that is truly cancelled, or one whose
+   * timeline never advances (a tab hidden before the animation completes freezes
+   * `document.timeline`, verified), leaves the queue holding real writes such as
+   * the inventory read acknowledgement.
    *
    * Flushing on unmount is safe *because* the component is already gone: state
    * setters are no-ops at that point, while the side effects the panel promised
