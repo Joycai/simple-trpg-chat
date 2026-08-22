@@ -194,7 +194,15 @@ export function useRoomEvents({
             return;
           }
           if (data.type === "presence_update") {
-            setOnlineUserIds(new Set(data.onlineUserIds as number[]));
+            // Presence broadcasts fire on every connect/disconnect anywhere in
+            // the room (including another tab's reconnect churn). Returning the
+            // previous Set when membership is unchanged lets React bail out of
+            // the render entirely instead of recomputing the whole room UI.
+            const next = new Set(data.onlineUserIds as number[]);
+            setOnlineUserIds((prev) => {
+              if (prev.size === next.size && [...next].every((id) => prev.has(id))) return prev;
+              return next;
+            });
             return;
           }
           if (data.type === "message_deleted") {
