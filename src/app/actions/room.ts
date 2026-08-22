@@ -1295,8 +1295,10 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
       target: [roomDmReads.roomId, roomDmReads.userId, roomDmReads.partnerUserId],
       set: { lastReadAt: sqlNow() },
     });
-  
-  revalidatePath(`/rooms/${roomId}`);
+  // No revalidatePath here: unread state is client-managed (setUnreadCounts),
+  // and this action fires for EVERY inbound DM while its tab is active — the
+  // revalidate was embedding a full room-page RSC render into each response
+  // (per message, during bot streaming). The DB write alone is the contract.
 }
 
 export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
