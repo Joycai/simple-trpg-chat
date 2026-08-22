@@ -65,7 +65,7 @@ export function BackpackView({ items, filterType, onFilterChange, userId, onSele
               onClick={() => onFilterChange(key)}
               aria-pressed={active}
               className={`relative flex sm:flex-col items-center justify-center gap-1.5 sm:gap-1 shrink-0 cursor-pointer
-                rounded-theme border px-3 py-2 sm:px-2 sm:py-3 transition-all duration-150 ${
+                rounded-theme border px-3 py-2 sm:px-2 sm:py-3 transition-[color,background-color,border-color] duration-150 ${
                 active
                   ? `${filterActiveClass[key]} font-semibold`
                   : "border-transparent text-text-muted hover:text-text hover:bg-surface-alt/50"
@@ -140,7 +140,7 @@ export function BackpackView({ items, filterType, onFilterChange, userId, onSele
                     onClick={() => onSelect(d.item ?? null, d)}
                     title={d.item?.title || ""}
                     className="inventory-card group relative text-left rounded-theme p-4 flex flex-col gap-3
-                      transition-all duration-200 cursor-pointer hover:-translate-y-0.5"
+                      transition-[translate,box-shadow] duration-200 cursor-pointer hover:-translate-y-0.5"
                   >
                     {/* Type colour rides above the theme's card surface — see
                         typeOverlayClass for why it cannot be on the card. */}

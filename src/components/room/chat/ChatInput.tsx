@@ -455,7 +455,9 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
       </div>
 
       {/* Input row */}
-      <div className={`flex items-end gap-1.5 bg-input-bg border rounded-theme p-2 shadow-sm transition-all duration-300 ${
+      {/* Private-mode toggle recolors the border and ring — 200ms: a color
+          change on a control this visible should track the toggle, not trail it. */}
+      <div className={`flex items-end gap-1.5 bg-input-bg border rounded-theme p-2 shadow-sm transition-[border-color,box-shadow] duration-200 ${
         isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
       }`}>
         {quickCheckSpec && (

@@ -134,7 +134,7 @@ export function AdminSidebar({ onLogout, siteName, version }: AdminSidebarProps)
           <form action={onLogout}>
             <button
               type="submit"
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-theme text-sm text-text-muted hover:bg-danger/10 transition-all duration-200 text-left cursor-pointer group"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-theme text-sm text-text-muted hover:bg-danger/10 transition-colors duration-200 text-left cursor-pointer group"
             >
               <LogOut className="w-4 h-4 text-danger" />
               <span className="font-medium group-hover:text-danger transition-colors">{t("logout")}</span>
@@ -169,7 +169,7 @@ function SidebarLink({ href, icon, label, active, onClick, isSub }: SidebarLinkP
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-2.5 py-2.5 rounded-theme border transition-all duration-200 ${
+      className={`flex items-center gap-2.5 py-2.5 rounded-theme border transition-[color,background-color,border-color,box-shadow] duration-200 ${
         active
           ? "bg-primary/10 text-primary font-bold border-primary/40 shadow-[var(--theme-glow)]"
           : "text-text-muted border-transparent hover:text-text hover:bg-surface-alt"

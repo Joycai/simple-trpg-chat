@@ -1,6 +1,6 @@
 {
   "name": "simple-trpg-chat",
-  "version": "0.23.14",
+  "version": "0.23.15",
   "private": true,
   "license": "AGPL-3.0-only",
   "scripts": {

@@ -129,7 +129,7 @@ export function DiceRoller({ onRoll, onClose, defaultExpression, lastExpression 
                   onPointerUp={() => endHold(faces)}
                   onPointerLeave={cancelHold}
                   onContextMenu={(e) => e.preventDefault()}
-                  className={`relative py-2.5 rounded-theme border text-sm font-bold font-theme-mono transition-all duration-150 active:scale-[0.96] cursor-pointer select-none ${
+                  className={`relative py-2.5 rounded-theme border text-sm font-bold font-theme-mono transition-[color,background-color,border-color,scale] duration-150 active:scale-[0.96] cursor-pointer select-none ${
                     n > 0
                       ? "border-accent/60 bg-accent/10 text-accent"
                       : "border-border text-text hover:bg-surface-alt"

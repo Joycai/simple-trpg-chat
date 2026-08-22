@@ -106,7 +106,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
                 <button
                   key={key}
                   onClick={() => setTab(key)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 text-xs md:text-sm font-medium transition-all duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer border ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 text-xs md:text-sm font-medium transition-[color,background-color,border-color] duration-150 rounded-theme md:w-full text-left shrink-0 cursor-pointer border ${
                     isActive
                       ? "text-primary bg-primary/10 border-primary/30 font-semibold"
                       : "text-text-muted hover:text-text hover:bg-surface-alt/50 border-transparent"

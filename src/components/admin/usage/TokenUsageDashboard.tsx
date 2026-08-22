@@ -163,7 +163,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
             <button
               key={r.key}
               onClick={() => setRange(r.key)}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-theme transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-theme transition-[color,background-color,box-shadow,scale] active:scale-[0.97] ${
                 range === r.key
                   ? "bg-primary text-primary-foreground shadow-[var(--theme-glow)]"
                   : "text-text-muted hover:text-text"
@@ -294,13 +294,13 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={t("searchPlaceholder")}
-              className="w-full pl-9 pr-4 py-2 bg-input-bg border border-input-border rounded-theme text-sm text-text placeholder-text-dim outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+              className="w-full pl-9 pr-4 py-2 bg-input-bg border border-input-border rounded-theme text-sm text-text placeholder-text-dim outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-[border-color,box-shadow]"
             />
           </div>
           <div className="flex bg-surface-alt theme-border p-0.5 rounded-theme shrink-0">
             <button
               onClick={() => setFilterType("all")}
-              className={`px-3 py-1 text-xs font-medium rounded-theme transition-all ${
+              className={`px-3 py-1 text-xs font-medium rounded-theme transition-[color,background-color,scale] active:scale-[0.97] ${
                 filterType === "all" ? "bg-primary text-primary-foreground" : "text-text-muted hover:text-text"
               }`}
             >
@@ -308,7 +308,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
             </button>
             <button
               onClick={() => setFilterType("shared")}
-              className={`px-3 py-1 text-xs font-medium rounded-theme transition-all flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs font-medium rounded-theme transition-[color,background-color,scale] active:scale-[0.97] flex items-center gap-1 ${
                 filterType === "shared" ? "bg-primary text-primary-foreground" : "text-text-muted hover:text-text"
               }`}
             >
@@ -317,7 +317,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
             </button>
             <button
               onClick={() => setFilterType("private")}
-              className={`px-3 py-1 text-xs font-medium rounded-theme transition-all flex items-center gap-1 ${
+              className={`px-3 py-1 text-xs font-medium rounded-theme transition-[color,background-color,scale] active:scale-[0.97] flex items-center gap-1 ${
                 filterType === "private" ? "bg-primary text-primary-foreground" : "text-text-muted hover:text-text"
               }`}
             >
@@ -350,7 +350,7 @@ export function TokenUsageDashboard({ usages }: TokenUsageDashboardProps) {
                 filteredUsages.map((record) => {
                   const recordTotal = record.inputTokens + record.outputTokens;
                   return (
-                    <tr key={record.id} className="hover:bg-surface-alt/50 transition-all duration-150">
+                    <tr key={record.id} className="hover:bg-surface-alt/50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap font-medium font-theme-mono text-xs">
                         {record.day}
                       </td>
