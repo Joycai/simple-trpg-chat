@@ -26,6 +26,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const OPEN_BACKPACK = 'button[title^="背包"]';
 const DRAWER = ".overlay-drawer";
+const OPEN_CHARACTER = 'button[title^="角色档案"]';
 const CLOSE = '.overlay-drawer button[aria-label*="关闭"]';
 
 /**
@@ -135,4 +136,66 @@ test("drawer carries data-animating for the enter, and drops it once settled", a
   // Settled: the hook is removed so the theme's frost returns.
   await expect(page.locator(`${DRAWER}[data-animating]`)).toHaveCount(0, { timeout: 4000 });
   await expect(page.locator(DRAWER)).toHaveCount(1);
+});
+
+test("frost is actually suppressed while a panel moves, and restored once settled", async ({
+  page,
+}) => {
+  await loginAsHost(page);
+  await page.goto("/rooms/1");
+  await page.waitForSelector(OPEN_CHARACTER);
+  await assertMotionEnabled(page);
+
+  await page.click(OPEN_CHARACTER);
+  await page.waitForSelector(DRAWER);
+
+  const during = await page.evaluate(() => {
+    const p = document.querySelector(".overlay-drawer") as HTMLElement;
+    return { animating: p.hasAttribute("data-animating"), bf: getComputedStyle(p).backdropFilter };
+  });
+  expect(during.animating).toBe(true);
+  // The whole point of the hook: a moving element must not re-blur its backdrop
+  // every frame. This is a real guard — it fails if the declaration is dropped,
+  // which is exactly what a trailing `-webkit-backdrop-filter` causes.
+  expect(during.bf).toBe("none");
+
+  await expect(page.locator(`${DRAWER}[data-animating]`)).toHaveCount(0, { timeout: 4000 });
+  const after = await page.evaluate(
+    () => getComputedStyle(document.querySelector(".overlay-drawer")!).backdropFilter,
+  );
+  // Precondition: this room's theme must actually frost the drawer, otherwise
+  // the assertion above would pass against a theme that never had a blur.
+  expect(after, "room #1 must use a frosted theme (rainglass) for this to mean anything").not.toBe(
+    "none",
+  );
+});
+
+test("tab-pane rise carries data-animating too", async ({ page }) => {
+  await loginAsHost(page);
+  await page.goto("/rooms/1");
+  await page.waitForSelector(OPEN_CHARACTER);
+  await assertMotionEnabled(page);
+
+  await page.click(OPEN_CHARACTER);
+  await expect(page.locator(`${DRAWER}[data-animating]`)).toHaveCount(0, { timeout: 4000 });
+
+  // Record every element that gets the attribute, so the assertion does not
+  // depend on sampling the DOM inside a ~240ms window.
+  await page.evaluate(() => {
+    (window as unknown as { __panes: string[] }).__panes = [];
+    new MutationObserver((ms) => {
+      for (const m of ms) {
+        const el = m.target as HTMLElement;
+        if (el.hasAttribute("data-animating") && !el.classList.contains("overlay-drawer")) {
+          (window as unknown as { __panes: string[] }).__panes.push(el.tagName);
+        }
+      }
+    }).observe(document.body, { attributes: true, attributeFilter: ["data-animating"], subtree: true });
+  });
+
+  await page.click(`${DRAWER} button:has-text("技能")`);
+  await page.waitForTimeout(300);
+
+  const panes = await page.evaluate(() => (window as unknown as { __panes: string[] }).__panes);
+  expect(panes.length, "PaneTransition must mark its pane while it rises").toBeGreaterThan(0);
 });
