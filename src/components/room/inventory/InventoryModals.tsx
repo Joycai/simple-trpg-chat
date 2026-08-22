@@ -141,7 +141,7 @@ export function CreateEditModal({
               grid-rows collapse group that eases shut when the editor expands. */}
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
             {/* Collapsible top group: type / title / type-specific meta */}
-            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${contentExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[var(--ease-spring-smooth)] ${contentExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
               <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pb-4 transition-opacity duration-200 ${contentExpanded ? "opacity-0" : "opacity-100"}`}>
                 {/* Type */}
                 <div>
@@ -253,7 +253,7 @@ export function CreateEditModal({
             </div>
 
             {/* Collapsible bottom group: visibility / image / quantity */}
-            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${contentExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[var(--ease-spring-smooth)] ${contentExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
               <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pt-4 transition-opacity duration-200 ${contentExpanded ? "opacity-0" : "opacity-100"}`}>
                 {/* Info — visibility */}
                 {itemType === "info" && (
