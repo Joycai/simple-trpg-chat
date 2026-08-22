@@ -863,3 +863,14 @@
   color: rgb(var(--theme-primary-foreground));
 }
 
+/* Reduced motion: the drifting fog / sweeping beam are vestibular triggers.
+   Opacity-only flicker (lamp, harbor light) stays — flicker is not motion. */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="cthulhu"] .login-page-bg::before,
+  [data-theme="cthulhu"] .login-page-bg::after,
+  [data-theme="cthulhu"] .cth-fog-far,
+  [data-theme="cthulhu"] .cth-fog-near,
+  [data-theme="cthulhu"] .cth-beam {
+    animation: none;
+  }
+}

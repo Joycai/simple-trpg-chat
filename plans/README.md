@@ -12,6 +12,7 @@
 | 004 | [给高频按钮补上按压反馈](004-press-feedback.md) | HIGH | DONE |
 | 005 | [清理布局属性动画](005-layout-transition-cleanup.md) | MEDIUM | DONE |
 | 006 | [收敛 conv-tab 的主题级 transition 覆盖](006-conv-tab-transition-consolidation.md) | MEDIUM | DONE |
+| 007 | [登录页环境动画的 reduced-motion 门控](007-login-reduced-motion.md) | MEDIUM | DONE |
 
 ## 推荐执行顺序与依赖
 
@@ -22,7 +23,6 @@
 ## 审计中确认但未列入计划的发现（后续候选）
 
 - `ChatInput.tsx:458` 私聊模式边框 `transition-all duration-300` → 应为 `transition-colors duration-150`。
-- 登录/注册页主题环境动画（雾、雨滴、烛光等 16 处 infinite keyframes）整体缺 `prefers-reduced-motion` 门控（`src/themes/*/theme.css`；位移类是前庭触发源）。
 - 触屏无 `@media (hover: hover)` 门控：`BackpackView.tsx:143`、`CharacterPanel.tsx:569`、`BotManager.tsx:336` 的 hover 位移在移动端粘滞。
 - 令牌外的手写 cubic-bezier 五处（`InventoryModals.tsx:144/:256`、`EventEditor.tsx:151/:226`、`EventManagePanel.tsx:102`，后者 360ms 还超预算）。
 - `DiceRoller.tsx:48-63` 长按 400ms 加骰手势无进度指示（004 只补了按压确认）。
