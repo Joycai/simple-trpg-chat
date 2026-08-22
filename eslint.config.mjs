@@ -29,6 +29,8 @@ const eslintConfig = defineConfig([
     // Local-only tooling (gitignored): vendored bundles / design-sync scratch.
     ".ds-sync/**",
     "ds-bundle/**",
+    // Claude Code metadata, including full git worktrees under .claude/worktrees/.
+    ".claude/**",
   ]),
 ]);
 

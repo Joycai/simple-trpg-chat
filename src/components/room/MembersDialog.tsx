@@ -96,7 +96,7 @@ export function MembersDialog({
                     </div>
                   )}
                   {isBot && isBotDisabled && (
-                    <div className="absolute -bottom-1 -right-1 bg-surface rounded-full leading-none border border-border p-0.5 shadow-sm select-none animate-pulse text-danger" title={t("aiDisabled")}>
+                    <div className="absolute -bottom-1 -right-1 bg-surface rounded-full leading-none border border-border p-0.5 shadow-sm select-none text-danger" title={t("aiDisabled")}>
                       <Icons.Lock className="w-2.5 h-2.5" />
                     </div>
                   )}
@@ -113,7 +113,7 @@ export function MembersDialog({
                       </span>
                     )}
                     {isBot && !isBotDisabled && isProviderError && (
-                      <span className="shrink-0 text-[10px] font-bold px-1.5 rounded bg-warning/10 text-warning border border-warning/30 select-none animate-pulse">
+                      <span className="shrink-0 text-[10px] font-bold px-1.5 rounded bg-warning/10 text-warning border border-warning/30 select-none">
                         {t("tagProviderError")}
                       </span>
                     )}

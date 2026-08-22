@@ -301,13 +301,30 @@ body[data-room-bg] .bg-bg .bg-bg {
 .slide-in-from-bottom-1 { --enter-y: 0.25rem; }
 .slide-in-from-bottom-2 { --enter-y: 0.5rem; }
 
+/* 徽标到达/递增时的一次性弹入。key 到计数值上，数字变化即重放。 */
+@keyframes badge-in {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.badge-in { animation: badge-in 400ms var(--ease-spring-snappy) both; }
+
+/* 有限次注意力弹跳（检定 CTA）：3 次后静止。 */
+@keyframes attention-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-25%); }
+}
+.attention-bounce { animation: attention-bounce 0.8s ease-in-out 3; }
+
 /* Respect users who prefer reduced motion — collapse to a near-instant
    cross-fade so nothing flies across the screen. The overlays are no longer
    listed here: useOverlayTransition checks the same media query in JS and
    skips its Motion animations outright. */
 @media (prefers-reduced-motion: reduce) {
   .overlay-pop,
-  .animate-in {
+  .animate-in,
+  .badge-in,
+  .attention-bounce {
     animation-duration: 1ms;
     animation-timing-function: linear;
   }

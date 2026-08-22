@@ -303,7 +303,7 @@ export function RoomTopBar({
           >
             <Icons.Package className="w-[18px] h-[18px]" />
             {unreadItems > 0 && (
-              <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+              <span key={unreadItems} className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center badge-in shadow-md">
                 {unreadItems > 9 ? "9+" : unreadItems}
               </span>
             )}
@@ -324,7 +324,7 @@ export function RoomTopBar({
           >
             <Icons.Flag className="w-[18px] h-[18px]" />
             {unreadEvents > 0 && (
-              <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
+              <span key={unreadEvents} className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center badge-in shadow-md">
                 {unreadEvents > 9 ? "9+" : unreadEvents}
               </span>
             )}
@@ -337,7 +337,7 @@ export function RoomTopBar({
           >
             <Icons.Users className="w-[18px] h-[18px]" />
             {totalUnread > 0 && (
-              <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce">
+              <span key={totalUnread} className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center badge-in">
                 {totalUnread > 9 ? "9+" : totalUnread}
               </span>
             )}
