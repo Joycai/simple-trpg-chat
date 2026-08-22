@@ -137,19 +137,25 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
       ]);
       if (!alive) return;
 
-      // Everything below is a state commit, so it goes through `afterEnter`:
-      // rendering the note list mid-slide is exactly the main-thread work that
-      // used to show up as a stuttering drawer. The fetch itself already ran.
-      const commit: (() => void)[] = [];
-
+      // Every state commit below goes through `afterEnter`: rendering the note
+      // list mid-slide is exactly the main-thread work that used to show up as
+      // a stuttering drawer. The fetch itself already ran, and the queue keeps
+      // these in the order they were handed over.
+      //
+      // Each closure re-checks `alive`. The guard above only covers the instant
+      // the fetch resolved — `afterEnter` can hold a commit past a later re-run
+      // of this effect, and a stale run must not clobber the live one.
       if (notebook.status === "fulfilled") {
-        commit.push(() => {
+        afterEnter(() => {
+          if (!alive) return;
           setNotes(notebook.value.notes as Note[]);
           setCategories(notebook.value.categories as Category[]);
           setError(false);
         });
       } else {
-        commit.push(() => setError(true));
+        afterEnter(() => {
+          if (alive) setError(true);
+        });
       }
 
       // Mentions degrade gracefully: with no entities `segmentMentions` returns
@@ -175,7 +181,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
         }
       }
       afterEnter(() => {
-        for (const apply of commit) apply();
+        if (!alive) return;
         setEntities(linkable);
         setDistsById(byId);
         setLoading(false);
