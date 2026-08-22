@@ -93,7 +93,7 @@ export function ConversationPanel({
         {/* Public channel */}
         <button
           onClick={() => onTabChange("public")}
-          className={`w-full text-left transition-colors duration-150 cursor-pointer rounded-[6px] conv-tab ${
+          className={`w-full text-left transition duration-150 cursor-pointer rounded-[6px] conv-tab ${
             activeTab === "public"
               ? "bg-primary/12 font-semibold text-primary"
               : "text-text-muted hover:text-text hover:bg-surface/60"
@@ -117,7 +117,7 @@ export function ConversationPanel({
           <button
             key={conv.userId}
             onClick={() => onTabChange(conv.userId)}
-            className={`w-full text-left relative transition-colors duration-150 cursor-pointer rounded-[6px] conv-tab ${
+            className={`w-full text-left relative transition duration-150 cursor-pointer rounded-[6px] conv-tab ${
               activeTab === conv.userId
                 ? "bg-primary/12 font-semibold text-primary"
                 : "text-text-muted hover:text-text hover:bg-surface/60"
