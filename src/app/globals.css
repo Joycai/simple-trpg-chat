@@ -350,11 +350,17 @@ body {
   background-size: 4px 4px;
 }
 
-/* Card shadow (angled paper / cold industrial / wooden depth) */
-.shadow-lg,
+/* Card shadow (angled paper / cold industrial / wooden depth).
+   Enumerated on purpose: the old `[class*="shadow"]` substring selector was
+   checked against every element's full class string on style recalc, and it
+   also swallowed `shadow-none` (flattening "no shadow" into the theme shadow)
+   plus any future class merely containing the word. These five are the only
+   shadow utilities the codebase uses. */
 .shadow-sm,
 .shadow-md,
-[class*="shadow"] {
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl {
   box-shadow: var(--theme-card-shadow, 0 4px 6px -1px rgb(0 0 0 / 0.1));
 }
 .rounded-theme {
