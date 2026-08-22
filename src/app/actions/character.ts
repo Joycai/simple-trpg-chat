@@ -9,12 +9,24 @@ import { broadcastToRoom } from "@/lib/events";
 import {
   type CharacterData,
   type CustomAttribute,
+  CHARACTER_DATA_MAX_BYTES,
 } from "@/lib/character-types";
 import { rebuildSheetForRule } from "@/lib/character-sheet";
 import {
   getRule, getRuleForRoom, primaryVital,
   COC_DEFAULT_ATTRIBUTES, computeCocDerived, type CocAttributes,
 } from "@/lib/rules";
+
+/** Serialize a sheet for persistence, rejecting oversized payloads — the
+ *  member list ships every sheet to every client, so an unbounded write is a
+ *  room-wide payload amplifier. Throws (this module's actions still throw). */
+function serializeSheetChecked(sheet: CharacterData): string {
+  const json = JSON.stringify(sheet);
+  if (json.length > CHARACTER_DATA_MAX_BYTES) {
+    throw new Error("Character data too large");
+  }
+  return json;
+}
 
 /** Verify that a user is a member of a room. Returns userId on success.
  *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
@@ -207,7 +219,7 @@ export async function saveCharacterDataAction(
   merged = getRule(merged.ruleTemplate).computeDerived(merged);
 
   await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(merged) })
+    .set({ characterData: serializeSheetChecked(merged) })
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)
@@ -246,7 +258,7 @@ export async function updateCocAttributesAction(
   }
 
   await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(existing) })
+    .set({ characterData: serializeSheetChecked(existing) })
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)
@@ -287,7 +299,7 @@ export async function addCustomAttributeAction(
   existing.customAttributes = customAttrs;
 
   await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(existing) })
+    .set({ characterData: serializeSheetChecked(existing) })
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)

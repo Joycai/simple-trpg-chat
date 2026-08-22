@@ -115,30 +115,8 @@ export async function joinRoomAction(formData: FormData) {
 }
 
 // --- Nickname & Character Actions ---
-
-export async function updateCharacterDataAction(roomId: number, characterData: Record<string, unknown>) {
-  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
-
-  // Row-locked merge: this is a read-modify-write on a JSON column, and a
-  // concurrent writer (sheet edit racing a `.st` command or a bot tool) would
-  // otherwise have its fields silently erased by whoever commits last.
-  await db.transaction(async (tx) => {
-    const [member] = await tx
-      .select({ characterData: roomMembers.characterData })
-      .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)))
-      .for("update");
-
-    const existingData = member?.characterData ? JSON.parse(member.characterData) : {};
-    const newData = { ...existingData, ...characterData };
-
-    await tx.update(roomMembers)
-      .set({ characterData: JSON.stringify(newData) })
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-  });
-
-  revalidatePath(`/rooms/${roomId}`);
-}
+// (Sheet writes live in actions/character.ts — the old updateCharacterDataAction
+// here had no callers and accepted unbounded JSON, so it was removed.)
 
 export async function updateNicknameAction(roomId: number, nickname: string) {
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
@@ -1143,16 +1121,10 @@ export async function regenerateRoomPasswordAction(roomId: number) {
 }
 
 // --- Data Fetching ---
-
-export async function getRoomMessages(roomId: number) {
-  const { userId, isHost } = await checkRoomAccess(roomId, false);
-
-  return await db
-    .select()
-    .from(messages)
-    .where(messageVisibilityWhere(roomId, userId, isHost))
-    .orderBy(asc(messages.id));
-}
+// (No unbounded full-history fetch here on purpose: the page query and
+// loadMoreMessagesAction / catchUpMessagesAction are all limit-bounded, and
+// every exported "use server" function is callable by any authenticated
+// member with a crafted POST.)
 
 export async function getRoomSkills(roomId: number, userId: number) {
   await checkRoomAccess(roomId, false);
