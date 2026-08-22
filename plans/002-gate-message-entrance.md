@@ -1,6 +1,6 @@
 # 002 — 消息入场动画只给真正新到达的消息
 
-- **Status**: TODO
+- **Status**: DONE（已应用到工作树，lint/609 测试/tsc 全过；手感验收清单待人工过一遍）
 - **Commit**: cf83357
 - **Severity**: HIGH
 - **Category**: Purpose & frequency

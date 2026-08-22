@@ -13,6 +13,8 @@ interface UseRoomEventsParams {
   isHost: boolean;
   activeTabRef: React.RefObject<"public" | number>;
   seenIdsRef: React.RefObject<Set<string>>;
+  /** Message id → arrival time for live-arrived messages; drives the entrance animation gate. */
+  liveEnterRef: React.MutableRefObject<Map<string, number>>;
   /** Live view of the loaded messages — read on reconnect to compute the catch-up cursor. */
   messagesRef: React.RefObject<Message[]>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -35,6 +37,7 @@ export function useRoomEvents({
   isHost,
   activeTabRef,
   seenIdsRef,
+  liveEnterRef,
   messagesRef,
   setMessages,
   setPlayers,
@@ -76,6 +79,8 @@ export function useRoomEvents({
           if (fresh.length === 0) return prev;
           for (const m of fresh) {
             seenIdsRef.current.add(String(m.id));
+            // Caught-up messages are just as new to the user — let them animate in.
+            liveEnterRef.current.set(String(m.id), Date.now());
             // Same DM-unread accounting the live path performs per event.
             const view = { userId: m.userId, targetUserId: m.targetUserId ?? null, audience: m.audience };
             if (countsAsDmUnread(view, userId) && activeTabRef.current !== m.userId) {
@@ -266,6 +271,7 @@ export function useRoomEvents({
             const idStr = String(data.id);
             if (seenIdsRef.current.has(idStr)) return;
             seenIdsRef.current.add(idStr);
+            liveEnterRef.current.set(idStr, Date.now());
 
             setMessages((prev) => {
               // 1. Secondary dedup: array-based check (safety net)

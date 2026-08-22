@@ -98,6 +98,12 @@ export function RoomClient({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
   const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
+  // Message id → arrival timestamp for messages that arrived live (SSE, reconnect
+  // catch-up, or local error pills). ChatArea consults it so only genuinely new
+  // messages play the entrance animation — history loads / pagination / tab
+  // switches mount silently. Entries are never deleted (the 3s window simply
+  // lapses), which keeps it safe under StrictMode double-mounting.
+  const liveEnterRef = useRef(new Map<string, number>());
   // Latest messages snapshot for event handlers (e.g. infinite-scroll) that must read the
   // current oldest id without being re-created on every message change. Synced in an effect
   // (see below) rather than during render, per react-hooks/refs.
@@ -519,6 +525,7 @@ export function RoomClient({
     isHost,
     activeTabRef,
     seenIdsRef,
+    liveEnterRef,
     messagesRef,
     setMessages,
     setPlayers,
@@ -623,6 +630,7 @@ export function RoomClient({
             createdAt: new Date().toISOString()
           };
           seenIdsRef.current.add(String(errorMsg.id));
+          liveEnterRef.current.set(String(errorMsg.id), Date.now());
           setMessages(prev => [...prev, errorMsg]);
         }
       } catch (e) { console.error(e); }
@@ -681,6 +689,7 @@ export function RoomClient({
         createdAt: new Date().toISOString(),
       };
       seenIdsRef.current.add(String(errorMsg.id));
+      liveEnterRef.current.set(String(errorMsg.id), Date.now());
       setMessages(prev => [...prev, errorMsg]);
     } else if (result.success && !onBehalfOfUserId) {
       // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
@@ -925,6 +934,7 @@ export function RoomClient({
           scrollRef={scrollRef}
           onScroll={handleScroll}
           tabMessages={tabMessages}
+          liveEnterRef={liveEnterRef}
           players={players}
           userId={userId}
           isHost={isHost}
