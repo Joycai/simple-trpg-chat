@@ -276,12 +276,16 @@ export async function sendMessageAction(
     }
   }
 
-  const [member] = await db
-    .select()
+  // Single join for everything this action needs about the sender (nickname
+  // for the message row, isBot for the activation gate below) — this used to
+  // be two separate SELECTs per message.
+  const [sender] = await db
+    .select({ nickname: roomMembers.nickname, isBot: users.isBot })
     .from(roomMembers)
+    .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  if (!member) throw new Error("Not a member");
+  if (!sender) throw new Error("Not a member");
 
   // Text/image/sticker never carry diceDetail — only the internal dice paths
   // (rollDiceAction, commands.ts) attach one. Hard-null it so a client can't
@@ -290,7 +294,7 @@ export async function sendMessageAction(
   const newMessage = await dispatchMessage({
     roomId,
     actorUserId: userId,
-    nickname: member.nickname,
+    nickname: sender.nickname,
     type,
     audience: chatAudience(isPrivate, targetUserId),
     targetUserId,
@@ -299,8 +303,7 @@ export async function sendMessageAction(
   });
 
   // --- AI Bot Activation Check ---
-  const [senderUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, userId));
-  if (type === "text" && !senderUser?.isBot) {
+  if (type === "text" && !sender.isBot) {
     if (isPrivate && targetUserId) {
       const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
       // Bots set to "manual" activation only respond to explicit host acts

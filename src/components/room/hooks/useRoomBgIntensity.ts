@@ -44,11 +44,20 @@ function getServerSnapshot(): number {
   return DEFAULT_INTENSITY;
 }
 
+// Persist is debounced: notify (repaint) runs per slider tick, but the
+// synchronous localStorage write — a main-thread disk hit — only lands once
+// the slider rests. Trailing write guarantees the final value is stored.
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function setRoomBgIntensity(next: number) {
   value = Math.min(100, Math.max(0, next));
-  try {
-    window.localStorage.setItem(INTENSITY_KEY, String(value));
-  } catch {}
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try {
+      window.localStorage.setItem(INTENSITY_KEY, String(value));
+    } catch {}
+  }, 300);
   listeners.forEach((fn) => fn());
 }
 

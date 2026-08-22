@@ -314,33 +314,6 @@ body[data-room-bg] .bg-bg .bg-bg {
 }
 
 /* ============================================================
-   HP Heartbeat Animation (#52)
-   ============================================================ */
-@keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  14% { transform: scale(1.12); }
-  28% { transform: scale(1); }
-  42% { transform: scale(1.12); }
-  56% { transform: scale(1); }
-}
-@keyframes pulse-danger {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-}
-.hp-critical {
-  animation: heartbeat 1.2s ease-in-out infinite, pulse-danger 2s ease-in-out infinite;
-}
-.hp-critical .hp-bar-fill {
-  background: linear-gradient(90deg, #ef4444, #dc2626, #ef4444);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s linear infinite;
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* ============================================================
    Skeuomorphic Theme Wiring
    ============================================================ */
 
@@ -350,11 +323,17 @@ body {
   background-size: 4px 4px;
 }
 
-/* Card shadow (angled paper / cold industrial / wooden depth) */
-.shadow-lg,
+/* Card shadow (angled paper / cold industrial / wooden depth).
+   Enumerated on purpose: the old `[class*="shadow"]` substring selector was
+   checked against every element's full class string on style recalc, and it
+   also swallowed `shadow-none` (flattening "no shadow" into the theme shadow)
+   plus any future class merely containing the word. These five are the only
+   shadow utilities the codebase uses. */
 .shadow-sm,
 .shadow-md,
-[class*="shadow"] {
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl {
   box-shadow: var(--theme-card-shadow, 0 4px 6px -1px rgb(0 0 0 / 0.1));
 }
 .rounded-theme {

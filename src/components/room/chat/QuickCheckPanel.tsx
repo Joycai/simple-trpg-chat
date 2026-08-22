@@ -193,6 +193,12 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
       (e) => e.label.toLowerCase().includes(q) || e.name.toLowerCase().includes(q)
     );
   }, [entries, query]);
+  // O(1) cursor-index lookup for the render below — the per-chip
+  // `filtered.indexOf(e)` was O(n²) across the list on every keystroke.
+  const filteredIndex = useMemo(
+    () => new Map(filtered.map((e, i) => [e, i] as const)),
+    [filtered]
+  );
 
   // Keep the keyboard cursor inside the filtered list as the query narrows it.
   useEffect(() => {
@@ -347,7 +353,7 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
                       <span className="text-[10px] font-bold tracking-widest text-text-dim font-theme-mono">{t("attributesLabel")}</span>
                       <div className="flex flex-wrap gap-1.5">
                         {[...attributeEntries, ...resourceEntries].map((e) =>
-                          entryChip(e, filtered.indexOf(e))
+                          entryChip(e, filteredIndex.get(e) ?? -1)
                         )}
                       </div>
                     </div>
@@ -360,7 +366,7 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
                         <span className="text-[10px] text-text-dim font-theme-mono">{skillEntries.length}</span>
                       </div>
                       {skillEntries.map((e) => {
-                        const idx = filtered.indexOf(e);
+                        const idx = filteredIndex.get(e) ?? -1;
                         return (
                           <button
                             key={`skill-${e.name}`}
