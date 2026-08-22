@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { markDMReadAction } from "@/app/actions/room";
+import { markDMReadAction, catchUpMessagesAction } from "@/app/actions/room";
 import { canSee, isAudience, countsAsDmUnread } from "@/lib/messaging/audience";
 import type { Message, ConnectionStatus, TypingBots } from "@/components/room/types";
 import type { StatusEntry } from "@/lib/rules";
@@ -13,6 +13,8 @@ interface UseRoomEventsParams {
   isHost: boolean;
   activeTabRef: React.RefObject<"public" | number>;
   seenIdsRef: React.RefObject<Set<string>>;
+  /** Live view of the loaded messages — read on reconnect to compute the catch-up cursor. */
+  messagesRef: React.RefObject<Message[]>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setStatus: React.Dispatch<React.SetStateAction<ConnectionStatus>>;
   setUnreadCounts: React.Dispatch<React.SetStateAction<Record<number, number>>>;
@@ -32,6 +34,7 @@ export function useRoomEvents({
   isHost,
   activeTabRef,
   seenIdsRef,
+  messagesRef,
   setMessages,
   setStatus,
   setUnreadCounts,
@@ -49,6 +52,42 @@ export function useRoomEvents({
     let retryCount = 0;
     const maxRetries = 5;
     let sse: EventSource | null = null;
+    // Set on the first error so the next successful open knows it must heal a
+    // gap; `connected` gates the online/visibility wake-up handlers below.
+    let hadDrop = false;
+    let connected = false;
+
+    // The server emits no `id:` on SSE frames, so the browser's Last-Event-ID
+    // replay can't recover messages sent while the stream was down. Instead,
+    // after every reconnect we fetch everything visible past the newest loaded
+    // message and merge it in (dedup against both live-delivered rows and the
+    // optimistic placeholders, which keep negative ids and stay at the tail).
+    const catchUpMissedMessages = async () => {
+      const sinceId = messagesRef.current.reduce(
+        (max, m) => (typeof m.id === "number" && m.id > max ? m.id : max), 0);
+      try {
+        const missed = (await catchUpMessagesAction(roomId, sinceId)) as unknown as Message[];
+        if (abortController.signal.aborted || missed.length === 0) return;
+        setMessages((prev) => {
+          const present = new Set(prev.map((m) => String(m.id)));
+          const fresh = missed.filter((m) => !present.has(String(m.id)));
+          if (fresh.length === 0) return prev;
+          for (const m of fresh) {
+            seenIdsRef.current.add(String(m.id));
+            // Same DM-unread accounting the live path performs per event.
+            const view = { userId: m.userId, targetUserId: m.targetUserId ?? null, audience: m.audience };
+            if (countsAsDmUnread(view, userId) && activeTabRef.current !== m.userId) {
+              setUnreadCounts((c) => ({ ...c, [m.userId]: (c[m.userId] || 0) + 1 }));
+            }
+          }
+          const rank = (m: Message) =>
+            typeof m.id === "number" && m.id < 0 ? Number.POSITIVE_INFINITY : Number(m.id);
+          return [...prev, ...fresh].sort((a, b) => rank(a) - rank(b));
+        });
+      } catch {
+        // Leave hadDrop logic alone — the next reconnect retries the catch-up.
+      }
+    };
 
     const setupSSE = () => {
       if (abortController.signal.aborted) return;
@@ -60,6 +99,11 @@ export function useRoomEvents({
       es.onopen = () => {
         setStatus("connected");
         retryCount = 0; // Reset retry count on successful connection
+        connected = true;
+        if (hadDrop) {
+          hadDrop = false;
+          catchUpMissedMessages();
+        }
       };
 
       es.onmessage = (event) => {
@@ -223,17 +267,33 @@ export function useRoomEvents({
         if (abortController.signal.aborted) return;
         setStatus("error");
         es.close();
+        connected = false;
+        hadDrop = true;
 
-        if (retryCount < maxRetries) {
-          const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 16000);
-          console.warn(`SSE connection failed. Retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/${maxRetries})...`);
-          retryCount++;
-          reconnectTimeout = setTimeout(setupSSE, backoffDelay);
-        } else {
-          console.error("SSE connection failed after maximum retries.");
-        }
+        // Never give up for good: fast exponential backoff first, then keep
+        // probing on a slow interval — a room left open overnight must come
+        // back on its own, not require a manual reload.
+        retryCount++;
+        const backoffDelay = retryCount <= maxRetries
+          ? Math.min(1000 * Math.pow(2, retryCount - 1), 16000)
+          : 30000;
+        console.warn(`SSE connection failed. Retrying in ${backoffDelay}ms (attempt ${retryCount})...`);
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(setupSSE, backoffDelay);
       };
     };
+
+    // Browser signals (network back / tab refocused) cut the wait short: when
+    // disconnected, drop any pending backoff and reconnect immediately.
+    const wakeUp = () => {
+      if (abortController.signal.aborted || connected) return;
+      if (document.visibilityState === "hidden") return;
+      retryCount = 0;
+      clearTimeout(reconnectTimeout);
+      setupSSE();
+    };
+    window.addEventListener("online", wakeUp);
+    document.addEventListener("visibilitychange", wakeUp);
 
     setupSSE();
 
@@ -241,6 +301,8 @@ export function useRoomEvents({
       abortController.abort();
       if (sse) sse.close();
       clearTimeout(reconnectTimeout);
+      window.removeEventListener("online", wakeUp);
+      document.removeEventListener("visibilitychange", wakeUp);
     };
   }, [roomId, userId, isHost]); // eslint-disable-line react-hooks/exhaustive-deps
 }

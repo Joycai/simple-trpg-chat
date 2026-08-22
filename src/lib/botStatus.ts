@@ -13,6 +13,22 @@ export function botActivationMode(botConfigJson: string | null | undefined): "me
   }
 }
 
+/**
+ * Client-facing projection of a bot's config. The full JSON carries the
+ * system prompt, historical summary, and other host-private material;
+ * `getBotStatus` on the client only ever reads `providerId`, so that is the
+ * only field allowed to leave the server.
+ */
+export function sanitizeBotConfigForClient(botConfigJson: string | null | undefined): string | null {
+  if (!botConfigJson) return null;
+  try {
+    const cfg = JSON.parse(botConfigJson);
+    return JSON.stringify({ providerId: cfg?.providerId ?? null });
+  } catch {
+    return null;
+  }
+}
+
 export interface BotStatus {
   isBotDisabled: boolean;
   isProviderError: boolean;

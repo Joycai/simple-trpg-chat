@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray, or, desc, asc, lt, isNull, not } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, asc, lt, gt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
@@ -119,17 +119,23 @@ export async function joinRoomAction(formData: FormData) {
 export async function updateCharacterDataAction(roomId: number, characterData: Record<string, unknown>) {
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
-  const [member] = await db
-    .select()
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+  // Row-locked merge: this is a read-modify-write on a JSON column, and a
+  // concurrent writer (sheet edit racing a `.st` command or a bot tool) would
+  // otherwise have its fields silently erased by whoever commits last.
+  await db.transaction(async (tx) => {
+    const [member] = await tx
+      .select({ characterData: roomMembers.characterData })
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)))
+      .for("update");
 
-  const existingData = member?.characterData ? JSON.parse(member.characterData) : {};
-  const newData = { ...existingData, ...characterData };
+    const existingData = member?.characterData ? JSON.parse(member.characterData) : {};
+    const newData = { ...existingData, ...characterData };
 
-  await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(newData) })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+    await tx.update(roomMembers)
+      .set({ characterData: JSON.stringify(newData) })
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+  });
 
   revalidatePath(`/rooms/${roomId}`);
 }
@@ -590,21 +596,62 @@ export async function respondToCheckRequestAction(
 
   const t = await getTranslations("roomActions");
 
-  const [msg] = await db.select().from(messages)
-    .where(and(eq(messages.id, checkRequestId), eq(messages.roomId, roomId)));
-  if (!msg || msg.type !== "check_request" || !msg.diceDetail) {
-    return { success: false, error: t("checkRequestNotFound") };
-  }
+  type CheckDetail = { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; proxiedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string }; shCheck?: { dc?: number | null; styleDice?: number } } };
 
-  let detail: { checkRequest?: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; proxiedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string }; shCheck?: { dc?: number | null; styleDice?: number } } };
-  try { detail = JSON.parse(msg.diceDetail); } catch { return { success: false, error: t("checkRequestNotFound") }; }
-  const cr = detail.checkRequest;
-  if (!cr || !cr.skillName) return { success: false, error: t("checkRequestNotFound") };
+  // Claim the responder slot atomically BEFORE rolling. SELECT ... FOR UPDATE
+  // serializes concurrent responders on the request row: without it, two
+  // players clicking within the same second both read an empty
+  // respondedUserIds and the later write erased the earlier response (count
+  // stuck at 1/N), and a double-click could slip past the "already responded"
+  // guard and roll twice.
+  const claim = await db.transaction(async (tx) => {
+    const [msg] = await tx.select().from(messages)
+      .where(and(eq(messages.id, checkRequestId), eq(messages.roomId, roomId)))
+      .for("update");
+    if (!msg || msg.type !== "check_request" || !msg.diceDetail) {
+      return { ok: false as const, error: t("checkRequestNotFound") };
+    }
 
-  const targetUserIds = cr.targetUserIds || [];
-  const responded = cr.respondedUserIds || [];
-  if (!targetUserIds.includes(rollerId)) return { success: false, error: t("checkNotTarget") };
-  if (responded.includes(rollerId)) return { success: false, error: t("checkAlreadyDone") };
+    let detail: CheckDetail;
+    try { detail = JSON.parse(msg.diceDetail); } catch { return { ok: false as const, error: t("checkRequestNotFound") }; }
+    const cr = detail.checkRequest;
+    if (!cr || !cr.skillName) return { ok: false as const, error: t("checkRequestNotFound") };
+
+    const targetUserIds = cr.targetUserIds || [];
+    const responded = cr.respondedUserIds || [];
+    if (!targetUserIds.includes(rollerId)) return { ok: false as const, error: t("checkNotTarget") };
+    if (responded.includes(rollerId)) return { ok: false as const, error: t("checkAlreadyDone") };
+
+    cr.respondedUserIds = [...responded, rollerId];
+    if (isProxy) {
+      cr.proxiedUserIds = [...(cr.proxiedUserIds ?? []), rollerId];
+    }
+    await tx.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, checkRequestId));
+    return { ok: true as const, msg, cr };
+  });
+  if (!claim.ok) return { success: false, error: claim.error };
+  const { msg, cr } = claim;
+
+  // If the roll can't be produced after the claim (e.g. unset stat), release
+  // the slot again so the player can retry once the stat is fixed.
+  const unclaim = async () => {
+    try {
+      await db.transaction(async (tx) => {
+        const [row] = await tx.select({ diceDetail: messages.diceDetail }).from(messages)
+          .where(eq(messages.id, checkRequestId))
+          .for("update");
+        if (!row?.diceDetail) return;
+        const d = JSON.parse(row.diceDetail);
+        const c = d?.checkRequest;
+        if (!c) return;
+        c.respondedUserIds = (c.respondedUserIds ?? []).filter((x: number) => x !== rollerId);
+        if (isProxy) c.proxiedUserIds = (c.proxiedUserIds ?? []).filter((x: number) => x !== rollerId);
+        await tx.update(messages).set({ diceDetail: JSON.stringify(d) }).where(eq(messages.id, checkRequestId));
+      });
+    } catch (e) {
+      console.error("[respondToCheckRequestAction] Failed to release claimed response:", e);
+    }
+  };
 
   // For a proxy roll, surface the host's nickname so the dice bubble can show
   // a "代投 by <host>" chip (filled in by commands.ts via diceDetail).
@@ -629,6 +676,7 @@ export async function respondToCheckRequestAction(
       } else {
         // needsSkill prompts the *self* to set their stat — meaningless for a proxy roll,
         // so surface as plain error and let the host inform the player out-of-band.
+        await unclaim();
         return { success: false, error: result.error, needsSkill: !isProxy && result.code === "STAT_NOT_SET" };
       }
     }
@@ -646,6 +694,7 @@ export async function respondToCheckRequestAction(
     const group = x > 0 || y !== 0 ? `+${x}${y > 0 ? `+${y}` : y < 0 ? `${y}` : ""}` : "";
     const result = await executeCommand(roomId, rollerId, `.rc ${cr.skillName}${group} ${dc}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
     if (!result.success) {
+      await unclaim();
       return { success: false, error: result.error };
     }
   } else {
@@ -658,6 +707,7 @@ export async function respondToCheckRequestAction(
           // roll a raw d100, attributed to the player + carrying the proxy chip.
           await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
         } else {
+          await unclaim();
           return { success: false, error: result.error, needsSkill: !isProxy && result.code === "STAT_NOT_SET" };
         }
       }
@@ -674,13 +724,21 @@ export async function respondToCheckRequestAction(
     }
   }
 
-  // Record the response and broadcast the updated completion state.
-  const newResponded = [...responded, rollerId];
-  cr.respondedUserIds = newResponded;
-  if (isProxy) {
-    cr.proxiedUserIds = [...(cr.proxiedUserIds ?? []), rollerId];
-  }
-  await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, checkRequestId));
+  // The response itself was already recorded by the claim transaction.
+  // Broadcast the freshest completion state — a concurrent responder may have
+  // appended after our claim, and each broadcast carries a full snapshot, so
+  // re-reading makes the last-delivered event converge on the true set.
+  let respondedNow = cr.respondedUserIds ?? [];
+  let proxiedNow = cr.proxiedUserIds;
+  try {
+    const [fresh] = await db.select({ diceDetail: messages.diceDetail }).from(messages)
+      .where(eq(messages.id, checkRequestId));
+    const freshCr: CheckDetail["checkRequest"] = fresh?.diceDetail ? JSON.parse(fresh.diceDetail)?.checkRequest : undefined;
+    if (freshCr?.respondedUserIds) {
+      respondedNow = freshCr.respondedUserIds;
+      proxiedNow = freshCr.proxiedUserIds;
+    }
+  } catch { /* fall back to the claim snapshot */ }
   // NOTE: do NOT reuse the message id here. The SSE stream dedups by `id`, and the
   // original check_request message (same id) was already delivered, so an `id`-keyed
   // event would be dropped server-side. Carry the target id under `checkRequestId`,
@@ -688,8 +746,8 @@ export async function respondToCheckRequestAction(
   broadcastToRoom(roomId, {
     type: "check_update",
     checkRequestId,
-    respondedUserIds: newResponded,
-    proxiedUserIds: cr.proxiedUserIds,
+    respondedUserIds: respondedNow,
+    proxiedUserIds: proxiedNow,
     audience: msg.audience,
     userId: msg.userId,
     targetUserId: msg.targetUserId,
@@ -1252,6 +1310,27 @@ export async function loadMoreMessagesAction(roomId: number, beforeMessageId: nu
     .select()
     .from(messages)
     .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, beforeMessageId)))
+    .orderBy(desc(messages.id))
+    .limit(limit);
+
+  return results.reverse();
+}
+
+/**
+ * Reconnect catch-up: everything visible to this user newer than the last
+ * message the client saw before its SSE stream dropped. The server emits no
+ * `id:` field on SSE frames, so Last-Event-ID replay can't work — the client
+ * heals the gap itself (see useRoomEvents). Newest-first + reverse mirrors
+ * the initial page query; the limit bounds a very long offline gap, in which
+ * case the newest `limit` rows win (same trade-off as a fresh page load).
+ */
+export async function catchUpMessagesAction(roomId: number, sinceMessageId: number, limit = 300) {
+  const { userId, isHost } = await checkRoomAccess(roomId, false);
+
+  const results = await db
+    .select()
+    .from(messages)
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, sinceMessageId)))
     .orderBy(desc(messages.id))
     .limit(limit);
 

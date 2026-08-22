@@ -35,7 +35,8 @@ interface CharacterPanelProps {
   targetUserId?: number;
   loading?: boolean;
   avatarColor?: string | null;
-  /** Base64 JPEG avatar for this member, if uploaded. */
+  /** Avatar image source for this member (reference URL from the avatars API,
+   *  or a data URL right after an upload), if uploaded. */
   avatar?: string | null;
   isGM?: boolean;
   /** Bumped by the parent after a .st command, so the skills tab reloads. */

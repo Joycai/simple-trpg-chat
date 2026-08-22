@@ -126,6 +126,9 @@ export function RoomClient({
   const [unreadEvents, setUnreadEvents] = useState(0);
   const [unreadEventsKey, setUnreadEventsKey] = useState(0);
   const [eventDetailId, setEventDetailId] = useState<number | null>(null);
+  // Passed into every ChatMessage — must stay referentially stable (see
+  // handleToggleInventory below).
+  const handleOpenEvent = useCallback((id: number) => setEventDetailId(id), []);
   const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
@@ -485,6 +488,7 @@ export function RoomClient({
     isHost,
     activeTabRef,
     seenIdsRef,
+    messagesRef,
     setMessages,
     setStatus,
     setUnreadCounts,
@@ -695,13 +699,15 @@ export function RoomClient({
     }
   }, [room.id]);
 
-  const handleToggleInventory = () => {
+  // Stable identity matters: this reaches every ChatMessage via ChatArea, and
+  // one unstable prop defeats the whole list's memo() bail-out.
+  const handleToggleInventory = useCallback(() => {
     setShowInventory((v) => !v);
     // Clear only the local unread dot here. The server-side "viewed" flags are
     // acknowledged by the InventoryPanel *after* it loads, so the new/updated
     // highlights still render this session instead of being cleared mid-open.
     setUnreadItems(0);
-  };
+  }, []);
 
   // Alt+↑/↓: cycle through the conversation tabs (public first, then the DM
   // list in sidebar order). Wraps around at both ends.
@@ -897,7 +903,7 @@ export function RoomClient({
           onWithdrawTimeline={isHost ? handleWithdrawTimeline : undefined}
           onSendMessage={handleSendMessage}
           visibleEventIds={visibleEventIds}
-          onOpenEvent={(id) => setEventDetailId(id)}
+          onOpenEvent={handleOpenEvent}
         />
       </div>
 
