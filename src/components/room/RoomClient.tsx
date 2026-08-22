@@ -540,23 +540,31 @@ export function RoomClient({
   // predate the window).
   const { setRoomMode } = useTheme();
   const followsTimeline = room.themeMode === "timeline";
-  // Last divider-resolved mode ever seen in this session. Needed because the
-  // message-window cap can trim the divider row itself out of `messages` —
-  // without this, the mode would silently snap back to the page-load initial.
-  const lastDividerModeRef = useRef<ThemeMode | null>(null);
-  const effectiveRoomMode = useMemo<ThemeMode>(() => {
-    if (!followsTimeline) return (room.themeMode as ThemeMode) || "auto";
+  // Mode resolved from the newest divider inside the loaded window; null when
+  // the window holds no divider (never loaded, or trimmed out by the
+  // message-window cap).
+  const scannedDividerMode = useMemo<ThemeMode | null>(() => {
+    if (!followsTimeline) return null;
     let latest: Message | null = null;
     for (const m of messages) {
       if (m.type === "system" && m.systemKind === "timeline-divider" && (!latest || m.id > latest.id)) {
         latest = m;
       }
     }
-    if (!latest) return lastDividerModeRef.current ?? initialTimelineMode ?? "light";
-    const mode = resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
-    lastDividerModeRef.current = mode;
-    return mode;
-  }, [followsTimeline, room.themeMode, messages, initialTimelineMode]);
+    if (!latest) return null;
+    return resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
+  }, [followsTimeline, messages]);
+  // Last divider-resolved mode ever seen this session (render-time derived
+  // state, same pattern as `seededPlayers` above). Needed because the
+  // message-window cap can trim the divider row itself out of `messages` —
+  // without this, the mode would silently snap back to the page-load initial.
+  const [lastDividerMode, setLastDividerMode] = useState<ThemeMode | null>(null);
+  if (scannedDividerMode !== null && scannedDividerMode !== lastDividerMode) {
+    setLastDividerMode(scannedDividerMode);
+  }
+  const effectiveRoomMode: ThemeMode = !followsTimeline
+    ? (room.themeMode as ThemeMode) || "auto"
+    : scannedDividerMode ?? lastDividerMode ?? initialTimelineMode ?? "light";
 
   useEffect(() => {
     setRoomMode(effectiveRoomMode);
