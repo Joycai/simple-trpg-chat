@@ -1476,7 +1476,7 @@ export const ChatMessage = memo(function ChatMessage({
           ) : checkState === "target-pending" && onCheckRequest && messageId !== undefined ? (
             <button
               onClick={() => onCheckRequest(messageId, cr?.skillName ?? "", cr?.shCheck ? { bonusDicePrompt: true } : undefined)}
-              className="check-request-button bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center transition animate-bounce shadow-[var(--theme-glow)]"
+              className="check-request-button bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center transition attention-bounce shadow-[var(--theme-glow)]"
               title={t("clickCheck")}
             >
               <Icons.Dices className="w-4 h-4" />

@@ -1,6 +1,6 @@
 # 003 — 用有限次到达提示取代房间界面里的无限循环动画
 
-- **Status**: TODO
+- **Status**: DONE（已应用到工作树，机器验证通过；手感验收清单待人工过一遍）
 - **Commit**: cf83357
 - **Severity**: HIGH
 - **Category**: Purpose & frequency / Accessibility

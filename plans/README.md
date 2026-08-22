@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 001 | [修复头像悬浮状态卡的动效](001-resource-tooltip-motion.md) | HIGH | DONE |
 | 002 | [消息入场动画只给真正新到达的消息](002-gate-message-entrance.md) | HIGH | TODO |
-| 003 | [用有限次到达提示取代无限循环动画](003-finite-attention-cues.md) | HIGH | TODO |
+| 003 | [用有限次到达提示取代无限循环动画](003-finite-attention-cues.md) | HIGH | DONE |
 | 004 | [给高频按钮补上按压反馈](004-press-feedback.md) | HIGH | DONE |
 | 005 | [清理布局属性动画](005-layout-transition-cleanup.md) | MEDIUM | DONE |
 
