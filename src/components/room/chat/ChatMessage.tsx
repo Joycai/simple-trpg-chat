@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useSyncExternalStore, memo, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, useSyncExternalStore, memo, Fragment } from "react";
 import { formatTime } from "@/lib/utils";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { useTranslations } from "next-intl";
@@ -100,35 +100,33 @@ function SystemPillContent({ content, block }: { content: string; block: boolean
  */
 type DiceKind = "roll" | "check" | "sanity";
 type DiceGrade = "none" | "success" | "failure" | "critical" | "fumble";
-function parseDiceMeta(diceDetail: string | null | undefined): {
+/** Source shape parseDiceMeta reads off the (pre-parsed) diceDetail object. */
+type DiceMetaSource = {
+  check?: { grade?: DiceGrade; success?: boolean };
+  sanityCheck?: { deduction?: number };
+  psy?: unknown;
+} | null;
+
+function parseDiceMeta(d: DiceMetaSource): {
   kind: DiceKind;
   grade: DiceGrade;
   insanity: boolean;
   /** Psychology hidden roll marker — host's view of a `.psy` audience=self check. */
   psy: boolean;
 } {
-  if (!diceDetail) return { kind: "roll", grade: "none", insanity: false, psy: false };
-  try {
-    const d = JSON.parse(diceDetail) as {
-      check?: { grade?: DiceGrade; success?: boolean };
-      sanityCheck?: { deduction?: number };
-      psy?: unknown;
-    };
-    const psy = !!d.psy;
-    if (d.sanityCheck) {
-      const grade: DiceGrade =
-        d.check?.grade ?? (d.check?.success ? "success" : "failure");
-      return { kind: "sanity", grade, insanity: (d.sanityCheck.deduction ?? 0) >= 5, psy };
-    }
-    if (d.check) {
-      const grade: DiceGrade =
-        d.check.grade ?? (d.check.success ? "success" : "failure");
-      return { kind: "check", grade, insanity: false, psy };
-    }
-    return { kind: "roll", grade: "none", insanity: false, psy };
-  } catch {
-    return { kind: "roll", grade: "none", insanity: false, psy: false };
+  if (!d) return { kind: "roll", grade: "none", insanity: false, psy: false };
+  const psy = !!d.psy;
+  if (d.sanityCheck) {
+    const grade: DiceGrade =
+      d.check?.grade ?? (d.check?.success ? "success" : "failure");
+    return { kind: "sanity", grade, insanity: (d.sanityCheck.deduction ?? 0) >= 5, psy };
   }
+  if (d.check) {
+    const grade: DiceGrade =
+      d.check.grade ?? (d.check.success ? "success" : "failure");
+    return { kind: "check", grade, insanity: false, psy };
+  }
+  return { kind: "roll", grade: "none", insanity: false, psy };
 }
 
 /** One evaluated term of a dice expression, persisted so the renderer can
@@ -567,19 +565,27 @@ function D20CheckCard({ d, t }: { d: DiceDetailJson; t: DiceTFn }) {
  */
 function DiceResultDisplay({
   diceDetail,
+  preParsed,
   fallback,
   t,
 }: {
   diceDetail: string | null | undefined;
+  /** Pre-parsed diceDetail from the parent's single-parse memo. When absent
+   *  (legacy messages whose JSON lives in `content`), this parses locally. */
+  preParsed?: DiceDetailJson | null;
   fallback: string;
   t: (key: string, opts?: Record<string, string | number | Date>) => string;
 }) {
   if (!diceDetail) return <span className="dice-formula">{fallback}</span>;
   let d: DiceDetailJson;
-  try {
-    d = JSON.parse(diceDetail);
-  } catch {
-    return <span className="dice-formula">{diceDetail}</span>;
+  if (preParsed) {
+    d = preParsed;
+  } else {
+    try {
+      d = JSON.parse(diceDetail);
+    } catch {
+      return <span className="dice-formula">{diceDetail}</span>;
+    }
   }
 
   // .sc — sanity check renders a card layout with its own header / body /
@@ -1231,13 +1237,17 @@ export const ChatMessage = memo(function ChatMessage({
   // missed SSE patch doesn't breathe forever (re-appears if the quip patches
   // in later, or on next full reload once it's landed in diceDetail).
   const [showQuipPlaceholder, setShowQuipPlaceholder] = useState(true);
+  // diceDetail parsed exactly once per unique payload — every consumer below
+  // (dice meta, dice card fields, check_request pill, quip placeholder,
+  // DiceResultDisplay) previously re-ran JSON.parse on the same string.
+  // null covers both "no detail" and "malformed detail".
+  const parsedDetail = useMemo<Record<string, unknown> | null>(() => {
+    if (!diceDetail) return null;
+    try { return JSON.parse(diceDetail); } catch { return null; }
+  }, [diceDetail]);
   useEffect(() => {
-    if (type !== "dice" || !diceDetail) return;
-    let pending = false;
-    try {
-      const d = JSON.parse(diceDetail) as { announcer?: { quipPending?: boolean } };
-      pending = !!d.announcer?.quipPending;
-    } catch { /* malformed diceDetail — no placeholder to arm */ }
+    if (type !== "dice") return;
+    const pending = !!(parsedDetail as { announcer?: { quipPending?: boolean } } | null)?.announcer?.quipPending;
     if (!pending) return;
     const timer = setTimeout(() => setShowQuipPlaceholder(false), 8000);
     return () => clearTimeout(timer);
@@ -1369,8 +1379,7 @@ export const ChatMessage = memo(function ChatMessage({
         ghost?: boolean;
       };
     };
-    let checkInfo: CheckInfo | null = null;
-    try { checkInfo = diceDetail ? JSON.parse(diceDetail) as CheckInfo : null; } catch {}
+    const checkInfo = parsedDetail as CheckInfo | null;
     const cr = checkInfo?.checkRequest;
     const targetIds = cr?.targetUserIds ?? [];
     const respondedIds = cr?.respondedUserIds ?? [];
@@ -1653,7 +1662,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isDice = type === "dice";
   const isImage = type === "image";
   const isSticker = type === "sticker";
-  const diceMeta = isDice ? parseDiceMeta(diceDetail) : null;
+  const diceMeta = isDice ? parseDiceMeta(parsedDetail as DiceMetaSource) : null;
   // Extract command echo + roll kind from diceDetail so they can be lifted out
   // of the bubble: echo into the header line, kind onto a data-attr for theming.
   let diceCommandEcho: string | null = null;
@@ -1661,25 +1670,21 @@ export const ChatMessage = memo(function ChatMessage({
   let diceCardKind: "sanity" | "breakdown" | "pool" | "bp" | "d20" | null = null;
   let diceProxyNick: string | null = null;
   let diceAnnouncer: { userId: number; nickname: string; quip?: string; quipPending?: boolean } | null = null;
-  if (isDice && diceDetail) {
-    try {
-      const d = JSON.parse(diceDetail) as DiceDetailJson & {
-        proxiedByNickname?: string;
-        announcer?: { userId: number; nickname: string; quip?: string; quipPending?: boolean };
-      };
-      if (typeof d.command === "string" && d.command.trim()) {
-        diceCommandEcho = d.command.trim();
-      }
-      diceRollKind = getRollKind(d);
-      diceCardKind = diceCardType(d);
-      if (typeof d.proxiedByNickname === "string" && d.proxiedByNickname) {
-        diceProxyNick = d.proxiedByNickname;
-      }
-      if (d.announcer) {
-        diceAnnouncer = d.announcer;
-      }
-    } catch {
-      /* malformed diceDetail — skip echo */
+  if (isDice && parsedDetail) {
+    const d = parsedDetail as DiceDetailJson & {
+      proxiedByNickname?: string;
+      announcer?: { userId: number; nickname: string; quip?: string; quipPending?: boolean };
+    };
+    if (typeof d.command === "string" && d.command.trim()) {
+      diceCommandEcho = d.command.trim();
+    }
+    diceRollKind = getRollKind(d);
+    diceCardKind = diceCardType(d);
+    if (typeof d.proxiedByNickname === "string" && d.proxiedByNickname) {
+      diceProxyNick = d.proxiedByNickname;
+    }
+    if (d.announcer) {
+      diceAnnouncer = d.announcer;
     }
   }
 
@@ -1889,14 +1894,14 @@ export const ChatMessage = memo(function ChatMessage({
             diceCardKind !== null ? (
               // Card layouts (理智 / 狩魂 / pool) render their own header/body —
               // no outer flex/icon wrapper.
-              <DiceResultDisplay diceDetail={diceDetail || content} fallback={content} t={t} />
+              <DiceResultDisplay diceDetail={diceDetail || content} preParsed={diceDetail ? (parsedDetail as DiceDetailJson | null) : undefined} fallback={content} t={t} />
             ) : (
               <div className="dice-bubble flex items-center gap-2 flex-wrap">
                 <span className="dice-icon flex items-center justify-center w-7 h-7 rounded-theme bg-primary/10 text-primary border border-primary/30 shrink-0">
                   <RollIcon kind={diceRollKind} grade={diceMeta?.grade ?? "none"} psy={diceMeta?.psy} />
                 </span>
                 <span className="dice-result inline-flex items-baseline gap-1 font-theme-mono text-sm leading-tight flex-wrap">
-                  <DiceResultDisplay diceDetail={diceDetail || content} fallback={content} t={t} />
+                  <DiceResultDisplay diceDetail={diceDetail || content} preParsed={diceDetail ? (parsedDetail as DiceDetailJson | null) : undefined} fallback={content} t={t} />
                 </span>
               </div>
             )
