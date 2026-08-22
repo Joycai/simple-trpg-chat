@@ -103,7 +103,6 @@
   border-left: 3px solid transparent;
   border-bottom: 1px solid rgba(180,160,130, 0.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out, color 0.25s ease-in-out;
 }
 [data-theme="shrine"] .conv-tab:hover {
   background: linear-gradient(90deg, rgba(185,165,130, 0.6) 0%, rgba(170,148,112, 0.3) 100%);

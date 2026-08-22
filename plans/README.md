@@ -11,6 +11,7 @@
 | 003 | [用有限次到达提示取代无限循环动画](003-finite-attention-cues.md) | HIGH | DONE |
 | 004 | [给高频按钮补上按压反馈](004-press-feedback.md) | HIGH | DONE |
 | 005 | [清理布局属性动画](005-layout-transition-cleanup.md) | MEDIUM | DONE |
+| 006 | [收敛 conv-tab 的主题级 transition 覆盖](006-conv-tab-transition-consolidation.md) | MEDIUM | DONE |
 
 ## 推荐执行顺序与依赖
 
@@ -20,7 +21,6 @@
 
 ## 审计中确认但未列入计划的发现（后续候选）
 
-- 六个主题各自硬编码 `.conv-tab` 的 250ms ease-in-out 过渡，覆盖掉组件自己的 `duration-150`（rainglass/cthulhu/shrine/parchment/aether theme.css）——应提为一个 `--theme-*` 令牌并降回 ~150ms。
 - `ChatInput.tsx:458` 私聊模式边框 `transition-all duration-300` → 应为 `transition-colors duration-150`。
 - 登录/注册页主题环境动画（雾、雨滴、烛光等 16 处 infinite keyframes）整体缺 `prefers-reduced-motion` 门控（`src/themes/*/theme.css`；位移类是前庭触发源）。
 - 触屏无 `@media (hover: hover)` 门控：`BackpackView.tsx:143`、`CharacterPanel.tsx:569`、`BotManager.tsx:336` 的 hover 位移在移动端粘滞。

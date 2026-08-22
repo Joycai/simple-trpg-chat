@@ -125,7 +125,6 @@
 }
 [data-theme="default"] .conv-tab {
   border-left: 3px solid transparent;
-  transition: border-color 0.3s;
 }
 [data-theme="default"] .conv-tab.active {
   border-left-color: rgb(var(--theme-primary));
