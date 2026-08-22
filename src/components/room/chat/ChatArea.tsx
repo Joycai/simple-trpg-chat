@@ -11,6 +11,11 @@ interface ChatAreaProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   onScroll: () => void;
   tabMessages: Message[];
+  /** Message id → arrival time for live-arrived messages (SSE / catch-up / local
+   *  error pills). A message only plays its entrance animation when it is here
+   *  and arrived less than 3s ago — history loads, pagination and tab switches
+   *  mount silently. */
+  liveEnterRef: React.MutableRefObject<Map<string, number>>;
   players: PlayerEntry[];
   userId: number;
   isHost: boolean;
@@ -51,7 +56,7 @@ interface ChatAreaProps {
 }
 
 export function ChatArea({
-  scrollRef, onScroll, tabMessages, players, userId, isHost, roomId, hostId,
+  scrollRef, onScroll, tabMessages, liveEnterRef, players, userId, isHost, roomId, hostId,
   typingBots, activeTab, showScrollButton, scrollToBottom, dmConversations,
   mentionTargets, readOnly, readOnlyNotice, quickCommands, defaultRollExpression, onViewCharacter, onStartDM, onCheckRequest, onProxyCheckRequest, onLoadProxyTargets, onOpenInventory, onWithdrawTimeline, visibleEventIds, onOpenEvent, onSendMessage,
 }: ChatAreaProps) {
@@ -73,11 +78,24 @@ export function ChatArea({
     <div className="flex-1 flex flex-col relative min-w-0">
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
         <div className="max-w-4xl mx-auto flex flex-col gap-1">
+          {/* eslint-disable-next-line react-hooks/refs -- deliberate render-time
+              read of liveEnterRef (see the entrance-gate comment below) */}
           {tabMessages.map((msg) => {
             const playerData = playersById.get(msg.userId);
+            // Entrance gate: animate only messages that arrived live within the
+            // last 3s. ChatMessage captures the flag once on mount, so a later
+            // re-render flipping this back to false never restarts the animation.
+            // Render-time ref read + Date.now() are deliberate: the map entry is
+            // written before the setMessages that schedules this render, and the
+            // flag is only consumed at the child's mount, so staleness on later
+            // renders is harmless (and intended — no animation replay).
+            const enteredAt = liveEnterRef.current.get(String(msg.id));
+            // eslint-disable-next-line react-hooks/purity
+            const enter = enteredAt !== undefined && Date.now() - enteredAt < 3000;
             return (
               <ChatMessage
                 key={msg.id}
+                enter={enter}
                 nickname={msg.nickname}
                 content={msg.content}
                 type={msg.type as "text" | "dice" | "system" | "clue" | "image" | "check_request"}

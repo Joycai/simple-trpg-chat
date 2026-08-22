@@ -857,11 +857,17 @@ function DispatchChip({ type, title }: { type: DispatchItemType; title: string }
 function DispatchPill({
   content,
   diceDetail,
+  enter = false,
 }: {
   content: string;
   diceDetail: string | null | undefined;
+  /** Entrance-animation gate, forwarded from the owning ChatMessage. */
+  enter?: boolean;
 }) {
   const t = useTranslations("inventoryDispatch");
+  // Captured once on mount — same pattern as ChatMessage's `entered`.
+  const [entered] = useState(enter);
+  const pillEnterClass = entered ? "animate-in fade-in" : "";
 
   let payload: DispatchPayload["inventoryDispatch"] | null = null;
   if (diceDetail) {
@@ -877,7 +883,7 @@ function DispatchPill({
   // messages (or any malformed payload) still display sensibly.
   if (!payload?.action || !payload.item?.type || !payload.item.title) {
     return (
-      <div className="system-pill flex justify-center py-2 animate-in fade-in">
+      <div className={`system-pill flex justify-center py-2 ${pillEnterClass}`}>
         <span className="system-pill-body inline-flex items-center gap-1.5 text-xs italic px-3 py-1 rounded-full bg-surface-alt text-text-dim">
           <span className="system-pill-text">{content}</span>
         </span>
@@ -902,7 +908,7 @@ function DispatchPill({
 
   return (
     <div
-      className="dispatch-pill-wrap flex justify-center py-2 animate-in fade-in"
+      className={`dispatch-pill-wrap flex justify-center py-2 ${pillEnterClass}`}
       data-action={action}
     >
       <div
@@ -980,12 +986,18 @@ function ReceiptPill({
   content,
   diceDetail,
   onOpenInventory,
+  enter = false,
 }: {
   content: string;
   diceDetail: string | null | undefined;
   onOpenInventory?: () => void;
+  /** Entrance-animation gate, forwarded from the owning ChatMessage. */
+  enter?: boolean;
 }) {
   const t = useTranslations("inventoryReceipt");
+  // Captured once on mount — same pattern as ChatMessage's `entered`.
+  const [entered] = useState(enter);
+  const pillEnterClass = entered ? "animate-in fade-in" : "";
 
   let payload: ReceiptPayloadShape["inventoryReceipt"] | null = null;
   if (diceDetail) {
@@ -1001,7 +1013,7 @@ function ReceiptPill({
   // recipient messages (or any malformed payload) sensible.
   if (!payload?.action || !payload.item?.type || !payload.item.title) {
     return (
-      <div className="system-pill flex justify-center py-2 animate-in fade-in">
+      <div className={`system-pill flex justify-center py-2 ${pillEnterClass}`}>
         <span className="system-pill-body inline-flex items-center gap-1.5 text-xs italic px-3 py-1 rounded-full bg-surface-alt text-text-dim">
           <span className="system-pill-text">{content}</span>
         </span>
@@ -1032,7 +1044,7 @@ function ReceiptPill({
 
   return (
     <div
-      className="receipt-pill-wrap flex justify-center py-2 animate-in fade-in"
+      className={`receipt-pill-wrap flex justify-center py-2 ${pillEnterClass}`}
       data-action={action}
     >
       <div
@@ -1153,6 +1165,9 @@ interface ChatMessageProps {
   isPrivate: boolean;
   audience?: Audience;
   createdAt: string;
+  /** True when this message arrived live moments ago — plays the entrance
+   *  animation. Captured once on mount, so later re-renders can't replay it. */
+  enter?: boolean;
   isOwn: boolean;
   isBot?: boolean;
   userId?: number;
@@ -1196,6 +1211,7 @@ export const ChatMessage = memo(function ChatMessage({
   isPrivate,
   audience,
   createdAt,
+  enter = false,
   isOwn,
   isBot = false,
   userId,
@@ -1224,6 +1240,11 @@ export const ChatMessage = memo(function ChatMessage({
   // useSyncExternalStore returns the server snapshot (false) during SSR and the
   // client snapshot (true) thereafter, avoiding the setState-in-effect pattern.
   const mounted = useSyncExternalStore(subscribeNoop, getClientTrue, getServerFalse);
+  // Capture the entrance flag once — the row is keyed by message id, so this
+  // stays true for the animation's lifetime and never re-arms on re-render.
+  const [entered] = useState(enter);
+  const rowEnterClass = entered ? "animate-in fade-in slide-in-from-bottom-1" : "";
+  const pillEnterClass = entered ? "animate-in fade-in" : "";
   const [showMenu, setShowMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [charData, setCharData] = useState<CharacterData | null>(null);
@@ -1446,7 +1467,7 @@ export const ChatMessage = memo(function ChatMessage({
 
     return (
       <div
-        className="check-request flex justify-center py-2 animate-in fade-in"
+        className={`check-request flex justify-center py-2 ${pillEnterClass}`}
         data-state={checkState}
         data-check-kind={checkKind}
         data-complete={allDone ? "true" : undefined}
@@ -1581,18 +1602,18 @@ export const ChatMessage = memo(function ChatMessage({
     // Help renders as a structured 2-column card, not a pill.
     if (systemKind === "help") {
       return (
-        <div className="system-pill flex justify-center py-2 animate-in fade-in" data-kind="help">
+        <div className={`system-pill flex justify-center py-2 ${pillEnterClass}`} data-kind="help">
           <HelpCard visSelfLabel={t("visSelf")} />
         </div>
       );
     }
     // Inventory dispatch: structured icon + chip pill driven by `diceDetail`.
     if (systemKind === "inventory-dispatch") {
-      return <DispatchPill content={content} diceDetail={diceDetail} />;
+      return <DispatchPill content={content} diceDetail={diceDetail} enter={entered} />;
     }
     // Inventory receipt: recipient-side notification with NEW/更新 badge + 查看背包 CTA.
     if (systemKind === "inventory-receipt") {
-      return <ReceiptPill content={content} diceDetail={diceDetail} onOpenInventory={onOpenInventory} />;
+      return <ReceiptPill content={content} diceDetail={diceDetail} onOpenInventory={onOpenInventory} enter={entered} />;
     }
     // Event announcement card — locked/unlocked/retracted decided client-side.
     if (systemKind === "event-card") {
@@ -1600,7 +1621,7 @@ export const ChatMessage = memo(function ChatMessage({
       if (!payload) return null;
       const unlocked = isHost || !!visibleEventIds?.has(payload.eventId);
       return (
-        <div className="flex justify-center py-2 animate-in fade-in">
+        <div className={`flex justify-center py-2 ${pillEnterClass}`}>
           <EventCard payload={payload} unlocked={unlocked} roomId={roomId} onOpen={() => onOpenEvent?.(payload.eventId)} />
         </div>
       );
@@ -1609,7 +1630,7 @@ export const ChatMessage = memo(function ChatMessage({
     if (systemKind === "event-receipt") {
       const r = parseEventReceiptPayload(diceDetail);
       return (
-        <div className="system-pill flex justify-center py-2 animate-in fade-in" data-kind="event-receipt">
+        <div className={`system-pill flex justify-center py-2 ${pillEnterClass}`} data-kind="event-receipt">
           <button
             onClick={() => r && onOpenEvent?.(r.eventId)}
             className="system-pill-body inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full text-primary bg-primary/10 border border-primary/30 hover:bg-primary/20 transition cursor-pointer"
@@ -1639,7 +1660,7 @@ export const ChatMessage = memo(function ChatMessage({
     const isBlock = !systemKind && content.includes("\n");
     if (isBlock) {
       return (
-        <div className="system-pill flex justify-center py-2 animate-in fade-in" data-block="true">
+        <div className={`system-pill flex justify-center py-2 ${pillEnterClass}`} data-block="true">
           <div className="system-pill-body bg-surface-alt border border-border rounded-theme px-4 py-3 text-sm text-text max-w-lg text-left">
             <SystemPillContent content={content} block />
           </div>
@@ -1653,7 +1674,7 @@ export const ChatMessage = memo(function ChatMessage({
     const KindIcon = meta?.icon;
     return (
       <div
-        className="system-pill flex justify-center py-2 animate-in fade-in"
+        className={`system-pill flex justify-center py-2 ${pillEnterClass}`}
         data-kind={systemKind ?? undefined}
       >
         <span
@@ -1723,7 +1744,7 @@ export const ChatMessage = memo(function ChatMessage({
     : null;
 
   return (
-    <div className={`flex gap-3 py-1.5 group animate-in fade-in slide-in-from-bottom-1 ${isOwn ? "flex-row-reverse" : ""}`}>
+    <div className={`flex gap-3 py-1.5 group ${rowEnterClass} ${isOwn ? "flex-row-reverse" : ""}`}>
       {/* Avatar Wrapper */}
       <div
         ref={avatarRef}
