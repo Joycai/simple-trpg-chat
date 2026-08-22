@@ -894,3 +894,11 @@
   color: rgb(var(--theme-primary-foreground));
 }
 
+/* Reduced motion: the sliding droplet / falling drips are vestibular triggers.
+   Opacity-only flicker (neon breathe) stays — flicker is not motion. */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="rainglass"] .rg-anim-slide,
+  [data-theme="rainglass"] .rg-anim-drip {
+    animation: none;
+  }
+}

@@ -875,3 +875,13 @@
   color: rgb(var(--theme-primary-foreground));
 }
 
+/* Reduced motion: the guttering flame / swaying quill / drifting motes are
+   vestibular triggers. Opacity-only flicker (glow, ink glint) stays — flicker
+   is not motion. */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="parchment"] .prch-flame,
+  [data-theme="parchment"] .prch-quill,
+  [data-theme="parchment"] .prch-mote {
+    animation: none;
+  }
+}
