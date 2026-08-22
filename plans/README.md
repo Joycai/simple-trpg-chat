@@ -15,6 +15,7 @@
 | 007 | [登录页环境动画的 reduced-motion 门控](007-login-reduced-motion.md) | MEDIUM | DONE |
 | 008 | [overlay-pop 方向修正 + 死 duration 清理](008-overlay-pop-direction-and-dead-durations.md) | LOW | DONE |
 | 009 | [令牌外 cubic-bezier 清理](009-offtoken-cubic-bezier.md) | LOW | DONE |
+| 010 | [骰子大成功/大失败到达高光](010-dice-crit-fumble-flourish.md) | LOW | DONE |
 
 ## 推荐执行顺序与依赖
 
@@ -32,5 +33,4 @@
 ## 补充机会（additive，未成计划）
 
 - 发送消息无本地乐观回显（`RoomClient.tsx:632-648` 等 SSE 回显才出现；`useRoomEvents.ts:274-287` 的占位替换机制已建好未用）。
-- 骰子结果卡已带 `data-grade="critical"/"fumble"` 等钩子（`ChatMessage.tsx:1884-1891`），主题只用于静态配色——大成功/大失败这种稀有高情绪时刻可以有一次性入场动效。
 - 检定请求从"待响应按钮"到"完成勾"是同位硬切换（`ChatMessage.tsx:1463-1472`），值得一个小交叉淡入。

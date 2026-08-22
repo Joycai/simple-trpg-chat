@@ -1918,7 +1918,7 @@ export const ChatMessage = memo(function ChatMessage({
               : isOwn
               ? "bg-primary/10 border border-primary/40 text-text"
               : "bg-surface border border-border text-text"
-          }`}
+          } ${entered && isDice ? "dice-flourish" : ""}`}
           data-grade={isDice ? diceMeta?.grade : undefined}
           data-kind={isDice ? diceMeta?.kind : undefined}
           data-roll-kind={isDice ? diceRollKind : undefined}
