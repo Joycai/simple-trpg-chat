@@ -18,6 +18,13 @@ const VARIANTS: Record<NoticeVariant, { Icon: LucideIcon; cls: string }> = {
  * stand-in for a blocking `alert()`. The label is a prop rather than a
  * `useTranslations` call so this stays hook-free and usable from a server
  * component.
+ *
+ * Nearly every caller mounts this conditionally (`{error && <Notice …>}`), so
+ * it arrives mid-form and pushes the layout below it. `.animate-in` (a pure CSS
+ * class — no hook, so the server-component path still works) gives it a 180ms
+ * fade-and-rise instead of a hard cut, and is already covered by the
+ * reduced-motion collapse in globals.css. The handful of callers that render it
+ * unconditionally get the same entrance once on mount, which is harmless.
  */
 export function Notice({
   variant,
@@ -36,7 +43,7 @@ export function Notice({
   return (
     <div
       role={variant === "error" ? "alert" : "status"}
-      className={`flex items-center gap-2.5 px-4 py-3 rounded-theme border text-sm ${cls} ${className}`}
+      className={`animate-in fade-in slide-in-from-bottom-1 flex items-center gap-2.5 px-4 py-3 rounded-theme border text-sm ${cls} ${className}`}
     >
       <Icon className="w-4 h-4 shrink-0" />
       <span className="flex-1 min-w-0 text-text">{children}</span>

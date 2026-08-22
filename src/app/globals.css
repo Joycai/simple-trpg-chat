@@ -296,6 +296,10 @@ body[data-room-bg] .bg-bg .bg-bg {
 .animate-in {
   animation: ui-enter var(--enter-dur, 180ms) var(--ease-spring-snappy) both;
 }
+/* Deliberately NOT named `duration-160`: `duration-*` is Tailwind's
+   transition-duration and never reaches animation-duration (see the note
+   above). This is the animation-duration knob, so it gets its own name. */
+.enter-fast { --enter-dur: 160ms; }
 .fade-in { --enter-opacity: 0; }
 .zoom-in-95 { --enter-scale: 0.95; }
 .slide-in-from-bottom-1 { --enter-y: 0.25rem; }
@@ -339,6 +343,82 @@ body[data-room-bg] .bg-bg .bg-bg {
   animation: dice-fumble-in 450ms ease-in-out 120ms both;
 }
 
+/* Scroll-to-bottom FAB — show/hide without mounting.
+   ------------------------------------------------------------
+   The button stays in the DOM and toggles `data-visible`, because the 150px
+   threshold that drives it (RoomClient's `handleScroll`) has no hysteresis:
+   scrolling along the boundary flips the flag repeatedly, and a transition
+   damps that where a mount/unmount amplifies it into a flicker.
+
+   Two scale mechanisms coexist here on purpose. Tailwind v4 emits `scale-*`
+   as the standalone `scale` property, so the markup's `hover:scale-110` /
+   `active:scale-95` live there; this rule uses `transform` for the
+   show/hide. They compose rather than overwrite, and since the hidden state
+   is `pointer-events: none` the hover variant can never apply on top of it.
+   `transition` lists all three properties so the press feedback keeps its
+   easing too — the markup no longer carries `transition-all`.
+
+   140ms in / 120ms out: this fires tens of times a day, so it has to sit just
+   under the threshold of feeling like the button lags the scroll. */
+.chat-scroll-fab {
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+  transition: opacity 120ms var(--ease-spring-snappy),
+              transform 120ms var(--ease-spring-snappy),
+              scale 120ms var(--ease-spring-snappy);
+}
+.chat-scroll-fab[data-visible="true"] {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  transition-duration: 140ms;
+}
+
+/* Room background scene cross-dissolve.
+   ------------------------------------------------------------
+   Opacity-only, so it composites — which matters here more than anywhere else
+   in the app, because these are full-viewport images under a themed scrim.
+
+   Two durations on purpose. The current layer keeps the 300ms this element has
+   always had: the only thing that moves its opacity is the intensity slider, a
+   continuous control where a longer tail reads as lag. The outgoing layer runs
+   the actual dissolve at 400ms, deliberately over the 300ms UI budget — it is
+   non-interactive ambient scenery nobody is waiting on, and a scene change any
+   faster reads as a jump-cut. RoomBackground.tsx explains the layer ordering
+   that lets the outgoing one animate without `@starting-style`. */
+.room-bg-layer {
+  transition: opacity 300ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+.room-bg-layer[data-fading="true"] {
+  transition-duration: 400ms;
+}
+
+/* Long-press progress on the dice pad.
+   ------------------------------------------------------------
+   Holding a die face for 400ms adds five at once (DiceRoller's `startHold`).
+   The gesture was invisible: `active:scale-[0.96]` confirms *a* press but says
+   nothing about the hold, so nothing taught it or tracked it. This overlay is
+   the progress bar — `linear` and exactly 400ms, matching the timer, so the
+   fill reaching the far edge *is* the moment five dice land.
+
+   `clip-path` rather than width/transform: it composites, and it clips to the
+   button's themed border radius for free. The snap-back on release is quick
+   and eased so an aborted hold reads as a cancel, not a rewind. */
+.dice-hold-fill {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-color: rgb(var(--theme-accent) / 0.2);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 160ms var(--ease-spring-snappy);
+}
+.dice-hold-fill[data-holding="true"] {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 400ms linear;
+}
+
 /* Respect users who prefer reduced motion — collapse to a near-instant
    cross-fade so nothing flies across the screen. The overlays are no longer
    listed here: useOverlayTransition checks the same media query in JS and
@@ -351,6 +431,28 @@ body[data-room-bg] .bg-bg .bg-bg {
   .dice-flourish[data-grade="critical"], .dice-flourish[data-grade="fumble"] {
     animation-duration: 1ms;
     animation-timing-function: linear;
+  }
+
+  /* Transition-driven, so the animation-* collapse above does not reach them.
+     Both keep their end states — the FAB still appears, and the hold fill
+     still tints on press — they just arrive at once. Gentler, not zero: the
+     hold fill in particular is the only signal that a 400ms gesture is
+     underway, so removing it outright would cost the affordance, not just
+     the motion. */
+  .chat-scroll-fab,
+  .chat-scroll-fab[data-visible="true"],
+  .dice-hold-fill,
+  .dice-hold-fill[data-holding="true"] {
+    transition-duration: 1ms;
+  }
+
+  /* Gentler, not zero. A hard cut between two full-screen photographs is the
+     jarring change this exists to prevent, and it is exactly what a
+     reduced-motion user is most sensitive to — so the dissolve is shortened
+     rather than removed. Nothing moves either way: it is opacity only. */
+  .room-bg-layer,
+  .room-bg-layer[data-fading="true"] {
+    transition-duration: 120ms;
   }
 }
 

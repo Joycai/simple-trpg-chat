@@ -1465,6 +1465,16 @@ export const ChatMessage = memo(function ChatMessage({
         })
       : null;
 
+    // Which of the three end states occupies the fixed-width swap slot below.
+    // Derived up front so the slot can be omitted entirely when none of them
+    // applies (a host who only sees the proxy control) — rendering an empty
+    // 32px box there would pad the pill for no reason.
+    const checkSlot =
+      checkState === "target-pending" && onCheckRequest && messageId !== undefined ? "roll"
+      : checkState === "target-done" ? "done"
+      : !canProxy ? "idle"
+      : null;
+
     return (
       <div
         className={`check-request flex justify-center py-2 ${pillEnterClass}`}
@@ -1494,17 +1504,40 @@ export const ChatMessage = memo(function ChatMessage({
               <Icons.Lock className="w-3 h-3" />
               {t("ghostRollBadge")}
             </span>
-          ) : checkState === "target-pending" && onCheckRequest && messageId !== undefined ? (
-            <button
-              onClick={() => onCheckRequest(messageId, cr?.skillName ?? "", cr?.shCheck ? { bonusDicePrompt: true } : undefined)}
-              className="check-request-button bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center transition attention-bounce shadow-[var(--theme-glow)]"
-              title={t("clickCheck")}
-            >
-              <Icons.Dices className="w-4 h-4" />
-            </button>
-          ) : checkState === "target-done" ? (
-            <Icons.Check className="check-request-done w-4 h-4 text-success" aria-label={t("checkDone")} />
-          ) : !canProxy ? (
+          ) : checkSlot === "roll" || checkSlot === "done" ? (
+            /* Fixed 32px slot, scoped to the two states one viewer actually
+               moves between. Rolling your check swapped a `w-8 h-8` button for
+               a `w-4 h-4` tick, so the pill snapped 16px narrower in the same
+               frame — a jump-cut on the payoff moment of the core loop. The box
+               holds the width steady so only the glyph changes.
+
+               `idle` stays outside it: that branch is a *different audience*
+               (a viewer who was never a target) and never swaps with these, so
+               padding it to 32px would widen the common pill for nothing.
+
+               The incoming state animates; the outgoing one is not held back
+               (React unmounts it, and keeping a live action button mounted
+               just to fade it out is a worse trade). In a stable box the 160ms
+               fade-and-zoom covers the gap on its own. Kept under the 180ms
+               default deliberately — this lands right after a click the user
+               made, so anything slower reads as lag. */
+            <span className="relative w-8 h-8 flex items-center justify-center shrink-0">
+              {checkSlot === "roll" ? (
+                <button
+                  onClick={() => onCheckRequest!(messageId!, cr?.skillName ?? "", cr?.shCheck ? { bonusDicePrompt: true } : undefined)}
+                  className="check-request-button bg-accent hover:bg-accent-hover text-accent-foreground w-8 h-8 rounded-full flex items-center justify-center transition attention-bounce shadow-[var(--theme-glow)]"
+                  title={t("clickCheck")}
+                >
+                  <Icons.Dices className="w-4 h-4" />
+                </button>
+              ) : (
+                <Icons.Check
+                  className="check-request-done w-4 h-4 text-success animate-in enter-fast fade-in zoom-in-95"
+                  aria-label={t("checkDone")}
+                />
+              )}
+            </span>
+          ) : checkSlot === "idle" ? (
             <Icons.Dices className="check-request-icon w-4 h-4 text-accent shrink-0" aria-hidden />
           ) : null}
           {canProxy && (
