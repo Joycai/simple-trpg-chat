@@ -167,7 +167,14 @@ export function TrafficStatsSection({ statsData, range, onRangeChange }: Traffic
 
         {points.length > 0 ? (
           <div className="relative w-full h-[240px]">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full select-none overflow-visible">
+            {/* Hover clears on leaving the whole chart, not per-column — keeps the
+                tooltip mounted while the cursor slides across, so its transform
+                transition can glide instead of remounting at each column. */}
+            <svg
+              viewBox={`0 0 ${width} ${height}`}
+              className="w-full h-full select-none overflow-visible"
+              onMouseLeave={() => setHoveredIdx(null)}
+            >
               <defs>
                 <linearGradient id="visitGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="rgb(var(--theme-accent))" stopOpacity="0.25" />
@@ -286,7 +293,6 @@ export function TrafficStatsSection({ statsData, range, onRangeChange }: Traffic
                       fill="transparent"
                       className="cursor-pointer"
                       onMouseEnter={() => setHoveredIdx(i)}
-                      onMouseLeave={() => setHoveredIdx(null)}
                     />
 
                     {/* Dot markers */}
@@ -296,14 +302,14 @@ export function TrafficStatsSection({ statsData, range, onRangeChange }: Traffic
                           cx={coords.x}
                           cy={coords.yVisit}
                           r={isHovered ? 5.5 : 3.5}
-                          className="fill-accent stroke-surface transition-all duration-150"
+                          className="fill-accent stroke-surface transition-[r,stroke-width] duration-150"
                           strokeWidth={isHovered ? 2 : 1}
                         />
                         <circle
                           cx={coords.x}
                           cy={coords.yPeak}
                           r={isHovered ? 5.5 : 3.5}
-                          className="fill-success stroke-surface transition-all duration-150"
+                          className="fill-success stroke-surface transition-[r,stroke-width] duration-150"
                           strokeWidth={isHovered ? 2 : 1}
                         />
                       </>
@@ -316,19 +322,24 @@ export function TrafficStatsSection({ statsData, range, onRangeChange }: Traffic
             {/* Absolute HTML Tooltip */}
             {hoveredIdx !== null && points[hoveredIdx] && (
               <div
-                className="absolute pointer-events-none bg-surface/95 backdrop-blur-sm border border-border p-2 shadow-xl text-xs flex flex-col gap-1 rounded-theme z-20 transition-all duration-150 whitespace-nowrap"
+                className="absolute left-0 top-0 pointer-events-none bg-surface/95 border border-border p-2 shadow-xl text-xs flex flex-col gap-1 rounded-theme z-20 transition-transform duration-150 whitespace-nowrap"
                 style={{
-                  left: `${Math.min(
+                  // Positioned via transform, not left/top: gliding between
+                  // columns then transitions on the compositor instead of
+                  // triggering layout every frame. (Dropping backdrop-blur is
+                  // part of the same fix — a blur re-samples what's behind it
+                  // on every frame of movement, and at 95% surface opacity it
+                  // was invisible anyway.)
+                  transform: `translate3d(${Math.min(
                     Math.max(10, getCoords(hoveredIdx, points[hoveredIdx].visitCount, points[hoveredIdx].peakOnline).x - 65),
                     width - 140
-                  )}px`,
-                  top: `${Math.max(
+                  )}px, ${Math.max(
                     10,
                     Math.min(
                       getCoords(hoveredIdx, points[hoveredIdx].visitCount, points[hoveredIdx].peakOnline).yVisit,
                       getCoords(hoveredIdx, points[hoveredIdx].visitCount, points[hoveredIdx].peakOnline).yPeak
                     ) - 75
-                  )}px`,
+                  )}px, 0)`,
                 }}
               >
                 <div className="font-bold border-b border-border/40 pb-0.5 mb-0.5 text-text">
