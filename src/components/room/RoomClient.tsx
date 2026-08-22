@@ -510,7 +510,7 @@ export function RoomClient({
       setMessages((prev) => (prev.length > MAX ? prev.slice(prev.length - KEEP) : prev));
       setHasMore(true);
     }
-  }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages.length]);
 
   // Single SSE connection: routes inbound events into the right state setter.
   useRoomEvents({

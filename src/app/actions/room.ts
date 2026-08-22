@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { rooms, roomMembers, messages, users, roomSkills, type Theme, type RuleTemplate } from "@/db/schema";
-import { eq, and, sql, inArray, or, desc, asc, lt, gt, isNull, not } from "drizzle-orm";
+import { eq, and, sql, inArray, or, desc, lt, gt, isNull, not } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
