@@ -148,7 +148,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               (0fr↔1fr) so toggling full-window edit eases open/closed. */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col">
             {/* Collapsible header group — title + time */}
-            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[var(--ease-spring-smooth)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
               <div className={`min-h-0 overflow-hidden flex flex-col gap-4 pb-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`} inert={descExpanded || undefined}>
                 {/* Title */}
                 <div>
@@ -223,7 +223,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
             </div>
 
             {/* Collapsible images group */}
-            <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
+            <div className={`grid transition-[grid-template-rows] duration-300 ease-[var(--ease-spring-smooth)] ${descExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}>
             <div className={`min-h-0 overflow-hidden pt-4 transition-opacity duration-200 ${descExpanded ? "opacity-0" : "opacity-100"}`} inert={descExpanded || undefined}>
               <label className="block text-xs font-bold text-text-muted mb-1.5">
                 {t("fieldImages")} <span className="text-text-dim font-medium">· {t("imagesHint")}</span>

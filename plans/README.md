@@ -14,6 +14,7 @@
 | 006 | [收敛 conv-tab 的主题级 transition 覆盖](006-conv-tab-transition-consolidation.md) | MEDIUM | DONE |
 | 007 | [登录页环境动画的 reduced-motion 门控](007-login-reduced-motion.md) | MEDIUM | DONE |
 | 008 | [overlay-pop 方向修正 + 死 duration 清理](008-overlay-pop-direction-and-dead-durations.md) | LOW | DONE |
+| 009 | [令牌外 cubic-bezier 清理](009-offtoken-cubic-bezier.md) | LOW | DONE |
 
 ## 推荐执行顺序与依赖
 
@@ -25,7 +26,6 @@
 
 - `ChatInput.tsx:458` 私聊模式边框 `transition-all duration-300` → 应为 `transition-colors duration-150`。
 - ~~触屏无 `@media (hover: hover)` 门控~~ **已核实为误报**（2026-08-22）：Tailwind v4 默认把 `hover:` 变体编译为 `@media (hover: hover) { &:hover }`，本项目（v4.3.3）无 `@custom-variant hover` 覆盖，门控由框架产物承担；主题 CSS 亦无手写 `:hover` 位移。无需改动。
-- 令牌外的手写 cubic-bezier 五处（`InventoryModals.tsx:144/:256`、`EventEditor.tsx:151/:226`、`EventManagePanel.tsx:102`，后者 360ms 还超预算）。
 - `DiceRoller.tsx:48-63` 长按 400ms 加骰手势无进度指示（004 只补了按压确认）。
 - 弹层双机制风格漂移：`.overlay-pop`（320ms CSS）与 JS popover 弹簧（0.22s）并排时手感不一致。
 

@@ -99,7 +99,7 @@ export function EventManagePanel({ roomId, players, refreshKey, onClose, onChang
     if (moving.length) {
       requestAnimationFrame(() => {
         for (const el of moving) {
-          el.style.transition = "transform 360ms cubic-bezier(0.2,0.85,0.25,1)";
+          el.style.transition = "transform 250ms var(--ease-spring-smooth)";
           el.style.transform = "";
         }
       });
