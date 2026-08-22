@@ -316,6 +316,29 @@ body[data-room-bg] .bg-bg .bg-bg {
 }
 .attention-bounce { animation: attention-bounce 0.8s ease-in-out 3; }
 
+/* Dice crit/fumble arrival flourish — the rare, high-emotion moment.
+   Gated to live-arrived rolls via the `entered` flag (plan 002); history
+   mounts render the static themed card. Transform/filter only — the chat
+   bubble carries no backdrop-filter in any theme, so this composites. */
+@keyframes dice-crit-in {
+  0%   { transform: scale(0.92); filter: brightness(1); }
+  55%  { transform: scale(1.05); filter: brightness(1.15); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+@keyframes dice-fumble-in {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+  85% { transform: translateX(1px); }
+}
+.dice-flourish[data-grade="critical"] {
+  animation: dice-crit-in 500ms var(--ease-spring-snappy) 120ms both;
+}
+.dice-flourish[data-grade="fumble"] {
+  animation: dice-fumble-in 450ms ease-in-out 120ms both;
+}
+
 /* Respect users who prefer reduced motion — collapse to a near-instant
    cross-fade so nothing flies across the screen. The overlays are no longer
    listed here: useOverlayTransition checks the same media query in JS and
@@ -324,7 +347,8 @@ body[data-room-bg] .bg-bg .bg-bg {
   .overlay-pop,
   .animate-in,
   .badge-in,
-  .attention-bounce {
+  .attention-bounce,
+  .dice-flourish[data-grade="critical"], .dice-flourish[data-grade="fumble"] {
     animation-duration: 1ms;
     animation-timing-function: linear;
   }
