@@ -96,21 +96,32 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+/** Drawers only translate; modals and popovers fade in as well. */
+const WILL_CHANGE: Record<OverlayVariant, string> = {
+  drawer: "transform",
+  modal: "transform, opacity",
+  popover: "transform, opacity",
+};
+
 /**
- * Marks the panel as in-flight for the duration of a transition.
+ * Marks an element as in-flight for the duration of a transition.
  *
  * `will-change` asks for the layer up front; `data-animating` is the CSS hook
- * that suppresses `backdrop-filter` while the panel moves (globals.css). A
+ * that suppresses `backdrop-filter` while the element moves (globals.css). A
  * moving backdrop-filter has to re-sample and re-blur everything behind it on
  * every frame, which no amount of compositing fixes — the only cure is not
  * having one mid-flight.
+ *
+ * Exported because it is not overlay-specific: any Motion transform on a
+ * subtree that a theme might frost wants the same treatment, and PaneTransition
+ * (the most frequent motion in the app) is the other caller.
  */
-function beginMotion(el: HTMLElement, variant: OverlayVariant) {
-  el.style.willChange = variant === "drawer" ? "transform" : "transform, opacity";
+export function beginMotion(el: HTMLElement, willChange = "transform, opacity") {
+  el.style.willChange = willChange;
   el.setAttribute("data-animating", "");
 }
 
-function endMotion(el: HTMLElement) {
+export function endMotion(el: HTMLElement) {
   el.style.willChange = "";
   el.removeAttribute("data-animating");
 }
@@ -217,7 +228,7 @@ export function useOverlayTransition(
         markEntered();
         return;
       }
-      beginMotion(el, variant);
+      beginMotion(el, WILL_CHANGE[variant]);
       const ctrl = animate(el, ENTER_KEYFRAMES[variant], ENTER_SPRING[variant]);
       ctrl.finished
         .then(() => {
@@ -260,7 +271,7 @@ export function useOverlayTransition(
     }
 
     if (backdrop) animate(backdrop, { opacity: 0 }, EXIT);
-    beginMotion(panel, variant);
+    beginMotion(panel, WILL_CHANGE[variant]);
     const exit = animate(panel, EXIT_KEYFRAMES[variant], EXIT);
 
     // The trailing `.catch` is a formality — Motion's `finished` never rejects.

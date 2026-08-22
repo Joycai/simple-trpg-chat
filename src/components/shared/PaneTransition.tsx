@@ -2,6 +2,7 @@
 
 import { useCallback, type ReactNode } from "react";
 import { animate } from "motion";
+import { beginMotion, endMotion } from "@/lib/useOverlayTransition";
 
 interface PaneTransitionProps {
   /**
@@ -38,14 +39,19 @@ export function PaneTransition({ paneKey, className, children }: PaneTransitionP
     // former is in Motion's accelerated-value set and reaches WAAPI. See the
     // long note in useOverlayTransition.ts; the same reasoning applies here,
     // where the pane being faded in is often a large list.
-    el.style.willChange = "transform, opacity";
+    // `beginMotion` also stamps `data-animating`, which suppresses
+    // `backdrop-filter` on the pane and everything inside it (globals.css).
+    // This is the motion that fires most often — every tab click — and the
+    // pane it raises is frequently a grid of frosted cards (`.inventory-card`
+    // on rainglass), so it is the last place that should re-blur per frame.
+    beginMotion(el);
     const ctrl = animate(
       el,
       { opacity: [0, 1], transform: ["translateY(6px)", "translateY(0px)"] },
       { type: "spring", visualDuration: 0.24, bounce: 0 },
     );
     const settle = () => {
-      el.style.willChange = "";
+      endMotion(el);
       // Motion commits the final keyframe inline. Clearing it restores the
       // resting `transform: none`, so the pane never becomes the containing
       // block for a `position: fixed` modal opened from inside it.
