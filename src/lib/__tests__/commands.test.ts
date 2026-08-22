@@ -266,7 +266,6 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
     const { dispatchMessage } = await import("@/lib/messaging/router");
     vi.mocked(dispatchMessage).mockClear();
 
-    let roomSkillsCalls = 0;
     mockSelect.mockReturnValue({
       from: vi.fn((table) => ({
         where: vi.fn(() => {
@@ -274,9 +273,8 @@ describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
             return [{ id: 1, ruleTemplate: "coc7th" }];
           }
           if (table === roomSkills) {
-            roomSkillsCalls++;
-            // 1st call: exact "侦察" match (miss). 2nd call: alias "侦查" (hit).
-            if (roomSkillsCalls === 1) return [];
+            // Single inArray query over name + aliases: only the alias-spelled
+            // "侦查" row exists; the engine picks it by candidate priority.
             return [{ roomId: 1, userId: 1, skillName: "侦查", skillValue: 65 }];
           }
           return [];
