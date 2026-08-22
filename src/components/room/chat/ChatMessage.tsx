@@ -1258,6 +1258,16 @@ export const ChatMessage = memo(function ChatMessage({
   const [proxyLoading, setProxyLoading] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
   const proxyAnchorRef = useRef<HTMLDivElement>(null);
+  // Hover-intent timer: the tooltip only mounts if the cursor rests on the
+  // avatar for 120ms, so sweeping the cursor down the avatar column doesn't
+  // replay the enter animation on every message.
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -1325,7 +1335,10 @@ export const ChatMessage = memo(function ChatMessage({
   }, [isHovered, canView]);
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
+    // Hover intent: delay the tooltip mount; the data prefetch below stays
+    // immediate (fetching early is harmless).
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setIsHovered(true), 120);
     if (!canView || !roomId || !senderId) return;
 
     const cacheKey = `${roomId}-${senderId}`;
@@ -1716,7 +1729,11 @@ export const ChatMessage = memo(function ChatMessage({
         ref={avatarRef}
         className="relative shrink-0"
         onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+          hoverTimerRef.current = null;
+          setIsHovered(false);
+        }}
       >
         {displayAvatar ? (
           // Avatar is a base64 data URL — next/image can't optimize these.

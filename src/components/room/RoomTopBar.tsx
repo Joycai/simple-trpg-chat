@@ -192,7 +192,7 @@ export function RoomTopBar({
   // Uniform sizing for every top-bar control, so heights and edges line up
   // regardless of group/color. Per-button classes only add the color variant.
   // Icon-only control used by the common (host + player) toolbar group.
-  const iconBtn = "relative flex items-center justify-center w-9 h-9 rounded-theme border transition-colors cursor-pointer";
+  const iconBtn = "relative flex items-center justify-center w-9 h-9 rounded-theme border transition active:scale-95 cursor-pointer";
   const iconActive = "bg-primary/10 text-primary border-primary/40";
   const iconIdle = "text-text-muted hover:text-text hover:bg-surface-alt border-transparent";
   // Common (personal) group — 角色/背包/记事本/成员 share one cool "nav" identity,

@@ -71,7 +71,7 @@ export function ResourceStatusTooltip({
 
   return createPortal(
     <div
-      className="fixed w-52 bg-surface/95 backdrop-blur-md border border-border shadow-2xl rounded-theme p-3 text-xs text-text flex flex-col gap-2.5 select-none transition-all duration-200 animate-in fade-in zoom-in-95 duration-150 z-[100]"
+      className="fixed w-52 bg-surface/95 border border-border shadow-2xl rounded-theme p-3 text-xs text-text flex flex-col gap-2.5 select-none animate-in fade-in zoom-in-95 origin-top-left z-[100]"
       style={{ top: coords.top, left: coords.left }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -115,7 +115,7 @@ export function ResourceStatusTooltip({
                     {!isCounter && (
                       <div className="h-2 bg-surface-alt rounded-full overflow-hidden border border-border/50">
                         <div
-                          className="h-full rounded-full transition-all duration-300"
+                          className="h-full rounded-full transition-[width] duration-300"
                           style={{ width: `${pct}%`, backgroundColor: `rgb(${color})` }}
                         />
                       </div>
@@ -178,7 +178,7 @@ export function ResourceStatusTooltip({
                   {attr.max !== undefined && attr.max > 0 && (
                     <div className="h-1.5 bg-surface-alt rounded-full overflow-hidden border border-border/50">
                       <div
-                        className="h-full rounded-full bg-primary transition-all duration-300"
+                        className="h-full rounded-full bg-primary transition-[width] duration-300"
                         style={{
                           width: `${Math.min(100, (attr.current / attr.max) * 100)}%`,
                         }}

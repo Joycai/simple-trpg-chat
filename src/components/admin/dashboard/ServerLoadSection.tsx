@@ -33,7 +33,7 @@ export function ServerLoadSection({ loadData }: { loadData: LoadData | null }) {
               </div>
               <div className="w-full bg-border/40 h-2 rounded-full overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-500 rounded-full ${
+                  className={`h-full transition-[width] duration-300 rounded-full ${
                     loadData.cpuUsage > 80
                       ? "bg-danger"
                       : loadData.cpuUsage > 50
@@ -58,7 +58,7 @@ export function ServerLoadSection({ loadData }: { loadData: LoadData | null }) {
               </div>
               <div className="w-full bg-border/40 h-2 rounded-full overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-500 rounded-full ${
+                  className={`h-full transition-[width] duration-300 rounded-full ${
                     loadData.memory.percentage > 85
                       ? "bg-danger"
                       : loadData.memory.percentage > 60

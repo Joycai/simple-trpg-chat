@@ -461,7 +461,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         {quickCheckSpec && (
           <button
             onClick={() => { setShowQuickCheck((v) => !v); setShowDice(false); }}
-            className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+            className={`flex items-center justify-center w-9 h-9 rounded-theme transition active:scale-95 shrink-0 ${
               showQuickCheck ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
             }`}
             title={t("btnQuickCheckTooltip")}
@@ -484,7 +484,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         <button
           onClick={() => imageInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 bg-transparent text-text-muted hover:bg-surface-alt hover:text-text disabled:opacity-50"
+          className="flex items-center justify-center w-9 h-9 rounded-theme transition active:scale-95 shrink-0 bg-transparent text-text-muted hover:bg-surface-alt hover:text-text disabled:opacity-50"
           title={t("btnImageTooltip")}
           aria-label={t("btnImageTooltip")}
         >
@@ -503,7 +503,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         <div className="relative shrink-0">
           <button
             onClick={() => setShowStickers((v) => !v)}
-            className={`flex items-center justify-center w-9 h-9 rounded-theme transition ${
+            className={`flex items-center justify-center w-9 h-9 rounded-theme transition active:scale-95 ${
               showStickers ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
             }`}
             title={t("btnStickerTooltip")}
@@ -518,7 +518,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
 
         <button
           onClick={() => { setShowDice(!showDice); setShowQuickCheck(false); }}
-          className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+          className={`flex items-center justify-center w-9 h-9 rounded-theme transition active:scale-95 shrink-0 ${
             showDice ? "bg-accent text-accent-foreground" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
           }`}
           title={t("btnRollTooltip")}
@@ -530,7 +530,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
         {!isPrivateLocked && (
           <button
             onClick={() => setIsPrivate(!isPrivate)}
-            className={`flex items-center justify-center w-9 h-9 rounded-theme transition shrink-0 ${
+            className={`flex items-center justify-center w-9 h-9 rounded-theme transition active:scale-95 shrink-0 ${
               isPrivate ? "bg-private-bg text-accent border border-private-border" : "bg-transparent text-text-muted hover:bg-surface-alt hover:text-text"
             }`}
             title={t("btnPrivateTooltip")}
@@ -546,7 +546,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           disabled={!message.trim() || (!isPrivateLocked && isPrivate && !privateTargetId)}
           title={t("send")}
           aria-label={t("send")}
-          className={`flex items-center justify-center w-10 h-10 rounded-theme font-bold transition shrink-0 shadow-[var(--theme-glow)] ${
+          className={`flex items-center justify-center w-10 h-10 rounded-theme font-bold transition active:scale-95 shrink-0 shadow-[var(--theme-glow)] ${
             isPrivate
               ? "bg-accent hover:bg-accent-hover text-accent-foreground"
               : "bg-primary hover:bg-primary-hover disabled:bg-text-dim disabled:shadow-none text-primary-foreground"

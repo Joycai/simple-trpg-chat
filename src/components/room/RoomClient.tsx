@@ -902,7 +902,7 @@ export function RoomClient({
         {!sidebarCollapsed && !isMobile && (
           <div
             onMouseDown={handleResizeStart}
-            className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-all duration-150 shrink-0 relative z-10 group"
+            className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-colors duration-150 shrink-0 relative z-10 group"
             title={t("tooltipResize")}
             onDoubleClick={resetSidebarWidth}
           >
