@@ -300,30 +300,39 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          {/* Opacity only, no rise: the skeletons are shape-matched to the real
+              layouts precisely so nothing moves on the swap, and a translate
+              would put the jump back. The wrapper mounts when `loading` flips
+              false and then stays mounted, so switching tabs does not replay
+              it — only a real reload (which shows the skeleton again) does. */}
           {loading ? (
             tab === "manage" && isHost ? <ManageSkeleton /> : <BackpackSkeleton />
-          ) : tab === "manage" && isHost ? (
-            <ManageView
-              roomItems={roomItems}
-              history={history}
-              manageFilterType={manageFilterType}
-              onManageFilterTypeChange={setManageFilterType}
-              manageFilterDist={manageFilterDist}
-              onManageFilterDistChange={setManageFilterDist}
-              onCreateClick={() => { resetForm(); setShowCreate(true); }}
-              onViewDetail={setDetailItem}
-              onEdit={startEdit}
-              onDelete={handleDeleteItem}
-              onDistribute={openDistribute}
-            />
           ) : (
-            <BackpackView
-              items={myItems}
-              filterType={filterType}
-              onFilterChange={setFilterType}
-              userId={userId}
-              onSelect={(item, dist) => { setDetailItem(item); setDetailDist(dist); }}
-            />
+            <div className="animate-in fade-in">
+              {tab === "manage" && isHost ? (
+                <ManageView
+                  roomItems={roomItems}
+                  history={history}
+                  manageFilterType={manageFilterType}
+                  onManageFilterTypeChange={setManageFilterType}
+                  manageFilterDist={manageFilterDist}
+                  onManageFilterDistChange={setManageFilterDist}
+                  onCreateClick={() => { resetForm(); setShowCreate(true); }}
+                  onViewDetail={setDetailItem}
+                  onEdit={startEdit}
+                  onDelete={handleDeleteItem}
+                  onDistribute={openDistribute}
+                />
+              ) : (
+                <BackpackView
+                  items={myItems}
+                  filterType={filterType}
+                  onFilterChange={setFilterType}
+                  userId={userId}
+                  onSelect={(item, dist) => { setDetailItem(item); setDetailDist(dist); }}
+                />
+              )}
+            </div>
           )}
 
           {showCreate && (

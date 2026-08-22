@@ -101,7 +101,7 @@ export function SkillsTab({
                   </div>
                 </div>
                 <div className="h-2 bg-bg rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ ...col.barStyle, width: `${Math.min(100, s.skillValue)}%` }} />
+                  <div className="h-full rounded-full transition-[width] duration-300" style={{ ...col.barStyle, width: `${Math.min(100, s.skillValue)}%` }} />
                 </div>
               </div>
             );

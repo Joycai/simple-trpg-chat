@@ -44,21 +44,30 @@ export function DiceRoller({ onRoll, onClose, defaultExpression, lastExpression 
   // the gesture as "handled", so the click that follows the release is ignored.
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heldRef = useRef(false);
+  // Which face is mid-hold, so its `.dice-hold-fill` can sweep. State rather
+  // than a ref: this has to drive a render. Cleared the instant the timer
+  // fires, so the fill retracts as the five dice land — the completed sweep
+  // and the result arrive together instead of the bar sitting full.
+  const [holdingFace, setHoldingFace] = useState<number | null>(null);
 
   const startHold = (faces: number) => {
     heldRef.current = false;
+    setHoldingFace(faces);
     holdTimer.current = setTimeout(() => {
       heldRef.current = true;
+      setHoldingFace(null);
       setTerms((prev) => addDie(prev, faces, 5));
     }, 400);
   };
   const endHold = (faces: number) => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
+    setHoldingFace(null);
     if (heldRef.current) return; // the hold already added five
     setTerms((prev) => addDie(prev, faces, 1));
   };
   const cancelHold = () => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
+    setHoldingFace(null);
     heldRef.current = true; // suppress the click a drag-off would otherwise fire
   };
 
@@ -126,7 +135,15 @@ export function DiceRoller({ onRoll, onClose, defaultExpression, lastExpression 
                       : "border-border text-text hover:bg-surface-alt"
                   }`}
                 >
-                  d{faces}
+                  {/* Hold-to-add-five progress. No `overflow-hidden` on the
+                      button — that would clip the count badge, which hangs
+                      outside it — so the fill clips itself with `clip-path`
+                      and inherits the themed radius. The label is wrapped in a
+                      positioned span so it paints above the fill: an abspos
+                      element with `z-index: auto` sits over normal-flow inline
+                      content whatever the DOM order. */}
+                  <span className="dice-hold-fill" aria-hidden data-holding={holdingFace === faces ? "true" : undefined} />
+                  <span className="relative">d{faces}</span>
                   {/* Count badge replaces the old separate −/1/+ stepper. */}
                   {n > 0 && (
                     <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">

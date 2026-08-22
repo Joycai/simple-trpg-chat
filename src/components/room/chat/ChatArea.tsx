@@ -152,11 +152,24 @@ export function ChatArea({
         </div>
       </div>
 
-      {showScrollButton && (
-        <button onClick={() => scrollToBottom(true)} className="absolute bottom-28 right-8 z-10 bg-scroll-btn hover:opacity-90 text-white w-10 h-10 rounded-full shadow-2xl flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 group" title={t("scrollToBottom")}>
-          <Icons.ArrowDown className="w-5 h-5" />
-        </button>
-      )}
+      {/* Always mounted, visibility driven by data-visible rather than a
+          conditional render. The 150px threshold in RoomClient has no
+          hysteresis, so scrolling along the boundary toggles this repeatedly —
+          a transition damps that flicker where mount/unmount amplifies it.
+          Deliberately fast (140ms in / 120ms out): this fires tens of times a
+          day, and anything slower would read as the button lagging the scroll.
+          `aria-hidden` + `pointer-events-none` keep the hidden state out of the
+          tab order and off the hit-test, exactly as unmounting did. */}
+      <button
+        onClick={() => scrollToBottom(true)}
+        data-visible={showScrollButton ? "true" : undefined}
+        aria-hidden={!showScrollButton}
+        tabIndex={showScrollButton ? undefined : -1}
+        className="chat-scroll-fab absolute bottom-28 right-8 z-10 bg-scroll-btn hover:opacity-90 text-white w-10 h-10 rounded-full shadow-2xl flex items-center justify-center transform hover:scale-110 active:scale-95 group"
+        title={t("scrollToBottom")}
+      >
+        <Icons.ArrowDown className="w-5 h-5" />
+      </button>
 
       <div className="bg-surface-alt room-shell-frost border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">

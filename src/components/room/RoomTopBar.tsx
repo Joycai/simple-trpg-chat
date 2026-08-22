@@ -264,7 +264,7 @@ export function RoomTopBar({
             <span className="text-xs font-mono text-text-dim shrink-0">{tn("roomId", { id: room.id })}</span>
             {/* Online count + connection dot */}
             <span className="hidden sm:inline-flex items-center gap-1.5 shrink-0 text-xs text-text-muted">
-              <span className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
+              <span className={`w-2 h-2 rounded-full transition-colors duration-200 ${status === 'connected' ? 'bg-success' : status === 'connecting' ? 'bg-accent animate-pulse' : 'bg-danger'}`} title={status} />
               {t("onlineCount", { count: onlineCount })}
             </span>
             {room.frozen && (
