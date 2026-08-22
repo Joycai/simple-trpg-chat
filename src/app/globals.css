@@ -109,10 +109,21 @@ body[data-room-bg] .bg-header-bg {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
-body[data-room-bg] .bg-surface-alt {
+/* The sidebar + chat input bar opt in via .room-shell-frost. Frost must NOT
+   piggyback on the .bg-surface-alt utility itself: that class sits on ~120
+   call sites including per-message pills INSIDE the chat scroller, and a
+   backdrop-filter element in a scrolling container re-samples and re-blurs
+   its backdrop on every scrolled frame — the exact cost the data-animating
+   rule below suppresses during overlay motion, multiplied by message count. */
+body[data-room-bg] .room-shell-frost {
   background-color: rgb(var(--theme-surface-alt) / 0.85);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+}
+/* Everything else on .bg-surface-alt gets the same high-opacity translucency
+   as .bg-surface below — see-through enough to feel the picture, no blur. */
+body[data-room-bg] .bg-surface-alt {
+  background-color: rgb(var(--theme-surface-alt) / 0.92);
 }
 /* Cards, bubbles, panels: high-opacity — contrast is guaranteed here,
    independent of whatever picture the host chose. No blur (too many

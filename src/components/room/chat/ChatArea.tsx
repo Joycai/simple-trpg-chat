@@ -127,7 +127,7 @@ export function ChatArea({
         </button>
       )}
 
-      <div className="bg-surface-alt border-t border-border px-4 py-3 shrink-0">
+      <div className="bg-surface-alt room-shell-frost border-t border-border px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto">
           {activeTab !== "public" && (
             <div className="mb-2 flex items-center gap-2 text-[10px] font-bold text-accent uppercase tracking-widest bg-accent/5 py-1 px-2 rounded-md border border-accent/20 animate-pulse">

@@ -80,7 +80,7 @@ export function ConversationPanel({
           : "w-64 lg:w-[var(--sidebar-width)] translate-x-0"
       }`}
     >
-    <div className="flex flex-col bg-surface-alt border-r border-border h-full select-none conv-sidebar w-64 lg:w-[var(--sidebar-width)]">
+    <div className="flex flex-col bg-surface-alt room-shell-frost border-r border-border h-full select-none conv-sidebar w-64 lg:w-[var(--sidebar-width)]">
 
       {/* Channels section */}
       <div
