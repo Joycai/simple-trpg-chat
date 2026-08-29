@@ -15,6 +15,7 @@ import { z } from "zod";
 import type { CharacterData } from "@/lib/character-types";
 import { clampInt, getRuleForRoom, listRules, listRuleIds } from "@/lib/rules";
 import { validateApiEndpoint } from "@/lib/url-guard";
+import { resolveToolCall } from "@/lib/agent-tool-guard";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({
@@ -511,6 +512,10 @@ export async function runAgent(
   // broadcast directly from the model's message content (R3), so there is no
   // "send_message" tool — a bot can always talk without one being enabled.
   const tools = allTools.filter(t => enabledTools.includes(t.function.name));
+  // The same whitelist is enforced again at execution time (resolveToolCall):
+  // filtering the advertised definitions does not stop a model from emitting
+  // a disabled or invented tool name.
+  const knownToolNames = allTools.map(t => t.function.name);
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [...context];
   let iterations = 0;
@@ -676,7 +681,19 @@ export async function runAgent(
       for (const toolCall of assistantMessage.tool_calls) {
         // Execute tool calls sequentially to avoid DB race conditions on concurrent writes
         const functionName = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments);
+        // Whitelist + argument guard: disabled/unknown tool names and malformed
+        // argument JSON become readable tool-result errors instead of either
+        // executing a tool the host turned off or throwing past the loop.
+        const guard = resolveToolCall(functionName, toolCall.function.arguments ?? "", enabledTools, knownToolNames);
+        if (!guard.ok) {
+          toolCallResults.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: capToolContent(JSON.stringify({ success: false, error: guard.error })),
+          });
+          continue;
+        }
+        const args = guard.args;
         let result;
 
         try {
@@ -1197,6 +1214,13 @@ export async function runAgent(
           }
         } catch (e: unknown) {
           result = { error: e instanceof Error ? e.message : String(e) };
+        }
+
+        // Belt-and-suspenders: the guard guarantees functionName matched a
+        // dispatch branch, but an undefined result must still serialize into
+        // a valid tool reply — JSON.stringify(undefined) is not a string.
+        if (result === undefined) {
+          result = { success: false, error: `Tool "${functionName}" produced no result.` };
         }
 
         toolCallResults.push({
