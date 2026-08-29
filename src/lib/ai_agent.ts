@@ -228,6 +228,13 @@ globalThis.__agentCooldowns = agentCooldowns;
 const AGENT_COOLDOWN_MS = 3000;
 
 /**
+ * Upper bound on model↔tool iterations per run. The final iteration is a
+ * forced wrap-up: tool definitions are withheld so the model must answer in
+ * prose — i.e. at most MAX_AGENT_ITERATIONS - 1 tool rounds, then narration.
+ */
+const MAX_AGENT_ITERATIONS = 5;
+
+/**
  * runAgent
  * Orchestrates the LLM call and Tool execution.
  */
@@ -621,15 +628,21 @@ export async function runAgent(
 
   try {
     // 2. Fetch the LLM completion
-    while (iterations < 5) {
+    while (iterations < MAX_AGENT_ITERATIONS) {
       iterations++;
+      // Force-text on the final iteration: withhold the tool definitions so
+      // the model can only narrate. Without this, tools called on the last
+      // round produce side effects (dice broadcasts, item transfers) whose
+      // results the model never sees and never gets to describe.
+      const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
 
       let assistantMessage;
+      let finishReason: string | undefined;
       try {
         const bodyPayload = {
           model,
           messages: currentContext,
-          ...(tools.length > 0 ? { tools } : {})
+          ...(tools.length > 0 && !isLastIteration ? { tools } : {})
         };
 
         const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
@@ -655,6 +668,7 @@ export async function runAgent(
         accumulatedOutputTokens += usage.completion_tokens || 0;
 
         assistantMessage = data.choices[0].message;
+        finishReason = data.choices[0].finish_reason;
       } catch (err: unknown) {
         console.error(`[runAgent] completion error:`, err);
         const content = `(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
@@ -692,8 +706,36 @@ export async function runAgent(
         });
       }
 
+      // A "length" finish means the reply hit the output token cap: the prose
+      // is cut short and any tool_calls are likely half-emitted JSON, so
+      // executing them would act on corrupted arguments. Stop the loop
+      // instead — an HTTP 200 with finish_reason "length" is not a success.
+      if (finishReason === "length") {
+        console.warn(`[runAgent] Bot ${botUserId} reply truncated by the model's output limit (finish_reason=length); stopping tool loop.`);
+        if (assistantMessage.tool_calls?.length) {
+          const content = `(${botNickname}) reply was cut off by the model's output limit.`;
+          await dispatchMessage({
+            roomId,
+            actorUserId: botUserId,
+            nickname: botNickname,
+            type: "text",
+            audience: replyIsPrivate ? "dm" : "everyone",
+            targetUserId: replyIsPrivate ? targetUserId : null,
+            content: replyIsPrivate ? `🔒 ${content}` : content,
+          });
+        }
+        break;
+      }
+
       // If no tool calls, we are finished
       if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+        break;
+      }
+
+      // Tools were withheld on the final iteration, so tool_calls here are a
+      // relay/model glitch — end the run rather than executing calls whose
+      // results the model can never see.
+      if (isLastIteration) {
         break;
       }
 
