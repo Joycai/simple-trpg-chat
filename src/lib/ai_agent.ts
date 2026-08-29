@@ -604,6 +604,20 @@ export async function runAgent(
     targetUserId = room.hostId;
   }
 
+  // Single envelope for everything the bot says in chat (free-text replies,
+  // error/truncation notices). `lock` prefixes 🔒 in DMs — used by notices;
+  // free-text replies render unprefixed, matching player messages.
+  const sayAsBot = (content: string, opts?: { lock?: boolean }) =>
+    dispatchMessage({
+      roomId,
+      actorUserId: botUserId,
+      nickname: botNickname,
+      type: "text",
+      audience: replyIsPrivate ? "dm" : "everyone",
+      targetUserId: replyIsPrivate ? targetUserId : null,
+      content: replyIsPrivate && opts?.lock ? `🔒 ${content}` : content,
+    });
+
   const typingStartEvent = {
     type: "typing",
     botUserId,
@@ -630,10 +644,6 @@ export async function runAgent(
     // 2. Fetch the LLM completion
     while (iterations < MAX_AGENT_ITERATIONS) {
       iterations++;
-      // Force-text on the final iteration: withhold the tool definitions so
-      // the model can only narrate. Without this, tools called on the last
-      // round produce side effects (dice broadcasts, item transfers) whose
-      // results the model never sees and never gets to describe.
       const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
 
       let assistantMessage;
@@ -642,7 +652,16 @@ export async function runAgent(
         const bodyPayload = {
           model,
           messages: currentContext,
-          ...(tools.length > 0 && !isLastIteration ? { tools } : {})
+          // Force-text on the final iteration: keep the tool definitions —
+          // several backends (including Claude's OpenAI-compat endpoint)
+          // reject requests whose history contains tool calls when no tools
+          // are declared — but forbid new calls via tool_choice so the model
+          // must wrap up in prose. Without this, tools called on the last
+          // round produce side effects (dice broadcasts, item transfers)
+          // whose results the model never sees and never gets to describe.
+          ...(tools.length > 0
+            ? { tools, ...(isLastIteration ? { tool_choice: "none" } : {}) }
+            : {})
         };
 
         const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
@@ -671,16 +690,7 @@ export async function runAgent(
         finishReason = data.choices[0].finish_reason;
       } catch (err: unknown) {
         console.error(`[runAgent] completion error:`, err);
-        const content = `(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
-        await dispatchMessage({
-          roomId,
-          actorUserId: botUserId,
-          nickname: botNickname,
-          type: "text",
-          audience: replyIsPrivate ? "dm" : "everyone",
-          targetUserId: replyIsPrivate ? targetUserId : null,
-          content: replyIsPrivate ? `🔒 ${content}` : content,
-        });
+        await sayAsBot(`(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`, { lock: true });
         break;
       }
 
@@ -695,6 +705,12 @@ export async function runAgent(
       // Add assistant response to context
       currentContext.push(assistantMessage);
 
+      // A "length" finish means the reply hit the output token cap (there is
+      // no max_tokens in the request, so the cap is the provider's default):
+      // the prose is cut short and any tool_calls are likely half-emitted
+      // JSON. An HTTP 200 with finish_reason "length" is not a success.
+      const truncated = finishReason === "length";
+
       // If there is message text, broadcast it (R3) (filtered with sensitive words check)
       if (assistantMessage.content) {
         let textToSend = assistantMessage.content;
@@ -703,36 +719,36 @@ export async function runAgent(
           console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
           textToSend = "(Output blocked due to sensitive content filter)";
         }
-        await dispatchMessage({
-          roomId,
-          actorUserId: botUserId,
-          nickname: botNickname,
-          type: "text",
-          audience: replyIsPrivate ? "dm" : "everyone",
-          targetUserId: replyIsPrivate ? targetUserId : null,
-          content: textToSend,
-        });
+        // Flag truncation inside the same message rather than as a separate
+        // notice, so a cut-off narration never reads as a finished one.
+        if (truncated) {
+          textToSend += "\n\n*(reply was cut off by the model's output limit)*";
+        }
+        await sayAsBot(textToSend);
       }
 
-      // A "length" finish means the reply hit the output token cap: the prose
-      // is cut short and any tool_calls are likely half-emitted JSON, so
-      // executing them would act on corrupted arguments. Stop the loop
-      // instead — an HTTP 200 with finish_reason "length" is not a success.
-      if (finishReason === "length") {
+      if (truncated) {
         console.warn(`[runAgent] Bot ${botUserId} reply truncated by the model's output limit (finish_reason=length); stopping tool loop.`);
-        if (assistantMessage.tool_calls?.length) {
-          const content = `(${botNickname}) reply was cut off by the model's output limit.`;
-          await dispatchMessage({
-            roomId,
-            actorUserId: botUserId,
-            nickname: botNickname,
-            type: "text",
-            audience: replyIsPrivate ? "dm" : "everyone",
-            targetUserId: replyIsPrivate ? targetUserId : null,
-            content: replyIsPrivate ? `🔒 ${content}` : content,
-          });
+        if (!assistantMessage.content) {
+          // 200 + empty content + "length" (a reasoning model burning the
+          // whole cap on reasoning tokens) previously ended the run with no
+          // message at all — typing stopped and nothing arrived.
+          await sayAsBot(`(${botNickname}) reply was cut off by the model's output limit before any text was produced.`, { lock: true });
         }
+        // Never execute tool calls from a truncated turn — their argument
+        // JSON may be half-emitted.
         break;
+      }
+
+      // Any other terminal reason the loop doesn't model (content_filter,
+      // relay-specific values) is not a success either: log it, and if the
+      // turn produced nothing at all, say so instead of ending silently.
+      if (finishReason && !["stop", "tool_calls"].includes(finishReason)) {
+        console.warn(`[runAgent] Bot ${botUserId} completion ended with unexpected finish_reason=${finishReason}.`);
+        if (!assistantMessage.content && !assistantMessage.tool_calls?.length) {
+          await sayAsBot(`(${botNickname}) the model returned no reply (finish_reason: ${finishReason}).`, { lock: true });
+          break;
+        }
       }
 
       // If no tool calls, we are finished
@@ -740,25 +756,31 @@ export async function runAgent(
         break;
       }
 
-      // Tools were withheld on the final iteration, so tool_calls here are a
-      // relay/model glitch — end the run rather than executing calls whose
-      // results the model can never see.
+      // tool_choice "none" forbids calls on the final iteration, so tool_calls
+      // here are a relay/model glitch — drop them rather than executing calls
+      // whose results the model can never see, but never end the run silently.
       if (isLastIteration) {
+        if (!assistantMessage.content) {
+          await sayAsBot(`(${botNickname}) ran out of tool rounds before finishing a reply.`, { lock: true });
+        }
         break;
       }
 
       const toolCallResults: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [];
       for (const toolCall of assistantMessage.tool_calls) {
-        // Execute tool calls sequentially to avoid DB race conditions on concurrent writes
-        const functionName = toolCall.function.name;
+        // Execute tool calls sequentially to avoid DB race conditions on concurrent writes.
+        // Optional-chain the whole entry: a relay can emit a tool_calls item
+        // with no `function` key (truncated / non-conformant shapes), and an
+        // unguarded deref here throws past the loop's catch-less outer try.
+        const functionName: string = toolCall?.function?.name ?? "";
         // Whitelist + argument guard: disabled/unknown tool names and malformed
         // argument JSON become readable tool-result errors instead of either
         // executing a tool the host turned off or throwing past the loop.
-        const guard = resolveToolCall(functionName, toolCall.function.arguments ?? "", enabledTools, knownToolNames);
+        const guard = resolveToolCall(functionName, toolCall?.function?.arguments ?? "", enabledTools, knownToolNames);
         if (!guard.ok) {
           toolCallResults.push({
             role: "tool",
-            tool_call_id: toolCall.id,
+            tool_call_id: toolCall?.id ?? "",
             content: capToolContent(JSON.stringify({ success: false, error: guard.error })),
           });
           continue;
@@ -1286,10 +1308,13 @@ export async function runAgent(
           result = { error: e instanceof Error ? e.message : String(e) };
         }
 
-        // Belt-and-suspenders: the guard guarantees functionName matched a
-        // dispatch branch, but an undefined result must still serialize into
-        // a valid tool reply — JSON.stringify(undefined) is not a string.
+        // Load-bearing drift net — NOT redundant with the guard: resolveToolCall
+        // validates against the advertised definition list (allTools), not the
+        // dispatch chain above, which has no final else. A tool added to
+        // allTools without a dispatch branch lands exactly here, and
+        // JSON.stringify(undefined) is not a string.
         if (result === undefined) {
+          console.error(`[runAgent] Tool "${functionName}" passed the whitelist but matched no dispatch branch — allTools and the dispatch chain have drifted.`);
           result = { success: false, error: `Tool "${functionName}" produced no result.` };
         }
 
