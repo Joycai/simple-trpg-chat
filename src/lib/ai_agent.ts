@@ -1,10 +1,10 @@
 import { db, sqlNow } from "@/db";
 import { recordTokenUsage } from "@/lib/ai_usage";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig } from "@/db/schema";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig, type MessageType } from "@/db/schema";
 import { eq, and, asc, desc, gt, sql, or, isNull, inArray } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom, emitToUser } from "@/lib/events";
-import { dispatchMessage } from "@/lib/messaging/router";
+import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 import { shareItemCore } from "@/lib/inventory-share";
 import { getTranslations } from "next-intl/server";
@@ -120,24 +120,25 @@ async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 
 }
 
 /**
- * Message types the bot's LLM pipeline consumes. Shared by the context
- * builder (in-memory filter) and the history summarizer (SQL filter) so the
- * two cannot drift apart.
+ * Message types the bot's LLM pipeline consumes (of OTHER users' messages —
+ * the bot's own rows are exempt in both consumers). Shared by the context
+ * builder and the history summarizer. Typed against the schema's MessageType
+ * union so a typo or a renamed type is a compile error, and the subset
+ * relationship to MESSAGE_TYPES is enforced by the type itself.
  */
-const BOT_READABLE_MESSAGE_TYPES = ["text", "dice", "clue", "system", "check_request"];
+const BOT_READABLE_MESSAGE_TYPES: readonly MessageType[] = ["text", "dice", "clue", "system", "check_request"];
 
 /**
- * Visibility condition for every query that feeds room messages to the bot's
- * LLM: public messages, or private messages the bot is itself a party to.
- * Any query whose rows can reach the model (context builder, history
- * summarizer, search_history, respond_check scan) must include this — the
- * summarizer previously lacked it and leaked player-to-player DMs and
- * GM-only notices into the external LLM call and the persisted
- * historicalSummary.
+ * Visibility for every query that feeds room messages to the bot's LLM
+ * (context builder, history summarizer, search_history, respond_check scan)
+ * is `messageVisibilityWhere(roomId, botUserId, false)` — the app's single
+ * audience-based predicate from the messaging router. Do NOT hand-roll a
+ * predicate on `messages.isPrivate` here: that column is a legacy write-only
+ * mirror (see schema.ts), and the summarizer once lacked any filter at all,
+ * leaking player DMs and GM-only notices into the external LLM call and the
+ * persisted historicalSummary. Bots are never the room host, so
+ * `viewerIsHost` is always false.
  */
-function visibleToBotSql(botUserId: number) {
-  return sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`;
-}
 
 /**
  * buildAgentContext
@@ -173,9 +174,8 @@ export async function buildAgentContext(
     db.select().from(messages)
       .where(
         and(
-          eq(messages.roomId, roomId),
-          gt(messages.id, config.lastSummarizedMsgId),
-          visibleToBotSql(botUserId)
+          messageVisibilityWhere(roomId, botUserId, false),
+          gt(messages.id, config.lastSummarizedMsgId)
         )
       )
       .orderBy(desc(messages.id))
@@ -206,7 +206,7 @@ export async function buildAgentContext(
     if (msg.userId === botUserId) {
       const prefix = msg.isPrivate ? "[私聊] " : "";
       context.push({ role: "assistant", content: `${prefix}${msg.content}` });
-    } else if (BOT_READABLE_MESSAGE_TYPES.includes(msg.type)) {
+    } else if ((BOT_READABLE_MESSAGE_TYPES as readonly string[]).includes(msg.type)) {
       const prefix = msg.isPrivate ? "[私聊] " : "";
       context.push({ role: "user", content: `[${msg.nickname}]: ${prefix}${msg.content}` });
     }
@@ -560,12 +560,7 @@ export async function runAgent(
     try {
       // Limit to public messages or private messages involving the bot to scan history
       const history = await db.select().from(messages)
-        .where(
-          and(
-            eq(messages.roomId, roomId),
-            visibleToBotSql(botUserId)
-          )
-        )
+        .where(messageVisibilityWhere(roomId, botUserId, false))
         .orderBy(desc(messages.createdAt))
         .limit(20);
       const sortedHistory = [...history].reverse();
@@ -833,10 +828,9 @@ export async function runAgent(
               targetUserId: messages.targetUserId,
             }).from(messages)
               .where(and(
-                eq(messages.roomId, roomId),
-                eq(messages.type, "check_request"),
-                // Only checks visible to the bot: public, or a DM it's part of.
-                visibleToBotSql(botUserId)
+                // Only checks visible to the bot (audience model).
+                messageVisibilityWhere(roomId, botUserId, false),
+                eq(messages.type, "check_request")
               ))
               .orderBy(desc(messages.createdAt))
               .limit(20);
@@ -1142,8 +1136,7 @@ export async function runAgent(
               }).from(messages)
                 .where(
                   and(
-                    eq(messages.roomId, roomId),
-                    visibleToBotSql(botUserId),
+                    messageVisibilityWhere(roomId, botUserId, false),
                     sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\\'`
                   )
                 )
@@ -1370,10 +1363,9 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   // player-to-player DMs, GM-only notices, and hidden rolls all leak.
   const newMsgs = await db.select().from(messages)
     .where(and(
-      eq(messages.roomId, roomId),
+      messageVisibilityWhere(roomId, botUserId, false),
       gt(messages.id, lastId),
-      visibleToBotSql(botUserId),
-      inArray(messages.type, BOT_READABLE_MESSAGE_TYPES)
+      inArray(messages.type, [...BOT_READABLE_MESSAGE_TYPES])
     ))
     .orderBy(asc(messages.id))
     .limit(500);
