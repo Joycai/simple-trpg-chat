@@ -5,6 +5,7 @@ import { eq, and, asc, desc, gt, sql, or, isNull, inArray } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom, emitToUser } from "@/lib/events";
 import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
+import { canSee } from "@/lib/messaging/audience";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 import { shareItemCore } from "@/lib/inventory-share";
 import { getTranslations } from "next-intl/server";
@@ -1357,20 +1358,40 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   const config = parseBotConfig(botUser.botConfigJson);
   const lastId = config.lastSummarizedMsgId;
 
-  // Count new messages since last summary. The visibility filter is not
-  // optional here: this text is sent verbatim to an external LLM and the
-  // resulting summary is persisted into the bot's system prompt — without it,
-  // player-to-player DMs, GM-only notices, and hidden rolls all leak.
+  // Fetch ALL new rows (bounded by the (room_id, id) index + LIMIT) and
+  // filter in memory below. The threshold and the cursor must track raw room
+  // traffic, not the filtered subset: gating cursor advancement on a filtered
+  // count let image/sticker-heavy rooms stall the cursor forever while the
+  // context window scrolled past unsummarized history, and made every run
+  // re-scan an ever-growing id range (visibility/type conditions are
+  // post-index filters).
   const newMsgs = await db.select().from(messages)
-    .where(and(
-      messageVisibilityWhere(roomId, botUserId, false),
-      gt(messages.id, lastId),
-      inArray(messages.type, [...BOT_READABLE_MESSAGE_TYPES])
-    ))
+    .where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)))
     .orderBy(asc(messages.id))
     .limit(500);
-  
+
   if (newMsgs.length < 30) return; // Threshold not met
+
+  // Only rows the bot may see feed the external LLM — this text is sent
+  // verbatim and the summary is persisted into the bot's system prompt, so
+  // without the filter player-to-player DMs, GM-only notices, and hidden
+  // rolls all leak. `canSee` is the audience model's pure predicate (bots are
+  // never the room host). The bot's OWN rows are included regardless of type,
+  // mirroring buildAgentContext, so the summary remembers the bot's handouts
+  // (e.g. send_image posts) and not just its text replies.
+  const summarizable = newMsgs.filter(m =>
+    canSee(m, botUserId, false) &&
+    (m.userId === botUserId || (BOT_READABLE_MESSAGE_TYPES as readonly string[]).includes(m.type))
+  );
+
+  // Nothing the bot may see in this batch (e.g. a burst of other players'
+  // stickers): advance the cursor without paying for an LLM call so the next
+  // scan starts past these rows.
+  if (summarizable.length === 0) {
+    config.lastSummarizedMsgId = newMsgs[newMsgs.length - 1].id;
+    await db.update(users).set({ botConfigJson: JSON.stringify(config) }).where(eq(users.id, botUserId));
+    return;
+  }
 
   // Get AI Config for summarization (use configured, fallback to host, fallback to shared)
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
@@ -1405,7 +1426,7 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   }
   const endpoint = aiConfig.apiEndpoint;
 
-  const msgText = newMsgs.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
+  const msgText = summarizable.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
   const oldSummary = config.historicalSummary || "";
 
   let response;
