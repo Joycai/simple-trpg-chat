@@ -1,10 +1,11 @@
 import { db, sqlNow } from "@/db";
 import { recordTokenUsage } from "@/lib/ai_usage";
-import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig } from "@/db/schema";
+import { users, messages, inventoryDistributions, inventoryItems, rooms, aiProviders, roomMembers, roomSkills, clueCards, clueVisibility, systemConfig, type MessageType } from "@/db/schema";
 import { eq, and, asc, desc, gt, sql, or, isNull, inArray } from "drizzle-orm";
 import { decrypt } from "@/lib/encryption";
 import { broadcastToRoom, emitToUser } from "@/lib/events";
-import { dispatchMessage } from "@/lib/messaging/router";
+import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
+import { canSee } from "@/lib/messaging/audience";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 import { shareItemCore } from "@/lib/inventory-share";
 import { getTranslations } from "next-intl/server";
@@ -15,6 +16,7 @@ import { z } from "zod";
 import type { CharacterData } from "@/lib/character-types";
 import { clampInt, getRuleForRoom, listRules, listRuleIds } from "@/lib/rules";
 import { validateApiEndpoint } from "@/lib/url-guard";
+import { resolveToolCall } from "@/lib/agent-tool-guard";
 
 // Zod Schema for Bot Config Validation (R17)
 const BotConfigSchema = z.object({
@@ -119,6 +121,27 @@ async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 
 }
 
 /**
+ * Message types the bot's LLM pipeline consumes (of OTHER users' messages —
+ * the bot's own rows are exempt in both consumers). Shared by the context
+ * builder and the history summarizer. Typed against the schema's MessageType
+ * union so a typo or a renamed type is a compile error, and the subset
+ * relationship to MESSAGE_TYPES is enforced by the type itself.
+ */
+const BOT_READABLE_MESSAGE_TYPES: readonly MessageType[] = ["text", "dice", "clue", "system", "check_request"];
+
+/**
+ * Visibility for every query that feeds room messages to the bot's LLM
+ * (context builder, history summarizer, search_history, respond_check scan)
+ * is `messageVisibilityWhere(roomId, botUserId, false)` — the app's single
+ * audience-based predicate from the messaging router. Do NOT hand-roll a
+ * predicate on `messages.isPrivate` here: that column is a legacy write-only
+ * mirror (see schema.ts), and the summarizer once lacked any filter at all,
+ * leaking player DMs and GM-only notices into the external LLM call and the
+ * persisted historicalSummary. Bots are never the room host, so
+ * `viewerIsHost` is always false.
+ */
+
+/**
  * buildAgentContext
  * Constructs the LLM context for a specific Bot.
  */
@@ -152,9 +175,8 @@ export async function buildAgentContext(
     db.select().from(messages)
       .where(
         and(
-          eq(messages.roomId, roomId),
-          gt(messages.id, config.lastSummarizedMsgId),
-          sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+          messageVisibilityWhere(roomId, botUserId, false),
+          gt(messages.id, config.lastSummarizedMsgId)
         )
       )
       .orderBy(desc(messages.id))
@@ -185,7 +207,7 @@ export async function buildAgentContext(
     if (msg.userId === botUserId) {
       const prefix = msg.isPrivate ? "[私聊] " : "";
       context.push({ role: "assistant", content: `${prefix}${msg.content}` });
-    } else if (["text", "dice", "clue", "system", "check_request"].includes(msg.type)) {
+    } else if ((BOT_READABLE_MESSAGE_TYPES as readonly string[]).includes(msg.type)) {
       const prefix = msg.isPrivate ? "[私聊] " : "";
       context.push({ role: "user", content: `[${msg.nickname}]: ${prefix}${msg.content}` });
     }
@@ -205,6 +227,13 @@ const agentCooldowns: Map<number, number> = globalThis.__agentCooldowns ?? new M
 globalThis.__agentCooldowns = agentCooldowns;
 
 const AGENT_COOLDOWN_MS = 3000;
+
+/**
+ * Upper bound on model↔tool iterations per run. The final iteration is a
+ * forced wrap-up: tool definitions are withheld so the model must answer in
+ * prose — i.e. at most MAX_AGENT_ITERATIONS - 1 tool rounds, then narration.
+ */
+const MAX_AGENT_ITERATIONS = 5;
 
 /**
  * runAgent
@@ -511,6 +540,10 @@ export async function runAgent(
   // broadcast directly from the model's message content (R3), so there is no
   // "send_message" tool — a bot can always talk without one being enabled.
   const tools = allTools.filter(t => enabledTools.includes(t.function.name));
+  // The same whitelist is enforced again at execution time (resolveToolCall):
+  // filtering the advertised definitions does not stop a model from emitting
+  // a disabled or invented tool name.
+  const knownToolNames = allTools.map(t => t.function.name);
 
   const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [...context];
   let iterations = 0;
@@ -528,12 +561,7 @@ export async function runAgent(
     try {
       // Limit to public messages or private messages involving the bot to scan history
       const history = await db.select().from(messages)
-        .where(
-          and(
-            eq(messages.roomId, roomId),
-            sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
-          )
-        )
+        .where(messageVisibilityWhere(roomId, botUserId, false))
         .orderBy(desc(messages.createdAt))
         .limit(20);
       const sortedHistory = [...history].reverse();
@@ -572,6 +600,20 @@ export async function runAgent(
     targetUserId = room.hostId;
   }
 
+  // Single envelope for everything the bot says in chat (free-text replies,
+  // error/truncation notices). `lock` prefixes 🔒 in DMs — used by notices;
+  // free-text replies render unprefixed, matching player messages.
+  const sayAsBot = (content: string, opts?: { lock?: boolean }) =>
+    dispatchMessage({
+      roomId,
+      actorUserId: botUserId,
+      nickname: botNickname,
+      type: "text",
+      audience: replyIsPrivate ? "dm" : "everyone",
+      targetUserId: replyIsPrivate ? targetUserId : null,
+      content: replyIsPrivate && opts?.lock ? `🔒 ${content}` : content,
+    });
+
   const typingStartEvent = {
     type: "typing",
     botUserId,
@@ -596,15 +638,26 @@ export async function runAgent(
 
   try {
     // 2. Fetch the LLM completion
-    while (iterations < 5) {
+    while (iterations < MAX_AGENT_ITERATIONS) {
       iterations++;
+      const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
 
       let assistantMessage;
+      let finishReason: string | undefined;
       try {
         const bodyPayload = {
           model,
           messages: currentContext,
-          ...(tools.length > 0 ? { tools } : {})
+          // Force-text on the final iteration: keep the tool definitions —
+          // several backends (including Claude's OpenAI-compat endpoint)
+          // reject requests whose history contains tool calls when no tools
+          // are declared — but forbid new calls via tool_choice so the model
+          // must wrap up in prose. Without this, tools called on the last
+          // round produce side effects (dice broadcasts, item transfers)
+          // whose results the model never sees and never gets to describe.
+          ...(tools.length > 0
+            ? { tools, ...(isLastIteration ? { tool_choice: "none" } : {}) }
+            : {})
         };
 
         const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
@@ -630,23 +683,29 @@ export async function runAgent(
         accumulatedOutputTokens += usage.completion_tokens || 0;
 
         assistantMessage = data.choices[0].message;
+        finishReason = data.choices[0].finish_reason;
       } catch (err: unknown) {
         console.error(`[runAgent] completion error:`, err);
-        const content = `(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`;
-        await dispatchMessage({
-          roomId,
-          actorUserId: botUserId,
-          nickname: botNickname,
-          type: "text",
-          audience: replyIsPrivate ? "dm" : "everyone",
-          targetUserId: replyIsPrivate ? targetUserId : null,
-          content: replyIsPrivate ? `🔒 ${content}` : content,
-        });
+        await sayAsBot(`(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`, { lock: true });
         break;
       }
 
+      // Strip known chain-of-thought fields before echoing the message back:
+      // DeepSeek reasoner-style models reject requests whose input contains
+      // their own reasoning_content (400), which would kill the second round
+      // of any tool loop. Only these named fields are removed — everything
+      // else is preserved verbatim.
+      delete assistantMessage.reasoning_content;
+      delete assistantMessage.reasoning;
+
       // Add assistant response to context
       currentContext.push(assistantMessage);
+
+      // A "length" finish means the reply hit the output token cap (there is
+      // no max_tokens in the request, so the cap is the provider's default):
+      // the prose is cut short and any tool_calls are likely half-emitted
+      // JSON. An HTTP 200 with finish_reason "length" is not a success.
+      const truncated = finishReason === "length";
 
       // If there is message text, broadcast it (R3) (filtered with sensitive words check)
       if (assistantMessage.content) {
@@ -656,15 +715,36 @@ export async function runAgent(
           console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
           textToSend = "(Output blocked due to sensitive content filter)";
         }
-        await dispatchMessage({
-          roomId,
-          actorUserId: botUserId,
-          nickname: botNickname,
-          type: "text",
-          audience: replyIsPrivate ? "dm" : "everyone",
-          targetUserId: replyIsPrivate ? targetUserId : null,
-          content: textToSend,
-        });
+        // Flag truncation inside the same message rather than as a separate
+        // notice, so a cut-off narration never reads as a finished one.
+        if (truncated) {
+          textToSend += "\n\n*(reply was cut off by the model's output limit)*";
+        }
+        await sayAsBot(textToSend);
+      }
+
+      if (truncated) {
+        console.warn(`[runAgent] Bot ${botUserId} reply truncated by the model's output limit (finish_reason=length); stopping tool loop.`);
+        if (!assistantMessage.content) {
+          // 200 + empty content + "length" (a reasoning model burning the
+          // whole cap on reasoning tokens) previously ended the run with no
+          // message at all — typing stopped and nothing arrived.
+          await sayAsBot(`(${botNickname}) reply was cut off by the model's output limit before any text was produced.`, { lock: true });
+        }
+        // Never execute tool calls from a truncated turn — their argument
+        // JSON may be half-emitted.
+        break;
+      }
+
+      // Any other terminal reason the loop doesn't model (content_filter,
+      // relay-specific values) is not a success either: log it, and if the
+      // turn produced nothing at all, say so instead of ending silently.
+      if (finishReason && !["stop", "tool_calls"].includes(finishReason)) {
+        console.warn(`[runAgent] Bot ${botUserId} completion ended with unexpected finish_reason=${finishReason}.`);
+        if (!assistantMessage.content && !assistantMessage.tool_calls?.length) {
+          await sayAsBot(`(${botNickname}) the model returned no reply (finish_reason: ${finishReason}).`, { lock: true });
+          break;
+        }
       }
 
       // If no tool calls, we are finished
@@ -672,11 +752,36 @@ export async function runAgent(
         break;
       }
 
+      // tool_choice "none" forbids calls on the final iteration, so tool_calls
+      // here are a relay/model glitch — drop them rather than executing calls
+      // whose results the model can never see, but never end the run silently.
+      if (isLastIteration) {
+        if (!assistantMessage.content) {
+          await sayAsBot(`(${botNickname}) ran out of tool rounds before finishing a reply.`, { lock: true });
+        }
+        break;
+      }
+
       const toolCallResults: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [];
       for (const toolCall of assistantMessage.tool_calls) {
-        // Execute tool calls sequentially to avoid DB race conditions on concurrent writes
-        const functionName = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments);
+        // Execute tool calls sequentially to avoid DB race conditions on concurrent writes.
+        // Optional-chain the whole entry: a relay can emit a tool_calls item
+        // with no `function` key (truncated / non-conformant shapes), and an
+        // unguarded deref here throws past the loop's catch-less outer try.
+        const functionName: string = toolCall?.function?.name ?? "";
+        // Whitelist + argument guard: disabled/unknown tool names and malformed
+        // argument JSON become readable tool-result errors instead of either
+        // executing a tool the host turned off or throwing past the loop.
+        const guard = resolveToolCall(functionName, toolCall?.function?.arguments ?? "", enabledTools, knownToolNames);
+        if (!guard.ok) {
+          toolCallResults.push({
+            role: "tool",
+            tool_call_id: toolCall?.id ?? "",
+            content: capToolContent(JSON.stringify({ success: false, error: guard.error })),
+          });
+          continue;
+        }
+        const args = guard.args;
         let result;
 
         try {
@@ -724,10 +829,9 @@ export async function runAgent(
               targetUserId: messages.targetUserId,
             }).from(messages)
               .where(and(
-                eq(messages.roomId, roomId),
-                eq(messages.type, "check_request"),
-                // Only checks visible to the bot: public, or a DM it's part of.
-                sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`
+                // Only checks visible to the bot (audience model).
+                messageVisibilityWhere(roomId, botUserId, false),
+                eq(messages.type, "check_request")
               ))
               .orderBy(desc(messages.createdAt))
               .limit(20);
@@ -1033,8 +1137,7 @@ export async function runAgent(
               }).from(messages)
                 .where(
                   and(
-                    eq(messages.roomId, roomId),
-                    sql`(${messages.isPrivate} = FALSE OR ${messages.userId} = ${botUserId} OR ${messages.targetUserId} = ${botUserId})`,
+                    messageVisibilityWhere(roomId, botUserId, false),
                     sql`${messages.content} LIKE ${'%' + safeQuery + '%'} ESCAPE '\\'`
                   )
                 )
@@ -1199,6 +1302,16 @@ export async function runAgent(
           result = { error: e instanceof Error ? e.message : String(e) };
         }
 
+        // Load-bearing drift net — NOT redundant with the guard: resolveToolCall
+        // validates against the advertised definition list (allTools), not the
+        // dispatch chain above, which has no final else. A tool added to
+        // allTools without a dispatch branch lands exactly here, and
+        // JSON.stringify(undefined) is not a string.
+        if (result === undefined) {
+          console.error(`[runAgent] Tool "${functionName}" passed the whitelist but matched no dispatch branch — allTools and the dispatch chain have drifted.`);
+          result = { success: false, error: `Tool "${functionName}" produced no result.` };
+        }
+
         toolCallResults.push({
           role: "tool",
           tool_call_id: toolCall.id,
@@ -1245,13 +1358,40 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   const config = parseBotConfig(botUser.botConfigJson);
   const lastId = config.lastSummarizedMsgId;
 
-  // Count new messages since last summary
+  // Fetch ALL new rows (bounded by the (room_id, id) index + LIMIT) and
+  // filter in memory below. The threshold and the cursor must track raw room
+  // traffic, not the filtered subset: gating cursor advancement on a filtered
+  // count let image/sticker-heavy rooms stall the cursor forever while the
+  // context window scrolled past unsummarized history, and made every run
+  // re-scan an ever-growing id range (visibility/type conditions are
+  // post-index filters).
   const newMsgs = await db.select().from(messages)
     .where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)))
     .orderBy(asc(messages.id))
     .limit(500);
-  
+
   if (newMsgs.length < 30) return; // Threshold not met
+
+  // Only rows the bot may see feed the external LLM — this text is sent
+  // verbatim and the summary is persisted into the bot's system prompt, so
+  // without the filter player-to-player DMs, GM-only notices, and hidden
+  // rolls all leak. `canSee` is the audience model's pure predicate (bots are
+  // never the room host). The bot's OWN rows are included regardless of type,
+  // mirroring buildAgentContext, so the summary remembers the bot's handouts
+  // (e.g. send_image posts) and not just its text replies.
+  const summarizable = newMsgs.filter(m =>
+    canSee(m, botUserId, false) &&
+    (m.userId === botUserId || (BOT_READABLE_MESSAGE_TYPES as readonly string[]).includes(m.type))
+  );
+
+  // Nothing the bot may see in this batch (e.g. a burst of other players'
+  // stickers): advance the cursor without paying for an LLM call so the next
+  // scan starts past these rows.
+  if (summarizable.length === 0) {
+    config.lastSummarizedMsgId = newMsgs[newMsgs.length - 1].id;
+    await db.update(users).set({ botConfigJson: JSON.stringify(config) }).where(eq(users.id, botUserId));
+    return;
+  }
 
   // Get AI Config for summarization (use configured, fallback to host, fallback to shared)
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
@@ -1286,7 +1426,7 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   }
   const endpoint = aiConfig.apiEndpoint;
 
-  const msgText = newMsgs.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
+  const msgText = summarizable.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
   const oldSummary = config.historicalSummary || "";
 
   let response;

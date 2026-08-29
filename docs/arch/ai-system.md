@@ -6,7 +6,15 @@ Bots are regular `users` rows with `isBot: true` and `botConfigJson` holding the
 
 ## Agent Loop (`src/lib/ai_agent.ts`)
 
-Runs an OpenAI-compatible tool-use loop triggered when a message is sent in a room that has an active bot. Summarizes history incrementally after every 30 messages.
+Runs an OpenAI-compatible tool-use loop triggered when a message is sent in a room that has an active bot.
+
+Loop mechanics (each is a deliberate guard — don't undo casually):
+
+- **Max 5 iterations, final one forced to prose**: the last round keeps the tool definitions but sends `tool_choice: "none"` (definitions must stay — some backends, including Claude's OpenAI-compat endpoint, reject tool history with no declared tools). Effective budget: 4 tool rounds + 1 wrap-up narration.
+- **`finish_reason` is checked**: `"length"` stops the loop (tool-call JSON may be half-emitted; the truncation is flagged inside the broadcast message, or as a notice if no text arrived); any other unexpected terminal reason is logged, and an empty turn always posts a notice instead of ending silently.
+- **Message visibility** everywhere the bot reads history (context builder, summarizer, `search_history`, `respond_check` scan) is `messageVisibilityWhere(roomId, botUserId, false)` — the audience model's single SQL predicate. Never hand-roll a predicate on the legacy `isPrivate` column.
+- **Reasoning fields** (`reasoning_content`, `reasoning`) are stripped before an assistant message is echoed back into the context — DeepSeek reasoner-style models 400 on their own reasoning as input.
+- **History summarization** fires after every 30 new room messages (raw count; the cursor always advances), but only bot-visible rows of readable types — plus all of the bot's own messages — feed the LLM and the persisted summary.
 
 ### Activation & cooldown
 
@@ -16,7 +24,7 @@ A per-bot 3s cooldown throttles the mention/DM path against storms. Explicit hos
 
 ### Supported Tools (13)
 
-Free-text replies are **not** a tool — they are broadcast directly from the model's message content (R3), so a bot can always talk even with zero tools enabled. Which tools a bot may call is configured per bot (`botConfigJson.enableTools`); default is `["roll_dice", "respond_check"]`.
+Free-text replies are **not** a tool — they are broadcast directly from the model's message content (R3), so a bot can always talk even with zero tools enabled. Which tools a bot may call is configured per bot (`botConfigJson.enableTools`); default is `["roll_dice", "respond_check"]`. The whitelist is enforced **twice**: it filters which definitions are advertised to the model, and `resolveToolCall` (`src/lib/agent-tool-guard.ts`) re-checks every emitted call at execution time — a model naming a disabled or invented tool, or sending malformed argument JSON, gets a readable tool-result error instead of an execution or a crash.
 
 | Tool | Description |
 | ---- | ----------- |
