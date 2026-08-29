@@ -684,6 +684,14 @@ export async function runAgent(
         break;
       }
 
+      // Strip known chain-of-thought fields before echoing the message back:
+      // DeepSeek reasoner-style models reject requests whose input contains
+      // their own reasoning_content (400), which would kill the second round
+      // of any tool loop. Only these named fields are removed — everything
+      // else is preserved verbatim.
+      delete assistantMessage.reasoning_content;
+      delete assistantMessage.reasoning;
+
       // Add assistant response to context
       currentContext.push(assistantMessage);
 
