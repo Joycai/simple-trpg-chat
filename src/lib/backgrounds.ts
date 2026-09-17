@@ -45,9 +45,9 @@ export function isAllowedBackgroundMime(mime: string): boolean {
 export function getRoomBackgroundDir(): string {
   const configured = process.env.ROOM_BACKGROUND_DIR;
   if (configured && configured.trim()) {
-    return path.resolve(configured.trim());
+    return path.resolve(/*turbopackIgnore: true*/ configured.trim());
   }
-  return path.join(process.cwd(), "cache", "room-backgrounds");
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), "cache", "room-backgrounds");
 }
 
 /** Ensure the background directory exists; safe to call repeatedly. */

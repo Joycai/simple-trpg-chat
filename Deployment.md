@@ -13,7 +13,7 @@ Internet → Caddy (TLS + reverse proxy) → PM2 (cluster mode: 1 instance*) →
 ## Prerequisites
 
 - A server (VPS or bare metal) running Linux (Ubuntu/Debian recommended)
-- Node.js 20+ installed
+- Node.js 22+ installed
 - Domain name pointed to your server
 - Git access to the repository
 

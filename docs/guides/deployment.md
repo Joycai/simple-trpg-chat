@@ -1,6 +1,6 @@
 # Simple TRPG Chat — 部署指南
 
-**Version**: 0.23.16 | **Last Updated**: 2026-08-29
+**Version**: 0.23.17 | **Last Updated**: 2026-09-17
 
 ---
 
@@ -8,7 +8,7 @@
 
 | 环境 | 版本要求 | 说明 |
 |------|---------|------|
-| **Node.js** | >= 20.x | 运行环境 |
+| **Node.js** | >= 22.x | 运行环境 |
 | **pnpm** | >= 10.x | 包管理器（推荐 `corepack enable pnpm`） |
 | **PostgreSQL** | >= 15.x | 数据库（本地开发可用 Docker/Podman 起服务） |
 | **操作系统** | macOS / Linux / Windows | — |

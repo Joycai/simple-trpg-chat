@@ -14,7 +14,7 @@
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
-| **Node.js** | **≥ 20** | 运行时 |
+| **Node.js** | **≥ 22** | 运行时 |
 | **pnpm** | **≥ 10** | 包管理器（推荐用 `corepack` 启用，见下） |
 | **PostgreSQL** | **16**（≥ 15 亦可） | 数据库；本地可用 Docker / Podman 一键起 |
 | **Git** | 任意 | 拉取源码 |
@@ -29,8 +29,8 @@
 ### 🐧 Linux（Ubuntu / Debian）
 
 ```bash
-# 1) Node.js 20 LTS（NodeSource 源）
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# 1) Node.js 22 LTS（NodeSource 源）
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs git
 
 # 2) 用 corepack 启用 pnpm（Node 自带 corepack）
@@ -38,15 +38,15 @@ sudo corepack enable
 corepack prepare pnpm@10 --activate
 
 # 3) 校验
-node -v      # 应 >= v20
+node -v      # 应 >= v22
 pnpm -v      # 应 >= 10
 ```
 
-> 其他发行版：用各自包管理器装 Node ≥ 20 与 git 即可，pnpm 一律用 `corepack enable` 启用。
+> 其他发行版：用各自包管理器装 Node ≥ 22 与 git 即可，pnpm 一律用 `corepack enable` 启用。
 
 ### 🪟 Windows 10 / 11（PowerShell）
 
-1. **Node.js**：到 <https://nodejs.org> 下载 **LTS（≥ 20）** 安装包，一路默认安装。
+1. **Node.js**：到 <https://nodejs.org> 下载 **LTS（≥ 22）** 安装包，一路默认安装。
 2. **Git**：安装 [Git for Windows](https://git-scm.com/download/win)。
 3. 打开 **PowerShell**（无需管理员），启用 pnpm：
    ```powershell
@@ -56,7 +56,7 @@ pnpm -v      # 应 >= 10
    > 若 `corepack` 报权限错误，用**管理员身份**打开 PowerShell 再执行，或退而使用 `npm install -g pnpm@10`。
 4. 校验：
    ```powershell
-   node -v      # 应 >= v20
+   node -v      # 应 >= v22
    pnpm -v      # 应 >= 10
    ```
 

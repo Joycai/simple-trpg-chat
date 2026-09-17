@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Quick Commands
 
-Requires **Node.js >= 20** and **pnpm >= 10** (`corepack enable pnpm`).
+Requires **Node.js >= 22** and **pnpm >= 10** (`corepack enable pnpm`).
 
 ```bash
 pnpm dev        # Dev server (http://localhost:3000)

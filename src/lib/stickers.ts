@@ -62,9 +62,9 @@ declare global {
 export function getStickerDir(): string {
   const configured = process.env.STICKER_DIR;
   if (configured && configured.trim()) {
-    return path.resolve(configured.trim());
+    return path.resolve(/*turbopackIgnore: true*/ configured.trim());
   }
-  return path.join(process.cwd(), "data", "stickers");
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), "data", "stickers");
 }
 
 function extOf(file: string): string {

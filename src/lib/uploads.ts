@@ -38,9 +38,9 @@ export function extForMime(mime: string): string | null {
 export function getChatImageDir(): string {
   const configured = process.env.CHAT_IMAGE_DIR;
   if (configured && configured.trim()) {
-    return path.resolve(configured.trim());
+    return path.resolve(/*turbopackIgnore: true*/ configured.trim());
   }
-  return path.join(process.cwd(), "cache", "chat-images");
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), "cache", "chat-images");
 }
 
 /** Ensure the cache directory exists; safe to call repeatedly. */
