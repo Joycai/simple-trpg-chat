@@ -9,7 +9,7 @@ import { dispatchMessage } from "@/lib/messaging/router";
 import { executeCommand } from "@/lib/commands/engine";
 import { rollDie } from "@/lib/commands/dice";
 import { checkRoomAccess } from "@/lib/auth/room-access";
-import { rollDiceAction } from "@/app/actions/messages";
+import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
 import { getTranslations } from "next-intl/server";
 import { getRuleForRoom } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character/types";
@@ -251,11 +251,12 @@ export async function respondToCheckRequestAction(
       const faces = parseInt(diceType.replace("d", ""));
       if (isProxy) {
         // Route through executeCommand so the roll is attributed to the player and
-        // carries the proxy chip; rollDiceAction would attribute to the caller (host).
+        // carries the proxy chip; a plain dispatchDiceRoll would attribute it to the caller (host).
         await executeCommand(roomId, rollerId, `.rd${faces}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
       } else {
         // A check response is a normal roll in the request's channel (never hidden).
-        await rollDiceAction(roomId, faces, 1, false, ctxTargetId);
+        // Access was checked above; rollerId is the caller here.
+        await dispatchDiceRoll(roomId, rollerId, faces, 1, false, ctxTargetId);
       }
     }
   }
