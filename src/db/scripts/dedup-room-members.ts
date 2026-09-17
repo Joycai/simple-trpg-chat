@@ -10,7 +10,7 @@
  * Idempotent: groups with a single row are untouched, so it is safe to re-run.
  */
 import { sql } from "drizzle-orm";
-import { db } from "./index";
+import { db } from "../index";
 
 async function main() {
   const result = await db.execute(sql`
