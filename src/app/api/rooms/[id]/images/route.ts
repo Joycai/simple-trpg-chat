@@ -76,7 +76,7 @@ export async function POST(
       return Response.json({ error: "Image is too large (max 1MB)" }, { status: 413 });
     }
 
-    await fs.writeFile(path.join(dir, filename), buffer);
+    await fs.writeFile(path.join(/*turbopackIgnore: true*/ dir, filename), buffer);
   } catch (err) {
     console.error("[chat-image-upload] Failed to write image:", err);
     return Response.json({ error: "Failed to store image" }, { status: 500 });
