@@ -172,7 +172,7 @@ export const basicRule: RuleModule = {
 
   // Plain-roll reading for the AI agent: basic has no crit/fumble grading, but
   // keeps the "CoC-cultural" hint so the LLM reacts idiomatically to 1/100 on a
-  // raw d100 (moved verbatim out of ai_agent.ts's rule-id branch).
+  // raw d100 (moved verbatim out of ai/agent.ts's rule-id branch).
   naturalGrade(roll: number, faces: number, count: number): string | null {
     if (faces === 100 && count === 1) {
       if (roll === 100) return "Fumble (大失败) in CoC rules (though current room uses basic rules)";
@@ -187,7 +187,7 @@ export const basicRule: RuleModule = {
 
   describeForAI(): AiRuleHints {
     return {
-      // Verbatim from the legacy ai_agent.ts `rulesExplanation` else-branch.
+      // Verbatim from the legacy ai/agent.ts `rulesExplanation` else-branch.
       rulesPrompt:
         "Room Dice Rules: Basic (No special success/failure grading for raw dice rolls). " +
         "Note that in CoC/TRPG culture, rolling 100 on d100 is culturally considered a Fumble (大失败), " +

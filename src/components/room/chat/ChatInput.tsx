@@ -34,7 +34,7 @@ interface ChatInputProps {
   defaultRollExpression?: string;
 }
 
-// Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
+// Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/media/uploads.ts
 const IMAGE_MAX_BYTES = 1024 * 1024;
 
 export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice, quickCommands = [], defaultRollExpression }: ChatInputProps) {

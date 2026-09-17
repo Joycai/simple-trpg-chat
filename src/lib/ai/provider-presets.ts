@@ -8,7 +8,7 @@
  * protocol the rest of the app implements. Google and Anthropic are wired
  * through their official OpenAI-compatibility endpoints so the chat path
  * needs no per-vendor branching; only model *listing* differs (see
- * `modelListAuth` and `src/lib/model-fetch.ts`).
+ * `modelListAuth` and `src/lib/ai/model-fetch.ts`).
  *
  * Adding a vendor or a model preset here automatically surfaces it in both
  * call sites (AdminProviderManager + AiProvidersTab).

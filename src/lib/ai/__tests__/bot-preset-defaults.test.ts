@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { BUILTIN_BOT_PRESETS } from "../bot-preset-defaults";
 
-// Keep in sync with the agent's tool registry (`allTools` in ai_agent.ts) and
+// Keep in sync with the agent's tool registry (`buildAgentToolDefinitions` in ai/agent-tool-definitions.ts) and
 // the toggle list in BotManager.tsx. A preset referencing an unknown key would
 // silently enable nothing.
 const KNOWN_TOOLS = [

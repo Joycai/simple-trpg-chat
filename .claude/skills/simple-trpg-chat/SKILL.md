@@ -46,7 +46,7 @@ description: >-
 | `src/lib/messaging/audience.ts` | Pure visibility predicates (`canSee`/`channelOf`/`countsAsDmUnread`) — shared client+server |
 | `src/lib/messaging/router.ts` | `dispatchMessage()` (insert+broadcast) + `messageVisibilityWhere()` SQL |
 | `src/lib/server/events.ts` | globalThis EventEmitter singleton |
-| `src/components/RoomClient.tsx` | Main room UI orchestrator |
+| `src/components/room/RoomClient.tsx` | Main room UI orchestrator |
 | `src/app/api/rooms/[id]/events/route.ts` | SSE endpoint |
 | `src/app/globals.css` | Theme CSS variables |
 

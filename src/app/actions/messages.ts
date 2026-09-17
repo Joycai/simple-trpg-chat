@@ -43,7 +43,7 @@ export async function sendMessageAction(
   // Server Actions accept whatever JSON the client sends — TypeScript's union
   // is just a hint. Clients may only post text/image/sticker through this
   // entrypoint:
-  //  - `dice` rolls are produced by rollDiceAction / commands.ts (server is
+  //  - `dice` rolls are produced by rollDiceAction / commands/engine.ts (server is
   //    the source of truth for the result); accepting a client-supplied
   //    diceDetail would let any room member forge a "critical success" bubble.
   //  - `system` notices are emitted internally via dispatchMessage; accepting
@@ -129,7 +129,7 @@ export async function sendMessageAction(
   if (!sender) throw new Error("Not a member");
 
   // Text/image/sticker never carry diceDetail — only the internal dice paths
-  // (rollDiceAction, commands.ts) attach one. Hard-null it so a client can't
+  // (rollDiceAction, commands/engine.ts) attach one. Hard-null it so a client can't
   // smuggle a fake check payload onto a text message that would still flip
   // ChatMessage into the dice-bubble renderer.
   const newMessage = await dispatchMessage({
@@ -208,7 +208,7 @@ export async function rollDiceAction(
   const audience: Audience = hidden ? "self" : channelPartnerId ? "dm" : "everyone";
 
   // 投娘 (dice announcer) tag — see docs/design/dice-announcer.md. Mirrors the
-  // injection in commands.ts's emitCommandMessage; this is the 🎲 panel's own
+  // injection in commands/engine.ts's emitCommandMessage; this is the 🎲 panel's own
   // dispatch path, which doesn't go through executeCommand.
   const announcer = await resolveAnnouncer(roomId, userId);
   const finalDetail = announcer ? attachAnnouncer(detail, announcer) : detail;

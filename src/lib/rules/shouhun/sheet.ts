@@ -1,7 +1,7 @@
 /**
  * 狩魂者 (shouhun) character-sheet data model — 3 base attributes plus the full
  * derivation (strength tiers, HP/mana maxes, 灵识, letter grades). Owned by the
- * shouhun rule module (moved out of the shared `character-types.ts`).
+ * shouhun rule module (moved out of the shared `character/types.ts`).
  * Self-contained.
  */
 

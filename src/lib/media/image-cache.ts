@@ -10,7 +10,7 @@ import { getRoomBackgroundDir } from "@/lib/media/backgrounds";
  * Chat-image cache accounting & cleanup.
  *
  * Uploaded chat images live as loose files in the cache directory (see
- * `src/lib/uploads.ts`). Each filename is minted as:
+ * `src/lib/media/uploads.ts`). Each filename is minted as:
  *
  *     `${roomId}-${Date.now()}-${randomHex}.${ext}`
  *

@@ -57,7 +57,7 @@ export { THEME_MODES, type ThemeMode } from '@/themes/types';
  * validators in `src/app/actions/room.ts` accept it. This list is kept literal
  * (not derived from `listRuleIds()`) so the schema layer stays free of any
  * dependency on the rules subsystem; a drift-guard test in
- * `src/lib/__tests__/rules.test.ts` fails if the two ever diverge.
+ * `src/lib/rules/__tests__/rules.test.ts` fails if the two ever diverge.
  */
 export const RULE_TEMPLATES = ['basic', 'coc7th', 'dnd5e', 'triangle', 'shouhun'] as const;
 export type RuleTemplate = (typeof RULE_TEMPLATES)[number];
@@ -301,7 +301,7 @@ export const clueCards = pgTable('clue_cards', {
  * Per-user-per-room notebook categories (记事本分类). User-editable: each
  * member manages their own set per room (4 localized defaults are lazily
  * seeded on first open — see getMyNotebookAction). `color` is one of the 7
- * NOTEBOOK_COLORS keys from src/lib/notebook.ts, mapped to theme tokens
+ * NOTEBOOK_COLORS keys from src/lib/room/notebook.ts, mapped to theme tokens
  * client-side so labels recolor with the active theme.
  */
 export const notebookCategories = pgTable('notebook_categories', {
@@ -533,7 +533,7 @@ export const aiProviders = pgTable('ai_providers', {
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
-  vendor: text('vendor').notNull().default('openai-compatible'),  // ids from src/lib/provider-presets.ts AI_VENDORS
+  vendor: text('vendor').notNull().default('openai-compatible'),  // ids from src/lib/ai/provider-presets.ts AI_VENDORS
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
   tokenRateInput: numeric('token_rate_input', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),

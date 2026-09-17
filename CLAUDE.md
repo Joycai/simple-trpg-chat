@@ -46,14 +46,31 @@ pnpm db:doctor  # Environment & DB diagnostics
 ```
 src/
 ├── app/
-│   ├── actions/               # 17 Server Actions ("use server")
+│   ├── actions/               # Server Actions ("use server"), one module per concern
+│   │                          #   room / messages / checks / skills / character / inventory …
 │   ├── admin/                 # Admin panel (ai/, config/, usage/, users/)
 │   ├── api/rooms/[id]/events/ # SSE endpoint — GET /api/rooms/[id]/events
 │   ├── login/
 │   └── rooms/[id]/
-├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 21-table schema, seed
-├── lib/                       # 15 utility/service modules
+├── components/                # React client components ("use client")
+│   ├── room/                  #   room UI, grouped by panel (chat/, character/, notebook/ …)
+│   ├── admin/ lobby/ user/ theme/
+│   └── shared/                #   cross-feature primitives (OverlayShell, ConfirmDialog …)
+├── db/                        # Drizzle client + 21-table schema
+│   └── scripts/               #   tsx entry points: seed, doctor, one-off backfills
+├── lib/                       # Framework-light logic, grouped by domain:
+│   ├── ai/                    #   bot agent loop, tool definitions/handlers, usage, presets
+│   ├── auth/                  #   room access checks, invites, rate limit, login history
+│   ├── character/             #   rule-agnostic CharacterData shell + sheet rebuild
+│   ├── commands/              #   chat command engine, dice expressions, CSPRNG dice
+│   ├── format/                #   time / bytes / markdown blocks / export formatting
+│   ├── media/                 #   uploads, room backgrounds, stickers, avatars, image cache
+│   ├── messaging/             #   audience router (dispatchMessage, visibility)
+│   ├── room/                  #   notebook, story events, inventory sharing
+│   ├── rules/                 #   pluggable rule modules (see simple-trpg-chat-rules skill)
+│   ├── security/              #   encryption, SSRF guard, sensitive-word filter
+│   ├── server/                #   SSE event hub, site config, stats
+│   └── ui/                    #   client hooks & helpers (overlay transitions, hotkeys)
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
 ├── types/                     # next-auth.d.ts type augmentation
@@ -175,6 +192,9 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
 ## Coding Conventions
 
 - **Path alias**: `@/*` → `src/*`
+- **Module layout**: new logic goes in the matching `src/lib/<domain>/` folder, with
+  tests in that folder's `__tests__/`. Don't add a catch-all `utils.ts`; name the file
+  after what it does. Files are kebab-case; React hooks keep the `useX.ts` name.
 - **Server Actions**: `src/app/actions/`, `"use server"` directive
 - **Client components**: `src/components/`, `"use client"` directive
 - **Styling**: Semantic Tailwind tokens only — never arbitrary colors

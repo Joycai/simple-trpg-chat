@@ -50,7 +50,7 @@ export interface MentionTextarea {
  * 3. Opening a draft resets the highlighted row. Escape cleared the draft but
  *    not the index, so the next `@` session started highlighting wherever the
  *    last one left off and Enter inserted the wrong entry.
- * 4. Selection is restored through `src/lib/textarea-edits.ts`, which shifts
+ * 4. Selection is restored through `src/lib/ui/textarea-edits.ts`, which shifts
  *    the anchor by the current line's prefix rather than every line's — and
  *    restores it at all, which the event editor had stopped doing.
  */

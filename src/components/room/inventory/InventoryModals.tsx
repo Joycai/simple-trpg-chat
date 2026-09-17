@@ -18,7 +18,7 @@ import {
 
 const TYPE_KEYS = ["clue", "info", "character", "item"] as const;
 
-/** Mirrors `CHAT_IMAGE_MAX_BYTES` in src/lib/uploads.ts (server enforces the same cap). */
+/** Mirrors `CHAT_IMAGE_MAX_BYTES` in src/lib/media/uploads.ts (server enforces the same cap). */
 const CHAT_IMAGE_MAX_BYTES = 1024 * 1024;
 const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 

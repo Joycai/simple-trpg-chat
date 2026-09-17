@@ -1736,7 +1736,7 @@ describe("labelKey", () => {
 });
 
 // ---------------------------------------------------------------------------
-// naturalGrade — plain-roll reading moved out of ai_agent.ts's rule-id branch
+// naturalGrade — plain-roll reading moved out of ai/agent.ts's rule-id branch
 // ---------------------------------------------------------------------------
 
 describe("rules/naturalGrade", () => {

@@ -1,10 +1,10 @@
 /**
  * Pure helpers for recognizing dice-roll chat commands on the client.
  *
- * Kept separate from `commands.ts` on purpose: that module imports the DB
+ * Kept separate from `commands/engine.ts` on purpose: that module imports the DB
  * layer, so client components must never import it. The prefix list below
  * mirrors the roll-type subset of the engine's command regex
- * (`commands.ts` — `/^(help|st|rch|rah|rc|sc|rd|ra|rh|r)\s*(.*)$/i`),
+ * (`commands/engine.ts` — `/^(help|st|rch|rah|rc|sc|rd|ra|rh|r)\s*(.*)$/i`),
  * excluding non-roll commands (`st`, `help`).
  */
 

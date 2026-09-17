@@ -22,7 +22,7 @@ interface AnalyzedItem {
 }
 
 // Registry of in-flight analysis jobs so they can be cancelled.
-// Persisted on globalThis per the project's singleton convention (see src/lib/events.ts).
+// Persisted on globalThis per the project's singleton convention (see src/lib/server/events.ts).
 declare global {
   var __aiImportJobs: Map<string, AbortController> | undefined;
 }

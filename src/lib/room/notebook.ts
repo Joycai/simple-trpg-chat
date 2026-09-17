@@ -1,7 +1,7 @@
 /**
  * Notebook (记事本) — pure helpers shared by the client panel, the markdown
  * renderer and the server actions. No DB / React imports so everything here is
- * unit-testable (src/lib/__tests__/notebook.test.ts).
+ * unit-testable (src/lib/room/__tests__/notebook.test.ts).
  *
  * Mention model: a note's markdown may contain `@标题` tokens that link an
  * entry of the author's backpack (inventory item / clue / character / info).

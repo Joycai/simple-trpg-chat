@@ -774,7 +774,7 @@ export function RoomClient({
     handleTabChange(order[(Math.max(i, 0) + dir + order.length) % order.length]);
   }, [dmConversations, activeTab, handleTabChange]);
 
-  // Room-wide keyboard shortcuts (bindings defined in src/lib/hotkeys.ts).
+  // Room-wide keyboard shortcuts (bindings defined in src/lib/ui/hotkeys.ts).
   useRoomHotkeys({
     isHost,
     readOnly,

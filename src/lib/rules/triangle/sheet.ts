@@ -1,6 +1,6 @@
 /**
  * Triangle Agency character-sheet data model. Owned by the triangle rule module
- * (moved out of the shared `character-types.ts`). Self-contained.
+ * (moved out of the shared `character/types.ts`). Self-contained.
  */
 
 /**

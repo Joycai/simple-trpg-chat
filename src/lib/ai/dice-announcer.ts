@@ -5,11 +5,11 @@
  * card is re-skinned with that bot's visual identity plus a short quip. The
  * message itself never changes ownership (`actorUserId` stays the roller) —
  * only `diceDetail.announcer` is tagged, mirroring the `proxiedBy*` pattern
- * in commands.ts's `attachProxy`.
+ * in commands/engine.ts's `attachProxy`.
  *
  * Deliberately does NOT reuse `runAgent`/`parseBotConfig`/`fetchWithBackoff`
- * from ai_agent.ts: that module imports `executeCommand` from commands.ts,
- * and commands.ts imports this module — importing ai_agent.ts here would
+ * from ai/agent.ts: that module imports `executeCommand` from commands/engine.ts,
+ * and commands/engine.ts imports this module — importing ai/agent.ts here would
  * create a cycle. This module keeps its own minimal config parse + single
  * fetch call (no retries — a missed quip isn't worth burning provider quota).
  */
@@ -72,7 +72,7 @@ export async function resolveAnnouncer(roomId: number, rollerUserId: number): Pr
 }
 
 // ---------------------------------------------------------------------------
-// diceDetail tagging — pure, mirrors commands.ts's attachProxy
+// diceDetail tagging — pure, mirrors commands/engine.ts's attachProxy
 // ---------------------------------------------------------------------------
 
 export interface AnnouncerTag {
@@ -358,7 +358,7 @@ export async function scheduleQuip(ctx: QuipContext): Promise<void> {
 }
 
 /**
- * Defensive re-read/patch, mirroring ai_agent.ts's respond_check pattern:
+ * Defensive re-read/patch, mirroring ai/agent.ts's respond_check pattern:
  * re-fetch the row (it may have changed since dispatch), re-parse
  * diceDetail, merge the quip, write back. Any failure is abandoned silently
  * — a missing quip patch just means the placeholder times out client-side.

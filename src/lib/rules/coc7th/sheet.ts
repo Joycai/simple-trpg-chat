@@ -1,10 +1,10 @@
 /**
  * COC 7th character-sheet data model — attributes, derived values, defaults,
  * and the derivation helper. Owned by the COC rule module (moved out of the
- * shared `character-types.ts` so each ruleset carries its own sheet types).
+ * shared `character/types.ts` so each ruleset carries its own sheet types).
  *
  * Self-contained: no import of `CharacterData` or any other rule. The generic
- * `CharacterData` in `@/lib/character-types` type-imports these interfaces for
+ * `CharacterData` in `@/lib/character/types` type-imports these interfaces for
  * its optional `cocAttributes` / `cocDerived` fields.
  */
 
