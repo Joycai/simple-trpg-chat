@@ -120,7 +120,7 @@ null 条件（任一）：
 1. **限流检查**：房间令牌桶（§5.4）无余量 → 直接语料池。
 2. **熔断检查**：熔断器 open → 直接语料池。
 3. **LLM 生成**：
-   - 从 `announcer.botConfigJson`（复用 `ai_agent.ts` 的 `parseBotConfig`，或导出它）取 `providerId`/`model`/`systemPrompt`。providerId 缺失、provider 行不存在、全局 `ai_enabled !== "true"`、共享 provider 且房主点数耗尽（判定逻辑照抄 `runAgent` L254-287）→ 语料池。
+   - 从 `announcer.botConfigJson`（复用 `lib/ai/agent.ts` 的 `parseBotConfig`，或导出它）取 `providerId`/`model`/`systemPrompt`。providerId 缺失、provider 行不存在、全局 `ai_enabled !== "true"`、共享 provider 且房主点数耗尽（判定逻辑照抄 `runAgent` L254-287）→ 语料池。
    - 单次 `{endpoint}/chat/completions` 调用：复用 `fetchWithBackoff` 但 `maxRetries = 1`（补骚话不值得重试烧钱），外层用 `AbortController` 包 **2500ms 硬超时**。
    - prompt：system = bot 的 `systemPrompt` + 固定后缀指令（"你是掷骰播报员。用一句话（≤40字）点评这次掷骰结果，符合你的人设。只输出这一句话，不要复述数字以外的编造内容。使用与玩家相同的语言。"）；user = `玩家「{rollerNickname}」投掷 {skillName?} {notation}，结果：{resultText}（{grade 的本地化文案}）`。`max_tokens: 80`。
    - 记账：`recordTokenUsage(room.hostId, provider.id, ...)`（同 `runAgent`）。
@@ -151,7 +151,7 @@ i18n 键 `messages/{zh,en}.json` → `diceAnnouncer.quips.{critical|success|fail
 
 quip 就绪后：
 
-1. 重读该 `messages` 行，defensive parse `diceDetail`（同 `ai_agent.ts` respond_check 的防御性重读模式，L789-796），合并 `announcer.quip`、去掉 `quipPending`，`db.update`。行已被删/parse 失败 → 静默放弃。
+1. 重读该 `messages` 行，defensive parse `diceDetail`（同 `lib/ai/agent-tool-handlers.ts` 里 `respond_check` 处理函数的防御性重读模式），合并 `announcer.quip`、去掉 `quipPending`，`db.update`。行已被删/parse 失败 → 静默放弃。
 2. 广播（`src/lib/server/events.ts` 的 `broadcastToRoom`）：
 
 ```ts

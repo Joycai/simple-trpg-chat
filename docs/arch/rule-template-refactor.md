@@ -4,6 +4,8 @@
 > 验收：下一步的 **DnD 5e（d20）** 作为第三套规则落地时，**只新增 `rules/dnd5e/` 一个目录 + 注册一行**，命令引擎、角色系统核心逻辑、宿主动作门控均无需改动。
 > 前置：[`rule-template-system.md`](./rule-template-system.md)（现状）；本计划取代其早期接口草案。
 
+> 📁 **路径说明**：本文写于 PR #176 / #230 目录整理之前，正文中的文件路径与行号保留当时状态。对照：`lib/commands.ts` → `lib/commands/engine.ts`；`lib/ai_agent.ts` → `lib/ai/agent.ts`（工具实现在 `agent-tool-handlers.ts`）；`lib/character-types.ts` → `lib/character/types.ts`；`lib/{coc,d20,ta,sh}-stats.ts` → `lib/rules/<id>/stats.ts`；`actions/character.ts` 的 `initCocCharacterAction` 已由 `rule.initCharacter()` 取代并删除。
+
 ---
 
 ## 一、为什么 d20 改变了抽象的下限
@@ -95,7 +97,7 @@ export interface RuleModule {
 UI 侧用**第二张注册表**把 `ruleId → 角色卡组件`：
 
 ```ts
-// src/lib/rules/ui-registry.ts (client)
+// 草案：src/lib/rules/ui-registry.ts (client) —— 未按此文件名落地
 const SHEETS: Record<string, React.ComponentType<SheetProps>> = {
   coc7th: CocSheet,   // 现 AttributesTab 的 isCoc 分支抽出
   basic:  BasicSheet, // 现 !isCoc 分支

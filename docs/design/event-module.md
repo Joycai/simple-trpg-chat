@@ -39,7 +39,7 @@
 这是本功能**最需要设计**的一点。现有可见性模型是**二元**的:
 
 - `canSee()`(`src/lib/messaging/audience.ts:38`)对 `everyone/self/recipient/directed/dm/gm` 做全有或全无判定。**非接收者根本收不到那条消息** —— SSE 路由在推送前就把事件丢弃(`src/app/api/rooms/[id]/events/route.ts:109`),历史加载也用等价的 SQL `WHERE` 过滤掉(`messageVisibilityWhere`)。**不存在**「广播给所有人、对部分人脱敏」的机制。
-- 现有「有限公开线索」的做法(`src/app/actions/clue.ts:145`)恰恰**回避**把内容放进公共频道:它只给选中者发 `recipient` 回执 pill(内容在背包里),对未选中者什么都不发。
+- 当时「有限公开线索」的做法(原 `src/app/actions/clue.ts`,因无调用方已在 PR #230 删除)恰恰**回避**把内容放进公共频道:它只给选中者发 `recipient` 回执 pill(内容在背包里),对未选中者什么都不发。
 
 因此需求 4 的「未选中者看到锁定卡片」必须新造**脱敏广播**:公共频道那张卡片只承载**非敏感元数据**(事件 id + 标题 + 公开模式),**绝不**在广播 payload 里带描述正文;是否解锁由客户端判断「本 id 是否在本人可访问事件集合内」。正文永远走**受控的服务端拉取**(按可见性表鉴权),客户端拿不到未授权内容。详见 §3。
 
@@ -177,7 +177,7 @@ canViewEvent(event, userId, isHost):
 
 - 道具模板:`src/db/schema.ts:227-271`、`src/app/actions/inventory.ts`、`src/components/room/inventory/`
 - 记事本引用:`src/lib/room/notebook.ts`、`src/components/shared/MarkdownRenderer.tsx`、`src/components/room/notebook/{NotebookEditor,NotebookViewer,notebook-helpers}.tsx`
-- 可见性/卡片:`src/lib/messaging/audience.ts`、`src/lib/messaging/router.ts`、`src/app/api/rooms/[id]/events/route.ts`、`src/components/room/chat/ChatMessage.tsx`、`src/app/actions/clue.ts`(有限公开先例)
+- 可见性/卡片:`src/lib/messaging/audience.ts`、`src/lib/messaging/router.ts`、`src/app/api/rooms/[id]/events/route.ts`、`src/components/room/chat/ChatMessage.tsx`
 - 时间:`src/lib/messaging/timeline-payload.ts`、`src/components/room/chat/TimelineDividerDialog.tsx`
 - 顶栏/菜单/SSE:`src/components/room/RoomTopBar.tsx`、`RoomClient.tsx`、`RoomOverlays.tsx`、`src/lib/server/events.ts`、`src/lib/ui/useClickOutside.ts`、`src/components/room/hooks/useRoomEvents.ts`
 - 图片上传:`src/app/api/rooms/[id]/images/route.ts`、`src/components/shared/ImageCropper.tsx`

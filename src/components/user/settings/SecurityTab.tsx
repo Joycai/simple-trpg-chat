@@ -23,12 +23,13 @@ export function SecurityTab() {
     if (newPwd.length < 3) { setPwdOk(false); setPwdMsg(t("passwordTooShort")); return; }
     if (newPwd !== confirmPwd) { setPwdOk(false); setPwdMsg(ts("passwordMismatch")); return; }
     try {
-      await changeOwnPassword(oldPwd, newPwd);
+      const res = await changeOwnPassword(oldPwd, newPwd);
+      if (!res.success) { setPwdOk(false); setPwdMsg(res.error); return; }
       setPwdOk(true);
       setPwdMsg(t("passwordResetOk"));
       setOldPwd(""); setNewPwd(""); setConfirmPwd("");
-    } catch (e: unknown) {
-      setPwdMsg(e instanceof Error ? e.message : t("passwordResetFail"));
+    } catch {
+      setPwdMsg(t("passwordResetFail"));
       setPwdOk(false);
     }
   };
