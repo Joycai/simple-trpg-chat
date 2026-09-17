@@ -44,7 +44,8 @@ vi.mock("next-intl/server", () => ({
   })
 }));
 
-import { parseAndRollExpression, executeCommand, formatDiceRollMessage } from "../engine";
+import { executeCommand } from "../engine";
+import { parseAndRollExpression, formatDiceRollMessage } from "../expression";
 import { db } from "@/db";
 import { rooms, roomSkills, roomMembers } from "@/db/schema";
 
