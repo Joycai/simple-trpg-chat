@@ -84,7 +84,7 @@ return msg;
 
 `attachAnnouncer` 写在 `dice-announcer.ts`，模式照抄 `attachProxy`（defensive JSON parse，失败原样返回）。`announcer` 与 `proxiedBy*` 可以共存（代投 + 播报同时成立）。
 
-### 4.2 `src/app/actions/room.ts` → `rollDiceAction`（~L364）
+### 4.2 `src/app/actions/messages.ts` → `rollDiceAction`
 
 🎲 面板路径，不经过 `executeCommand`。同样调 `resolveAnnouncer` / `attachAnnouncer` / `scheduleQuip`。逻辑与 4.1 完全一致，共享 `dice-announcer.ts` 里的实现，不要复制粘贴。
 
@@ -185,7 +185,7 @@ dice 气泡解析 `diceDetail` 处（~L1629 附近已解析 `proxiedByNickname`�
 
 ## 8. 设置入口
 
-### 8.1 Server action（`src/app/actions/room.ts`）
+### 8.1 Server action（`src/app/actions/dice-announcer.ts`）
 
 新增 `setDiceAnnouncerAction(roomId: number, botUserId: number | null)`：
 

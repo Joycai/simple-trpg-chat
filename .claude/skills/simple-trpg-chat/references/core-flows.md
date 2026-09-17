@@ -6,7 +6,7 @@
 3. Players see room in lobby → enter key → `joinRoomAction` validates key → inserts `room_members`
 
 ## Message Flow (SSE)
-1. Client sends via `sendMessageAction` (Server Action in `src/app/actions/room.ts`)
+1. Client sends via `sendMessageAction` (Server Action in `src/app/actions/messages.ts`)
 2. Server inserts to `messages` table
 3. `broadcastToRoom(roomId, message)` → EventEmitter (persisted on `globalThis` for HMR safety)
 4. SSE route `GET /api/rooms/[id]/events` receives → pushes to all connected clients

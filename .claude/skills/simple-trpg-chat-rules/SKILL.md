@@ -94,7 +94,7 @@ description: >
 | 方法 | 谁在用 |
 | --- | --- |
 | `parseQuickCheckArgs?(args)` | 把 `.r <args>` 认领成简写检定。在通用表达式解析**之前**被调用;返 null 则回落为普通掷骰。狩魂者 用它实现 `.r+x±y [DC]` |
-| `naturalGrade?(roll, faces, count)` | 普通掷骰(`.rd`/`.r`,非检定)的文化/机制解读,供 AI bot 反应。COC 认 1d100 的 01–05/96–100,basic 给 CoC 文化提示(1/100),其余省略(返 null)。取代 `ai_agent.ts` 里原本的 `id === "coc7th"/"basic"` 分支。PR #176 新增 |
+| `naturalGrade?(roll, faces, count)` | 普通掷骰(`.rd`/`.r`,非检定)的文化/机制解读,供 AI bot 反应。COC 认 1d100 的 01–05/96–100,basic 给 CoC 文化提示(1/100),其余省略(返 null)。取代 `ai/agent.ts` 里原本的 `id === "coc7th"/"basic"` 分支。PR #176 新增 |
 | `buildCheckCommand?(input)` | **快速检定面板**(输入框左侧 ◎)把面板状态变成"玩家本可手打的命令"+ 投掷按钮预览(`{command, preview}`)。与 `capabilities.quickCheckPanel` **成对声明**(`rules.test.ts` 有配对断言);返 null = 该组合无法表达(狩魂者 无名+暗骰),面板禁用按钮。必须纯函数、client-safe。v0.19 新增 |
 | `resolvePlainRoll?(args)` | 把 `.rd/.r/.rh <args>` 认领成**规则专属纯投掷**(COC 的 `.rd100b2` 奖惩骰投——额外 d10 替换十位)。在数字前缀改写与通用表达式解析**之前**、且**含 `.rh` 暗投**地被调用;规则自己掷骰,返回 `{notation, display, total, detail}`(引擎补 `command` 与代投标记);返 null 落回普通掷骰。v0.19 新增 |
 
@@ -144,7 +144,7 @@ interface CheckResult {
 | `hasPsychologyRoll` | `boolean` | `psychologyHiddenRollAction` 守卫 + TopBar 心理学暗骰菜单项 |
 | `hasManaPoints` | `boolean` | MP 资源条渲染 |
 | `checkMenuModes` | `("check"\|"psychology"\|"sancheck")[]` | TopBar 检定项;>1 渲染下拉,=1 单按钮,空数组整个隐藏(triangle) |
-| `supportedCommands` | `string[]` | `commands.ts` 的命令门控(`.sc` 就读这个) |
+| `supportedCommands` | `string[]` | `commands/engine.ts` 的命令门控(`.sc` 就读这个) |
 | `resourceBars` | `{key,labelKey,style?}[]` | 角色卡预置资源条。`style:"counter"` 渲染为无上限计数器(Triangle 嘉奖/处分),默认 `"bar"` 为 当前/上限 |
 | `attributeKeys` | `{key,labelKey}[]` | 角色卡属性宫格(basic=0, coc7th=9, dnd5e=8, triangle=9, shouhun=3);同时是 `clampAttributes` 的白名单来源 |
 | `derivedStats?` | `{key,labelKey}[]` | 属性宫格后的只读衍生卡(shouhun=术法强度)。值由 `readStatus().derived` 现算 |
@@ -195,7 +195,7 @@ quickCheckPanel?: {
 
 **声明 `quickCheckPanel` 而不实现 `buildCheckCommand`(或反之)= 面板静默失效**——与 `sheetToolSchemaFields` 同款陷阱,`rules.test.ts` 的配对断言会红。
 
-配套引擎设施(规则无关,已就绪,新规则**不用**动):`.rch` / `.rah` 是 `.rc` / `.ra` 的暗检定孪生(结果仅投掷者可见,visibility="self"),`commands.ts` 与 `roll-command.ts` 的前缀表已含;声明了 `rc` 的规则应把 `rch`/`rah` 一并放进 `supportedCommands`,并在 `helpEntryIds` 里加 `rch` 条目(配对测试会验)。
+配套引擎设施(规则无关,已就绪,新规则**不用**动):`.rch` / `.rah` 是 `.rc` / `.ra` 的暗检定孪生(结果仅投掷者可见,visibility="self"),`commands/engine.ts` 与 `roll-command.ts` 的前缀表已含;声明了 `rc` 的规则应把 `rch`/`rah` 一并放进 `supportedCommands`,并在 `helpEntryIds` 里加 `rch` 条目(配对测试会验)。
 
 ### 两条硬约束
 
@@ -266,7 +266,7 @@ UI 侧不用改。
 
 ### 不需要改的地方(验证抽象成立)
 
-`commands.ts`(命令引擎)、`actions/room.ts`(主持人动作 + 检定请求)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai_agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、**`QuickCheckPanel.tsx`(快速检定面板,能力位 + `buildCheckCommand` 驱动)**、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
+`commands/engine.ts`(命令引擎)、`actions/checks.ts`(主持人检定请求 + 响应)、`actions/room.ts`(房间设置)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai/agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、**`QuickCheckPanel.tsx`(快速检定面板,能力位 + `buildCheckCommand` 驱动)**、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
 
 **只要模块把 22 个成员实现全、capabilities 填对,以上文件一律零改动**——这是本次(PR #176)把 CharacterPanel 的 24 处分支全部收敛后达成的验收状态。如果你发现必须改上面某个文件才能让新规则工作,先回头检查模块定义:大概率是某个 capability 没填、`readStatus`/`readAttributes` 没摊平对、或某个新方法(`writeAttributes`/`applyResourcePatch`)没实现。**确实**表达不了再扩 `RuleCapabilities`(纯数据),而不是加 id 分支。
 
@@ -284,8 +284,8 @@ UI 侧不用改。
 | `CharacterPanel` `handleExport` 四分支 | `capabilities.{resourceBars,derivedStats,attributeKeys}` + `readStatus().attributeGrades` 全驱动 |
 | `CharacterPanel` `resourceMaxEditable` / init 守卫 | `capabilities.resourceMaxEditable`;init 守卫用 `DEFAULT_RULE_ID` 常量比较 |
 | `LobbyClient` coc7th 骷髅徽标 | `useRuleLabelResolver()`(host-label.tsx)对任意非默认规则渲染其 `labelKey` |
-| `ai_agent.ts` 1d100 裸骰吉凶 | `rule.naturalGrade(roll, faces, count)` |
-| `commands.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
+| `ai/agent.ts` 1d100 裸骰吉凶 | `rule.naturalGrade(roll, faces, count)` |
+| `commands/engine.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
 | `character.ts` `updateResourcesAction` 三分支 | `rule.applyResourcePatch(sheet, patch)` 单行委派 |
 | `lib/{coc,d20,ta,sh}-stats.ts` 散落公共 lib | 迁进 `rules/<id>/stats.ts`,每套规则物理自包含 |
 
@@ -311,7 +311,7 @@ COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名
 1. **在引擎/UI 里写 `if (rule.id === "xxx")`** —— 先扩 `RuleCapabilities`(纯数据)再用 capability 驱动。§5 是例外清单,不是许可证。
 2. **声明了 `sheetToolSchemaFields` 却没在 `applySheetPatch` 里消费** —— 模型会照 schema 正确调用,写入被静默丢弃,**没有任何报错**。triangle 和狩魂者 都踩过。`rules.test.ts` 现在有一条循环用例守住这个契约。
 3. **`RuleCapabilities` 里塞 React 组件/图标** —— 规则模块要在 server 端可用。
-4. **`rollDie` 留在 `commands.ts` 预掷** —— 预掷使比较方向无法被规则改写,d20 直接挂掉。必须在 `resolveCheck` 内部调用。
+4. **`rollDie` 留在 `commands/engine.ts` 预掷** —— 预掷使比较方向无法被规则改写,d20 直接挂掉。必须在 `resolveCheck` 内部调用。
 5. **新规则加了但下拉框里看不到** —— 检查 `schema.ts` 的 `RULE_TEMPLATES`。
 6. **导出的房间信息标着别的规则名** —— 检查 `messages.export` 里有没有你的 `labelKey`。
 7. **假设 `room.diceRules`** —— 该列已删,`getRuleForRoom` 签名是 `{ ruleTemplate?: string | null }`。

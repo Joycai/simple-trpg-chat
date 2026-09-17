@@ -26,7 +26,7 @@
 
 ### 1.3 需求 5 核查结论:已支持,无需改动
 
-- `joinRoomAction`(`src/app/actions/room.ts:74`)**没有任何角色限制**,只校验房间密钥。host 用同一密钥即可加入他人房间。
+- `joinRoomAction`(`src/app/actions/room.ts`)**没有任何角色限制**,只校验房间密钥。host 用同一密钥即可加入他人房间。
 - 房间内的"主持人权限"不看全局 role,而看 `room.hostId === userId`:
   - 页面:`src/app/rooms/[id]/page.tsx:39` — `const isHost = room.hostId === userId`
   - 权限助手:`src/lib/auth/room-access.ts` 的 `checkRoomAccess` 同样以 `room.hostId` 判定
