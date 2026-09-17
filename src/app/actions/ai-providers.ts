@@ -172,28 +172,6 @@ export async function getAllProviders() {
   return rows.map(maskProviderKey);
 }
 
-/** Get a single provider with decrypted key (for AI calls) */
-export async function getProviderKey(providerId: number): Promise<string> {
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-
-  const userId = parseInt(session.user.id);
-  const isAdmin = session.user.role === "admin";
-
-  const [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
-  if (!provider) throw new Error("Provider not found");
-
-  if (provider.ownerId !== userId && !isAdmin) {
-    throw new Error("Unauthorized: Access to this API provider is restricted");
-  }
-
-  try {
-    return decrypt(provider.apiKeyEncrypted);
-  } catch {
-    throw new Error("Provider API key cannot be decrypted — please delete and re-create this provider.");
-  }
-}
-
 // ============================================================
 // Model listing
 // ============================================================
