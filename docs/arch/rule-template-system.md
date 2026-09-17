@@ -38,7 +38,7 @@ Hoster 在房间设置中看到两个下拉框（[`RoomSettings.tsx:196`](../../
 | 3 | **`.st` 设定路由** | 一律写入 `room_skills` 表 | 属性名→角色卡属性，资源名→资源当前值，清理遗留 skill 行 | [`commands.ts:402`](../../src/lib/commands/engine.ts) |
 | 4 | **`.rc` 查找回退** | 只查 `room_skills` | 查不到技能时回退到角色卡属性/资源 | [`commands.ts:522`](../../src/lib/commands/engine.ts) |
 | 5 | **`.sc` 理智检定** | 不可用，返回 `scNotCoc7th` | 可用，扣除理智并写回角色卡 | [`commands.ts:593`](../../src/lib/commands/engine.ts) |
-| 6 | **名称规范化** | 不显著 | `san → 理智值`、`str → 力量` 等别名归一 | [`coc-stats.ts:59`](../../src/lib/coc-stats.ts) |
+| 6 | **名称规范化** | 不显著 | `san → 理智值`、`str → 力量` 等别名归一 | [`coc7th/stats.ts`](../../src/lib/rules/coc7th/stats.ts) |
 
 ---
 

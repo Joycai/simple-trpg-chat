@@ -4,6 +4,8 @@
 > 目的：盘点当前 5 套规则模版及其自定义面，量化「规则知识仍泄漏进公共代码」的残余耦合，并给出**按严重程度排序的修复计划**。
 > 一句话结论：核心抽象（`RuleModule` 接口 + 自注册 `registry` + 数据驱动 `capabilities`）已建成且命令/AI/状态主流程基本零分支；**但角色面板 UI、共享数据模型、少数 server action 仍硬编码每套规则**——重构的 Phase 3（UI 接入）只完成了一半。
 
+> 📁 **路径说明**：本文写于 PR #176 / #230 目录整理之前，正文中的文件路径与行号保留当时状态。对照：`lib/commands.ts` → `lib/commands/engine.ts`；`lib/ai_agent.ts` → `lib/ai/agent.ts`（工具实现在 `agent-tool-handlers.ts`）；`lib/character-types.ts` → `lib/character/types.ts`；`lib/{coc,d20,ta,sh}-stats.ts` → `lib/rules/<id>/stats.ts`；`actions/character.ts` 的 `initCocCharacterAction` 已由 `rule.initCharacter()` 取代并删除。
+
 ---
 
 ## 一、规则模版清单（5 套）
