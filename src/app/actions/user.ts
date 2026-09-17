@@ -4,7 +4,6 @@ import { db, sqlNow } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { auth, signOut } from "@/auth";
 import { invalidateSessionCache } from "@/auth.config";
@@ -26,21 +25,29 @@ export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }
 
-export async function changeOwnPassword(oldPassword: string, newPassword: string) {
+/**
+ * Change the signed-in user's own password. Returns a result object: a thrown
+ * message would be redacted by Next.js in production, hiding "wrong password".
+ * The password strings live in the `admin` namespace, shared with the admin
+ * panel's modal.
+ */
+export async function changeOwnPassword(
+  oldPassword: string,
+  newPassword: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const t = await getTranslations("admin");
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { success: false, error: t("passwordResetFail") };
+  if (newPassword.length < 3) return { success: false, error: t("passwordTooShort") };
   const userId = parseInt(session.user.id);
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
-  if (!user) throw new Error("User not found");
+  if (!user) return { success: false, error: t("passwordResetFail") };
 
   const valid = await bcrypt.compare(oldPassword, user.passwordHash);
-  if (!valid) {
-    const t = await getTranslations("admin");
-    throw new Error(t("errorCurrentPassword"));
-  }
+  if (!valid) return { success: false, error: t("errorCurrentPassword") };
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
-  revalidatePath("/admin");
+  return { success: true };
 }

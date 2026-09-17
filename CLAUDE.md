@@ -206,7 +206,7 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   the Server Components render…". `checkRoomAccess` still throws (it is shared); wrap it
   per-action, as `background.ts`'s `requireRoomHost` does.
   Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook` /
-  `checks` / `dice-announcer`.
+  `checks` / `dice-announcer` / `user` (`changeOwnPassword`).
   Still throwing, to be converted: `inventory` / `character` / `room` / `messages` /
   `theme` / `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
 - **Validation**: Validate at the action boundary — `zod` where a schema fits

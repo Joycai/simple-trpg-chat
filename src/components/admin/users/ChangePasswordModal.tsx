@@ -19,12 +19,13 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     if (!oldPwd || !newPwd) return;
     if (newPwd.length < 3) { setMsg(t("passwordTooShort")); setStatus("error"); return; }
     try {
-      await changeOwnPassword(oldPwd, newPwd);
+      const res = await changeOwnPassword(oldPwd, newPwd);
+      if (!res.success) { setMsg(res.error); setStatus("error"); return; }
       setMsg(t("passwordResetOk"));
       setStatus("success");
       setOldPwd(""); setNewPwd("");
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : t("passwordResetFail"));
+    } catch {
+      setMsg(t("passwordResetFail"));
       setStatus("error");
     }
   };
