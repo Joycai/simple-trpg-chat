@@ -3,8 +3,8 @@
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
-import { getBotStatus } from "@/lib/botStatus";
+import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
+import { getBotStatus } from "@/lib/ai/bot-status";
 import type { PlayerEntry } from "@/components/room/types";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 

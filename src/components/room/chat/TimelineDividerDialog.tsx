@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { insertTimelineDividerAction } from "@/app/actions/room";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import {
   composeTimelineLabel,

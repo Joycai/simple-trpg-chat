@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
-import { useClickOutside } from "@/lib/useClickOutside";
+import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
+import { useClickOutside } from "@/lib/ui/useClickOutside";
 import { Icons } from "@/components/shared/icons";
 import { useHostLabel } from "@/components/shared/host-label";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/character/resource-visuals";

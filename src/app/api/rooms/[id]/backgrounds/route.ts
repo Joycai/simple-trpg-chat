@@ -7,7 +7,7 @@ import path from "path";
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { roomBackgrounds } from "@/db/schema";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import {
   BACKGROUND_UPLOAD_MAX_BYTES,
   ROOM_BACKGROUND_MAX_COUNT,
@@ -15,7 +15,7 @@ import {
   ensureRoomBackgroundDir,
   isAllowedBackgroundMime,
   roomBackgroundUrl,
-} from "@/lib/backgrounds";
+} from "@/lib/media/backgrounds";
 
 /**
  * POST /api/rooms/[id]/backgrounds

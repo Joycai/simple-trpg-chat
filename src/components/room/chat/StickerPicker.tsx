@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { getStickerManifestAction } from "@/app/actions/sticker";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
-import type { StickerPack } from "@/lib/stickers";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
+import type { StickerPack } from "@/lib/media/stickers";
 
 interface StickerPickerProps {
   /** Called with the chosen sticker's path URL. */

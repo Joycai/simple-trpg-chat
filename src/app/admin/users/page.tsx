@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { users, loginHistory } from "@/db/schema";
 import { sql } from "drizzle-orm";
-import { sweepExpiredInvites, getInviteConfig } from "@/lib/invites";
+import { sweepExpiredInvites, getInviteConfig } from "@/lib/auth/invites";
 import { AdminUserManager } from "@/components/admin/users/AdminUserManager";
 
 export default async function AdminUsersPage() {

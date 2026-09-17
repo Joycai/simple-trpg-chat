@@ -2,8 +2,8 @@ export const runtime = "nodejs";
 
 import { NextRequest } from "next/server";
 import fs from "fs/promises";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { resolveRoomBackgroundPath } from "@/lib/backgrounds";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { resolveRoomBackgroundPath } from "@/lib/media/backgrounds";
 
 /**
  * GET /api/rooms/[id]/backgrounds/[filename]

@@ -7,8 +7,8 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { useMentionTextarea } from "@/components/room/hooks/useMentionTextarea";
 import { MentionPicker } from "@/components/room/MentionPicker";
-import { type NotebookLinkEntity } from "@/lib/notebook";
-import { MAX_EVENT_IMAGES, EVENT_TITLE_MAX, EVENT_DESC_MAX } from "@/lib/story-events";
+import { type NotebookLinkEntity } from "@/lib/room/notebook";
+import { MAX_EVENT_IMAGES, EVENT_TITLE_MAX, EVENT_DESC_MAX } from "@/lib/room/story-events";
 import { createEventAction, updateEventAction, discardEventImagesAction, type EventView } from "@/app/actions/event";
 import { EventTimePicker } from "./EventTimePicker";
 

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Behavioural cover for the `afterEnter` queue in `src/lib/useOverlayTransition.ts`.
+ * Behavioural cover for the `afterEnter` queue in `src/lib/ui/useOverlayTransition.ts`.
  *
  * The invariant: deferring a panel's mount-time work behind the enter animation
  * must never *lose* that work. `markInventoryViewedAction` is the one that would

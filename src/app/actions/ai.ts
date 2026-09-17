@@ -6,7 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/app/admin/actions";
-import { validateApiEndpoint } from "@/lib/url-guard";
+import { validateApiEndpoint } from "@/lib/security/url-guard";
 
 /**
  * System Config (Admin Only)
@@ -30,7 +30,7 @@ export async function updateSystemConfig(key: string, value: string) {
   });
 
   if (key === "sensitive_words" || key === "sensitive_words_enabled") {
-    const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
+    const { clearSensitiveWordsCache } = await import("@/lib/security/sensitive-words");
     clearSensitiveWordsCache();
   }
 
@@ -55,7 +55,7 @@ export async function updateSystemConfigBatch(entries: Record<string, string>) {
   });
 
   if ("sensitive_words" in entries || "sensitive_words_enabled" in entries) {
-    const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
+    const { clearSensitiveWordsCache } = await import("@/lib/security/sensitive-words");
     clearSensitiveWordsCache();
   }
 

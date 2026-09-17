@@ -5,7 +5,7 @@ import { users, aiPointLogs, rooms } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { invalidateSessionCache } from "@/auth.config";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -43,7 +43,7 @@ export async function createUser(formData: FormData) {
 
   // New hosts start with the configured default invite quota.
   const inviteQuota = role === "host"
-    ? (await (await import("@/lib/invites")).getInviteConfig()).defaultQuota
+    ? (await (await import("@/lib/auth/invites")).getInviteConfig()).defaultQuota
     : 0;
 
   await db.transaction(async (tx) => {
@@ -94,7 +94,7 @@ export async function updateUser(id: number, displayName: string, role: string) 
     updatedAt: new Date().toISOString(),
   };
   if (role === "host" && user.role !== "host") {
-    const { getInviteConfig } = await import("@/lib/invites");
+    const { getInviteConfig } = await import("@/lib/auth/invites");
     patch.inviteQuota = (await getInviteConfig()).defaultQuota;
   } else if (role !== "host" && user.role === "host") {
     patch.inviteQuota = 0;
@@ -121,7 +121,7 @@ export async function resetInviteQuotaAction(id: number) {
   if (!user) throw new Error("User not found");
   if (user.role !== "host") throw new Error("Invite quota only applies to hosts");
 
-  const { getInviteConfig } = await import("@/lib/invites");
+  const { getInviteConfig } = await import("@/lib/auth/invites");
   const { defaultQuota } = await getInviteConfig();
 
   await db.update(users)
@@ -154,7 +154,7 @@ export async function deleteRoom(id: number) {
   // Background FILES live outside the DB — remove them before the row delete
   // cascades away the room_backgrounds rows that name them (best-effort; a
   // leftover file is harmless and admin cleanup can sweep it later).
-  const { cleanupRoomBackgrounds } = await import("@/lib/image-cache");
+  const { cleanupRoomBackgrounds } = await import("@/lib/media/image-cache");
   await cleanupRoomBackgrounds(id).catch((err) => {
     console.error("[admin] Failed to remove room background files:", err);
   });

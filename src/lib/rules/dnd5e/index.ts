@@ -17,8 +17,8 @@
  *  - NO saves, NO class system in v1.
  */
 
-import { rollDie } from "@/lib/utils";
-import type { CharacterData } from "@/lib/character-types";
+import { rollDie } from "@/lib/commands/dice";
+import type { CharacterData } from "@/lib/character/types";
 import { D20_DEFAULT_ATTRIBUTES, type D20Attributes, type D20Sheet } from "./sheet";
 import { resolveD20Stat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";

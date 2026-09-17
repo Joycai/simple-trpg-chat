@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment } from "react";
-import { segmentMentions, type NotebookLinkEntity } from "@/lib/notebook";
-import { splitBlocks, splitCodeFences } from "@/lib/markdown-blocks";
+import { segmentMentions, type NotebookLinkEntity } from "@/lib/room/notebook";
+import { splitBlocks, splitCodeFences } from "@/lib/format/markdown-blocks";
 
 /**
  * Optional @-mention support (notebook). When provided, plain-text runs are

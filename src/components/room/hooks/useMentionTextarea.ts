@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { mentionQueryAt, type NotebookLinkEntity } from "@/lib/notebook";
-import { applyLinePrefixEdit, applyMentionEdit, applyWrapEdit, type TextEdit } from "@/lib/textarea-edits";
+import { mentionQueryAt, type NotebookLinkEntity } from "@/lib/room/notebook";
+import { applyLinePrefixEdit, applyMentionEdit, applyWrapEdit, type TextEdit } from "@/lib/ui/textarea-edits";
 
 const DEFAULT_MAX_SUGGESTIONS = 6;
 

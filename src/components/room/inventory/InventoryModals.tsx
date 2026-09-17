@@ -8,7 +8,7 @@ import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { ImagePreview } from "@/components/shared/ImagePreview";
-import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
+import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 import {
   formatContent, typeIcon, typeColorClass, typeActiveClass,

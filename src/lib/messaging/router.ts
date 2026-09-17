@@ -11,7 +11,7 @@
  */
 import { db } from "@/db";
 import { messages, type SystemKind } from "@/db/schema";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import type { Audience } from "@/lib/messaging/audience";
 

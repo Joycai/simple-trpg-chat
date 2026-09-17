@@ -55,7 +55,7 @@
 
 本方案**复用现有的 last-write-wins 令牌轮换机制**，几乎无新增基础设施：
 
-- ✅ **已具备**：登录时轮换 `users.session_token`（`src/auth.ts`）、会话校验令牌一致性（`src/auth.config.ts`）、登录 IP 记录（`src/lib/login-history.ts`）。
+- ✅ **已具备**：登录时轮换 `users.session_token`（`src/auth.ts`）、会话校验令牌一致性（`src/auth.config.ts`）、登录 IP 记录（`src/lib/auth/login-history.ts`）。
 - 🔧 **需新增**：会话失效时**不再静默登出**，而是读取最近登录 IP、带「已在别处登录」原因重定向回登录页并展示。
 - 🔧 **需调整**：将「令牌不一致」与「账号被封禁」两种失效原因拆分，分别给出文案。
 - ❌ **无需**：会话过期列、活跃会话检测、登录前确认弹窗、登出时清理令牌（登出后 cookie/JWT 已失效，DB 残留令牌无害）。

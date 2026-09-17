@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { composeTimelineLabel, dayPartFromDivider, type TimelineSegment } from "@/lib/messaging/timeline-payload";
-import type { EventCardPayload } from "@/lib/story-events";
+import type { EventCardPayload } from "@/lib/room/story-events";
 import { useEventData } from "./EventDataContext";
 import { EventBodyPreview } from "./event-helpers";
 

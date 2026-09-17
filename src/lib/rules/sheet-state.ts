@@ -1,4 +1,4 @@
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 import type { RuleModule } from "./types";
 
 /**

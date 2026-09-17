@@ -28,22 +28,22 @@ Admin-specific server actions live in `src/app/admin/actions.ts` and `src/app/ac
 ## Content Filtering
 
 Sensitive word blacklist combines:
-1. Hardcoded list in `src/lib/sensitive-words-constants.ts`
+1. Hardcoded list in `src/lib/security/sensitive-words-constants.ts`
 2. DB-stored words via `systemConfig` key
 
-Loaded, merged, and cached by `src/lib/sensitive-words.ts`. Applied to chat messages before they are saved.
+Loaded, merged, and cached by `src/lib/security/sensitive-words.ts`. Applied to chat messages before they are saved.
 
 Admin UI: `AdminSensitiveWords.tsx` (add/remove DB-stored words).
 
 ## Stats & Monitoring
 
-- Live online user count tracked in memory by `src/lib/stats.ts`.
+- Live online user count tracked in memory by `src/lib/server/stats.ts`.
 - Page visits and peak concurrent users persisted daily to `dailyStats` table.
 - `src/app/actions/stats.ts` returns live count + today's data + historical series (day/week/month/quarter/year).
 - Server load/health diagnostics available via `src/app/actions/server-load.ts`.
 
 ## Login History
 
-- Recorded on every login with IP, user agent, and device type (`src/lib/login-history.ts`).
+- Recorded on every login with IP, user agent, and device type (`src/lib/auth/login-history.ts`).
 - Auto-cleans old records per user to bound table growth.
 - Users see their own history in `UserSettingsPanel.tsx`; admins can view any user's history.

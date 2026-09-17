@@ -5,7 +5,7 @@ import { startTextImportAnalysisAction, cancelTextImportAnalysisAction, batchImp
 import { getMyProviders } from "@/app/actions/ai-providers";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 

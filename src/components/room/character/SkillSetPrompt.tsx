@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 
 interface Props {

@@ -13,7 +13,7 @@
  * `@/components/room/character/resource-visuals`.
  */
 
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 import { getRule } from "./registry";
 
 /**

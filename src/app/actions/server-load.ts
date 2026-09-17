@@ -2,7 +2,7 @@
 
 import os from "os";
 import { requireAdmin } from "@/app/admin/actions";
-import { updatePeakOnline } from "@/lib/stats";
+import { updatePeakOnline } from "@/lib/server/stats";
 
 let lastCpuInfo = {
   idle: 0,

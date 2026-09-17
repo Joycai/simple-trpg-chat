@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getCachedSiteTitle } from "@/lib/config";
+import { getCachedSiteTitle } from "@/lib/server/site-config";
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const siteTitle = await getCachedSiteTitle();

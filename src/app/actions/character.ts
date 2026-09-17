@@ -5,13 +5,13 @@ import { roomMembers, rooms } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import {
   type CharacterData,
   type CustomAttribute,
   CHARACTER_DATA_MAX_BYTES,
-} from "@/lib/character-types";
-import { rebuildSheetForRule } from "@/lib/character-sheet";
+} from "@/lib/character/types";
+import { rebuildSheetForRule } from "@/lib/character/sheet";
 import {
   getRule, getRuleForRoom, primaryVital,
   COC_DEFAULT_ATTRIBUTES, computeCocDerived, type CocAttributes,

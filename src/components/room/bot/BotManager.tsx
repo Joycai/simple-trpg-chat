@@ -6,12 +6,12 @@ import { getMyProviders } from "@/app/actions/ai-providers";
 import { getBotPresetsAction } from "@/app/actions/bot-presets";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Icons } from "@/components/shared/icons";
 import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 import { SlidersHorizontal, AtSign, MousePointerClick, Sparkles } from "lucide-react";
-import { BUILTIN_BOT_PRESETS } from "@/lib/bot-preset-defaults";
+import { BUILTIN_BOT_PRESETS } from "@/lib/ai/bot-preset-defaults";
 
 interface BotInfo {
   id: number;

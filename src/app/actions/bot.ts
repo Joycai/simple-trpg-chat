@@ -5,9 +5,9 @@ import { users, roomMembers, rooms } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { getRandomColorForUser } from "@/lib/avatar-colors";
-import { broadcastToRoom } from "@/lib/events";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
+import { broadcastToRoom } from "@/lib/server/events";
 import { getRuleForRoom } from "@/lib/rules";
 
 /**
@@ -181,7 +181,7 @@ export async function triggerBotAction(roomId: number, botUserId: number) {
   const { userId } = await checkRoomAccess(roomId, true);
 
   // Async trigger — bot responds in the background
-  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);
+  import("@/lib/ai/agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);
 
   return { success: true };
 }

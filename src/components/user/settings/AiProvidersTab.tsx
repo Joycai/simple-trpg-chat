@@ -7,7 +7,7 @@ import { getMyProviders, createProvider, updateProvider, deleteProvider } from "
 import { testAiConnection } from "@/app/actions/ai";
 import { VendorSelect } from "@/components/shared/VendorSelect";
 import { ModelPicker } from "@/components/shared/ModelPicker";
-import { COMPAT_VENDOR_ID, getVendor } from "@/lib/provider-presets";
+import { COMPAT_VENDOR_ID, getVendor } from "@/lib/ai/provider-presets";
 
 export function AiProvidersTab() {
   const t = useTranslations("admin");

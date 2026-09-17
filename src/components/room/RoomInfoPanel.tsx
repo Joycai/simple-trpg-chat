@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction } from "@/app/actions/room";
 import { getThemeName, type ThemeId } from "@/themes/types";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { listRules } from "@/lib/rules";
 import { useHostLabel } from "@/components/shared/host-label";

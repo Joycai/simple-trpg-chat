@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
 
 /**

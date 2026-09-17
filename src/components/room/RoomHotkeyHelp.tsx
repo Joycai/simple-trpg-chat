@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { ROOM_HOTKEYS, formatHotkey, isMacPlatform } from "@/lib/hotkeys";
+import { ROOM_HOTKEYS, formatHotkey, isMacPlatform } from "@/lib/ui/hotkeys";
 
 interface RoomHotkeyHelpProps {
   isHost: boolean;

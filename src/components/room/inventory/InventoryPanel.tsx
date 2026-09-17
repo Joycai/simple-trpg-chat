@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createInventoryItemAction, updateInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { BackpackSkeleton, ManageSkeleton } from "./InventorySkeletons";
 import { ManageView } from "./ManageView";
 import { BackpackView } from "./BackpackView";

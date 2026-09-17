@@ -20,10 +20,10 @@
 
 | 现有能力 | 位置 | 复用方式 |
 | -------- | ---- | -------- |
-| 聊天图片上传管线(multipart、MIME 白名单、防路径穿越、按房间鉴权) | `/api/rooms/[id]/images` + `src/lib/uploads.ts` | 结构照搬,新开一组 backgrounds 路由与独立目录 |
+| 聊天图片上传管线(multipart、MIME 白名单、防路径穿越、按房间鉴权) | `/api/rooms/[id]/images` + `src/lib/media/uploads.ts` | 结构照搬,新开一组 backgrounds 路由与独立目录 |
 | 房间设置广播 | `broadcastToRoom(roomId, { type: "room_settings_updated" })`(`src/app/actions/room.ts` 多处) | 切换背景直接复用;客户端 `useRoomEvents.ts:66` 收到即 `router.refresh()`,无需新事件类型 |
 | 主题系统(6 主题,`--theme-*` RGB 变量) | `src/themes/<name>/theme.css` + `globals.css` `@theme inline` | 每主题新增罩层变量,背景图经主题滤镜显示 |
-| admin 图片缓存管理(按房间/时间范围清理、用量统计) | `src/lib/image-cache.ts` + `src/app/actions/image-cache.ts` + `AdminImageCacheManager.tsx` | 扩展为双目录统计;清理面板加"背景图"显式选项 |
+| admin 图片缓存管理(按房间/时间范围清理、用量统计) | `src/lib/media/image-cache.ts` + `src/app/actions/image-cache.ts` + `AdminImageCacheManager.tsx` | 扩展为双目录统计;清理面板加"背景图"显式选项 |
 | 房间设置面板(host 侧) | `src/components/room/RoomSettings.tsx` | 新增"背景图"区块 |
 
 ### 1.2 关键差异:背景图不是"缓存"
@@ -95,7 +95,7 @@ sharp(buffer)
 
 压缩参数汇总:长边 ≤ 2560px、quality 80、强制 WebP。5MB 的照片级原图预期落在 200–600KB。
 
-常量与目录助手放 `src/lib/backgrounds.ts`(对照 `uploads.ts`):`BACKGROUND_UPLOAD_MAX_BYTES = 5MB`、`ROOM_BACKGROUND_MAX_COUNT = 12`、`getRoomBackgroundDir()`(`ROOM_BACKGROUND_DIR` env 可覆盖,默认 `<cwd>/cache/room-backgrounds`)、`resolveRoomBackgroundPath()`(同款防穿越校验)。
+常量与目录助手放 `src/lib/media/backgrounds.ts`(对照 `uploads.ts`):`BACKGROUND_UPLOAD_MAX_BYTES = 5MB`、`ROOM_BACKGROUND_MAX_COUNT = 12`、`getRoomBackgroundDir()`(`ROOM_BACKGROUND_DIR` env 可覆盖,默认 `<cwd>/cache/room-backgrounds`)、`resolveRoomBackgroundPath()`(同款防穿越校验)。
 
 ### 3.3 路由:`GET /api/rooms/[id]/backgrounds/[filename]`
 
@@ -164,7 +164,7 @@ z-10 现有 UI    聊天区、面板等
 
 扩展现有 `image-cache` 体系,不另起页面:
 
-- `src/lib/image-cache.ts`:`getImageCacheStats()` 增加背景目录的独立统计(总量、按房间),与聊天图片**分列**返回;背景图大小可直接 SUM `room_backgrounds.sizeBytes`,与磁盘实测互为校验。
+- `src/lib/media/image-cache.ts`:`getImageCacheStats()` 增加背景目录的独立统计(总量、按房间),与聊天图片**分列**返回;背景图大小可直接 SUM `room_backgrounds.sizeBytes`,与磁盘实测互为校验。
 - `cleanupImageCacheAction(scope, range)` 增加参数 `includeBackgrounds: boolean`,**默认 false**——不勾选永远不碰背景图(需求 5 的"显式选项")。
 - 勾选清理背景时:删文件 + 删 `room_backgrounds` 行(激活引用被 `set null`)+ 对受影响且激活了背景的房间各广播一次 `room_settings_updated`。
 - `AdminImageCacheManager.tsx`:分栏展示"聊天图片 / 背景图"两组用量;清理对话框加"同时清理背景图"复选框,并配红色警示文案("背景图为主持人备团素材,清理不可恢复")。
@@ -211,7 +211,7 @@ example.com {
 | ---- | ---- |
 | 依赖 | `package.json`(+`sharp`) |
 | 改 | `src/db/schema.ts`(`room_backgrounds` 表 + `rooms.backgroundId` + relations) |
-| 新 | `src/lib/backgrounds.ts`(常量、目录助手、路径校验、sharp 压缩封装) |
+| 新 | `src/lib/media/backgrounds.ts`(常量、目录助手、路径校验、sharp 压缩封装) |
 | 新 | `src/app/api/rooms/[id]/backgrounds/route.ts`(POST 上传+压缩) |
 | 新 | `src/app/api/rooms/[id]/backgrounds/[filename]/route.ts`(GET 服务) |
 | 新 | `src/app/actions/background.ts`(list / set / rename / delete) |
@@ -222,7 +222,7 @@ example.com {
 | 改 | `src/components/room/RoomClient.tsx`(挂载背景层与 `data-room-bg`) |
 | 改 | `src/components/room/RoomSettings.tsx`(host 背景管理区块) |
 | 改 | `src/themes/*/theme.css` ×6 + `src/app/globals.css`(scrim 变量 + surface 半透明规则 + 兜底) |
-| 改 | `src/lib/image-cache.ts`、`src/app/actions/image-cache.ts`(双目录统计 + `includeBackgrounds`) |
+| 改 | `src/lib/media/image-cache.ts`、`src/app/actions/image-cache.ts`(双目录统计 + `includeBackgrounds`) |
 | 改 | `src/components/admin/images/AdminImageCacheManager.tsx`(分栏 + 显式复选框) |
 | 改 | `src/app/admin/actions.ts`(`deleteRoom` 级联删背景文件) |
 | 改 | `messages/zh.json`、`messages/en.json`(`roomBackground.*`、admin 清理文案) |

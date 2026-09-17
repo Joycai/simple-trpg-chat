@@ -1,7 +1,7 @@
 "use client";
 
 import { Icons } from "@/components/shared/icons";
-import type { NotebookColor, NotebookLinkEntity } from "@/lib/notebook";
+import type { NotebookColor, NotebookLinkEntity } from "@/lib/room/notebook";
 
 /** A notebook_notes row as returned by the notebook server actions. */
 export interface Note {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore, memo, Fragment } from "react";
-import { formatTime } from "@/lib/utils";
+import { formatTime } from "@/lib/format/time";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { useTranslations } from "next-intl";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
@@ -9,11 +9,11 @@ import { Icons } from "@/components/shared/icons";
 import { ResourceStatusTooltip } from "@/components/room/chat/ResourceStatusTooltip";
 import { TimelineDivider } from "@/components/room/chat/TimelineDivider";
 import { getCharacterDataAction } from "@/app/actions/character";
-import { type CharacterData } from "@/lib/character-types";
-import { getContrastColor, getRandomColorForUser } from "@/lib/avatar-colors";
+import { type CharacterData } from "@/lib/character/types";
+import { getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { parseTimelinePayload } from "@/lib/messaging/timeline-payload";
 import { EventCard } from "@/components/room/event/EventCard";
-import { parseEventCardPayload, parseEventReceiptPayload } from "@/lib/story-events";
+import { parseEventCardPayload, parseEventReceiptPayload } from "@/lib/room/story-events";
 import type { Audience } from "@/lib/messaging/audience";
 import type { PlayerEntry } from "@/components/room/types";
 import { useHostLabel, useRoomRule } from "@/components/shared/host-label";

@@ -5,12 +5,12 @@ import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db
 import { eq, and, not, desc, inArray, count, sql, or } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
-import { shareItemCore } from "@/lib/inventory-share";
+import { shareItemCore } from "@/lib/room/inventory-share";
 
 /**
  * createInventoryItemAction

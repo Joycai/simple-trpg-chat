@@ -3,12 +3,12 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { parseLeadingDice } from "@/lib/roll-command";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { parseLeadingDice } from "@/lib/commands/roll-command";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import {
   addDie, adjustTerm, removeTerm, setModifier, buildExpression, termRange, totalRange, diceCount,
   parseExpression, type DiceTerm,
-} from "@/lib/dice-builder";
+} from "@/lib/commands/dice-builder";
 
 /** 3×3 pad, matching the design's grid. */
 const DICE_FACES = [2, 3, 4, 6, 8, 10, 12, 20, 100];

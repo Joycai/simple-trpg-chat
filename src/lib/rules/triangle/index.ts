@@ -14,7 +14,7 @@
  *    throwing guards against future wiring mistakes.
  */
 
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 import { TA_DEFAULT_QUALITIES, type TaQualities, type TaSheet } from "./sheet";
 import { resolveTaStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";

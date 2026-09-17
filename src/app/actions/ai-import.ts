@@ -3,13 +3,13 @@
 import { db } from "@/db";
 import { aiProviders, inventoryItems, inventoryDistributions, users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
-import { decrypt } from "@/lib/encryption";
+import { decrypt } from "@/lib/security/encryption";
 import { revalidatePath } from "next/cache";
-import { recordTokenUsage } from "@/lib/ai_usage";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { recordTokenUsage } from "@/lib/ai/usage";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
-import { emitToUser } from "@/lib/events";
-import { validateApiEndpoint } from "@/lib/url-guard";
+import { emitToUser } from "@/lib/server/events";
+import { validateApiEndpoint } from "@/lib/security/url-guard";
 
 type Translator = Awaited<ReturnType<typeof getTranslations>>;
 type Provider = typeof aiProviders.$inferSelect;

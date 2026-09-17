@@ -3,12 +3,12 @@
 import { db } from "@/db";
 import { storyEvents, storyEventVisibility, roomMembers, users, messages } from "@/db/schema";
 import { eq, and, asc, inArray, sql } from "drizzle-orm";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { parseTimelinePayload, sanitizeTimelineDivider } from "@/lib/messaging/timeline-payload";
-import { resolveChatImagePath } from "@/lib/uploads";
+import { resolveChatImagePath } from "@/lib/media/uploads";
 import {
   buildEventCardPayload,
   buildEventReceiptPayload,
@@ -19,7 +19,7 @@ import {
   EVENT_TITLE_MAX,
   EVENT_DESC_MAX,
   type EventCardPayload,
-} from "@/lib/story-events";
+} from "@/lib/room/story-events";
 
 /* ------------------------------------------------------------------ helpers */
 

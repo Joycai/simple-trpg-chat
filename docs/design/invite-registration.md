@@ -29,7 +29,7 @@
 - `joinRoomAction`(`src/app/actions/room.ts:74`)**没有任何角色限制**,只校验房间密钥。host 用同一密钥即可加入他人房间。
 - 房间内的"主持人权限"不看全局 role,而看 `room.hostId === userId`:
   - 页面:`src/app/rooms/[id]/page.tsx:39` — `const isHost = room.hostId === userId`
-  - 权限助手:`src/lib/auth-helpers.ts` 的 `checkRoomAccess` 同样以 `room.hostId` 判定
+  - 权限助手:`src/lib/auth/room-access.ts` 的 `checkRoomAccess` 同样以 `room.hostId` 判定
   - SSE 隐私过滤:`/api/rooms/[id]/events/route.ts` 通过 `checkRoomAccess` 取 `isHost`,再喂给 `canSee` — host 进入他人房间时**看不到**暗骨、私聊等 KP 专属消息,与普通 player 完全一致 ✅
 - 全局 `role === 'host'` 只影响三处:创建房间、bot 预设列表、AI 工具入口 — 均不干扰"以玩家身份游玩"。
 - 唯一例外:**admin** 在 `checkRoomAccess` 中无条件返回 `isHost: true`(现有设计如此),admin 无法以纯玩家身份游玩。属既有行为,不在本次范围。
@@ -94,7 +94,7 @@ WHERE status = 'active' AND expires_at < now()
 RETURNING creator_id;
 ```
 
-再按 RETURNING 结果给对应 creator 的 `invite_quota` +1(同一事务内)。因为只有 `active → expired` 这一次状态跃迁能进入 RETURNING,并发调用也**恰好返还一次**,天然幂等。封装为 `src/lib/invites.ts` 中的 `sweepExpiredInvites(tx)`。
+再按 RETURNING 结果给对应 creator 的 `invite_quota` +1(同一事务内)。因为只有 `active → expired` 这一次状态跃迁能进入 RETURNING,并发调用也**恰好返还一次**,天然幂等。封装为 `src/lib/auth/invites.ts` 中的 `sweepExpiredInvites(tx)`。
 
 ## 3. Server Actions(新文件 `src/app/actions/invite.ts`)
 
@@ -185,7 +185,7 @@ db.transaction:
 | 类型 | 文件 |
 | ---- | ---- |
 | 改 | `src/db/schema.ts`(invite_codes 表 + users.inviteQuota + relations) |
-| 新 | `src/lib/invites.ts`(码生成、sweep、常量) |
+| 新 | `src/lib/auth/invites.ts`(码生成、sweep、常量) |
 | 新 | `src/app/actions/invite.ts`(4 个 action) |
 | 改 | `src/app/admin/actions.ts`(resetInviteQuotaAction、updateInviteConfigAction) |
 | 改 | `src/app/admin/config/` 及对应组件(注册开关 + 默认额度设置) |

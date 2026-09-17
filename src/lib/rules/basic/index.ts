@@ -11,8 +11,8 @@
  * `RuleModule` to delegate to and never has to special-case "no rule".
  */
 
-import { rollDie } from "@/lib/utils";
-import type { CharacterData } from "@/lib/character-types";
+import { rollDie } from "@/lib/commands/dice";
+import type { CharacterData } from "@/lib/character/types";
 import type {
   AiRuleHints,
   CharacterStatus,

@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { notebookCategories, notebookNotes, roomMembers, users } from "@/db/schema";
 import { eq, and, desc, asc, inArray, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import {
   NOTEBOOK_COLORS,
   NOTE_TITLE_MAX,
@@ -12,7 +12,7 @@ import {
   CATEGORY_NAME_MAX,
   CATEGORY_MAX_COUNT,
   type NotebookColor,
-} from "@/lib/notebook";
+} from "@/lib/room/notebook";
 
 /**
  * Notebook (记事本) actions. Notes AND categories are strictly private: every

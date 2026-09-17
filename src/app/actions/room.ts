@@ -6,22 +6,22 @@ import { eq, and, sql, inArray, or, desc, lt, gt, isNull, not } from "drizzle-or
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
 import type { Audience } from "@/lib/messaging/audience";
-import { executeCommand } from "@/lib/commands";
-import { rollDice, rollDie } from "@/lib/utils";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { checkSensitiveWords } from "@/lib/sensitive-words";
-import { isValidStickerRef } from "@/lib/stickers";
-import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/avatars";
+import { executeCommand } from "@/lib/commands/engine";
+import { rollDice, rollDie } from "@/lib/commands/dice";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { checkSensitiveWords } from "@/lib/security/sensitive-words";
+import { isValidStickerRef } from "@/lib/media/stickers";
+import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/media/avatars";
 import { getTranslations, getLocale } from "next-intl/server";
-import { getRandomColorForUser } from "@/lib/avatar-colors";
+import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { getRule, getRuleForRoom } from "@/lib/rules";
-import { botActivationMode } from "@/lib/botStatus";
-import type { CharacterData } from "@/lib/character-types";
-import { resolveAnnouncer, attachAnnouncer, scheduleQuip } from "@/lib/dice-announcer";
+import { botActivationMode } from "@/lib/ai/bot-status";
+import type { CharacterData } from "@/lib/character/types";
+import { resolveAnnouncer, attachAnnouncer, scheduleQuip } from "@/lib/ai/dice-announcer";
 
 // --- Room Actions ---
 
@@ -310,7 +310,7 @@ export async function sendMessageAction(
       // (trigger button, check requests) — not to auto-triggers.
       if (targetUser && targetUser.isBot && botActivationMode(targetUser.botConfigJson) !== "manual") {
         // Trigger Agent (async)
-        import("@/lib/ai_agent")
+        import("@/lib/ai/agent")
           .then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true }))
           .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (private DM):", err));
       }
@@ -319,7 +319,7 @@ export async function sendMessageAction(
       const capturedContent = content;
       const capturedRoomId = roomId;
       const capturedUserId = userId;
-      import("@/lib/ai_agent")
+      import("@/lib/ai/agent")
         .then(async ({ runAgent }) => {
           const roomBots = await db.query.roomMembers.findMany({
             where: eq(roomMembers.roomId, capturedRoomId),
@@ -538,7 +538,7 @@ export async function requestSkillCheckAction(
   const botTargets = await db.select({ id: users.id }).from(users)
     .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
   for (const bot of botTargets) {
-    import("@/lib/ai_agent")
+    import("@/lib/ai/agent")
       .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate, bypassCooldown: true }))
       .catch((err) => console.error("[requestSkillCheckAction] Failed to trigger bot:", err));
   }
@@ -974,7 +974,7 @@ export async function requestSanCheckAction(
   const botTargets = await db.select({ id: users.id }).from(users)
     .where(and(inArray(users.id, validTargetIds), eq(users.isBot, true)));
   for (const bot of botTargets) {
-    import("@/lib/ai_agent")
+    import("@/lib/ai/agent")
       .then(({ runAgent }) => runAgent(bot.id, roomId, { triggeringUserId: hostId, isPrivate, bypassCooldown: true }))
       .catch((err) => console.error("[requestSanityCheckAction] Failed to trigger bot:", err));
   }

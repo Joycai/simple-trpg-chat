@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useOverlayTransition, type OverlayVariant } from "@/lib/useOverlayTransition";
+import { useOverlayTransition, type OverlayVariant } from "@/lib/ui/useOverlayTransition";
 
 interface OverlayShellProps {
   /** Real close handler — invoked after the exit animation finishes. */

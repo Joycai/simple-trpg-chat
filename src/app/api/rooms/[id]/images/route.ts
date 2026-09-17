@@ -4,13 +4,13 @@ import { NextRequest } from "next/server";
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import {
   CHAT_IMAGE_MAX_BYTES,
   ensureChatImageDir,
   extForMime,
   isAllowedImageMime,
-} from "@/lib/uploads";
+} from "@/lib/media/uploads";
 
 /**
  * POST /api/rooms/[id]/images

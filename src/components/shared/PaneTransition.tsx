@@ -2,7 +2,7 @@
 
 import { useCallback, type ReactNode } from "react";
 import { animate } from "motion";
-import { beginMotion, endMotion } from "@/lib/useOverlayTransition";
+import { beginMotion, endMotion } from "@/lib/ui/useOverlayTransition";
 
 interface PaneTransitionProps {
   /**

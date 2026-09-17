@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { getStickerManifest, invalidateStickerManifest, type StickerPack } from "@/lib/stickers";
+import { getStickerManifest, invalidateStickerManifest, type StickerPack } from "@/lib/media/stickers";
 
 /**
  * Returns the sticker pack manifest (scanned once per process from disk) for the

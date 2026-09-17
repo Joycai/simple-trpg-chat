@@ -4,8 +4,8 @@ import {
   getCachedSiteIcpUrl,
   getCachedSitePoliceIcon,
   getCachedSitePoliceHtml,
-} from "@/lib/config";
-import { getInviteConfig } from "@/lib/invites";
+} from "@/lib/server/site-config";
+import { getInviteConfig } from "@/lib/auth/invites";
 import { APP_VERSION } from "@/lib/version";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";

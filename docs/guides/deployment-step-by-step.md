@@ -274,7 +274,7 @@ pnpm start     # 启动生产服务器（默认 3000 端口）
 面向公网、需域名与 HTTPS 时，推荐用进程守护 + 反向代理。**仅 Linux 服务器场景**，完整示例见根目录 [`Deployment.md`](../../Deployment.md)。要点：
 
 ### ⚠️ 单实例限制
-实时消息（SSE）依赖进程内 `EventEmitter`（`src/lib/events.ts`）分发，**不能横向多进程/多实例**，否则不同进程的用户收不到彼此消息。PM2 请以 **1 个 Node 实例**运行，仅用于守护与优雅重启；多机部署需自行改造为 Redis Pub/Sub 等外部消息总线。
+实时消息（SSE）依赖进程内 `EventEmitter`（`src/lib/server/events.ts`）分发，**不能横向多进程/多实例**，否则不同进程的用户收不到彼此消息。PM2 请以 **1 个 Node 实例**运行，仅用于守护与优雅重启；多机部署需自行改造为 Redis Pub/Sub 等外部消息总线。
 
 ### ⚠️ 反向代理必须关闭 SSE 缓冲
 Nginx：

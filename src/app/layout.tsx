@@ -3,8 +3,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { AppProvider } from "@/components/theme/AppProvider";
 import { getSiteTheme, getUserThemePreference, getSiteThemeMode, getUserThemeModePreference } from "@/app/actions/theme";
-import { recordPageVisit } from "@/lib/stats";
-import { getCachedSiteTitle, getCachedSiteFavicon } from "@/lib/config";
+import { recordPageVisit } from "@/lib/server/stats";
+import { getCachedSiteTitle, getCachedSiteFavicon } from "@/lib/server/site-config";
 import { fontVariables } from "./fonts";
 import "./globals.css";
 

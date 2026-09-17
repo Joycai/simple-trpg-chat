@@ -6,7 +6,7 @@ vi.mock("@/app/admin/actions", () => ({
 }));
 
 const broadcastToRoomMock = vi.fn();
-vi.mock("@/lib/events", () => ({
+vi.mock("@/lib/server/events", () => ({
   broadcastToRoom: (...args: unknown[]) => broadcastToRoomMock(...args),
 }));
 
@@ -14,7 +14,7 @@ const cleanupImageCacheMock = vi.fn(() => Promise.resolve({ freedBytes: 100, del
 const cleanupRoomBackgroundsMock = vi.fn(() =>
   Promise.resolve({ freedBytes: 50, deletedCount: 1, affectedActiveRoomIds: [7] })
 );
-vi.mock("@/lib/image-cache", () => ({
+vi.mock("@/lib/media/image-cache", () => ({
   getImageCacheStats: vi.fn(() =>
     Promise.resolve({
       totalBytes: 0, totalCount: 0, roomCount: 0, quotaBytes: 1,

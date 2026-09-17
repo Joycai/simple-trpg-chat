@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
-import { useEscapeToClose } from "@/lib/overlay-esc";
+import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 
 /**
  * Shrine-styled custom dropdown — used by the rule-template and preset-provider

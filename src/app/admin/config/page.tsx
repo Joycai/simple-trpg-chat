@@ -5,8 +5,8 @@ import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import { AdminConfigClient } from "@/components/admin/config/AdminConfigClient";
 import { getSiteTheme, getSiteThemeMode } from "@/app/actions/theme";
-import { getCachedSiteTitle } from "@/lib/config";
-import { parseSensitiveWords } from "@/lib/sensitive-words";
+import { getCachedSiteTitle } from "@/lib/server/site-config";
+import { parseSensitiveWords } from "@/lib/security/sensitive-words";
 import type { ThemeId, ThemeMode } from "@/themes/types";
 
 export async function generateMetadata(): Promise<Metadata> {

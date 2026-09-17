@@ -17,8 +17,8 @@
  *     engine and the rule module agree on resource state.
  */
 
-import { rollDie } from "@/lib/utils";
-import type { CharacterData } from "@/lib/character-types";
+import { rollDie } from "@/lib/commands/dice";
+import type { CharacterData } from "@/lib/character/types";
 import {
   COC_DEFAULT_ATTRIBUTES,
   COC_MAX_SANITY,

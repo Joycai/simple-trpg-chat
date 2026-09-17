@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Images, ChevronRight, TrendingUp } from "lucide-react";
 import type { ImageCacheStatsView } from "@/app/actions/image-cache";
-import { formatBytes, splitBytes } from "@/lib/format-bytes";
+import { formatBytes, splitBytes } from "@/lib/format/bytes";
 
 /** Bar tint tiers (mirrors the design's warm→cool gradient across rooms). */
 const BAR_TINTS = ["bg-primary", "bg-accent", "bg-warning", "bg-success", "bg-ai"];

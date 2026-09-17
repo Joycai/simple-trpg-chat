@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { subscribeToRoom, subscribeToUser, broadcastToRoom } from "@/lib/events";
+import { subscribeToRoom, subscribeToUser, broadcastToRoom } from "@/lib/server/events";
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { updatePeakOnline } from "@/lib/stats";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { updatePeakOnline } from "@/lib/server/stats";
 import { canSee, isAudience, type Audience } from "@/lib/messaging/audience";
 
 interface ActiveConnection {

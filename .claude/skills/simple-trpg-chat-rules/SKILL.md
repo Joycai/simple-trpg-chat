@@ -43,13 +43,13 @@ description: >
 | `src/lib/rules/{basic,coc7th,dnd5e,triangle,shouhun}/index.ts` | 5 个规则模块 |
 | `src/lib/rules/{coc7th,dnd5e,triangle,shouhun}/stats.ts` | 各规则的 `.st` 名称→属性/资源解析器(`resolveCocStat` 等)。**PR #176 从 `src/lib/{coc,d20,ta,sh}-stats.ts` 迁到规则目录内**,使每套规则物理自包含;只被自己的 `index.ts` import |
 | `src/lib/rules/{coc7th,dnd5e,triangle,shouhun}/sheet.ts` | 各规则的角色卡数据模型:属性/资源接口 + 默认值 + `compute*Derived`。**`refactor/rule-sheet-types` 从 `character-types.ts` 迁来**,自包含(不 import `character-types`);经 barrel 再导出。见 §5 |
-| `src/lib/character-types.ts` | **只剩通用骨架**:`CharacterData` / `CustomAttribute` / `ResourceBar`;对各规则 sheet 接口只 `import type`(无运行时耦合) |
+| `src/lib/character/types.ts` | **只剩通用骨架**:`CharacterData` / `CustomAttribute` / `ResourceBar`;对各规则 sheet 接口只 `import type`(无运行时耦合) |
 | `src/components/shared/host-label.tsx` | `useHostLabel()` / `useHostLabelResolver()` / `usePlayerLabel()` / `useRuleLabelResolver()` —— 解析 `hostLabelKey` / `playerLabelKey` / 规则 `labelKey` 的唯一入口(大厅房间徽标经 `useRuleLabelResolver` 渲染,不再硬编码 coc7th) |
 | `src/components/room/character/CharacterPanel.tsx` | 可编辑角色卡面板。**PR #176 后完全能力位驱动、零 rule-id 分支**:属性宫格走 `read/writeAttributes`,资源上限/当前值/衍生页脚走 `draftStatusFor()`(见 §5) |
 | `src/components/room/character/resource-visuals.ts` | `RESOURCE_ICON` / `DERIVED_ICON`:client-only 的 key→图标/颜色映射。未命中的 key 用主色兜底,所以新规则**不必**改这里 |
 | `src/components/room/character/CharacterRuleGate.tsx` | 房间规则与成员角色卡不匹配时的重建引导(主持人切规则会触发) |
 | `src/components/room/chat/QuickCheckPanel.tsx` | 玩家快速检定面板(输入框 ◎ / Alt+Q)。完全由 `capabilities.quickCheckPanel` 驱动、经 `rule.buildCheckCommand` 产出命令,零 rule-id 分支——新规则不用改它 |
-| `src/lib/__tests__/rules.test.ts` | 209 个用例。新规则上线必须补等量边界覆盖 |
+| `src/lib/rules/__tests__/rules.test.ts` | 209 个用例。新规则上线必须补等量边界覆盖 |
 | `src/db/schema.ts` | `RULE_TEMPLATES` 常量数组(**必须**与注册表同步)+ `rooms.rule_template` 列 |
 
 `diceRules` 列已在 PR #125 删除。规则配置只有 `rule_template` 一个数据源,不要重新引入双字段。
@@ -324,6 +324,6 @@ COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名
 
 - `src/lib/rules/coc7th/index.ts` — 字段最全的模块
 - `src/lib/rules/shouhun/index.ts` — 用到最多可选钩子(`parseQuickCheckArgs`、`checkRequestOptions`、`derivedStats`、`attributeGrades`)
-- `src/lib/__tests__/rules.test.ts` — 209 个用例,新规则请覆盖等量边界
+- `src/lib/rules/__tests__/rules.test.ts` — 209 个用例,新规则请覆盖等量边界
 - `docs/arch/rule-template-coupling-audit.md` — **PR #176 的耦合审计 + 修复计划 + 剩余 P1**(最新)
 - `docs/arch/rule-template-system.md` / `docs/arch/rule-template-refactor.md` — 重构前分析与方案(历史)

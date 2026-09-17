@@ -4,10 +4,10 @@ import { db, sqlNow } from "@/db";
 import { aiProviders, aiTokenUsages } from "@/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import { auth } from "@/auth";
-import { encrypt, decrypt } from "@/lib/encryption";
-import { validateApiEndpoint } from "@/lib/url-guard";
-import { normalizeVendorId } from "@/lib/provider-presets";
-import { buildModelsRequest, parseModelsResponse } from "@/lib/model-fetch";
+import { encrypt, decrypt } from "@/lib/security/encryption";
+import { validateApiEndpoint } from "@/lib/security/url-guard";
+import { normalizeVendorId } from "@/lib/ai/provider-presets";
+import { buildModelsRequest, parseModelsResponse } from "@/lib/ai/model-fetch";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 

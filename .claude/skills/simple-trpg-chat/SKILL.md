@@ -41,11 +41,11 @@ description: >-
 | File | Purpose |
 |------|---------|
 | `src/db/schema.ts` | All 16 table definitions |
-| `src/lib/ai_agent.ts` | Bot Agent engine (13 tools) |
-| `src/lib/commands.ts` | `.st` / `.rc` / `.sc` / `.rd` parser |
+| `src/lib/ai/agent.ts` | Bot Agent engine (13 tools) |
+| `src/lib/commands/engine.ts` | `.st` / `.rc` / `.sc` / `.rd` parser |
 | `src/lib/messaging/audience.ts` | Pure visibility predicates (`canSee`/`channelOf`/`countsAsDmUnread`) — shared client+server |
 | `src/lib/messaging/router.ts` | `dispatchMessage()` (insert+broadcast) + `messageVisibilityWhere()` SQL |
-| `src/lib/events.ts` | globalThis EventEmitter singleton |
+| `src/lib/server/events.ts` | globalThis EventEmitter singleton |
 | `src/components/RoomClient.tsx` | Main room UI orchestrator |
 | `src/app/api/rooms/[id]/events/route.ts` | SSE endpoint |
 | `src/app/globals.css` | Theme CSS variables |

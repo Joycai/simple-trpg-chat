@@ -4,9 +4,9 @@ import {
   getCachedSiteIcpUrl,
   getCachedSitePoliceIcon,
   getCachedSitePoliceHtml,
-} from "@/lib/config";
+} from "@/lib/server/site-config";
 import { APP_VERSION } from "@/lib/version";
-import { getInviteConfig } from "@/lib/invites";
+import { getInviteConfig } from "@/lib/auth/invites";
 import { getSiteTheme, getSiteThemeMode } from "@/app/actions/theme";
 import { LoginThemeSetter } from "@/components/theme/LoginThemeSetter";
 import { LoginForm } from "./LoginForm";

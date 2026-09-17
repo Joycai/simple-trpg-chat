@@ -4,9 +4,9 @@ import { useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAct
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { useClickOutside } from "@/lib/useClickOutside";
+import { useClickOutside } from "@/lib/ui/useClickOutside";
 import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
-import { formatHotkey } from "@/lib/hotkeys";
+import { formatHotkey } from "@/lib/ui/hotkeys";
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
 import { useHostLabel } from "@/components/shared/host-label";
