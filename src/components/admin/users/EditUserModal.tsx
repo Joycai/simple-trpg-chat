@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Key, X, Trash2, Pencil } from "lucide-react";
-import { updateUser, resetPassword } from "@/app/admin/actions";
+import { updateUser, resetPassword } from "@/app/actions/admin";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";

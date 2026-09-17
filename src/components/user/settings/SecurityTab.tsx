@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Shield } from "lucide-react";
-import { changeOwnPassword } from "@/app/admin/actions";
+import { changeOwnPassword } from "@/app/actions/user";
 import { Notice } from "@/components/shared/Notice";
 
 const FIELD_CLS =

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { CircleDollarSign, X } from "lucide-react";
-import { updateUserAiPoints } from "@/app/admin/actions";
+import { updateUserAiPoints } from "@/app/actions/admin";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
 import type { User, PointsMode } from "./types";

@@ -1,7 +1,7 @@
 "use server";
 
 import os from "os";
-import { requireAdmin } from "@/app/admin/actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { updatePeakOnline } from "@/lib/server/stats";
 
 let lastCpuInfo = {

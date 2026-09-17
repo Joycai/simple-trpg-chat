@@ -3,19 +3,12 @@
 import { db } from "@/db";
 import { users, aiPointLogs, rooms } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth";
 import { invalidateSessionCache } from "@/auth.config";
 import { broadcastToRoom } from "@/lib/server/events";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
-
-export async function requireAdmin() {
-  const session = await auth();
-  if (!session || session.user.role !== "admin") {
-    throw new Error("Unauthorized: Admin access required");
-  }
-}
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export async function createUser(formData: FormData) {
   await requireAdmin();
@@ -186,26 +179,6 @@ export async function resetPassword(id: number, newPassword: string) {
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, id));
-  revalidatePath("/admin");
-}
-
-export async function changeOwnPassword(oldPassword: string, newPassword: string) {
-  "use server";
-  const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const userId = parseInt(session.user.id);
-
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
-  if (!user) throw new Error("User not found");
-
-  const valid = await bcrypt.compare(oldPassword, user.passwordHash);
-  if (!valid) {
-    const t = await getTranslations("admin");
-    throw new Error(t("errorCurrentPassword"));
-  }
-
-  const passwordHash = await bcrypt.hash(newPassword, 10);
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
   revalidatePath("/admin");
 }
 

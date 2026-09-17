@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanupImageCacheAction } from "../image-cache";
 
-vi.mock("@/app/admin/actions", () => ({
+vi.mock("@/lib/auth/require-admin", () => ({
   requireAdmin: vi.fn(() => Promise.resolve()),
 }));
 

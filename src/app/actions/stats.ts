@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/app/admin/actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { getLiveOnlineCount, updatePeakOnline, getHistoricalStats, getTodayString } from "@/lib/server/stats";
 import { db } from "@/db";
 import { dailyStats } from "@/db/schema";

@@ -168,7 +168,7 @@ z-10 现有 UI    聊天区、面板等
 - `cleanupImageCacheAction(scope, range)` 增加参数 `includeBackgrounds: boolean`,**默认 false**——不勾选永远不碰背景图(需求 5 的"显式选项")。
 - 勾选清理背景时:删文件 + 删 `room_backgrounds` 行(激活引用被 `set null`)+ 对受影响且激活了背景的房间各广播一次 `room_settings_updated`。
 - `AdminImageCacheManager.tsx`:分栏展示"聊天图片 / 背景图"两组用量;清理对话框加"同时清理背景图"复选框,并配红色警示文案("背景图为主持人备团素材,清理不可恢复")。
-- `admin/actions.ts` 的 `deleteRoom`:级联删除该房间背景文件(DB 行由外键 cascade 自动删)。
+- `actions/admin.ts` 的 `deleteRoom`:级联删除该房间背景文件(DB 行由外键 cascade 自动删)。
 
 ## 7. 部署文档(写入 README / docs 部署章节)
 
@@ -224,7 +224,7 @@ example.com {
 | 改 | `src/themes/*/theme.css` ×6 + `src/app/globals.css`(scrim 变量 + surface 半透明规则 + 兜底) |
 | 改 | `src/lib/media/image-cache.ts`、`src/app/actions/image-cache.ts`(双目录统计 + `includeBackgrounds`) |
 | 改 | `src/components/admin/images/AdminImageCacheManager.tsx`(分栏 + 显式复选框) |
-| 改 | `src/app/admin/actions.ts`(`deleteRoom` 级联删背景文件) |
+| 改 | `src/app/actions/admin.ts`(`deleteRoom` 级联删背景文件) |
 | 改 | `messages/zh.json`、`messages/en.json`(`roomBackground.*`、admin 清理文案) |
 | 改 | README / 部署文档(§7 反代配置) |
 | 测试 | 上传路由测试(MIME 拒收含 GIF、5MB 边界、数量上限、host-only)、serving 路由测试(对照现有 `images` 路由测试)、清理 `includeBackgrounds` 默认不触碰背景 |

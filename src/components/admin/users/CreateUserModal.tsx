@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { UserPlus, X, Eye, EyeOff, Minus, Plus } from "lucide-react";
-import { createUser } from "@/app/admin/actions";
+import { createUser } from "@/app/actions/admin";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
 

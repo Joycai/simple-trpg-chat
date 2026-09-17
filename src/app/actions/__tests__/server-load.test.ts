@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { getServerLoadAction } from "../server-load";
 
 // Mock requireAdmin to succeed
-vi.mock("../../admin/actions", () => {
+vi.mock("@/lib/auth/require-admin", () => {
   return {
     requireAdmin: vi.fn().mockResolvedValue(undefined),
   };

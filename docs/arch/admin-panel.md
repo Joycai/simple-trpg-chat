@@ -16,7 +16,7 @@ Components live under `src/components/admin/`. Navigation is via `AdminSidebar.t
 | `/admin/usage` | `usage/TokenUsageDashboard` | AI token usage analytics — filter by user, provider, date |
 | `/admin/users` | `users/AdminUserManager` (+ `AiPointsModal`, `ChangePasswordModal`, `CreateUserModal`, `EditUserModal`, `LoginHistoryModal`) | View/manage users: roles, bans, passwords, AI point balances, login history |
 
-Admin-specific server actions live in `src/app/admin/actions.ts` and `src/app/actions/stats.ts`.
+Admin-specific server actions live in `src/app/actions/admin.ts` and `src/app/actions/stats.ts`; they guard with `requireAdmin()` from `src/lib/auth/require-admin.ts`.
 
 ## User Management
 

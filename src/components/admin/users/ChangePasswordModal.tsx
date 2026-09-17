@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ShieldCheck, X } from "lucide-react";
-import { changeOwnPassword } from "@/app/admin/actions";
+import { changeOwnPassword } from "@/app/actions/user";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
 

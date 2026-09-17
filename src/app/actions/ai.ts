@@ -5,7 +5,7 @@ import { systemConfig } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, updateTag } from "next/cache";
-import { requireAdmin } from "@/app/admin/actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { validateApiEndpoint } from "@/lib/security/url-guard";
 
 /**

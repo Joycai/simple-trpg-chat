@@ -1,7 +1,7 @@
 "use server";
 
 import { inArray } from "drizzle-orm";
-import { requireAdmin } from "@/app/admin/actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { db } from "@/db";
 import { rooms } from "@/db/schema";
 import { broadcastToRoom } from "@/lib/server/events";
