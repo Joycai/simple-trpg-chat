@@ -89,10 +89,15 @@ if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host "[✗] Node.js is required but not found. Please install Node.js >= 18."
+    Write-Host "[✗] Node.js is required but not found. Please install Node.js >= 22."
     exit 1
 }
 $nodeVer = node --version
+$nodeMajor = [int](node -p "process.versions.node.split('.')[0]")
+if ($nodeMajor -lt 22) {
+    Write-Host "[✗] Node.js >= 22 is required (found $nodeVer)."
+    exit 1
+}
 Write-Host "[✓] Node $nodeVer"
 Write-Host ""
 

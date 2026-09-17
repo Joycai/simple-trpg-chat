@@ -76,7 +76,12 @@ else
 fi
 
 if ! command -v node &> /dev/null; then
-  echo "[✗] Node.js is required but not found. Please install Node.js >= 18."
+  echo "[✗] Node.js is required but not found. Please install Node.js >= 22."
+  exit 1
+fi
+NODE_MAJOR=$(node -p "process.versions.node.split('.')[0]")
+if [ "$NODE_MAJOR" -lt 22 ]; then
+  echo "[✗] Node.js >= 22 is required (found $(node --version))."
   exit 1
 fi
 echo "[✓] Node $(node --version)"
