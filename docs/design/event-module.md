@@ -128,7 +128,7 @@ canViewEvent(event, userId, isHost):
 | `reorderEventAction(roomId, eventId, op)` | host | `op` = up/down/top/bottom/`{index:n}`;重排 `sortOrder` |
 | `publishEventAction(roomId, eventId, target)` | host | `target` = `'all'` 或 `number[]`;设 status(full/partial),partial 建可见性行;首发派发公共 `event-card`;给选中者发回执 |
 | `addEventViewersAction(roomId, eventId, userIds)` | host | 仅 partial;追加可见性行 + 回执;广播刷新 |
-| `promoteEventToFullAction(roomId, eventId)` | host | partial→full;广播刷新 |
+| ~~`promoteEventToFullAction(roomId, eventId)`~~ | host | partial→full;广播刷新(UI 未接入,已移除) |
 | `retractEventAction(roomId, eventId)` | host | →unpublished;清可见性;广播刷新(前端二次确认) |
 | `getRoomEventsAction(roomId)` | host | 全部事件(含未公开)+ 每个的 status/知晓人数,按 sortOrder |
 | `getMyEventsAction(roomId)` | member | 本人可见事件(full + 自己是知晓者的 partial),含正文,按 sortOrder |

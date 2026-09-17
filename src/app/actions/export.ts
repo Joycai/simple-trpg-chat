@@ -47,7 +47,7 @@ interface ExportRoomData {
 /**
  * E1: Query all room data and assemble structured export data.
  */
-export async function exportRoomDataAction(roomId: number): Promise<ExportRoomData> {
+async function loadExportData(roomId: number): Promise<ExportRoomData> {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   // Room info
@@ -158,7 +158,7 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
  * Returns { markdown, json } strings.
  */
 export async function buildExportAction(roomId: number) {
-  const data = await exportRoomDataAction(roomId);
+  const data = await loadExportData(roomId);
   const t = await getTranslations("export");
   const { formatAsMarkdown, formatAsJson } = await import("@/lib/format/export");
   return {

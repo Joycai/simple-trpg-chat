@@ -205,9 +205,10 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   server-action errors in production, so `err.message` renders as "An error occurred in
   the Server Components render…". `checkRoomAccess` still throws (it is shared); wrap it
   per-action, as `background.ts`'s `requireRoomHost` does.
-  Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook`.
-  Still throwing, to be converted: `inventory` / `character` / `clue` / `room` / `theme` /
-  `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
+  Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook` /
+  `checks` / `dice-announcer`.
+  Still throwing, to be converted: `inventory` / `character` / `room` / `messages` /
+  `theme` / `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
 - **Validation**: Validate at the action boundary — `zod` where a schema fits
   (`background.ts`, `invite.ts`), an explicit hand-written sanitizer where the rules are
   shared with another caller (`sanitizeTimelineDivider` in `lib/messaging/timeline-payload.ts`,

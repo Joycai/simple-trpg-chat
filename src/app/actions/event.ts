@@ -444,42 +444,6 @@ export async function addEventViewersAction(roomId: number, eventId: number, use
   return { success: true as const, added: fresh.length };
 }
 
-/** Convert a partial event to full. Host only. Newly-eligible members' cards unlock live. */
-export async function promoteEventToFullAction(roomId: number, eventId: number) {
-  const te = await getEventMessages();
-  const auth = await requireHost(roomId);
-  if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
-  const userId = auth.userId;
-  const ev = await findEvent(roomId, eventId);
-  if (!ev) return { success: false as const, error: te("errorEventNotFound") } satisfies Fail;
-  if (ev.status !== "partial") return { success: false as const, error: te("errorNotPartiallyPublished") } satisfies Fail;
-
-  const members = await roomAudienceIds(roomId, userId);
-  if (members.length > 0) {
-    await db
-      .insert(storyEventVisibility)
-      .values(members.map((uid) => ({ eventId, userId: uid, viewed: false })))
-      .onConflictDoNothing();
-  }
-
-  await db.update(storyEvents).set({ status: "full", updatedAt: sql`now()` }).where(eq(storyEvents.id, eventId));
-
-  const t = await getTranslations("eventActions");
-  const nickname = await hostNickname(roomId, userId);
-  await dispatchMessage({
-    roomId,
-    actorUserId: userId,
-    nickname,
-    type: "system",
-    audience: "everyone",
-    systemKind: "room-event",
-    content: t("promotedToFull", { title: ev.title }),
-  });
-
-  signalUpdate(roomId, eventId);
-  return { success: true as const };
-}
-
 /** Retract a published event back to unpublished. Host only (client double-confirms). */
 export async function retractEventAction(roomId: number, eventId: number) {
   const te = await getEventMessages();

@@ -15,11 +15,3 @@ export async function setUserLocale(locale: "zh" | "en") {
   });
   return { success: true };
 }
-
-/**
- * Get the current user's preferred locale from cookies.
- */
-export async function getUserLocale() {
-  const cookieStore = await cookies();
-  return cookieStore.get("NEXT_LOCALE")?.value || "zh";
-}

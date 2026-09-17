@@ -12,10 +12,7 @@ import {
   CHARACTER_DATA_MAX_BYTES,
 } from "@/lib/character/types";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
-import {
-  getRule, getRuleForRoom, primaryVital,
-  COC_DEFAULT_ATTRIBUTES, computeCocDerived, type CocAttributes,
-} from "@/lib/rules";
+import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
 
 /** Serialize a sheet for persistence, rejecting oversized payloads — the
  *  member list ships every sheet to every client, so an unbounded write is a
@@ -181,15 +178,6 @@ export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise
 }
 
 /**
- * Back-compat shim — CharacterPanel previously called this directly. New code
- * should call `initCharacterAction` instead; this exists so any in-flight
- * code paths still resolve. Internally delegates to the rule-driven version.
- */
-export async function initCocCharacterAction(roomId: number) {
-  return initCharacterAction(roomId);
-}
-
-/**
  * Save character data (attributes, resources, custom fields).
  * Handles COC 7th derived value recomputation.
  */
@@ -227,45 +215,6 @@ export async function saveCharacterDataAction(
 
   revalidatePath(`/rooms/${roomId}`);
   return merged;
-}
-
-/**
- * Update COC attributes and auto-recompute derived values.
- */
-export async function updateCocAttributesAction(
-  roomId: number,
-  attrs: Partial<CocAttributes>
-) {
-  const userId = await requireMembership(roomId);
-
-  const [member] = await db.select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  const existing: CharacterData = member?.characterData
-    ? JSON.parse(member.characterData)
-    : { ruleTemplate: "coc7th", cocAttributes: { ...COC_DEFAULT_ATTRIBUTES } };
-
-  existing.cocAttributes = { ...(existing.cocAttributes || COC_DEFAULT_ATTRIBUTES), ...attrs };
-  existing.ruleTemplate = existing.ruleTemplate || "coc7th";
-  const prevSan = existing.cocDerived?.san;
-  existing.cocDerived = computeCocDerived(existing.cocAttributes);
-  if (prevSan !== undefined) {
-    existing.cocDerived.san = Math.min(prevSan, existing.cocDerived.sanMax);
-  }
-
-  await db.update(roomMembers)
-    .set({ characterData: serializeSheetChecked(existing) })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  revalidatePath(`/rooms/${roomId}`);
-  return existing;
 }
 
 /**
