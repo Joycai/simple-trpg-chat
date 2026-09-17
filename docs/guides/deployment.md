@@ -1,6 +1,6 @@
 # Simple TRPG Chat — 部署指南
 
-**Version**: 0.23.17 | **Last Updated**: 2026-09-17
+**Version**: 0.23.18 | **Last Updated**: 2026-09-17
 
 ---
 
