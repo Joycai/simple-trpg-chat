@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { composeTimelineLabel, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { useHostLabel } from "@/components/shared/host-label";
 

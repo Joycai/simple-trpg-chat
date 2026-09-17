@@ -45,7 +45,7 @@ Store the favicon as a base64 data URL under `systemConfig.key = "site_favicon"`
 
 ## Files to Modify
 
-### 1. `src/lib/config.ts` — Add `getCachedSiteFavicon()`
+### 1. `src/lib/server/site-config.ts` — Add `getCachedSiteFavicon()`
 
 Mirror the existing `getCachedSiteTitle()` pattern exactly:
 

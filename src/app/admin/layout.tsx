@@ -11,7 +11,7 @@ import {
   getCachedSiteIcpUrl,
   getCachedSitePoliceIcon,
   getCachedSitePoliceHtml,
-} from "@/lib/config";
+} from "@/lib/server/site-config";
 import { APP_VERSION } from "@/lib/version";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

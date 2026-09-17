@@ -4,7 +4,7 @@
 
 Bots are regular `users` rows with `isBot: true` and `botConfigJson` holding their AI configuration. Bot presets (admin-managed templates) live in the `botPresets` table.
 
-## Agent Loop (`src/lib/ai_agent.ts`)
+## Agent Loop (`src/lib/ai/agent.ts`)
 
 Runs an OpenAI-compatible tool-use loop triggered when a message is sent in a room that has an active bot.
 
@@ -18,13 +18,13 @@ Loop mechanics (each is a deliberate guard — don't undo casually):
 
 ### Activation & cooldown
 
-`botConfigJson.activation` gates the auto-triggers: `"manual"` bots ignore @mentions and DMs and only run on explicit host acts (the manual trigger button, host-issued check requests); any other value (`"@mention"` from the UI, `"mention"` schema default, legacy/absent) means mention-triggered. Resolver: `botActivationMode` in `src/lib/botStatus.ts`.
+`botConfigJson.activation` gates the auto-triggers: `"manual"` bots ignore @mentions and DMs and only run on explicit host acts (the manual trigger button, host-issued check requests); any other value (`"@mention"` from the UI, `"mention"` schema default, legacy/absent) means mention-triggered. Resolver: `botActivationMode` in `src/lib/ai/bot-status.ts`.
 
 A per-bot 3s cooldown throttles the mention/DM path against storms. Explicit host acts pass `bypassCooldown` so a check request issued right after a mention is never silently dropped.
 
 ### Supported Tools (13)
 
-Free-text replies are **not** a tool — they are broadcast directly from the model's message content (R3), so a bot can always talk even with zero tools enabled. Which tools a bot may call is configured per bot (`botConfigJson.enableTools`); default is `["roll_dice", "respond_check"]`. The whitelist is enforced **twice**: it filters which definitions are advertised to the model, and `resolveToolCall` (`src/lib/agent-tool-guard.ts`) re-checks every emitted call at execution time — a model naming a disabled or invented tool, or sending malformed argument JSON, gets a readable tool-result error instead of an execution or a crash.
+Free-text replies are **not** a tool — they are broadcast directly from the model's message content (R3), so a bot can always talk even with zero tools enabled. Which tools a bot may call is configured per bot (`botConfigJson.enableTools`); default is `["roll_dice", "respond_check"]`. The whitelist is enforced **twice**: it filters which definitions are advertised to the model, and `resolveToolCall` (`src/lib/ai/agent-tool-guard.ts`) re-checks every emitted call at execution time — a model naming a disabled or invented tool, or sending malformed argument JSON, gets a readable tool-result error instead of an execution or a crash.
 
 | Tool | Description |
 | ---- | ----------- |
@@ -32,7 +32,7 @@ Free-text replies are **not** a tool — they are broadcast directly from the mo
 | `respond_check` | Respond to a host-issued skill/sanity check targeting the bot — rolls `.rc`/`.sc` against its own sheet, records `respondedUserIds`, broadcasts `check_update` (same as a player clicking the check message); the tool result includes the roll outcome text so the bot can roleplay it |
 | `roll_skill_check` | Proactively roll `.rc <expression>` against the bot's own sheet when someone asks in plain chat (no formal check request) — expression syntax is owned by the room's rule module; defaults to the triggering channel's privacy |
 | `list_members` | List room members (`userId`, nickname, host/bot flags) — resolves nicknames to ids for `give_item` / `reveal_clue` |
-| `give_item` | Give an item the bot possesses to a human member — same core as the player share flow (`src/lib/inventory-share.ts`): backpack insert + recipient/GM notices; self and bot recipients rejected |
+| `give_item` | Give an item the bot possesses to a human member — same core as the player share flow (`src/lib/room/inventory-share.ts`): backpack insert + recipient/GM notices; self and bot recipients rejected |
 | `reveal_clue` | Reveal a clue *the bot can itself see* to specific human members — inserts `clue_visibility` rows + recipient/GM notices; deliberately scoped below the host's reveal power |
 | `send_image` | Show an image — an internal `/api/rooms/<thisRoom>/images/…` path or a public `https://` URL (http and other rooms' paths rejected) — see [`send_image` trust model](#send_image-trust-model) |
 | `inspect_item` | Read an inventory item's details (validates ownership) |
@@ -55,17 +55,17 @@ A bot can only do this if the host enabled `send_image` in its `enableTools` arr
 ## AI Providers
 
 Each host configures their own provider via the `aiProviders` table:
-- A provider is one **vendor + model** pair. The create/edit form is two-level: pick a vendor first (OpenAI / Google GenAI / Claude / DeepSeek / OpenAI-compatible third party), then a model. The vendor registry lives in `src/lib/provider-presets.ts` (`AI_VENDORS`): default endpoint, badge, model presets with per-1M token rates, and how to list models. `aiProviders.vendor` stores the chosen vendor id (legacy rows default to `openai-compatible`).
+- A provider is one **vendor + model** pair. The create/edit form is two-level: pick a vendor first (OpenAI / Google GenAI / Claude / DeepSeek / OpenAI-compatible third party), then a model. The vendor registry lives in `src/lib/ai/provider-presets.ts` (`AI_VENDORS`): default endpoint, badge, model presets with per-1M token rates, and how to list models. `aiProviders.vendor` stores the chosen vendor id (legacy rows default to `openai-compatible`).
 - The chat path is uniformly OpenAI-compatible (`{endpoint}/chat/completions` + Bearer key) for every vendor — Google and Claude go through their official OpenAI-compatibility endpoints (`…/v1beta/openai`, `api.anthropic.com/v1`), so `ai_agent.ts` needs no per-vendor branching.
-- Model listing is vendor-aware: `fetchProviderModels` (server action in `ai-providers.ts`) GETs `{endpoint}/models` with Bearer auth, except the Claude vendor which uses `x-api-key` + `anthropic-version`. Request building and response parsing are pure functions in `src/lib/model-fetch.ts`. The form's `ModelPicker.tsx` combobox shows vendor preset models and can pull the live list (using the typed key, or the stored key when editing).
-- API endpoint + model are stored in plaintext; API keys are AES-256-GCM encrypted (`src/lib/encryption.ts`).
+- Model listing is vendor-aware: `fetchProviderModels` (server action in `ai-providers.ts`) GETs `{endpoint}/models` with Bearer auth, except the Claude vendor which uses `x-api-key` + `anthropic-version`. Request building and response parsing are pure functions in `src/lib/ai/model-fetch.ts`. The form's `ModelPicker.tsx` combobox shows vendor preset models and can pull the live list (using the typed key, or the stored key when editing).
+- API endpoint + model are stored in plaintext; API keys are AES-256-GCM encrypted (`src/lib/security/encryption.ts`).
 - `AI_ENCRYPTION_KEY` env var is the encryption key (falls back to `dev-secret-key` in dev).
-- SSRF guard (`src/lib/url-guard.ts`) resolves the endpoint hostname via DNS and rejects it if any resolved address is private/loopback/link-local (also checked against literal IPv4/IPv6 forms, including IPv4-mapped IPv6). Applied both when a provider is saved and again immediately before every outbound call (`ai_agent.ts`, `ai-import.ts`, `testAiConnection`), and by `fetchProviderModels` before listing models, since DNS can change between the two.
+- SSRF guard (`src/lib/security/url-guard.ts`) resolves the endpoint hostname via DNS and rejects it if any resolved address is private/loopback/link-local (also checked against literal IPv4/IPv6 forms, including IPv4-mapped IPv6). Applied both when a provider is saved and again immediately before every outbound call (`ai_agent.ts`, `ai-import.ts`, `testAiConnection`), and by `fetchProviderModels` before listing models, since DNS can change between the two.
 - Admin can mark a provider as `isShared` to make it available to all users.
 
 ## Token Usage & Points
 
-- Every AI call records token counts in `aiTokenUsages` (daily aggregation per user/provider) via `src/lib/ai_usage.ts`.
+- Every AI call records token counts in `aiTokenUsages` (daily aggregation per user/provider) via `src/lib/ai/usage.ts`.
 - When a non-admin user invokes a **shared** provider, `aiPoints` are deducted from their balance (`users.aiPoints`).
 - Deduction is logged in `aiPointLogs` for auditing.
 - Users can view their own usage and point balance via `UserSettingsPanel.tsx`.
@@ -75,5 +75,5 @@ Each host configures their own provider via the `aiProviders` table:
 
 Two sources, merged in the room-side picker (`BotManager.tsx`):
 
-- **Built-in presets** (`src/lib/bot-preset-defaults.ts`) — four predefined role configs shipped with the app: COC AI player, COC NPC, COC rules assistant, DnD 5e rules assistant. Unlike DB presets they also carry a role-appropriate `enableTools` set, applied to the tool toggles on selection. They live in code (no seed/migration, stay in sync with tool names), use `builtin-*` string ids outside the DB numeric id space, and do not appear in the admin panel (not editable).
+- **Built-in presets** (`src/lib/ai/bot-preset-defaults.ts`) — four predefined role configs shipped with the app: COC AI player, COC NPC, COC rules assistant, DnD 5e rules assistant. Unlike DB presets they also carry a role-appropriate `enableTools` set, applied to the tool toggles on selection. They live in code (no seed/migration, stay in sync with tool names), use `builtin-*` string ids outside the DB numeric id space, and do not appear in the admin panel (not editable).
 - **Admin-created templates** in `botPresets` (system prompt, default nickname, `allowEditPrompt` flag). Managed via `/admin/ai` (`AdminBotPresets.tsx`). Selecting one fills name/nickname/prompt but leaves the tool toggles untouched.

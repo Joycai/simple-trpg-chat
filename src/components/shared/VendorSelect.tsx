@@ -2,7 +2,7 @@
 
 import { SlidersHorizontal } from "lucide-react";
 import { BadgeDropdown, type BadgeDropdownItem } from "./BadgeDropdown";
-import { AI_VENDORS, COMPAT_VENDOR_ID, shortHost } from "@/lib/provider-presets";
+import { AI_VENDORS, COMPAT_VENDOR_ID, shortHost } from "@/lib/ai/provider-presets";
 
 interface VendorSelectProps {
   id?: string;

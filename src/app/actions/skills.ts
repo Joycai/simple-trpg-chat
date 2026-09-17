@@ -4,9 +4,19 @@ import { db, sqlNow } from "@/db";
 import { roomSkills } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 
-import { syncCharacterSanity } from "@/lib/commands";
+import { syncCharacterSanity } from "@/lib/commands/engine";
+
+/** Any member may read another member's skills (character panel viewing). */
+export async function getRoomSkills(roomId: number, userId: number) {
+  await checkRoomAccess(roomId, false);
+  return await db
+    .select()
+    .from(roomSkills)
+    .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)))
+    .orderBy(roomSkills.skillName);
+}
 
 export async function getMySkillsAction(roomId: number) {
   const { userId } = await checkRoomAccess(roomId, false);

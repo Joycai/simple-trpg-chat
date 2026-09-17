@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { fetchProviderModels } from "@/app/actions/ai-providers";
-import { getVendor } from "@/lib/provider-presets";
-import { useEscapeToClose } from "@/lib/overlay-esc";
+import { getVendor } from "@/lib/ai/provider-presets";
+import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 
 /**
  * Model combobox for the provider create/edit forms: free-text input plus a

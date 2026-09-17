@@ -1,6 +1,6 @@
 # Simple TRPG Chat — 部署指南
 
-**Version**: 0.23.17 | **Last Updated**: 2026-09-17
+**Version**: 0.23.18 | **Last Updated**: 2026-09-17
 
 ---
 
@@ -178,6 +178,6 @@ pg_dump -U <username> -d simple_trpg_chat -F c -b -v -f /backups/trpg_db_$(date 
 ```
 
 ### 3. 多实例集群部署限制
-目前项目中的 SSE 实时消息通知采用进程内 `EventEmitter`（位于 `src/lib/events.ts`）进行跨连接分发。
+目前项目中的 SSE 实时消息通知采用进程内 `EventEmitter`（位于 `src/lib/server/events.ts`）进行跨连接分发。
 - **单实例部署**：开箱即用，支持多客户端即时通信。
-- **多实例集群部署（如 K8s 副本、多主机负载均衡）**：需要将 `src/lib/events.ts` 改为使用外部集中式发布/订阅服务（例如 Redis Pub/Sub），否则在不同机器实例上的用户将无法互通消息。
+- **多实例集群部署（如 K8s 副本、多主机负载均衡）**：需要将 `src/lib/server/events.ts` 改为使用外部集中式发布/订阅服务（例如 Redis Pub/Sub），否则在不同机器实例上的用户将无法互通消息。

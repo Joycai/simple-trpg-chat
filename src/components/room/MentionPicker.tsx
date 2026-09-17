@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { entityMeta } from "@/components/room/notebook/notebook-helpers";
-import type { NotebookLinkEntity } from "@/lib/notebook";
+import type { NotebookLinkEntity } from "@/lib/room/notebook";
 
 /**
  * The `@`-mention suggestion popover, shared by the notebook and event editors.

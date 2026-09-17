@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { GET } from "../route";
 
 const checkRoomAccessMock = vi.fn();
-vi.mock("@/lib/auth-helpers", () => ({
+vi.mock("@/lib/auth/room-access", () => ({
   checkRoomAccess: (...args: unknown[]) => checkRoomAccessMock(...args),
 }));
 

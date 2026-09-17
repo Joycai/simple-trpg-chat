@@ -6,7 +6,7 @@ Character data is stored as JSON in `roomMembers.characterData`. Each player has
 
 ## COC 7th Edition Support
 
-Types defined in `src/lib/character-types.ts`:
+Types defined in `src/lib/character/types.ts`:
 
 **Core attributes** (STR, CON, SIZ, DEX, APP, INT, POW, EDU) — set manually or rolled.
 

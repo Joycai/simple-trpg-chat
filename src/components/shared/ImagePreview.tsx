@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useEscapeToClose } from "@/lib/overlay-esc";
+import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 import { useTranslations } from "next-intl";
 import { ZoomIn, ZoomOut, Maximize2, Minimize2, Download, RotateCcw, X } from "lucide-react";
 

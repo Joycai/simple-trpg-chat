@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import type { EventView } from "@/app/actions/event";
-import type { NotebookLinkEntity } from "@/lib/notebook";
+import type { NotebookLinkEntity } from "@/lib/room/notebook";
 
 /**
  * Room-wide event data, fetched once by `RoomClient` and shared with every

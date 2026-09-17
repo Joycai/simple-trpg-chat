@@ -6,8 +6,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { roomMembers } from "@/db/schema";
 import { auth } from "@/auth";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { parseAvatarDataUrl, avatarVersion } from "@/lib/avatars";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { parseAvatarDataUrl, avatarVersion } from "@/lib/media/avatars";
 
 /**
  * Serves a room member's avatar by reference. Avatars are stored as base64

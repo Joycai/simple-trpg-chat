@@ -10,11 +10,11 @@ import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/t
 import type { ThemeId, StoredThemeMode, ResolvedMode } from "@/themes/types";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { getRandomColorForUser } from "@/lib/avatar-colors";
-import { roomBackgroundUrl } from "@/lib/backgrounds";
+import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
+import { roomBackgroundUrl } from "@/lib/media/backgrounds";
 import { getRuleForRoom } from "@/lib/rules";
-import { sanitizeBotConfigForClient } from "@/lib/botStatus";
-import { roomAvatarUrl } from "@/lib/avatars";
+import { sanitizeBotConfigForClient } from "@/lib/ai/bot-status";
+import { roomAvatarUrl } from "@/lib/media/avatars";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");

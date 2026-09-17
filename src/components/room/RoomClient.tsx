@@ -14,9 +14,11 @@ import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
-import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/hotkeys";
+import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { Icons } from "@/components/shared/icons";
-import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, updateRoomNameAction, respondToCheckRequestAction, getProxyCheckTargetsAction, withdrawTimelineDividerAction } from "@/app/actions/room";
+import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
+import { updateRoomNameAction } from "@/app/actions/room";
+import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { getMySkillsAction } from "@/app/actions/skills";
@@ -25,7 +27,7 @@ import { EventDataProvider, type EventData } from "@/components/room/event/Event
 import { useBackpackEntities } from "@/components/room/event/event-helpers";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { getBotStatus } from "@/lib/botStatus";
+import { getBotStatus } from "@/lib/ai/bot-status";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 
 /**
@@ -67,7 +69,7 @@ const hotkeyHintStore = {
 };
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, primaryVital, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
@@ -772,7 +774,7 @@ export function RoomClient({
     handleTabChange(order[(Math.max(i, 0) + dir + order.length) % order.length]);
   }, [dmConversations, activeTab, handleTabChange]);
 
-  // Room-wide keyboard shortcuts (bindings defined in src/lib/hotkeys.ts).
+  // Room-wide keyboard shortcuts (bindings defined in src/lib/ui/hotkeys.ts).
   useRoomHotkeys({
     isHost,
     readOnly,

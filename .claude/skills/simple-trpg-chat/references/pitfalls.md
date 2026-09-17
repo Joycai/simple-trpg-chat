@@ -19,7 +19,7 @@ Visibility is owned by `messages.audience` (`everyone`/`self`/`recipient`/`direc
 Classic bugs this prevents: "KP sees a player's 'received item' notice", "`.st` feedback shows a DM unread badge", "sender can't see their own DM message".
 
 ### 5. EventEmitter must use globalThis unconditionally
-Next.js production runs multiple workers, each with its own module scope. The EventEmitter singleton in `src/lib/events.ts` MUST be persisted to `globalThis` with no `NODE_ENV` condition — otherwise the SSE subscriber and the message publisher hold different instances and all real-time messages are silently dropped.
+Next.js production runs multiple workers, each with its own module scope. The EventEmitter singleton in `src/lib/server/events.ts` MUST be persisted to `globalThis` with no `NODE_ENV` condition — otherwise the SSE subscriber and the message publisher hold different instances and all real-time messages are silently dropped.
 
 ## Database & Schema
 
@@ -38,4 +38,4 @@ Database connection URL is read from `db.config.json` at project root (auto-gene
 `.env` file required with `AUTH_SECRET=<random>`. Running from wrong directory or missing the file causes `MissingSecret` errors. Run `bash setup.sh` or `setup.bat` for first-time setup, or copy `.env.example` and fill in values.
 
 ### 10. AI endpoint SSRF protection
-`src/lib/url-guard.ts` blocks AI provider endpoints that resolve to private/loopback IPs (127.x, 10.x, 192.168.x, etc.). Requests to internal services will be rejected with a validation error — this is intentional.
+`src/lib/security/url-guard.ts` blocks AI provider endpoints that resolve to private/loopback IPs (127.x, 10.x, 192.168.x, etc.). Requests to internal services will be rejected with a validation error — this is intentional.

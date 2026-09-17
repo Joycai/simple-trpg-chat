@@ -5,9 +5,9 @@ import { users, roomMembers, rooms } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { getRandomColorForUser } from "@/lib/avatar-colors";
-import { broadcastToRoom } from "@/lib/events";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
+import { broadcastToRoom } from "@/lib/server/events";
 import { getRuleForRoom } from "@/lib/rules";
 
 /**
@@ -137,42 +137,6 @@ export async function updateBotAction(
 }
 
 /**
- * deleteBotAction
- * Removes a bot user record.
- */
-export async function deleteBotAction(roomId: number, botUserId: number) {
-  // Only room hosts can delete bots
-  await checkRoomAccess(roomId, true);
-
-  // Verify the bot is a member of this room and is actually a bot
-  const [botUser] = await db.select({ isBot: users.isBot }).from(users).where(eq(users.id, botUserId));
-  if (!botUser || !botUser.isBot) throw new Error("Bot not found");
-
-  const [botMember] = await db.select({ id: roomMembers.id })
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
-  if (!botMember) throw new Error("Bot is not a member of this room");
-
-  // Deleting the shadow user cascades automatically to delete room membership
-  await db.delete(users).where(eq(users.id, botUserId));
-
-  revalidatePath(`/rooms/${roomId}`);
-}
-
-/**
- * checkBotMentionAction (UI helper)
- */
-export async function checkBotMentionAction(roomId: number, content: string, _senderUserId: number) {
-  const bots = await getRoomBotsAction(roomId);
-  for (const bot of bots) {
-    if (content.includes(`@${bot.nickname}`)) {
-      return { isMention: true, botId: bot.id, nickname: bot.nickname, config: bot.config };
-    }
-  }
-  return { isMention: false };
-}
-
-/**
  * Manually trigger a bot to respond in the room.
  * Only the Host can trigger bots manually.
  */
@@ -181,7 +145,7 @@ export async function triggerBotAction(roomId: number, botUserId: number) {
   const { userId } = await checkRoomAccess(roomId, true);
 
   // Async trigger — bot responds in the background
-  import("@/lib/ai_agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);
+  import("@/lib/ai/agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);
 
   return { success: true };
 }

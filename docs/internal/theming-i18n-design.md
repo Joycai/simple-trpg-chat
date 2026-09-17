@@ -214,7 +214,7 @@ across all themes:
 
 - **Overlay/modal motion** — enter/exit easing (`--ease-emphasized/exit/spring`),
   drawer/centered-modal/dropdown keyframes, and `prefers-reduced-motion` fallbacks. Kept
-  in sync with `EXIT_DURATION` in [`useOverlayTransition.ts`](../../src/lib/useOverlayTransition.ts).
+  in sync with `EXIT_DURATION` in [`useOverlayTransition.ts`](../../src/lib/ui/useOverlayTransition.ts).
 - **HP heartbeat effect** — `heartbeat` / `pulse-danger` / `shimmer` critical-HP
   animation, with hardcoded danger red.
 - **Native UI** — scrollbars, form controls, and caret follow `color-scheme` driven by

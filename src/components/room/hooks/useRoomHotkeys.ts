@@ -7,8 +7,8 @@ import {
   isEditableTarget,
   CHAT_INPUT_SELECTOR,
   type RoomHotkeyAction,
-} from "@/lib/hotkeys";
-import { hasOpenOverlay } from "@/lib/overlay-esc";
+} from "@/lib/ui/hotkeys";
+import { hasOpenOverlay } from "@/lib/ui/overlay-esc";
 
 interface UseRoomHotkeysOptions {
   isHost: boolean;

@@ -8,9 +8,9 @@ import { Icons } from "@/components/shared/icons";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { useRoomRule } from "@/components/shared/host-label";
 import { useTranslations } from "next-intl";
-import { isRollCommand, normalizeRollCommand } from "@/lib/roll-command";
+import { isRollCommand, normalizeRollCommand } from "@/lib/commands/roll-command";
 import { recordRollCommand, useRecentRollCommands } from "@/components/room/hooks/useRecentRollCommands";
-import { CHAT_INPUT_ATTR, TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT } from "@/lib/hotkeys";
+import { CHAT_INPUT_ATTR, TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT } from "@/lib/ui/hotkeys";
 
 interface MentionTarget {
   id: number;
@@ -34,7 +34,7 @@ interface ChatInputProps {
   defaultRollExpression?: string;
 }
 
-// Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/uploads.ts
+// Keep in sync with CHAT_IMAGE_MAX_BYTES in src/lib/media/uploads.ts
 const IMAGE_MAX_BYTES = 1024 * 1024;
 
 export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocked = false, readOnly = false, readOnlyNotice, quickCommands = [], defaultRollExpression }: ChatInputProps) {

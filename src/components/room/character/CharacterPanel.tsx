@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Check } from "lucide-react";
-import { updateNicknameAction, getRoomSkills, updateRoomMemberColorAction, uploadAvatarAction } from "@/app/actions/room";
+import { updateNicknameAction, updateRoomMemberColorAction, uploadAvatarAction } from "@/app/actions/room";
 import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
-import { getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
+import { getRoomSkills, getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CharacterData } from "@/lib/character-types";
-import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/avatar-colors";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import type { CharacterData } from "@/lib/character/types";
+import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/ui/avatar-colors";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { AttributesTab } from "@/components/room/character/AttributesTab";

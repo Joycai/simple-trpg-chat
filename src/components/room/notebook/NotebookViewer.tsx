@@ -4,8 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
-import { useClickOutside } from "@/lib/useClickOutside";
-import { extractMentions, type NotebookLinkEntity } from "@/lib/notebook";
+import { useClickOutside } from "@/lib/ui/useClickOutside";
+import { extractMentions, type NotebookLinkEntity } from "@/lib/room/notebook";
 import { CategoryChip, MentionChip, formatNoteDateTime, type Category, type Note } from "./notebook-helpers";
 
 interface NotebookViewerProps {

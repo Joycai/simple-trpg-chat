@@ -6,8 +6,8 @@ import { Icons } from "@/components/shared/icons";
 import { LoadFailed } from "@/components/shared/LoadFailed";
 import { Notice } from "@/components/shared/Notice";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
-import { useEscapeToClose } from "@/lib/overlay-esc";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
+import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 import {
   getMyNotebookAction,
   createNoteAction,
@@ -27,7 +27,7 @@ import {
   stripMarkdown,
   type NotebookColor,
   type NotebookLinkEntity,
-} from "@/lib/notebook";
+} from "@/lib/room/notebook";
 import { CategoryChip, formatNoteDate, type Category, type Note } from "./notebook-helpers";
 import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryList";
 import { NotebookViewer } from "./NotebookViewer";

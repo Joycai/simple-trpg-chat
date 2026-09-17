@@ -142,7 +142,7 @@ body[data-room-bg] .bg-bg .bg-bg {
    Motion — the CSS half
    ------------------------------------------------------------
    Overlays (drawers, modals, their backdrops) are NOT here: they
-   are driven by Motion springs in src/lib/useOverlayTransition.ts,
+   are driven by Motion springs in src/lib/ui/useOverlayTransition.ts,
    which integrates the spring in JS and needs no CSS feature
    support. What lives here is the motion Motion doesn't own —
    the conversation sidebar's width transition and the dropdown
@@ -200,7 +200,7 @@ body[data-room-bg] .bg-bg .bg-bg {
 
 /* NOTE: the drawer / modal / backdrop keyframes that used to live here are
    gone — those overlays are driven by Motion springs in
-   src/lib/useOverlayTransition.ts, which integrates the spring in JS and needs
+   src/lib/ui/useOverlayTransition.ts, which integrates the spring in JS and needs
    no CSS feature support. What remains below is the motion that is NOT
    overlay-hook-driven: the sidebar's width transition and the dropdown pop.
    Both are plain transitions/keyframes, so they stay in CSS. */

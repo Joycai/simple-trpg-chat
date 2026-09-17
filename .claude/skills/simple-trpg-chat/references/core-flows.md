@@ -6,7 +6,7 @@
 3. Players see room in lobby → enter key → `joinRoomAction` validates key → inserts `room_members`
 
 ## Message Flow (SSE)
-1. Client sends via `sendMessageAction` (Server Action in `src/app/actions/room.ts`)
+1. Client sends via `sendMessageAction` (Server Action in `src/app/actions/messages.ts`)
 2. Server inserts to `messages` table
 3. `broadcastToRoom(roomId, message)` → EventEmitter (persisted on `globalThis` for HMR safety)
 4. SSE route `GET /api/rooms/[id]/events` receives → pushes to all connected clients
@@ -14,7 +14,7 @@
 6. Heartbeat every 15s to prevent proxy timeout
 
 ## Bot Activation
-1. Message contains `@botNickname` (or is a DM to the bot) → `runAgent(botUserId, roomId)` triggered (in `src/lib/ai_agent.ts`). Bots with `activation: "manual"` skip these auto-triggers and only run on explicit host acts (trigger button, check requests) — resolver `botActivationMode` in `src/lib/botStatus.ts`. A 3s per-bot cooldown throttles auto-triggers; explicit host acts bypass it.
+1. Message contains `@botNickname` (or is a DM to the bot) → `runAgent(botUserId, roomId)` triggered (in `src/lib/ai/agent.ts`). Bots with `activation: "manual"` skip these auto-triggers and only run on explicit host acts (trigger button, check requests) — resolver `botActivationMode` in `src/lib/ai/bot-status.ts`. A 3s per-bot cooldown throttles auto-triggers; explicit host acts bypass it.
 2. `buildAgentContext()` assembles: system prompt + rule module's AI prompt + inventory items (knowledge base) + sliding window (50 recent messages) + historical summary
 3. POST to Host AI endpoint (`ai_providers`) with tool definitions (13 tools, per-bot `enableTools` filter)
 4. LLM responds with text OR function_call → tool executor runs → result fed back to LLM
@@ -23,7 +23,7 @@
 
 ## Dice Roll (.rc command)
 1. Player sends `.rc 侦查`
-2. `executeCommand` → `handleRollCheck` (in `src/lib/commands.ts`)
+2. `executeCommand` → `handleRollCheck` (in `src/lib/commands/engine.ts`)
 3. Server: random d100, check against `room_skills` value
 4. If `diceRules = "coc7th"`: 01-05 = critical success (🟢), 96-100 = fumble (🔴)
 5. Result stored in `messages.diceDetail` JSON with `check` metadata: `{ skillName, target, roll, success, grade }`

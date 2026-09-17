@@ -16,9 +16,9 @@ import { z } from "zod";
 import { getTranslations } from "next-intl/server";
 import { db } from "@/db";
 import { roomBackgrounds, rooms } from "@/db/schema";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { broadcastToRoom } from "@/lib/events";
-import { resolveRoomBackgroundPath, roomBackgroundUrl } from "@/lib/backgrounds";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { broadcastToRoom } from "@/lib/server/events";
+import { resolveRoomBackgroundPath, roomBackgroundUrl } from "@/lib/media/backgrounds";
 
 export interface RoomBackgroundView {
   id: number;

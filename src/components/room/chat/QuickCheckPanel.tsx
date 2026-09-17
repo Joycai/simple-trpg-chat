@@ -23,10 +23,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useRoomRule } from "@/components/shared/host-label";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { getMySkillsAction } from "@/app/actions/skills";
 import { getCharacterDataAction } from "@/app/actions/character";
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 
 interface QuickCheckPanelProps {
   roomId: number;

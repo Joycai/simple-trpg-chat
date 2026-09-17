@@ -5,11 +5,11 @@ import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { recordLogin } from "@/lib/login-history";
+import { recordLogin } from "@/lib/auth/login-history";
 import { authConfig, invalidateSessionCache } from "./auth.config";
 import { headers } from "next/headers";
 
-import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
+import { isLocked, recordFailure, clearAttempts } from "@/lib/auth/rate-limit";
 
 class BannedError extends CredentialsSignin {
   code = "banned";

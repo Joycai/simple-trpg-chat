@@ -46,14 +46,31 @@ pnpm db:doctor  # Environment & DB diagnostics
 ```
 src/
 ├── app/
-│   ├── actions/               # 17 Server Actions ("use server")
+│   ├── actions/               # Server Actions ("use server"), one module per concern
+│   │                          #   room / messages / checks / skills / character / inventory …
 │   ├── admin/                 # Admin panel (ai/, config/, usage/, users/)
 │   ├── api/rooms/[id]/events/ # SSE endpoint — GET /api/rooms/[id]/events
 │   ├── login/
 │   └── rooms/[id]/
-├── components/                # 35+ React client components ("use client")
-├── db/                        # Drizzle client, 21-table schema, seed
-├── lib/                       # 15 utility/service modules
+├── components/                # React client components ("use client")
+│   ├── room/                  #   room UI, grouped by panel (chat/, character/, notebook/ …)
+│   ├── admin/ lobby/ user/ theme/
+│   └── shared/                #   cross-feature primitives (OverlayShell, ConfirmDialog …)
+├── db/                        # Drizzle client + 21-table schema
+│   └── scripts/               #   tsx entry points: seed, doctor, one-off backfills
+├── lib/                       # Framework-light logic, grouped by domain:
+│   ├── ai/                    #   bot agent loop, tool definitions/handlers, usage, presets
+│   ├── auth/                  #   room access checks, invites, rate limit, login history
+│   ├── character/             #   rule-agnostic CharacterData shell + sheet rebuild
+│   ├── commands/              #   chat command engine, dice expressions, CSPRNG dice
+│   ├── format/                #   time / bytes / markdown blocks / export formatting
+│   ├── media/                 #   uploads, room backgrounds, stickers, avatars, image cache
+│   ├── messaging/             #   audience router (dispatchMessage, visibility)
+│   ├── room/                  #   notebook, story events, inventory sharing
+│   ├── rules/                 #   pluggable rule modules (see simple-trpg-chat-rules skill)
+│   ├── security/              #   encryption, SSRF guard, sensitive-word filter
+│   ├── server/                #   SSE event hub, site config, stats
+│   └── ui/                    #   client hooks & helpers (overlay transitions, hotkeys)
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
 ├── types/                     # next-auth.d.ts type augmentation
@@ -115,7 +132,7 @@ Prefix `.` or `。` (Chinese full-stop accepted):
 - `.rd<N>` / `.r<N>` — dice roll (supports expressions like `3d100k2+2d20`)
 - `.help` — show help
 
-Engine: `src/lib/commands.ts`
+Engine: `src/lib/commands/engine.ts`
 
 ### Quick-Check Panel (快速检定面板)
 
@@ -156,15 +173,15 @@ pnpm db:push  # Interactive mode — answer "No" to ai_token_usages truncate pro
 
 ### Room Backgrounds
 
-Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图 tab) and switch between them live; players get a local intensity slider (TopBar gear menu → personal section, localStorage, 0 = off). Uploads (≤5MB, JPEG/PNG/WebP — GIF rejected) are re-encoded server-side via `sharp` to bounded WebP (2560px / q80) under `cache/room-backgrounds/` (`ROOM_BACKGROUND_DIR`) — a **separate** directory from chat images because backgrounds are host prep material, not disposable cache; admin cleanup only touches them via an explicit opt-in checkbox. The image renders behind a per-theme scrim (`--theme-bg-scrim*` vars in each `theme.css`); `data-room-bg` on `<body>` softens opaque shells (globals.css). Switching broadcasts the existing `room_settings_updated` SSE event. Core: `src/lib/backgrounds.ts`, `src/app/api/rooms/[id]/backgrounds/`, `src/app/actions/background.ts`, `RoomBackground.tsx` (paints), `hooks/useRoomBgIntensity.ts` (intensity store shared with `RoomTopBar`), `RoomBackgroundManager.tsx`. Reverse-proxy note: nginx needs `client_max_body_size 6m`. Design doc: `docs/design/room-background.md`.
+Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图 tab) and switch between them live; players get a local intensity slider (TopBar gear menu → personal section, localStorage, 0 = off). Uploads (≤5MB, JPEG/PNG/WebP — GIF rejected) are re-encoded server-side via `sharp` to bounded WebP (2560px / q80) under `cache/room-backgrounds/` (`ROOM_BACKGROUND_DIR`) — a **separate** directory from chat images because backgrounds are host prep material, not disposable cache; admin cleanup only touches them via an explicit opt-in checkbox. The image renders behind a per-theme scrim (`--theme-bg-scrim*` vars in each `theme.css`); `data-room-bg` on `<body>` softens opaque shells (globals.css). Switching broadcasts the existing `room_settings_updated` SSE event. Core: `src/lib/media/backgrounds.ts`, `src/app/api/rooms/[id]/backgrounds/`, `src/app/actions/background.ts`, `RoomBackground.tsx` (paints), `hooks/useRoomBgIntensity.ts` (intensity store shared with `RoomTopBar`), `RoomBackgroundManager.tsx`. Reverse-proxy note: nginx needs `client_max_body_size 6m`. Design doc: `docs/design/room-background.md`.
 
 ### Notebook (记事本)
 
-Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. A note can be **sent to other members** (`shareNoteAction`) as an independent copy — the recipient gets a new row in their own scope (uncategorized, `sourceName` = sender snapshot, badged "来自 X"); later edits never sync, and the copy's `@` links re-resolve against the *recipient's* backpack, so anything they don't hold degrades to plain text. Bots are excluded as recipients on the server (`users.isBot` join), not just in the picker; no SSE, so copies surface on the recipient's next open. The note body's typography (section headings, list markers, quote chrome) is a shared structural layer scoped to `.notebook-note-body` in `globals.css` — values read `var(--theme-nb-*, <fallback to --theme-*>)`, so every theme auto-tints and a theme may override any `--theme-nb-*` at its root (see the `simple-trpg-chat-theme` skill). Core: `src/lib/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
+Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. A note can be **sent to other members** (`shareNoteAction`) as an independent copy — the recipient gets a new row in their own scope (uncategorized, `sourceName` = sender snapshot, badged "来自 X"); later edits never sync, and the copy's `@` links re-resolve against the *recipient's* backpack, so anything they don't hold degrades to plain text. Bots are excluded as recipients on the server (`users.isBot` join), not just in the picker; no SSE, so copies surface on the recipient's next open. The note body's typography (section headings, list markers, quote chrome) is a shared structural layer scoped to `.notebook-note-body` in `globals.css` — values read `var(--theme-nb-*, <fallback to --theme-*>)`, so every theme auto-tints and a theme may override any `--theme-nb-*` at its root (see the `simple-trpg-chat-theme` skill). Core: `src/lib/room/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
 
 ### Invite-Code Registration
 
-Public `/register` page: new users sign up with a host-issued invite code and join as `player`. Hosts generate codes from the user settings panel ("邀请码" tab, host-only); each code is single-use, expires after 48h (lazy sweep refunds quota). Admin controls: per-host quota column + reset in user management, plus a registration on/off toggle and default quota (`invite_registration_enabled` / `invite_default_quota` in `system_config`) in system config. Core logic: `src/lib/invites.ts` + `src/app/actions/invite.ts`. Design doc: `docs/design/invite-registration.md`.
+Public `/register` page: new users sign up with a host-issued invite code and join as `player`. Hosts generate codes from the user settings panel ("邀请码" tab, host-only); each code is single-use, expires after 48h (lazy sweep refunds quota). Admin controls: per-host quota column + reset in user management, plus a registration on/off toggle and default quota (`invite_registration_enabled` / `invite_default_quota` in `system_config`) in system config. Core logic: `src/lib/auth/invites.ts` + `src/app/actions/invite.ts`. Design doc: `docs/design/invite-registration.md`.
 
 ### Authentication
 
@@ -175,6 +192,9 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
 ## Coding Conventions
 
 - **Path alias**: `@/*` → `src/*`
+- **Module layout**: new logic goes in the matching `src/lib/<domain>/` folder, with
+  tests in that folder's `__tests__/`. Don't add a catch-all `utils.ts`; name the file
+  after what it does. Files are kebab-case; React hooks keep the `useX.ts` name.
 - **Server Actions**: `src/app/actions/`, `"use server"` directive
 - **Client components**: `src/components/`, `"use client"` directive
 - **Styling**: Semantic Tailwind tokens only — never arbitrary colors
@@ -185,9 +205,10 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   server-action errors in production, so `err.message` renders as "An error occurred in
   the Server Components render…". `checkRoomAccess` still throws (it is shared); wrap it
   per-action, as `background.ts`'s `requireRoomHost` does.
-  Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook`.
-  Still throwing, to be converted: `inventory` / `character` / `clue` / `room` / `theme` /
-  `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
+  Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook` /
+  `checks` / `dice-announcer`.
+  Still throwing, to be converted: `inventory` / `character` / `room` / `messages` /
+  `theme` / `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
 - **Validation**: Validate at the action boundary — `zod` where a schema fits
   (`background.ts`, `invite.ts`), an explicit hand-written sanitizer where the rules are
   shared with another caller (`sanitizeTimelineDivider` in `lib/messaging/timeline-payload.ts`,
@@ -201,7 +222,7 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   `notebook` (all paths), `event` (hand-rolled equivalents, predates the
   shared component).
 - **Motion**: overlay enter/exit is driven by `motion` springs in
-  `src/lib/useOverlayTransition.ts` — attach its `panelRef` / `backdropRef`, and
+  `src/lib/ui/useOverlayTransition.ts` — attach its `panelRef` / `backdropRef`, and
   call `close()` (never `onClose`) so the exit plays before the parent unmounts.
   Do NOT reintroduce CSS keyframes for overlays: an earlier `linear()`-based
   version silently disabled all overlay animation on the ~13% of browsers

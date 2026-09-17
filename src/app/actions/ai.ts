@@ -2,21 +2,15 @@
 
 import { db, sqlNow } from "@/db";
 import { systemConfig } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, updateTag } from "next/cache";
-import { requireAdmin } from "@/app/admin/actions";
-import { validateApiEndpoint } from "@/lib/url-guard";
+import { requireAdmin } from "@/lib/auth/require-admin";
+import { validateApiEndpoint } from "@/lib/security/url-guard";
 
 /**
  * System Config (Admin Only)
  */
-
-export async function getSystemConfig(key: string): Promise<string | null> {
-  await requireAdmin();
-  const [config] = await db.select().from(systemConfig).where(eq(systemConfig.key, key));
-  return config?.value || null;
-}
 
 export async function updateSystemConfig(key: string, value: string) {
   await requireAdmin();
@@ -30,7 +24,7 @@ export async function updateSystemConfig(key: string, value: string) {
   });
 
   if (key === "sensitive_words" || key === "sensitive_words_enabled") {
-    const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
+    const { clearSensitiveWordsCache } = await import("@/lib/security/sensitive-words");
     clearSensitiveWordsCache();
   }
 
@@ -55,7 +49,7 @@ export async function updateSystemConfigBatch(entries: Record<string, string>) {
   });
 
   if ("sensitive_words" in entries || "sensitive_words_enabled" in entries) {
-    const { clearSensitiveWordsCache } = await import("@/lib/sensitive-words");
+    const { clearSensitiveWordsCache } = await import("@/lib/security/sensitive-words");
     clearSensitiveWordsCache();
   }
 

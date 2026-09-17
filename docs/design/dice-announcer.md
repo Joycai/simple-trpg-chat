@@ -40,7 +40,7 @@
 
 ### 2.2 骚话生成不走 `runAgent`
 
-`runAgent`（`src/lib/ai_agent.ts`）是带 5 轮工具循环、历史摘要、上下文构建、3 秒防风暴冷却的重型 agent，不适合每骰一次的高频场景。新建独立轻量模块 `src/lib/dice-announcer.ts`（§5），单次 completion、无工具、硬超时。**现有 `agentCooldowns` 冷却机制完全不动、不复用。**
+`runAgent`（`src/lib/ai/agent.ts`）是带 5 轮工具循环、历史摘要、上下文构建、3 秒防风暴冷却的重型 agent，不适合每骰一次的高频场景。新建独立轻量模块 `src/lib/ai/dice-announcer.ts`（§5），单次 completion、无工具、硬超时。**现有 `agentCooldowns` 冷却机制完全不动、不复用。**
 
 顺带说明：骰子消息不会误触发投娘 bot 的 @提及路径——`sendMessageAction` 的 bot 激活检查只对 `type === "text"` 生效，且命令分支在此之前已 return（`src/app/actions/room.ts` ~L280-330），无需额外处理。
 
@@ -66,7 +66,7 @@ diceAnnouncerBotId: integer('dice_announcer_bot_id')
 
 所有掷骰派发只有两个咽喉点，都要注入：
 
-### 4.1 `src/lib/commands.ts` → `emitCommandMessage`（~L106）
+### 4.1 `src/lib/commands/engine.ts` → `emitCommandMessage`（~L106）
 
 4 个 dice 调用点（`.r` 系 ~L262、表达式掷骰 ~L304、`runRuleCheck` 检定 ~L721、`.sc` 理智 ~L814）全部经过它。在 `emitCommandMessage` 内部对 `type === "dice"` 做注入：
 
@@ -84,7 +84,7 @@ return msg;
 
 `attachAnnouncer` 写在 `dice-announcer.ts`，模式照抄 `attachProxy`（defensive JSON parse，失败原样返回）。`announcer` 与 `proxiedBy*` 可以共存（代投 + 播报同时成立）。
 
-### 4.2 `src/app/actions/room.ts` → `rollDiceAction`（~L364）
+### 4.2 `src/app/actions/messages.ts` → `rollDiceAction`
 
 🎲 面板路径，不经过 `executeCommand`。同样调 `resolveAnnouncer` / `attachAnnouncer` / `scheduleQuip`。逻辑与 4.1 完全一致，共享 `dice-announcer.ts` 里的实现，不要复制粘贴。
 
@@ -95,9 +95,9 @@ return msg;
 - bot 自己的掷骰（`respond_check`/`roll_skill_check`/`roll_dice` 工具、投娘本人）：**跳过播报**（`resolveAnnouncer` 对 roller 是 bot 时返回 null，§5.1），避免自吹自擂。
 - `.st`、`.help` 等非 dice 消息：不受影响。
 
-## 5. 新模块 `src/lib/dice-announcer.ts`
+## 5. 新模块 `src/lib/ai/dice-announcer.ts`
 
-集中放：announcer 解析、diceDetail 打标、quip 生成（LLM + 语料池 + 熔断 + 限流）、补丁广播。**纯逻辑部分（语料池选取、熔断状态机、attachAnnouncer/mergeQuip）拆成无 DB 依赖的纯函数**，配套 vitest（`src/lib/__tests__/dice-announcer.test.ts`）。
+集中放：announcer 解析、diceDetail 打标、quip 生成（LLM + 语料池 + 熔断 + 限流）、补丁广播。**纯逻辑部分（语料池选取、熔断状态机、attachAnnouncer/mergeQuip）拆成无 DB 依赖的纯函数**，配套 vitest（`src/lib/ai/__tests__/dice-announcer.test.ts`）。
 
 ### 5.1 `resolveAnnouncer(roomId, rollerUserId)`
 
@@ -152,7 +152,7 @@ i18n 键 `messages/{zh,en}.json` → `diceAnnouncer.quips.{critical|success|fail
 quip 就绪后：
 
 1. 重读该 `messages` 行，defensive parse `diceDetail`（同 `ai_agent.ts` respond_check 的防御性重读模式，L789-796），合并 `announcer.quip`、去掉 `quipPending`，`db.update`。行已被删/parse 失败 → 静默放弃。
-2. 广播（`src/lib/events.ts` 的 `broadcastToRoom`）：
+2. 广播（`src/lib/server/events.ts` 的 `broadcastToRoom`）：
 
 ```ts
 broadcastToRoom(roomId, {
@@ -185,7 +185,7 @@ dice 气泡解析 `diceDetail` 处（~L1629 附近已解析 `proxiedByNickname`�
 
 ## 8. 设置入口
 
-### 8.1 Server action（`src/app/actions/room.ts`）
+### 8.1 Server action（`src/app/actions/dice-announcer.ts`）
 
 新增 `setDiceAnnouncerAction(roomId: number, botUserId: number | null)`：
 
@@ -221,7 +221,7 @@ dice 气泡解析 `diceDetail` 处（~L1629 附近已解析 `proxiedByNickname`�
 ## 10. 实现顺序（建议的 commit 粒度）
 
 1. schema 列 + `pnpm db:push`。
-2. `src/lib/dice-announcer.ts` 纯逻辑（attachAnnouncer/mergeQuip/熔断/限流/语料池选取）+ vitest。
+2. `src/lib/ai/dice-announcer.ts` 纯逻辑（attachAnnouncer/mergeQuip/熔断/限流/语料池选取）+ vitest。
 3. `resolveAnnouncer` + 两个注入点（`emitCommandMessage`、`rollDiceAction`），先只打标不生成 quip——此时卡片已能以投娘身份渲染（配合步骤 5 联调）。
 4. `scheduleQuip` LLM 流水线 + 写库 + `dice_quip_update` 广播。
 5. 客户端：`useRoomEvents` 分支 + `ChatMessage` 播报变体。

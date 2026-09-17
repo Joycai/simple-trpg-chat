@@ -26,7 +26,7 @@ const inputCls =
 
 /**
  * Re-group free-form code input as XXXX-XXXX-XXXX while typing. The character
- * filter mirrors INVITE_CODE_ALPHABET in src/lib/invites.ts (no 0/O 1/I/L U).
+ * filter mirrors INVITE_CODE_ALPHABET in src/lib/auth/invites.ts (no 0/O 1/I/L U).
  */
 function formatCodeInput(value: string): string {
   const raw = value.toUpperCase().replace(/[^23456789ABCDEFGHJKMNPQRSTVWXYZ]/g, "").slice(0, 12);

@@ -4,7 +4,7 @@ import { POST } from "../route";
 import { GET as GET_FILE } from "../[filename]/route";
 
 const checkRoomAccessMock = vi.fn();
-vi.mock("@/lib/auth-helpers", () => ({
+vi.mock("@/lib/auth/room-access", () => ({
   checkRoomAccess: (...args: unknown[]) => checkRoomAccessMock(...args),
 }));
 
@@ -37,8 +37,8 @@ vi.mock("fs/promises", () => ({
 
 // Stub the sharp pipeline — the real module lazy-imports the native binary,
 // which tests must never load. Everything else from the module stays real.
-vi.mock("@/lib/backgrounds", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/backgrounds")>();
+vi.mock("@/lib/media/backgrounds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/media/backgrounds")>();
   return {
     ...actual,
     compressBackgroundToWebp: vi.fn((input: Buffer) => {

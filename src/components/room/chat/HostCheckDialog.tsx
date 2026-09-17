@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { requestSkillCheckAction, psychologyHiddenRollAction, requestSanCheckAction } from "@/app/actions/room";
+import { requestSkillCheckAction, psychologyHiddenRollAction, requestSanCheckAction } from "@/app/actions/checks";
 import { useTranslations } from "next-intl";
-import { useOverlayTransition } from "@/lib/useOverlayTransition";
+import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import type { RuleCapabilities } from "@/lib/rules";

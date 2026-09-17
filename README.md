@@ -139,7 +139,7 @@ src/
 ## 📝 开发者注意事项
 
 ### ⚠️ 生产环境 SSE 单例
-因为 Next.js 在生产构建运行时会利用多个 Worker 并发处理请求，因此 `src/lib/events.ts` 中的 `EventEmitter` 必须被持久化在 `globalThis` 上以确保不同 Worker 间能够同步消息：
+因为 Next.js 在生产构建运行时会利用多个 Worker 并发处理请求，因此 `src/lib/server/events.ts` 中的 `EventEmitter` 必须被持久化在 `globalThis` 上以确保不同 Worker 间能够同步消息：
 
 ```typescript
 // 始终持久化到 globalThis 保证单例跨请求共享

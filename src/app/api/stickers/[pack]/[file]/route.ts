@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest } from "next/server";
 import fs from "fs/promises";
 import { auth } from "@/auth";
-import { resolveStickerPath, mimeForSticker } from "@/lib/stickers";
+import { resolveStickerPath, mimeForSticker } from "@/lib/media/stickers";
 
 /**
  * GET /api/stickers/[pack]/[file]

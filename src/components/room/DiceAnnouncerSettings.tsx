@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Megaphone, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { getDiceAnnouncerSettingsAction, setDiceAnnouncerAction } from "@/app/actions/room";
+import { getDiceAnnouncerSettingsAction, setDiceAnnouncerAction } from "@/app/actions/dice-announcer";
 
 interface BotOption {
   id: number;

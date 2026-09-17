@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { GET } from "../route";
-import * as eventsModule from "@/lib/events";
+import * as eventsModule from "@/lib/server/events";
 
 const { subscribeToRoom } = eventsModule;
 
@@ -18,7 +18,7 @@ vi.mock("@/auth", () => {
   };
 });
 
-vi.mock("@/lib/auth-helpers", () => {
+vi.mock("@/lib/auth/room-access", () => {
   return {
     checkRoomAccess: vi.fn((_roomId: number, _requireHost?: boolean) => {
       if (!mockSession) return Promise.reject(new Error("Not authenticated"));
@@ -31,7 +31,7 @@ vi.mock("@/lib/auth-helpers", () => {
   };
 });
 
-vi.mock("@/lib/events", () => {
+vi.mock("@/lib/server/events", () => {
   const listeners: Record<number, Array<(data: unknown) => void>> = {};
   const subscribeToRoom = vi.fn((roomId: number, listener: (data: unknown) => void) => {
     if (!listeners[roomId]) listeners[roomId] = [];

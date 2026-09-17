@@ -9,8 +9,8 @@ import {
   type ImageCacheStatsView,
   type RoomImageUsageView,
 } from "@/app/actions/image-cache";
-import type { CleanupRange } from "@/lib/image-cache";
-import { formatBytes, splitBytes } from "@/lib/format-bytes";
+import type { CleanupRange } from "@/lib/media/image-cache";
+import { formatBytes, splitBytes } from "@/lib/format/bytes";
 
 /** Bar tint tiers matching the dashboard's warm→cool gradient across rooms. */
 const BAR_TINTS = ["bg-primary", "bg-accent", "bg-warning", "bg-success", "bg-ai"];

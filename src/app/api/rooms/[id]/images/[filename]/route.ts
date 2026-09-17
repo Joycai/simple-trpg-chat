@@ -3,8 +3,8 @@ export const runtime = "nodejs";
 import { NextRequest } from "next/server";
 import fs from "fs/promises";
 import path from "path";
-import { checkRoomAccess } from "@/lib/auth-helpers";
-import { resolveChatImagePath } from "@/lib/uploads";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { resolveChatImagePath } from "@/lib/media/uploads";
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: "image/jpeg",

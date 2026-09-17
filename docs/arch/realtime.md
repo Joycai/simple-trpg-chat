@@ -11,7 +11,7 @@
 
 ## EventEmitter Hub
 
-In-process hub in `src/lib/events.ts`. No external message broker — single-process only.
+In-process hub in `src/lib/server/events.ts`. No external message broker — single-process only.
 
 **Critical**: The singleton must be persisted to `globalThis` **unconditionally**. Next.js production workers each get their own module scope; without `globalThis`, the subscriber and the publisher hold different instances and messages are silently dropped.
 

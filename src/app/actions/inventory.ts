@@ -2,15 +2,15 @@
 
 import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
-import { eq, and, not, desc, inArray, count, sql, or } from "drizzle-orm";
+import { eq, and, not, desc, inArray, count, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
-import { shareItemCore } from "@/lib/inventory-share";
+import { shareItemCore } from "@/lib/room/inventory-share";
 
 /**
  * createInventoryItemAction
@@ -469,152 +469,4 @@ export async function deleteInventoryItemAction(roomId: number, itemId: number) 
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
-}
-
-/**
- * publishClueAction - Publish a clue (make it visible to players)
- * Creates distribution records for targeted users or public (toUserId=null for all)
- */
-export async function publishClueAction(
-  roomId: number,
-  itemId: number,
-  targetUserIds?: number[]
-) {
-  const { userId: hostId } = await checkRoomAccess(roomId, true);
-
-  // Verify item exists and is a clue
-  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  if (!item) throw new Error("Item not found");
-  if (item.roomId !== roomId) throw new Error("Item room mismatch");
-  if (item.type !== 'clue') throw new Error("Item is not a clue");
-
-  const isPublic = !targetUserIds || targetUserIds.length === 0;
-  const t = await getTranslations("inventoryActions");
-
-  if (isPublic) {
-    // Check if already public
-    const [hasPublic] = await db.select().from(inventoryDistributions).where(
-      and(eq(inventoryDistributions.itemId, itemId), sql`${inventoryDistributions.toUserId} IS NULL`)
-    ).limit(1);
-
-    if (!hasPublic) {
-      await db.insert(inventoryDistributions).values({
-        roomId,
-        itemId,
-        fromUserId: hostId,
-        toUserId: null,
-        action: 'created',
-      });
-    }
-
-    // Broadcast as a public clue message.
-    await dispatchMessage({
-      roomId,
-      actorUserId: hostId,
-      nickname: "Host",
-      type: "clue",
-      audience: "everyone",
-      content: `🃏 **${item.title}**\n\n${JSON.parse(item.contentJson)?.text || item.contentJson}${item.imageUrl ? `\n\n![clue](${item.imageUrl})` : ""}`,
-      diceDetail: JSON.stringify({ itemId: item.id, type: 'clue', isPublic: true }),
-    });
-  } else {
-    // Targeted clue - filter out users who already have it
-    const existing = await db.select({ toUserId: inventoryDistributions.toUserId }).from(inventoryDistributions).where(
-      and(eq(inventoryDistributions.itemId, itemId), inArray(inventoryDistributions.toUserId, targetUserIds))
-    );
-    const existingUserIds = new Set(existing.map((e: { toUserId: number | null }) => e.toUserId).filter(Boolean));
-    const newTargetIds = targetUserIds.filter(id => !existingUserIds.has(id));
-
-    if (newTargetIds.length > 0) {
-      const rows = newTargetIds.map(uid => ({
-        roomId,
-        itemId,
-        fromUserId: hostId,
-        toUserId: uid,
-        action: 'created' as const,
-      }));
-      await db.insert(inventoryDistributions).values(rows);
-    }
-
-    // Receipt pill to each new recipient (audience: recipient — only that player
-    // sees it; the host learns about the push via the GM dispatch log below).
-    // Targeted clues no longer broadcast the full card inline — the content
-    // lives in the backpack and the pill links to it.
-    const tClueActions = await getTranslations("clueActions");
-    for (const uid of newTargetIds) {
-      await dispatchMessage({
-        roomId,
-        actorUserId: hostId,
-        nickname: "Host",
-        type: "system",
-        audience: "recipient",
-        targetUserId: uid,
-        systemKind: "inventory-receipt",
-        content: tClueActions("clueReceived", { title: item.title }),
-        diceDetail: buildReceiptPayload({
-          action: "received",
-          itemType: "clue",
-          itemTitle: item.title,
-        }),
-      });
-    }
-
-    // Host-only distribution log.
-    if (newTargetIds.length > 0) {
-      const recipients = await db.select({ name: users.displayName }).from(users).where(inArray(users.id, newTargetIds));
-      const recipientNames = recipients.map(r => r.name).join(", ");
-      await dispatchMessage({
-        roomId,
-        actorUserId: hostId,
-        nickname: "Host",
-        type: "system",
-        audience: "gm",
-        systemKind: "inventory-dispatch",
-        content: t("cluePushLog", { recipients: recipientNames || t("defaultPlayers"), title: item.title }),
-        diceDetail: buildDispatchPayload({
-          action: "push",
-          itemType: "clue",
-          itemTitle: item.title,
-          recipient: { kind: "user", name: recipientNames || t("defaultPlayers") },
-        }),
-      });
-    }
-  }
-
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true };
-}
-
-/**
- * getUnifiedInventoryAction - Get all inventory items visible to the user, including clues
- */
-export async function getUnifiedInventoryAction(roomId: number) {
-  const { userId } = await checkRoomAccess(roomId, false);
-
-  // Get inventory items from distributions
-  const distributions = await db.query.inventoryDistributions.findMany({
-    where: and(
-      eq(inventoryDistributions.roomId, roomId),
-      or(
-        sql`${inventoryDistributions.toUserId} IS NULL`, // public clues
-        eq(inventoryDistributions.toUserId, userId)       // user's items
-      )
-    ),
-    with: { item: true, sender: true },
-    orderBy: [desc(inventoryDistributions.createdAt)]
-  });
-
-  return distributions.map((d) => ({
-    id: d.item.id,
-    type: d.item.type,
-    title: d.item.title,
-    content: d.item.contentJson,
-    imageUrl: d.item.imageUrl,
-    creatorId: d.item.creatorId,
-    createdAt: d.item.createdAt,
-    distributionId: d.id,
-    fromUserId: d.fromUserId,
-    distributedAt: d.createdAt,
-    fromUsername: d.sender?.displayName || d.sender?.username
-  }));
 }

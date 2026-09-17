@@ -21,8 +21,8 @@ import {
   sweepExpiredInvites,
   getInviteConfig,
   INVITE_CODE_TTL_HOURS,
-} from "@/lib/invites";
-import { isLocked, recordFailure } from "@/lib/rate-limit";
+} from "@/lib/auth/invites";
+import { isLocked, recordFailure } from "@/lib/auth/rate-limit";
 
 // ============================================================
 // Host-side actions

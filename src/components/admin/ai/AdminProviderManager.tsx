@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { VendorSelect } from "@/components/shared/VendorSelect";
 import { ModelPicker } from "@/components/shared/ModelPicker";
-import { COMPAT_VENDOR_ID, getVendor, getVendorModelPreset } from "@/lib/provider-presets";
+import { COMPAT_VENDOR_ID, getVendor, getVendorModelPreset } from "@/lib/ai/provider-presets";
 
 export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");

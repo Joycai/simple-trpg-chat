@@ -1,10 +1,10 @@
 "use server";
 
 import { inArray } from "drizzle-orm";
-import { requireAdmin } from "@/app/admin/actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { db } from "@/db";
 import { rooms } from "@/db/schema";
-import { broadcastToRoom } from "@/lib/events";
+import { broadcastToRoom } from "@/lib/server/events";
 import {
   getImageCacheStats,
   cleanupImageCache,
@@ -13,7 +13,7 @@ import {
   type CleanupRange,
   type RoomImageUsage,
   type RoomBackgroundUsage,
-} from "@/lib/image-cache";
+} from "@/lib/media/image-cache";
 
 /** Per-room usage row enriched with the room's display name. */
 export interface RoomImageUsageView extends RoomImageUsage {

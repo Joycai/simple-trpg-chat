@@ -21,7 +21,7 @@
  *    this vocabulary in lockstep with `ChatMessage.tsx`.
  */
 
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 
 // ---------------------------------------------------------------------------
 // Check resolution

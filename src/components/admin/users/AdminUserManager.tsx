@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Key, Search, Plus, CircleDollarSign, Ticket, RotateCcw } from "lucide-react";
-import { deleteUser, toggleBanUser, resetInviteQuotaAction } from "@/app/admin/actions";
-import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
+import { deleteUser, toggleBanUser, resetInviteQuotaAction } from "@/app/actions/admin";
+import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { useRouter } from "next/navigation";
 import { CreateUserModal } from "./CreateUserModal";
 import { EditUserModal } from "./EditUserModal";

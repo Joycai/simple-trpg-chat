@@ -9,7 +9,7 @@ import {
   type NotebookLinkEntity,
   NOTE_TITLE_MAX,
   NOTE_CONTENT_MAX,
-} from "@/lib/notebook";
+} from "@/lib/room/notebook";
 import { colorMeta, type Category, type Note } from "./notebook-helpers";
 
 interface NotebookEditorProps {

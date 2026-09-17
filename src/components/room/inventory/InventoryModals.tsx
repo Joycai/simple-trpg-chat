@@ -8,7 +8,7 @@ import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { ImagePreview } from "@/components/shared/ImagePreview";
-import { getRandomColorForUser, getContrastColor } from "@/lib/avatar-colors";
+import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 import {
   formatContent, typeIcon, typeColorClass, typeActiveClass,
@@ -18,7 +18,7 @@ import {
 
 const TYPE_KEYS = ["clue", "info", "character", "item"] as const;
 
-/** Mirrors `CHAT_IMAGE_MAX_BYTES` in src/lib/uploads.ts (server enforces the same cap). */
+/** Mirrors `CHAT_IMAGE_MAX_BYTES` in src/lib/media/uploads.ts (server enforces the same cap). */
 const CHAT_IMAGE_MAX_BYTES = 1024 * 1024;
 const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 

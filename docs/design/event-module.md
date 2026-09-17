@@ -30,7 +30,7 @@
 ### 1.2 `@` 引用有两套,事件要复用「记事本那套」
 
 - **`MentionTarget`**(`src/components/room/types.ts:43`)是**聊天**的 @ 成员系统 —— 引用的是房间成员,**不是**背包条目。事件描述**不用**它。
-- **`NotebookLinkEntity`**(`src/lib/notebook.ts:29`,`{ id, type, title }`)才是记事本引用**背包条目**用的。核心解析 `segmentMentions()`(`src/lib/notebook.ts:44`):`@` 后按**标题最长前缀**匹配,匹配不到就当普通文本(自然降级)。存的是**纯标题不是 id**,所以引用的条目消失/查看者没有时会静默退化为纯文本。
+- **`NotebookLinkEntity`**(`src/lib/room/notebook.ts:29`,`{ id, type, title }`)才是记事本引用**背包条目**用的。核心解析 `segmentMentions()`(`src/lib/room/notebook.ts:44`):`@` 后按**标题最长前缀**匹配,匹配不到就当普通文本(自然降级)。存的是**纯标题不是 id**,所以引用的条目消失/查看者没有时会静默退化为纯文本。
 - `MarkdownRenderer`(`src/components/shared/MarkdownRenderer.tsx`)接受可选 `mentions={{ entities, render }}`,聊天不传、记事本传。事件描述渲染**直接复用**这条链路,无需改渲染器。
 - 让**事件本身可被记事本 `@`**(需求 7):往记事本可链接实体表里追加 `{ id, type:'event', title }`,并在 `notebook-helpers.tsx` 的 `ENTITY_META` 加一个 `event` 条目(图标/主题色)。**注意**:`NotebookLinkEntity.id` 目前被假定全表唯一(去重按 `entity.id`),事件 id 与道具 id 会撞号 —— 需改为按 `type:id` 复合键去重,否则同号的事件与道具会被当成同一实体。
 
@@ -49,11 +49,11 @@
 - **时间表达**:`src/lib/messaging/timeline-payload.ts` 就是需求 2 要复用的时间模型 —— 两条正交轴:日期轴 `mode`(第 N 日 / 日历日期 / 自由文本)+ 时段轴 `timeMode`(上午/下午/夜晚 段落,或 `HH:MM` 时钟)。可直接复用 `TimelineDividerData` 类型、`buildTimelinePayload/parseTimelinePayload`、`composeTimelineLabel(data,t,locale)`。选择器 UI 照 `TimelineDividerDialog.tsx`。
 - **主题化下拉**:顶栏已有两处**内联主题下拉**(齿轮系统菜单、AI/Bot 菜单,`RoomTopBar.tsx:283/432`),用 `relative` 容器 + 图标按钮 + 条件渲染 `absolute ... bg-surface border border-border rounded-lg shadow-xl py-1.5 overlay-pop` 菜单 + `useClickOutside`。需求 1 的「道具/事件」菜单**照此内联范式**做(比全宽表单控件 `BadgeDropdown` 更贴合小图标菜单)。
 - **顶栏按钮 & 状态接线**:玩家面板开关是 `showX/setShowX` 对,声明在 `RoomClient`,同时下发给 `RoomTopBar`(按钮)与 `RoomOverlays`(渲染面板)。新事件面板照抄这条接线。(`RoomTopBar.tsx:231-279`、`RoomClient.tsx:67-86`)
-- **SSE 广播**:`broadcastToRoom(roomId, { type, ... })`(`src/lib/events.ts`),客户端在 `useRoomEvents.ts` 按 `data.type` 加分支。`inventory_updated`(bump 一个 refreshKey 触发面板重取)是最贴切的先例。新增 type 定为 `events_updated`。
+- **SSE 广播**:`broadcastToRoom(roomId, { type, ... })`(`src/lib/server/events.ts`),客户端在 `useRoomEvents.ts` 按 `data.type` 加分支。`inventory_updated`(bump 一个 refreshKey 触发面板重取)是最贴切的先例。新增 type 定为 `events_updated`。
 
 ## 2. 数据模型
 
-> 命名避让:SSE 事件中枢在 `src/lib/events.ts`、SSE 路由在 `src/app/api/rooms/[id]/events/`。本功能领域是「叙事事件」,故库表用 `story_events` 前缀以免与 SSE 概念混淆;server action 文件 `src/app/actions/event.ts`;i18n 命名空间 `event`。
+> 命名避让:SSE 事件中枢在 `src/lib/server/events.ts`、SSE 路由在 `src/app/api/rooms/[id]/events/`。本功能领域是「叙事事件」,故库表用 `story_events` 前缀以免与 SSE 概念混淆;server action 文件 `src/app/actions/event.ts`;i18n 命名空间 `event`。
 
 ### `story_events` —— 事件母本(主持人所有)
 
@@ -128,7 +128,7 @@ canViewEvent(event, userId, isHost):
 | `reorderEventAction(roomId, eventId, op)` | host | `op` = up/down/top/bottom/`{index:n}`;重排 `sortOrder` |
 | `publishEventAction(roomId, eventId, target)` | host | `target` = `'all'` 或 `number[]`;设 status(full/partial),partial 建可见性行;首发派发公共 `event-card`;给选中者发回执 |
 | `addEventViewersAction(roomId, eventId, userIds)` | host | 仅 partial;追加可见性行 + 回执;广播刷新 |
-| `promoteEventToFullAction(roomId, eventId)` | host | partial→full;广播刷新 |
+| ~~`promoteEventToFullAction(roomId, eventId)`~~ | host | partial→full;广播刷新(UI 未接入,已移除) |
 | `retractEventAction(roomId, eventId)` | host | →unpublished;清可见性;广播刷新(前端二次确认) |
 | `getRoomEventsAction(roomId)` | host | 全部事件(含未公开)+ 每个的 status/知晓人数,按 sortOrder |
 | `getMyEventsAction(roomId)` | member | 本人可见事件(full + 自己是知晓者的 partial),含正文,按 sortOrder |
@@ -176,8 +176,8 @@ canViewEvent(event, userId, isHost):
 ## 附:关键文件索引(实现期参照)
 
 - 道具模板:`src/db/schema.ts:227-271`、`src/app/actions/inventory.ts`、`src/components/room/inventory/`
-- 记事本引用:`src/lib/notebook.ts`、`src/components/shared/MarkdownRenderer.tsx`、`src/components/room/notebook/{NotebookEditor,NotebookViewer,notebook-helpers}.tsx`
+- 记事本引用:`src/lib/room/notebook.ts`、`src/components/shared/MarkdownRenderer.tsx`、`src/components/room/notebook/{NotebookEditor,NotebookViewer,notebook-helpers}.tsx`
 - 可见性/卡片:`src/lib/messaging/audience.ts`、`src/lib/messaging/router.ts`、`src/app/api/rooms/[id]/events/route.ts`、`src/components/room/chat/ChatMessage.tsx`、`src/app/actions/clue.ts`(有限公开先例)
 - 时间:`src/lib/messaging/timeline-payload.ts`、`src/components/room/chat/TimelineDividerDialog.tsx`
-- 顶栏/菜单/SSE:`src/components/room/RoomTopBar.tsx`、`RoomClient.tsx`、`RoomOverlays.tsx`、`src/lib/events.ts`、`src/lib/useClickOutside.ts`、`src/components/room/hooks/useRoomEvents.ts`
+- 顶栏/菜单/SSE:`src/components/room/RoomTopBar.tsx`、`RoomClient.tsx`、`RoomOverlays.tsx`、`src/lib/server/events.ts`、`src/lib/ui/useClickOutside.ts`、`src/components/room/hooks/useRoomEvents.ts`
 - 图片上传:`src/app/api/rooms/[id]/images/route.ts`、`src/components/shared/ImageCropper.tsx`

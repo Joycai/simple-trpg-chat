@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { NOTEBOOK_COLORS, CATEGORY_NAME_MAX, CATEGORY_MAX_COUNT, type NotebookColor } from "@/lib/notebook";
+import { NOTEBOOK_COLORS, CATEGORY_NAME_MAX, CATEGORY_MAX_COUNT, type NotebookColor } from "@/lib/room/notebook";
 import { colorMeta, type Category } from "./notebook-helpers";
 
 export type CategoryFilter = "all" | "uncat" | number;

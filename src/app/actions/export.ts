@@ -3,10 +3,10 @@
 import { db } from "@/db";
 import { messages, roomMembers, rooms } from "@/db/schema";
 import { eq, asc, and, gt } from "drizzle-orm";
-import { checkRoomAccess } from "@/lib/auth-helpers";
+import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
 import { getRuleForRoom } from "@/lib/rules";
-import type { CharacterData } from "@/lib/character-types";
+import type { CharacterData } from "@/lib/character/types";
 
 interface ExportTimelineItem {
   time: string;
@@ -47,7 +47,7 @@ interface ExportRoomData {
 /**
  * E1: Query all room data and assemble structured export data.
  */
-export async function exportRoomDataAction(roomId: number): Promise<ExportRoomData> {
+async function loadExportData(roomId: number): Promise<ExportRoomData> {
   const { userId: hostId } = await checkRoomAccess(roomId, true);
 
   // Room info
@@ -158,9 +158,9 @@ export async function exportRoomDataAction(roomId: number): Promise<ExportRoomDa
  * Returns { markdown, json } strings.
  */
 export async function buildExportAction(roomId: number) {
-  const data = await exportRoomDataAction(roomId);
+  const data = await loadExportData(roomId);
   const t = await getTranslations("export");
-  const { formatAsMarkdown, formatAsJson } = await import("@/lib/export-formatter");
+  const { formatAsMarkdown, formatAsJson } = await import("@/lib/format/export");
   return {
     roomName: data.roomName,
     markdown: formatAsMarkdown(data, (key, vals) => t(key as Parameters<typeof t>[0], vals)),

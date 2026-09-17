@@ -6,7 +6,7 @@
  * the command spec (e.g. 外貌 = 魅力 = app, 幸运 = luk = luck).
  *
  * Pure module — no DB or server dependencies — so it can be shared by the
- * command engine (src/lib/commands.ts) and the character actions
+ * command engine (src/lib/commands/engine.ts) and the character actions
  * (src/app/actions/skills.ts).
  */
 

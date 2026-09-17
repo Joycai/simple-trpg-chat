@@ -22,14 +22,14 @@
 
 ### 1.2 需求 4 已经存在,无需开发
 
-`src/app/admin/actions.ts` 的 `updateUser(id, displayName, role)` 已允许 admin 将任意用户在 `player / host / admin` 间切换(内置 admin 有防降级锁),且会调用 `invalidateSessionCache` 让角色变更立即生效。admin 后台用户管理 UI(`AdminUserManager.tsx`)已有入口。**结论:需求 4 零改动。**
+`src/app/actions/admin.ts` 的 `updateUser(id, displayName, role)` 已允许 admin 将任意用户在 `player / host / admin` 间切换(内置 admin 有防降级锁),且会调用 `invalidateSessionCache` 让角色变更立即生效。admin 后台用户管理 UI(`AdminUserManager.tsx`)已有入口。**结论:需求 4 零改动。**
 
 ### 1.3 需求 5 核查结论:已支持,无需改动
 
-- `joinRoomAction`(`src/app/actions/room.ts:74`)**没有任何角色限制**,只校验房间密钥。host 用同一密钥即可加入他人房间。
+- `joinRoomAction`(`src/app/actions/room.ts`)**没有任何角色限制**,只校验房间密钥。host 用同一密钥即可加入他人房间。
 - 房间内的"主持人权限"不看全局 role,而看 `room.hostId === userId`:
   - 页面:`src/app/rooms/[id]/page.tsx:39` — `const isHost = room.hostId === userId`
-  - 权限助手:`src/lib/auth-helpers.ts` 的 `checkRoomAccess` 同样以 `room.hostId` 判定
+  - 权限助手:`src/lib/auth/room-access.ts` 的 `checkRoomAccess` 同样以 `room.hostId` 判定
   - SSE 隐私过滤:`/api/rooms/[id]/events/route.ts` 通过 `checkRoomAccess` 取 `isHost`,再喂给 `canSee` — host 进入他人房间时**看不到**暗骨、私聊等 KP 专属消息,与普通 player 完全一致 ✅
 - 全局 `role === 'host'` 只影响三处:创建房间、bot 预设列表、AI 工具入口 — 均不干扰"以玩家身份游玩"。
 - 唯一例外:**admin** 在 `checkRoomAccess` 中无条件返回 `isHost: true`(现有设计如此),admin 无法以纯玩家身份游玩。属既有行为,不在本次范围。
@@ -94,7 +94,7 @@ WHERE status = 'active' AND expires_at < now()
 RETURNING creator_id;
 ```
 
-再按 RETURNING 结果给对应 creator 的 `invite_quota` +1(同一事务内)。因为只有 `active → expired` 这一次状态跃迁能进入 RETURNING,并发调用也**恰好返还一次**,天然幂等。封装为 `src/lib/invites.ts` 中的 `sweepExpiredInvites(tx)`。
+再按 RETURNING 结果给对应 creator 的 `invite_quota` +1(同一事务内)。因为只有 `active → expired` 这一次状态跃迁能进入 RETURNING,并发调用也**恰好返还一次**,天然幂等。封装为 `src/lib/auth/invites.ts` 中的 `sweepExpiredInvites(tx)`。
 
 ## 3. Server Actions(新文件 `src/app/actions/invite.ts`)
 
@@ -106,8 +106,8 @@ RETURNING creator_id;
 | `listMyInviteCodesAction()` | host | sweep → 返回本人全部码及状态、使用者 displayName、过期时间 |
 | `revokeInviteCodeAction(id)` | host(本人的码) | `UPDATE ... SET status='revoked' WHERE id=? AND creator_id=? AND status='active' RETURNING`,成功则额度 +1(已确认纳入范围;也是 48h 内码泄露时的自救手段) |
 | `registerAction(formData)` | **公开(未登录)** | 见 §4 |
-| `resetInviteQuotaAction(userId)` | admin(放在 `admin/actions.ts`) | `SET invite_quota = <invite.defaultQuota>`。仅对 host 生效 |
-| `updateInviteConfigAction(enabled, defaultQuota)` | admin(放在 `admin/actions.ts`) | 写 systemConfig 两键;defaultQuota 限 0–99 整数 |
+| `resetInviteQuotaAction(userId)` | admin(放在 `actions/admin.ts`) | `SET invite_quota = <invite.defaultQuota>`。仅对 host 生效 |
+| `updateInviteConfigAction(enabled, defaultQuota)` | admin(放在 `actions/admin.ts`) | 写 systemConfig 两键;defaultQuota 限 0–99 整数 |
 
 注:admin 不参与邀请码生成(admin 已可在后台直接建号),`generateInviteCodeAction` 严格要求 `role === 'host'`。
 
@@ -185,9 +185,9 @@ db.transaction:
 | 类型 | 文件 |
 | ---- | ---- |
 | 改 | `src/db/schema.ts`(invite_codes 表 + users.inviteQuota + relations) |
-| 新 | `src/lib/invites.ts`(码生成、sweep、常量) |
+| 新 | `src/lib/auth/invites.ts`(码生成、sweep、常量) |
 | 新 | `src/app/actions/invite.ts`(4 个 action) |
-| 改 | `src/app/admin/actions.ts`(resetInviteQuotaAction、updateInviteConfigAction) |
+| 改 | `src/app/actions/admin.ts`(resetInviteQuotaAction、updateInviteConfigAction) |
 | 改 | `src/app/admin/config/` 及对应组件(注册开关 + 默认额度设置) |
 | 新 | `src/app/register/page.tsx`、`src/app/register/RegisterForm.tsx` |
 | 改 | `src/proxy.ts`、`src/auth.config.ts`(放行 /register) |

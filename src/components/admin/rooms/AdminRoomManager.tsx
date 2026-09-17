@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { deleteRoom, adminSetRoomFrozen, adminSetRoomStatus } from "@/app/admin/actions";
+import { deleteRoom, adminSetRoomFrozen, adminSetRoomStatus } from "@/app/actions/admin";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface Room {

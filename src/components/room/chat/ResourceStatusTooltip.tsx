@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { Info, Sparkles } from "lucide-react";
-import { type CharacterData } from "@/lib/character-types";
+import { type CharacterData } from "@/lib/character/types";
 import { useTranslations } from "next-intl";
 import { getRule, readStatusEntries } from "@/lib/rules";
 import { RESOURCE_ICON, DERIVED_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/character/resource-visuals";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { pushRecent } from "@/lib/roll-command";
+import { pushRecent } from "@/lib/commands/roll-command";
 
 /** Per-room localStorage key (matches the `trpg-` prefix convention in useSidebar). */
 const storageKey = (roomId: number) => `trpg-recent-rolls:${roomId}`;

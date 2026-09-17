@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { markDMReadAction, catchUpMessagesAction } from "@/app/actions/room";
+import { markDMReadAction, catchUpMessagesAction } from "@/app/actions/messages";
 import { canSee, isAudience, countsAsDmUnread } from "@/lib/messaging/audience";
 import type { Message, ConnectionStatus, TypingBots, PlayerEntry } from "@/components/room/types";
 import type { StatusEntry } from "@/lib/rules";

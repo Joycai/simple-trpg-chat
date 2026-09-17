@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { botPresets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/app/admin/actions";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { auth } from "@/auth";
 
 export async function getBotPresetsAction() {

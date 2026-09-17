@@ -27,8 +27,8 @@
  * Grades stay success/failure only — the rulebook defines no crit/fumble.
  */
 
-import { rollDie } from "@/lib/utils";
-import type { CharacterData } from "@/lib/character-types";
+import { rollDie } from "@/lib/commands/dice";
+import type { CharacterData } from "@/lib/character/types";
 import {
   SH_DEFAULT_ATTRIBUTES,
   clampShAttr,

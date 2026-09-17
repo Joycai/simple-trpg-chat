@@ -47,27 +47,6 @@ export function ThemeCornerDecor({ position }: CornerDecorProps) {
 }
 
 /**
- * Convenience wrapper — renders all four corner ornaments.
- * Bails out early (single useTheme call) when no decoration is registered,
- * so the cost for non-decorated themes is just one context read.
- */
-export function ThemeCornerDecors() {
-  const { activeTheme } = useTheme();
-  const key = THEMES[activeTheme]?.decorations?.cornerDecor;
-  if (!key) return null;
-  const Component = CORNER_DECOR_REGISTRY[key];
-  if (!Component) return null;
-  return (
-    <>
-      <Component position="tl" />
-      <Component position="tr" />
-      <Component position="bl" />
-      <Component position="br" />
-    </>
-  );
-}
-
-/**
  * Registry of login-card hero ornaments, keyed by ThemeDecorations.loginHero.
  * Each component renders an absolutely-positioned band atop the login card;
  * day/night variants are gated in the theme's own theme.css.

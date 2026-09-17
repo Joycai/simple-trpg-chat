@@ -7,7 +7,7 @@ import { Globe, ShieldAlert, Monitor, Sun, Moon, X, RotateCcw, Save, Upload, Ima
 import { updateSystemConfigBatch } from "@/app/actions/ai";
 import { setSiteTheme, setSiteThemeMode } from "@/app/actions/theme";
 import { AdminFaviconConfig } from "./AdminFaviconConfig";
-import { DEFAULT_SENSITIVE_WORD_GROUPS } from "@/lib/sensitive-words-constants";
+import { DEFAULT_SENSITIVE_WORD_GROUPS } from "@/lib/security/sensitive-words-constants";
 import { THEME_LIST, getThemeName, THEME_MODES, type ThemeId, type ThemeMode } from "@/themes/types";
 
 interface AdminConfigClientProps {
