@@ -1,5 +1,5 @@
 /**
- * Guard layer for the AI agent's tool-call dispatch (`src/lib/ai_agent.ts`).
+ * Guard layer for the AI agent's tool-call dispatch (`src/lib/ai/agent.ts`).
  *
  * `enableTools` filters which tool *definitions* are advertised to the model,
  * but a model (or a misbehaving relay) can emit any tool name it likes — so
@@ -10,9 +10,9 @@
  * correct — never an exception that kills the whole run.
  */
 
-// The dispatch chain reads loosely-typed fields off the parsed arguments
+// The tool handlers read loosely-typed fields off the parsed arguments
 // exactly as it did off JSON.parse's `any`; keeping that shape here avoids
-// retyping 13 tool branches. Every branch already validates its own fields.
+// retyping 13 tool handlers. Every handler already validates its own fields.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ParsedToolArgs = Record<string, any>;
 
