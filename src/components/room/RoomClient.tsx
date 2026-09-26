@@ -700,24 +700,14 @@ export function RoomClient({
     );
     if (result.needsSkill) return { needsSkill: true };
     if (!result.success && result.error) {
-      const errorMsg = {
-        id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
-        content: tra("commandError", { error: result.error }),
-        type: "system" as const, audience: "self" as const,
-        systemKind: "error" as const,
-        isPrivate: true, diceDetail: null,
-        createdAt: new Date().toISOString(),
-      };
-      seenIdsRef.current.add(String(errorMsg.id));
-      liveEnterRef.current.set(String(errorMsg.id), Date.now());
-      setMessages(prev => [...prev, errorMsg]);
+      pushLocalError(tra("commandError", { error: result.error }));
     } else if (result.success && !onBehalfOfUserId) {
       // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
       // (Proxy rolls deduct the proxied player's sanity, not the host's — no self refresh.)
       refreshSelfSheet();
     }
     return {};
-  }, [room.id, userId, tra, refreshSelfSheet]);
+  }, [room.id, tra, refreshSelfSheet, pushLocalError]);
 
   const handleCheckRequest = useCallback((messageId: number, skillName: string, opts?: { bonusDicePrompt?: boolean }) => {
     // Rule-specialized request (狩魂者): ask the player for their 加骰 count

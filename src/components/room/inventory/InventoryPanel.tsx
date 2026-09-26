@@ -528,7 +528,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
 
           {pending?.kind === "distributeKp" && (
             <ConfirmDialog
-              title={t("distributeKpConfirmTitle")}
+              title={t("distributeKpConfirmTitle", { host: hostLabel })}
               description={t("distributeKpConfirm", { title: pending.title, host: hostLabel })}
               confirmLabel={pending.targets === "all" ? t("distributeAll") : t("distributeConfirm", { count: pending.targets.length })}
               tone="primary"

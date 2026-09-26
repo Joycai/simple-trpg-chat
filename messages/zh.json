@@ -1144,8 +1144,8 @@
     "searchPlaceholder": "搜索道具...",
     "emptyHint": "线索与物品会在 {host} 分发后出现在这里",
     "deleteConfirmTitle": "删除道具",
-    "distributeKpConfirmTitle": "发放仅 KP 可见的情报",
-    "sharePartialFailed": "部分成员未能收到：",
+    "distributeKpConfirmTitle": "发放仅{host}可见的情报",
+    "sharePartialFailed": "以下成员未能收到：",
     "distributeFailed": "发放失败",
     "sharePartialFailedItem": "{name}：{error}"
   },
