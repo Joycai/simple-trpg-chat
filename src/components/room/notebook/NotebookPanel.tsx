@@ -28,13 +28,15 @@ import {
   type NotebookColor,
   type NotebookLinkEntity,
 } from "@/lib/room/notebook";
-import { CategoryChip, formatNoteDate, type Category, type Note } from "./notebook-helpers";
+import { CategoryChip } from "./NotebookChips";
+import type { Category, Note } from "./notebook-types";
+import { formatMonthDay } from "@/lib/format/time";
 import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryList";
 import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
 import { NotebookShareModal } from "./NotebookShareModal";
 import { DetailModal } from "@/components/room/inventory/InventoryModals";
-import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-helpers";
+import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-types";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface NotebookPanelProps {
@@ -453,7 +455,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                   )}
                   <div className="flex items-center gap-2 mt-2 text-xs">
                     <CategoryChip category={categoryOf(note.categoryId)} uncategorizedLabel={t("uncategorized")} />
-                    <span className="text-text-dim font-theme-mono">{formatNoteDate(note.updatedAt)}</span>
+                    <span className="text-text-dim font-theme-mono">{formatMonthDay(note.updatedAt)}</span>
                   </div>
                 </button>
               ))}
@@ -504,7 +506,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                   >
                     <div className="text-sm font-bold text-text truncate">{n.title}</div>
                     <div className="text-[11px] text-text-dim font-theme-mono mt-0.5">
-                      {formatNoteDate(n.updatedAt)}
+                      {formatMonthDay(n.updatedAt)}
                       {(linkCounts.get(n.id) ?? 0) > 0 && <> · {t("linksCount", { count: linkCounts.get(n.id)! })}</>}
                     </div>
                     {n.sourceName && (

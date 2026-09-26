@@ -11,10 +11,13 @@ import { ImagePreview } from "@/components/shared/ImagePreview";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 import {
-  formatContent, typeIcon, typeColorClass, typeActiveClass,
-  sourceKey, visibilityKey, relationKey, categoryKey, relationBadgeClass,
+  formatContent,
   type InventoryItem, type Distribution, type InventoryPlayer, type InventoryItemType, type ContentFields, type ItemMeta,
-} from "./inventory-helpers";
+} from "./inventory-types";
+import {
+  typeIcon, typeColorClass, typeActiveClass,
+  sourceKey, visibilityKey, relationKey, categoryKey, relationBadgeClass,
+} from "./inventory-styles";
 
 const TYPE_KEYS = ["clue", "info", "character", "item"] as const;
 

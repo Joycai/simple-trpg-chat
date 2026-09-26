@@ -2,7 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { formatContent, typeIcon, typeColorClass, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-helpers";
+import { formatContent, type InventoryItem, type Distribution, type InventoryItemType } from "./inventory-types";
+import { typeIcon, typeColorClass } from "./inventory-styles";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface ManageViewProps {

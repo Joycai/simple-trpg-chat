@@ -31,7 +31,7 @@ const DISPATCH_ACTION_ICON: Record<DispatchAction, typeof Icons.Send> = {
   duplicate: Icons.AlertTriangle,
 };
 
-/** Item type → chip icon (mirrors src/components/room/inventory/inventory-helpers.ts). */
+/** Item type → chip icon (mirrors src/components/room/inventory/inventory-styles.ts). */
 const DISPATCH_ITEM_ICON: Record<DispatchItemType, typeof Icons.Box> = {
   item: Icons.Box,
   clue: Icons.Search,

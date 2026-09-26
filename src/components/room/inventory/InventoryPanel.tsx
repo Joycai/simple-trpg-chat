@@ -11,8 +11,8 @@ import { BackpackView } from "./BackpackView";
 import { CreateEditModal, DistributeModal, DetailModal, ShareModal } from "./InventoryModals";
 import { Icons } from "@/components/shared/icons";
 import { useHostLabel } from "@/components/shared/host-label";
-import type { InventoryItem, Distribution, ContentFields, InventoryItemType, ItemMeta } from "./inventory-helpers";
-import { DEFAULT_ITEM_META } from "./inventory-helpers";
+import type { InventoryItem, Distribution, ContentFields, InventoryItemType, ItemMeta } from "./inventory-types";
+import { DEFAULT_ITEM_META } from "./inventory-types";
 
 interface InventoryPanelProps {
   roomId: number;

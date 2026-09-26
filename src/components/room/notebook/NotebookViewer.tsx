@@ -6,7 +6,9 @@ import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { useClickOutside } from "@/lib/ui/useClickOutside";
 import { extractMentions, type NotebookLinkEntity } from "@/lib/room/notebook";
-import { CategoryChip, MentionChip, formatNoteDateTime, type Category, type Note } from "./notebook-helpers";
+import { CategoryChip, MentionChip } from "./NotebookChips";
+import type { Category, Note } from "./notebook-types";
+import { formatMonthDayTime } from "@/lib/format/time";
 
 interface NotebookViewerProps {
   note: Note;
@@ -92,7 +94,7 @@ export function NotebookViewer({ note, category, entities, readOnly, onEdit, onD
               {t("receivedFrom", { name: note.sourceName })}
             </span>
           )}
-          <span className="font-theme-mono">{formatNoteDateTime(note.updatedAt)} {t("edited")}</span>
+          <span className="font-theme-mono">{formatMonthDayTime(note.updatedAt)} {t("edited")}</span>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import { OverlayShell } from "@/components/shared/OverlayShell";
 import { LoadFailed } from "@/components/shared/LoadFailed";
 import { markEventsViewedAction, type EventView } from "@/app/actions/event";
 import { useEventData } from "./EventDataContext";
-import { EventTimeLabel, EventBodyPreview } from "./event-helpers";
+import { EventTimeLabel, EventBodyPreview } from "./EventBadges";
 
 interface EventPanelProps {
   roomId: number;

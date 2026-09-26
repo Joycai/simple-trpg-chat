@@ -6,10 +6,12 @@ import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ImagePreview } from "@/components/shared/ImagePreview";
-import { MentionChip } from "@/components/room/notebook/notebook-helpers";
+import { MentionChip } from "@/components/room/notebook/NotebookChips";
 import { getEventForViewerAction, markEventViewedAction, retractEventAction, type EventView } from "@/app/actions/event";
 import { useEventData } from "./EventDataContext";
-import { EventTimeLabel, useRoomCatalogEntities, type EventPlayer } from "./event-helpers";
+import { EventTimeLabel } from "./EventBadges";
+import type { EventPlayer } from "./event-types";
+import { useRoomCatalogEntities } from "@/components/room/hooks/useRoomCatalogEntities";
 import { EventEditor } from "./EventEditor";
 import { EventPublishDialog } from "./EventPublishDialog";
 

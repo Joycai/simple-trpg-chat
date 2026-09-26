@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { LayoutGrid, Package, Search, Share2 } from "lucide-react";
+import type { InventoryItem, Distribution, InventoryItemType, BackpackFilter } from "./inventory-types";
 import {
-  isUpdated, isNew, typeIcon, typeOverlayClass, typeChipClass, typeColorClass,
-  filterActiveClass, filterBarClass, formatDistTime,
-  type InventoryItem, type Distribution, type InventoryItemType, type BackpackFilter,
-} from "./inventory-helpers";
+  typeIcon, typeOverlayClass, typeChipClass, typeColorClass, filterActiveClass, filterBarClass,
+} from "./inventory-styles";
+import { isUpdated, isNew } from "./inventory-predicates";
+import { formatClockTime } from "@/lib/format/time";
 import { useHostLabel } from "@/components/shared/host-label";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
@@ -171,7 +172,7 @@ export function BackpackView({ items, filterType, onFilterChange, userId, onSele
                       <span className="flex items-center gap-1.5 text-xs min-w-0">
                         <span className={`font-medium ${typeColorClass[type]}`}>{typeTabLabel(type)}</span>
                         <span className="text-text-dim">·</span>
-                        <span className="text-text-dim font-theme-mono">{formatDistTime(d.createdAt)}</span>
+                        <span className="text-text-dim font-theme-mono">{formatClockTime(d.createdAt)}</span>
                       </span>
                     </div>
 

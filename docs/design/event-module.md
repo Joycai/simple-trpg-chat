@@ -32,7 +32,7 @@
 - **`MentionTarget`**(`src/components/room/types.ts:43`)是**聊天**的 @ 成员系统 —— 引用的是房间成员,**不是**背包条目。事件描述**不用**它。
 - **`NotebookLinkEntity`**(`src/lib/room/notebook.ts:29`,`{ id, type, title }`)才是记事本引用**背包条目**用的。核心解析 `segmentMentions()`(`src/lib/room/notebook.ts:44`):`@` 后按**标题最长前缀**匹配,匹配不到就当普通文本(自然降级)。存的是**纯标题不是 id**,所以引用的条目消失/查看者没有时会静默退化为纯文本。
 - `MarkdownRenderer`(`src/components/shared/MarkdownRenderer.tsx`)接受可选 `mentions={{ entities, render }}`,聊天不传、记事本传。事件描述渲染**直接复用**这条链路,无需改渲染器。
-- 让**事件本身可被记事本 `@`**(需求 7):往记事本可链接实体表里追加 `{ id, type:'event', title }`,并在 `notebook-helpers.tsx` 的 `ENTITY_META` 加一个 `event` 条目(图标/主题色)。**注意**:`NotebookLinkEntity.id` 目前被假定全表唯一(去重按 `entity.id`),事件 id 与道具 id 会撞号 —— 需改为按 `type:id` 复合键去重,否则同号的事件与道具会被当成同一实体。
+- 让**事件本身可被记事本 `@`**(需求 7):往记事本可链接实体表里追加 `{ id, type:'event', title }`,并在 `notebook-styles.ts` 的 `ENTITY_META` 加一个 `event` 条目(图标/主题色)。**注意**:`NotebookLinkEntity.id` 目前被假定全表唯一(去重按 `entity.id`),事件 id 与道具 id 会撞号 —— 需改为按 `type:id` 复合键去重,否则同号的事件与道具会被当成同一实体。
 
 ### 1.3 「未选中玩家看到锁定卡片」是全新可见性形态
 
@@ -176,7 +176,7 @@ canViewEvent(event, userId, isHost):
 ## 附:关键文件索引(实现期参照)
 
 - 道具模板:`src/db/schema.ts:227-271`、`src/app/actions/inventory.ts`、`src/components/room/inventory/`
-- 记事本引用:`src/lib/room/notebook.ts`、`src/components/shared/MarkdownRenderer.tsx`、`src/components/room/notebook/{NotebookEditor,NotebookViewer,notebook-helpers}.tsx`
+- 记事本引用:`src/lib/room/notebook.ts`、`src/components/shared/MarkdownRenderer.tsx`、`src/components/room/notebook/{NotebookEditor,NotebookViewer,NotebookChips}.tsx`、`notebook-styles.ts`
 - 可见性/卡片:`src/lib/messaging/audience.ts`、`src/lib/messaging/router.ts`、`src/app/api/rooms/[id]/events/route.ts`、`src/components/room/chat/ChatMessage.tsx`
 - 时间:`src/lib/messaging/timeline-payload.ts`、`src/components/room/chat/TimelineDividerDialog.tsx`
 - 顶栏/菜单/SSE:`src/components/room/RoomTopBar.tsx`、`RoomClient.tsx`、`RoomOverlays.tsx`、`src/lib/server/events.ts`、`src/lib/ui/useClickOutside.ts`、`src/components/room/hooks/useRoomEvents.ts`

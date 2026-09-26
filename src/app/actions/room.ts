@@ -33,6 +33,9 @@ export async function createRoomAction(formData: FormData) {
     const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
     if (!name || !name.trim()) return { success: false, error: "Room name is required" };
+    if (name.trim().length > ROOM_NAME_MAX_LENGTH) {
+      return { success: false, error: `Room name must be between 1 and ${ROOM_NAME_MAX_LENGTH} characters` };
+    }
 
     // Use custom key if provided, otherwise generate one
     const secretKey = (customKey && customKey.trim())

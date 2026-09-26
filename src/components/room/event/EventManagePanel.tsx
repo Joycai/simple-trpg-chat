@@ -15,7 +15,9 @@ import {
 } from "@/app/actions/event";
 import { EventEditor } from "./EventEditor";
 import { EventPublishDialog } from "./EventPublishDialog";
-import { StatusBadge, EventTimeLabel, EventBodyPreview, useRoomCatalogEntities, type EventPlayer } from "./event-helpers";
+import { StatusBadge, EventTimeLabel, EventBodyPreview } from "./EventBadges";
+import type { EventPlayer } from "./event-types";
+import { useRoomCatalogEntities } from "@/components/room/hooks/useRoomCatalogEntities";
 
 interface ManagedEvent {
   id: number;
