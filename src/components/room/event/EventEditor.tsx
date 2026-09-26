@@ -70,9 +70,16 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   // Every user close path (×, cancel, Escape, backdrop) asks first when there
   // is unsaved work. Holds the animated `close` to run once the user agrees.
   const [confirmDiscard, setConfirmDiscard] = useState<(() => void) | null>(null);
+  // Set once a close is underway: the exit animation takes ~220ms, and an
+  // Escape or backdrop click in that window must not ask again.
+  const closing = useRef(false);
   const requestClose = (close: () => void) => {
-    if (dirty) setConfirmDiscard(() => close);
-    else close();
+    // A save in flight will close the editor itself; closing now would
+    // discard images the save is about to reference.
+    if (closing.current || saving) return;
+    if (dirty) { setConfirmDiscard(() => close); return; }
+    closing.current = true;
+    close();
   };
 
   /** Runs after the exit animation, once closing is settled. */
@@ -297,7 +304,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               description={t("discardConfirm")}
               confirmLabel={t("discardAction")}
               icon={<Icons.Undo2 className="w-5 h-5" />}
-              onConfirm={() => { setConfirmDiscard(null); confirmDiscard(); }}
+              onConfirm={() => { setConfirmDiscard(null); closing.current = true; confirmDiscard(); }}
               onCancel={() => setConfirmDiscard(null)}
             />
           )}

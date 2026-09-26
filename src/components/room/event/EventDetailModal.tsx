@@ -200,7 +200,7 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
                     <Icons.Users className="w-4 h-4" /> {t("viewers")}
                   </button>
                   <button
-                    onClick={() => setConfirmRetract(true)}
+                    onClick={() => { setRetractError(null); setConfirmRetract(true); }}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-theme border border-danger/50 text-danger text-sm font-bold hover:bg-danger/10 transition cursor-pointer"
                   >
                     <Icons.Undo2 className="w-4 h-4" /> {t("retractPublic")}
