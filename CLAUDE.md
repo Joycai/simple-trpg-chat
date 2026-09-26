@@ -247,8 +247,9 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   from inside a drawer). Notifications use `components/shared/Notice.tsx` as an
   inline strip — pass `onDismiss` for a close button. No native dialog is left
   in `src/components` or `src/app`. New modals are built on `OverlayShell` (pass
-  `portal` when opened from inside a drawer), not a hand-rolled fixed div — the
-  inventory and notebook modals were the last ones. `layerClassName` sets the
+  `portal` when opened from inside a drawer), not a hand-rolled fixed div (the
+  inventory and notebook modals have moved over; the login license modal and
+  the full-screen `ImagePreview` are still hand-rolled). `layerClassName` sets the
   stacking layer (the inventory modals sit at `z-[60]` / `z-[70]`; a confirm
   above them uses `z-[80]`) and `scrimClassName` the backdrop tint. Close from
   inside through the render-prop `close()`, including after a successful
