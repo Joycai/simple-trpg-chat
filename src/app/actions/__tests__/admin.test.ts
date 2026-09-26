@@ -11,9 +11,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const cleanupRoomBackgrounds = vi.fn(() => Promise.resolve());
 vi.mock("@/lib/media/image-cache", () => ({ cleanupRoomBackgrounds: () => cleanupRoomBackgrounds() }));
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(() => Promise.resolve("hash")) } }));
-// Echo the key so assertions name the message, not its wording.
+// Echo the key (and any params) so assertions name the message, not its wording.
 vi.mock("next-intl/server", () => ({
-  getTranslations: vi.fn(async (ns: string) => (key: string) => `${ns}.${key}`),
+  getTranslations: vi.fn(async (ns: string) => (key: string, params?: Record<string, unknown>) =>
+    params ? `${ns}.${key}:${JSON.stringify(params)}` : `${ns}.${key}`),
 }));
 
 /** Rows each successive `db.select()` resolves to, in call order. */
@@ -26,8 +27,9 @@ function chain(rows: () => unknown) {
   return c;
 }
 const update = vi.fn(() => chain(() => []));
+const insert = vi.fn(() => chain(() => []));
 const transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
-  fn({ select: () => chain(() => selectQueue.shift() ?? []), update, insert: () => chain(() => []) }));
+  fn({ select: () => chain(() => selectQueue.shift() ?? []), update, insert }));
 vi.mock("@/db", () => ({
   db: {
     select: () => chain(() => selectQueue.shift() ?? []),
@@ -41,7 +43,7 @@ import {
   toggleBanUser, createUser, updateUser, updateUserAiPoints, deleteUser,
   deleteRoom, adminSetRoomStatus,
 } from "../admin";
-import { USERNAME_MAX_LENGTH } from "@/lib/auth/user-limits";
+import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 
 function form(fields: Record<string, string>) {
   const fd = new FormData();
@@ -87,13 +89,13 @@ describe("createUser", () => {
 
   it("rejects an over-long username", async () => {
     const res = await createUser(form({ username: "a".repeat(USERNAME_MAX_LENGTH + 1), password: "pw", role: "player" }));
-    expect(res).toEqual({ success: false, error: "admin.errorFieldTooLong" });
+    expect(res).toEqual({ success: false, error: `admin.errorFieldTooLong:{"max":${USERNAME_MAX_LENGTH}}` });
     expect(transaction).not.toHaveBeenCalled();
   });
 
   it("rejects an over-long display name", async () => {
-    const res = await createUser(form({ username: "bob", displayName: "n".repeat(51), password: "pw", role: "player" }));
-    expect(res).toEqual({ success: false, error: "admin.errorFieldTooLong" });
+    const res = await createUser(form({ username: "bob", displayName: "n".repeat(DISPLAY_NAME_MAX_LENGTH + 1), password: "pw", role: "player" }));
+    expect(res).toEqual({ success: false, error: `admin.errorFieldTooLong:{"max":${DISPLAY_NAME_MAX_LENGTH}}` });
   });
 
   it("reports a taken username from the register namespace", async () => {
@@ -105,7 +107,8 @@ describe("createUser", () => {
 
 describe("updateUser", () => {
   it("rejects an over-long display name", async () => {
-    expect(await updateUser(2, "n".repeat(51), "player")).toEqual({ success: false, error: "admin.errorFieldTooLong" });
+    expect(await updateUser(2, "n".repeat(DISPLAY_NAME_MAX_LENGTH + 1), "player"))
+      .toEqual({ success: false, error: `admin.errorFieldTooLong:{"max":${DISPLAY_NAME_MAX_LENGTH}}` });
   });
 
   it("refuses to demote the default admin", async () => {
@@ -117,7 +120,7 @@ describe("updateUser", () => {
 describe("deleteUser", () => {
   it("refuses while the user still hosts rooms", async () => {
     selectQueue = [[{ id: 10 }, { id: 11 }]];
-    expect(await deleteUser(3)).toEqual({ success: false, error: "admin.deleteUserHostsRooms" });
+    expect(await deleteUser(3)).toEqual({ success: false, error: 'admin.deleteUserHostsRooms:{"count":2}' });
   });
 });
 
@@ -138,12 +141,21 @@ describe("updateUserAiPoints", () => {
     selectQueue = [[{ role: "player" }], []];
     expect(await updateUserAiPoints(2, 50)).toEqual({ success: false, error: "admin.errorUserNotFound" });
     expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing if the target became an admin before the lock", async () => {
+    selectQueue = [[{ role: "player" }], [{ id: 2, role: "admin", aiPoints: 0 }]];
+    expect(await updateUserAiPoints(2, 50)).toEqual({ success: false, error: "admin.errorCannotModifyAdminPoints" });
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("adjusts an ordinary user's points", async () => {
     selectQueue = [[{ role: "player" }], [{ id: 2, role: "player", aiPoints: 10 }]];
     expect(await updateUserAiPoints(2, 50)).toEqual({ success: true });
     expect(update).toHaveBeenCalledTimes(1);
+    expect(insert).toHaveBeenCalledTimes(1);
   });
 });
 

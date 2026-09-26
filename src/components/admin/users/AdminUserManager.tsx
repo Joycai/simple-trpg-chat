@@ -47,7 +47,9 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
   const [showChangePwd, setShowChangePwd] = useState(false);
 
   const [pending, setPending] = useState<Pending | null>(null);
-  const [pendingBusy, setPendingBusy] = useState(false);
+  /** The pending action whose request is in flight — the dialog can still be
+   *  cancelled meanwhile, so busy and clean-up are keyed to this object. */
+  const [running, setRunning] = useState<Pending | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const counts = useMemo(() => ({
@@ -88,15 +90,17 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
 
   const runPending = async () => {
     if (!pending) return;
-    setPendingBusy(true);
-    const { kind, user } = pending;
+    const current = pending;
+    setRunning(current);
+    const { kind, user } = current;
     const res = await (
       kind === "delete" ? deleteUser(user.id)
       : kind === "resetQuota" ? resetInviteQuotaAction(user.id)
       : toggleBanUser(user.id)
     ).catch(() => ({ success: false as const, error: t("operationFailed") }));
-    setPendingBusy(false);
-    setPending(null);
+    setRunning(null);
+    // Only close the dialog this request came from, not one opened after a cancel.
+    setPending((p) => (p === current ? null : p));
     if (!res.success) {
       setNotice(res.error);
       return;
@@ -370,7 +374,7 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
             description={copy.description}
             confirmLabel={copy.confirmLabel}
             tone={copy.tone}
-            busy={pendingBusy}
+            busy={running === pending}
             onConfirm={runPending}
             onCancel={() => setPending(null)}
           />

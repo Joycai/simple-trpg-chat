@@ -47,7 +47,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const [editError, setEditError] = useState("");
   /** Preset waiting on the delete confirmation. */
   const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  /** The pending delete whose request is in flight (the dialog stays cancellable). */
+  const [deleting, setDeleting] = useState<{ id: number; name: string } | null>(null);
 
   const handleCreate = async (e: React.FormEvent, close: () => void) => {
     e.preventDefault();
@@ -106,12 +107,14 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   // that modal's error slot, which stays open.
   const runDelete = async () => {
     if (!pendingDelete) return;
-    const { id } = pendingDelete;
-    setDeleting(true);
+    const current = pendingDelete;
+    const { id } = current;
+    setDeleting(current);
     const res = await deleteBotPresetAction(id)
       .catch(() => ({ success: false as const, error: t("operationFailed") }));
-    setDeleting(false);
-    setPendingDelete(null);
+    setDeleting(null);
+    // Only close the dialog this request came from, not one opened after a cancel.
+    setPendingDelete((p) => (p === current ? null : p));
     if (!res.success) {
       setEditError(res.error);
       return;
@@ -315,7 +318,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
           title={t("confirmDeletePresetTitle")}
           description={t("confirmDeletePreset", { name: pendingDelete.name })}
           confirmLabel={t("delete")}
-          busy={deleting}
+          busy={deleting === pendingDelete}
           onConfirm={runDelete}
           onCancel={() => setPendingDelete(null)}
         />
