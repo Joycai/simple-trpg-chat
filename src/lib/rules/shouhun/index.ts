@@ -352,14 +352,17 @@ export const shouhunRule: RuleModule = {
       : undefined;
     const dcPart = dc !== undefined ? ` ${dc}` : "";
 
+    const name = input.name.trim().slice(0, 50);
+
     // `+x[±y]` — 时髦骰 without 加骰 needs the explicit `+0` (a lone positive
-    // group always reads as x); a lone negative group is 时髦骰 by itself.
+    // group always reads as x). A lone negative group is 时髦骰 by itself, but
+    // only the nameless form may use it: after a name ending in a signed number
+    // (`力量+5`), `-1` would join the name's digits as a second group, so a
+    // named check keeps the `+0`.
     let group = "";
     if (x > 0 || y > 0) group = `+${x}`;
     if (y > 0) group += `+${y}`;
-    else if (y < 0) group = x > 0 ? `+${x}${y}` : `${y}`;
-
-    const name = input.name.trim().slice(0, 50);
+    else if (y < 0) group = x > 0 || name ? `+${x}${y}` : `${y}`;
     const preview =
       `1d20${x > 0 ? `+${x}d4` : ""}${y > 0 ? `+${y}d6` : y < 0 ? `-${-y}d6` : ""} ≥ ${dc ?? 10}`;
 

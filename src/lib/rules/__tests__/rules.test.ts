@@ -2115,6 +2115,8 @@ describe("quickCheckPanel ⇔ buildCheckCommand", () => {
     // 时髦骰为正、加投为 0:必须显式 +0(孤立正组会被读成加投)
     expect(shouhunRule.buildCheckCommand!({ name: "", styleDice: 2, hidden: false })!.command).toBe(".r+0+2");
     expect(shouhunRule.buildCheckCommand!({ name: "", styleDice: -2, hidden: false })!.command).toBe(".r-2");
+    // 具名 + 时髦骰为负、加投为 0:也补 +0,否则名称末尾的 +n/-n 会被并入骰组
+    expect(shouhunRule.buildCheckCommand!({ name: "侦查", styleDice: -2, hidden: false })!.command).toBe(".rc 侦查+0-2");
   });
 
   it("shouhun:无名 + 暗骰不可表达 → null(面板据此禁用按钮)", () => {
