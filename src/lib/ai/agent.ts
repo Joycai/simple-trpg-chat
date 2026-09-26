@@ -231,38 +231,56 @@ const AGENT_COOLDOWN_MS = 3000;
  */
 const MAX_AGENT_ITERATIONS = 5;
 
-/**
- * runAgent
- * Orchestrates the LLM call and Tool execution.
- */
-export async function runAgent(
-  botUserId: number,
-  roomId: number,
-  triggeringInfo?: {
-    triggeringUserId: number;
-    isPrivate: boolean;
-    /**
-     * Explicit host acts (check requests, the manual trigger button) must not
-     * be silently dropped by the anti-storm cooldown — a host who mentions the
-     * bot and issues a check within 3s would otherwise never get a response.
-     * The cooldown timestamp is still recorded so the mention/DM path stays
-     * throttled.
-     */
-    bypassCooldown?: boolean;
-  }
-) {
+/** How a run was triggered; absent for the host's manual trigger, which infers the channel. */
+interface AgentTrigger {
+  triggeringUserId: number;
+  isPrivate: boolean;
+  /**
+   * Explicit host acts (check requests, the manual trigger button) must not
+   * be silently dropped by the anti-storm cooldown — a host who mentions the
+   * bot and issues a check within 3s would otherwise never get a response.
+   * The cooldown timestamp is still recorded so the mention/DM path stays
+   * throttled.
+   */
+  bypassCooldown?: boolean;
+}
+
+type AgentChatMessage = { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown };
+
+/** Where the bot's replies and typing indicator go for this run. */
+interface AgentReplyTarget {
+  roomId: number;
+  botUserId: number;
+  botNickname: string;
+  replyIsPrivate: boolean;
+  targetUserId: number | null;
+}
+
+/** Token counts summed across the loop's completions; billed once in runAgent's finally. */
+interface TokenTally {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+}
+
+/** Anti-storm gate: false when the bot ran inside the cooldown window and the trigger doesn't bypass it. */
+function checkAndConsumeCooldown(botUserId: number, bypassCooldown?: boolean): boolean {
   const now = Date.now();
   // Prune stale cooldown entries to prevent the map from growing indefinitely
   for (const [id, ts] of agentCooldowns) {
     if (now - ts > AGENT_COOLDOWN_MS) agentCooldowns.delete(id);
   }
   const lastRun = agentCooldowns.get(botUserId) || 0;
-  if (!triggeringInfo?.bypassCooldown && now - lastRun < AGENT_COOLDOWN_MS) {
+  if (!bypassCooldown && now - lastRun < AGENT_COOLDOWN_MS) {
     console.log(`[RateLimit] Bot ${botUserId} skipped due to 3s cooldown`);
-    return;
+    return false;
   }
   agentCooldowns.set(botUserId, now);
+  return true;
+}
 
+/** Load the room, the bot's user row and its membership; null when the room or bot is gone. */
+async function loadAgentRunContext(roomId: number, botUserId: number) {
   // Retrieve room, botUser, and roomMember records in parallel
   const [roomResult, botUserResult, memberResult] = await Promise.all([
     db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1),
@@ -274,32 +292,40 @@ export async function runAgent(
   const botUser = botUserResult[0];
   const member = memberResult[0];
 
-  if (!room || !botUser) return;
+  if (!room || !botUser) return null;
+  return { room, botUser, member };
+}
 
-  // 1. Verify global AI switch
+async function isAiGloballyEnabled(botUserId: number): Promise<boolean> {
   const [globalAiConfig] = await db.select().from(systemConfig).where(eq(systemConfig.key, "ai_enabled"));
   if (globalAiConfig?.value !== "true") {
     console.log(`[runAgent] Bot ${botUserId} skipped because AI features are globally disabled`);
-    return;
+    return false;
   }
+  return true;
+}
 
-  const botCfg = parseBotConfig(botUser.botConfigJson);
-
+/**
+ * Resolve the bot's AI provider and its decrypted key, or null (after logging
+ * why) when the run can't use it: none configured, missing, not the host's
+ * and not shared, shared but the host is out of points, or undecryptable.
+ */
+async function resolveAgentProvider(botUserId: number, room: typeof rooms.$inferSelect, botCfg: BotConfig) {
   if (!botCfg.providerId) {
     console.error(`[runAgent] Bot ${botUserId} has no AI Provider configured`);
-    return;
+    return null;
   }
 
   const [aiConfig] = await db.select().from(aiProviders).where(eq(aiProviders.id, botCfg.providerId));
   if (!aiConfig) {
     console.error(`[runAgent] Configured AI Provider (ID: ${botCfg.providerId}) not found for bot ${botUserId}`);
-    return;
+    return null;
   }
 
   // 2. Verify that provider is owned by the room's host or is shared globally
   if (aiConfig.ownerId !== room.hostId && !aiConfig.isShared) {
     console.error(`[runAgent] AI Provider (ID: ${botCfg.providerId}) is neither owned by room host ${room.hostId} nor shared globally.`);
-    return;
+    return null;
   }
 
   // 3. Verify quota for shared provider
@@ -307,7 +333,7 @@ export async function runAgent(
     const [hostUser] = await db.select().from(users).where(eq(users.id, room.hostId)).limit(1);
     if (hostUser && hostUser.role !== "admin" && Number(hostUser.aiPoints || 0) <= 0) {
       console.log(`[runAgent] Host ${room.hostId} quota exhausted for shared provider. Skipping bot run.`);
-      return;
+      return null;
     }
   }
 
@@ -316,29 +342,21 @@ export async function runAgent(
     apiKey = decrypt(aiConfig.apiKeyEncrypted);
   } catch {
     console.error(`[runAgent] Provider API key cannot be decrypted (key mismatch) — delete and re-create the provider.`);
-    return;
+    return null;
   }
-  const endpoint = aiConfig.apiEndpoint;
+  return { aiConfig, apiKey, endpoint: aiConfig.apiEndpoint };
+}
 
-  const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
-  const enabledTools: string[] = botCfg.enableTools || ["roll_dice", "respond_check"];
-
-
-  const allTools = buildAgentToolDefinitions(roomId);
-  // Filter to only the tools enabled for this bot. Note: free-text replies are
-  // broadcast directly from the model's message content (R3), so there is no
-  // "send_message" tool — a bot can always talk without one being enabled.
-  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
-  // The same whitelist is enforced again at execution time (resolveToolCall):
-  // filtering the advertised definitions does not stop a model from emitting
-  // a disabled or invented tool name.
-  const knownToolNames = allTools.map(t => t.function.name);
-
-  const currentContext: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [...context];
-  let iterations = 0;
-
-  const botNickname = member?.nickname || botUser?.displayName || "AI";
-
+/**
+ * Pick the reply channel. A trigger names it; otherwise infer from recent
+ * history whether the bot is in a DM and with whom. Falls back to the host.
+ */
+async function resolveReplyTarget(
+  roomId: number,
+  botUserId: number,
+  hostId: number,
+  triggeringInfo?: AgentTrigger
+): Promise<{ replyIsPrivate: boolean; targetUserId: number | null }> {
   // Check if the triggering context was private and identify the target user
   let replyIsPrivate = false;
   let targetUserId: number | null = null;
@@ -386,13 +404,18 @@ export async function runAgent(
   }
 
   if (!targetUserId) {
-    targetUserId = room.hostId;
+    targetUserId = hostId;
   }
+  return { replyIsPrivate, targetUserId };
+}
 
-  // Single envelope for everything the bot says in chat (free-text replies,
-  // error/truncation notices). `lock` prefixes 🔒 in DMs — used by notices;
-  // free-text replies render unprefixed, matching player messages.
-  const sayAsBot = (content: string, opts?: { lock?: boolean }) =>
+/**
+ * Single envelope for everything the bot says in chat (free-text replies,
+ * error/truncation notices). `lock` prefixes 🔒 in DMs — used by notices;
+ * free-text replies render unprefixed, matching player messages.
+ */
+function makeSayAsBot({ roomId, botUserId, botNickname, replyIsPrivate, targetUserId }: AgentReplyTarget) {
+  return (content: string, opts?: { lock?: boolean }) =>
     dispatchMessage({
       roomId,
       actorUserId: botUserId,
@@ -402,225 +425,284 @@ export async function runAgent(
       targetUserId: replyIsPrivate ? targetUserId : null,
       content: replyIsPrivate && opts?.lock ? `🔒 ${content}` : content,
     });
+}
 
-  const typingStartEvent = {
+/** Start or stop the bot's typing indicator in the reply channel. */
+function emitAgentTyping({ roomId, botUserId, botNickname, replyIsPrivate, targetUserId }: AgentReplyTarget, hostId: number, typing: boolean) {
+  const typingEvent = {
     type: "typing",
     botUserId,
     nickname: botNickname,
-    typing: true,
+    typing,
     isPrivate: replyIsPrivate,
     targetUserId: targetUserId,
     userId: botUserId
   };
   // Use targeted emit for private replies so other room members don't see the typing indicator
   if (replyIsPrivate && targetUserId) {
-    emitToUser(roomId, targetUserId, typingStartEvent);
-    if (targetUserId !== room.hostId) emitToUser(roomId, room.hostId, typingStartEvent);
+    emitToUser(roomId, targetUserId, typingEvent);
+    if (targetUserId !== hostId) emitToUser(roomId, hostId, typingEvent);
   } else {
-    broadcastToRoom(roomId, typingStartEvent);
+    broadcastToRoom(roomId, typingEvent);
   }
+}
+
+/**
+ * The model↔tool loop. Appends to `currentContext` and adds each completion's
+ * usage to `tokens` in place, so runAgent's finally bills whatever was spent
+ * even if this throws partway.
+ */
+async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, endpoint, apiKey, tokens }: {
+  model: string;
+  tools: ReturnType<typeof buildAgentToolDefinitions>;
+  enabledTools: string[];
+  knownToolNames: string[];
+  currentContext: AgentChatMessage[];
+  toolCtx: AgentToolContext;
+  sayAsBot: ReturnType<typeof makeSayAsBot>;
+  endpoint: string;
+  apiKey: string;
+  tokens: TokenTally;
+}) {
+  const { botUserId, botNickname } = toolCtx;
+  let iterations = 0;
+
+  // 2. Fetch the LLM completion
+  while (iterations < MAX_AGENT_ITERATIONS) {
+    iterations++;
+    const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
+
+    let assistantMessage;
+    let finishReason: string | undefined;
+    try {
+      const bodyPayload = {
+        model,
+        messages: currentContext,
+        // Force-text on the final iteration: keep the tool definitions —
+        // several backends (including Claude's OpenAI-compat endpoint)
+        // reject requests whose history contains tool calls when no tools
+        // are declared — but forbid new calls via tool_choice so the model
+        // must wrap up in prose. Without this, tools called on the last
+        // round produce side effects (dice broadcasts, item transfers)
+        // whose results the model never sees and never gets to describe.
+        ...(tools.length > 0
+          ? { tools, ...(isLastIteration ? { tool_choice: "none" } : {}) }
+          : {})
+      };
+
+      const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(bodyPayload)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`AI API error (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      
+      // Record token usage (accumulated here, saved in runAgent's finally block)
+      const usage = data.usage || {};
+      tokens.inputTokens += usage.prompt_tokens || 0;
+      tokens.cachedInputTokens += usage.prompt_tokens_details?.cached_tokens || 0;
+      tokens.outputTokens += usage.completion_tokens || 0;
+
+      assistantMessage = data.choices[0].message;
+      finishReason = data.choices[0].finish_reason;
+    } catch (err: unknown) {
+      console.error(`[runAgent] completion error:`, err);
+      await sayAsBot(`(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`, { lock: true });
+      break;
+    }
+
+    // Strip known chain-of-thought fields before echoing the message back:
+    // DeepSeek reasoner-style models reject requests whose input contains
+    // their own reasoning_content (400), which would kill the second round
+    // of any tool loop. Only these named fields are removed — everything
+    // else is preserved verbatim.
+    delete assistantMessage.reasoning_content;
+    delete assistantMessage.reasoning;
+
+    // Add assistant response to context
+    currentContext.push(assistantMessage);
+
+    // A "length" finish means the reply hit the output token cap (there is
+    // no max_tokens in the request, so the cap is the provider's default):
+    // the prose is cut short and any tool_calls are likely half-emitted
+    // JSON. An HTTP 200 with finish_reason "length" is not a success.
+    const truncated = finishReason === "length";
+
+    // If there is message text, broadcast it (R3) (filtered with sensitive words check)
+    if (assistantMessage.content) {
+      let textToSend = assistantMessage.content;
+      const matchedWord = await checkSensitiveWords(textToSend);
+      if (matchedWord) {
+        console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
+        textToSend = "(Output blocked due to sensitive content filter)";
+      }
+      // Flag truncation inside the same message rather than as a separate
+      // notice, so a cut-off narration never reads as a finished one.
+      if (truncated) {
+        textToSend += "\n\n*(reply was cut off by the model's output limit)*";
+      }
+      await sayAsBot(textToSend);
+    }
+
+    if (truncated) {
+      console.warn(`[runAgent] Bot ${botUserId} reply truncated by the model's output limit (finish_reason=length); stopping tool loop.`);
+      if (!assistantMessage.content) {
+        // 200 + empty content + "length" (a reasoning model burning the
+        // whole cap on reasoning tokens) previously ended the run with no
+        // message at all — typing stopped and nothing arrived.
+        await sayAsBot(`(${botNickname}) reply was cut off by the model's output limit before any text was produced.`, { lock: true });
+      }
+      // Never execute tool calls from a truncated turn — their argument
+      // JSON may be half-emitted.
+      break;
+    }
+
+    // Any other terminal reason the loop doesn't model (content_filter,
+    // relay-specific values) is not a success either: log it, and if the
+    // turn produced nothing at all, say so instead of ending silently.
+    if (finishReason && !["stop", "tool_calls"].includes(finishReason)) {
+      console.warn(`[runAgent] Bot ${botUserId} completion ended with unexpected finish_reason=${finishReason}.`);
+      if (!assistantMessage.content && !assistantMessage.tool_calls?.length) {
+        await sayAsBot(`(${botNickname}) the model returned no reply (finish_reason: ${finishReason}).`, { lock: true });
+        break;
+      }
+    }
+
+    // If no tool calls, we are finished
+    if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+      break;
+    }
+
+    // tool_choice "none" forbids calls on the final iteration, so tool_calls
+    // here are a relay/model glitch — drop them rather than executing calls
+    // whose results the model can never see, but never end the run silently.
+    if (isLastIteration) {
+      if (!assistantMessage.content) {
+        await sayAsBot(`(${botNickname}) ran out of tool rounds before finishing a reply.`, { lock: true });
+      }
+      break;
+    }
+
+    const toolCallResults: AgentChatMessage[] = [];
+    for (const toolCall of assistantMessage.tool_calls) {
+      // Execute tool calls sequentially to avoid DB race conditions on concurrent writes.
+      // Optional-chain the whole entry: a relay can emit a tool_calls item
+      // with no `function` key (truncated / non-conformant shapes), and an
+      // unguarded deref here throws past the loop's catch-less outer try.
+      const functionName: string = toolCall?.function?.name ?? "";
+      // Whitelist + argument guard: disabled/unknown tool names and malformed
+      // argument JSON become readable tool-result errors instead of either
+      // executing a tool the host turned off or throwing past the loop.
+      const guard = resolveToolCall(functionName, toolCall?.function?.arguments ?? "", enabledTools, knownToolNames);
+      if (!guard.ok) {
+        toolCallResults.push({
+          role: "tool",
+          tool_call_id: toolCall?.id ?? "",
+          content: capToolContent(JSON.stringify({ success: false, error: guard.error })),
+        });
+        continue;
+      }
+      const args = guard.args;
+      let result;
+
+      try {
+        const handler = AGENT_TOOL_HANDLERS.get(functionName);
+        result = handler ? await handler(args, toolCtx) : undefined;
+      } catch (e: unknown) {
+        result = { error: e instanceof Error ? e.message : String(e) };
+      }
+
+      // Load-bearing drift net — NOT redundant with the guard: resolveToolCall
+      // validates against the advertised definition list (allTools), not the
+      // handler table. A tool defined without a handler (or a handler that
+      // returns nothing) lands exactly here, and JSON.stringify(undefined) is
+      // not a string. agent-tools.test.ts pins the two lists together.
+      if (result === undefined) {
+        console.error(`[runAgent] Tool "${functionName}" passed the whitelist but has no handler result — agent-tool-definitions and AGENT_TOOL_HANDLERS have drifted.`);
+        result = { success: false, error: `Tool "${functionName}" produced no result.` };
+      }
+
+      toolCallResults.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: capToolContent(JSON.stringify(result)),
+      });
+    }
+
+    currentContext.push(...toolCallResults);
+  }
+}
+
+/**
+ * runAgent
+ * Orchestrates the LLM call and Tool execution.
+ */
+export async function runAgent(
+  botUserId: number,
+  roomId: number,
+  triggeringInfo?: AgentTrigger
+) {
+  if (!checkAndConsumeCooldown(botUserId, triggeringInfo?.bypassCooldown)) return;
+
+  const loaded = await loadAgentRunContext(roomId, botUserId);
+  if (!loaded) return;
+  const { room, botUser, member } = loaded;
+
+  // 1. Verify global AI switch
+  if (!(await isAiGloballyEnabled(botUserId))) return;
+
+  const botCfg = parseBotConfig(botUser.botConfigJson);
+
+  const provider = await resolveAgentProvider(botUserId, room, botCfg);
+  if (!provider) return;
+  const { aiConfig, apiKey, endpoint } = provider;
+
+  const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
+  const enabledTools: string[] = botCfg.enableTools || ["roll_dice", "respond_check"];
+
+  const allTools = buildAgentToolDefinitions(roomId);
+  // Filter to only the tools enabled for this bot. Note: free-text replies are
+  // broadcast directly from the model's message content (R3), so there is no
+  // "send_message" tool — a bot can always talk without one being enabled.
+  const tools = allTools.filter(t => enabledTools.includes(t.function.name));
+  // The same whitelist is enforced again at execution time (resolveToolCall):
+  // filtering the advertised definitions does not stop a model from emitting
+  // a disabled or invented tool name.
+  const knownToolNames = allTools.map(t => t.function.name);
+
+  const currentContext: AgentChatMessage[] = [...context];
+
+  const botNickname = member?.nickname || botUser?.displayName || "AI";
+
+  const { replyIsPrivate, targetUserId } = await resolveReplyTarget(roomId, botUserId, room.hostId, triggeringInfo);
+  const replyTarget: AgentReplyTarget = { roomId, botUserId, botNickname, replyIsPrivate, targetUserId };
+  const sayAsBot = makeSayAsBot(replyTarget);
+
+  emitAgentTyping(replyTarget, room.hostId, true);
 
   const toolCtx: AgentToolContext = { roomId, botUserId, botNickname, room, replyIsPrivate, targetUserId };
 
-  // Declare accumulated token counters
-  let accumulatedInputTokens = 0;
-  let accumulatedCachedInputTokens = 0;
-  let accumulatedOutputTokens = 0;
+  // Created outside the try and filled in place by the loop, so the finally
+  // bills tokens already spent even when the loop throws.
+  const tokens: TokenTally = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
 
   try {
-    // 2. Fetch the LLM completion
-    while (iterations < MAX_AGENT_ITERATIONS) {
-      iterations++;
-      const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
-
-      let assistantMessage;
-      let finishReason: string | undefined;
-      try {
-        const bodyPayload = {
-          model,
-          messages: currentContext,
-          // Force-text on the final iteration: keep the tool definitions —
-          // several backends (including Claude's OpenAI-compat endpoint)
-          // reject requests whose history contains tool calls when no tools
-          // are declared — but forbid new calls via tool_choice so the model
-          // must wrap up in prose. Without this, tools called on the last
-          // round produce side effects (dice broadcasts, item transfers)
-          // whose results the model never sees and never gets to describe.
-          ...(tools.length > 0
-            ? { tools, ...(isLastIteration ? { tool_choice: "none" } : {}) }
-            : {})
-        };
-
-        const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`
-          },
-          body: JSON.stringify(bodyPayload)
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`AI API error (${response.status}): ${errText}`);
-        }
-
-        const data = await response.json();
-        
-        // Record token usage (accumulated and saved in the finally block)
-        const usage = data.usage || {};
-        accumulatedInputTokens += usage.prompt_tokens || 0;
-        accumulatedCachedInputTokens += usage.prompt_tokens_details?.cached_tokens || 0;
-        accumulatedOutputTokens += usage.completion_tokens || 0;
-
-        assistantMessage = data.choices[0].message;
-        finishReason = data.choices[0].finish_reason;
-      } catch (err: unknown) {
-        console.error(`[runAgent] completion error:`, err);
-        await sayAsBot(`(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`, { lock: true });
-        break;
-      }
-
-      // Strip known chain-of-thought fields before echoing the message back:
-      // DeepSeek reasoner-style models reject requests whose input contains
-      // their own reasoning_content (400), which would kill the second round
-      // of any tool loop. Only these named fields are removed — everything
-      // else is preserved verbatim.
-      delete assistantMessage.reasoning_content;
-      delete assistantMessage.reasoning;
-
-      // Add assistant response to context
-      currentContext.push(assistantMessage);
-
-      // A "length" finish means the reply hit the output token cap (there is
-      // no max_tokens in the request, so the cap is the provider's default):
-      // the prose is cut short and any tool_calls are likely half-emitted
-      // JSON. An HTTP 200 with finish_reason "length" is not a success.
-      const truncated = finishReason === "length";
-
-      // If there is message text, broadcast it (R3) (filtered with sensitive words check)
-      if (assistantMessage.content) {
-        let textToSend = assistantMessage.content;
-        const matchedWord = await checkSensitiveWords(textToSend);
-        if (matchedWord) {
-          console.warn(`[AI Sensitive Words] Bot ${botUserId} output matched sensitive word: ${matchedWord}. Redacting...`);
-          textToSend = "(Output blocked due to sensitive content filter)";
-        }
-        // Flag truncation inside the same message rather than as a separate
-        // notice, so a cut-off narration never reads as a finished one.
-        if (truncated) {
-          textToSend += "\n\n*(reply was cut off by the model's output limit)*";
-        }
-        await sayAsBot(textToSend);
-      }
-
-      if (truncated) {
-        console.warn(`[runAgent] Bot ${botUserId} reply truncated by the model's output limit (finish_reason=length); stopping tool loop.`);
-        if (!assistantMessage.content) {
-          // 200 + empty content + "length" (a reasoning model burning the
-          // whole cap on reasoning tokens) previously ended the run with no
-          // message at all — typing stopped and nothing arrived.
-          await sayAsBot(`(${botNickname}) reply was cut off by the model's output limit before any text was produced.`, { lock: true });
-        }
-        // Never execute tool calls from a truncated turn — their argument
-        // JSON may be half-emitted.
-        break;
-      }
-
-      // Any other terminal reason the loop doesn't model (content_filter,
-      // relay-specific values) is not a success either: log it, and if the
-      // turn produced nothing at all, say so instead of ending silently.
-      if (finishReason && !["stop", "tool_calls"].includes(finishReason)) {
-        console.warn(`[runAgent] Bot ${botUserId} completion ended with unexpected finish_reason=${finishReason}.`);
-        if (!assistantMessage.content && !assistantMessage.tool_calls?.length) {
-          await sayAsBot(`(${botNickname}) the model returned no reply (finish_reason: ${finishReason}).`, { lock: true });
-          break;
-        }
-      }
-
-      // If no tool calls, we are finished
-      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
-        break;
-      }
-
-      // tool_choice "none" forbids calls on the final iteration, so tool_calls
-      // here are a relay/model glitch — drop them rather than executing calls
-      // whose results the model can never see, but never end the run silently.
-      if (isLastIteration) {
-        if (!assistantMessage.content) {
-          await sayAsBot(`(${botNickname}) ran out of tool rounds before finishing a reply.`, { lock: true });
-        }
-        break;
-      }
-
-      const toolCallResults: { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown }[] = [];
-      for (const toolCall of assistantMessage.tool_calls) {
-        // Execute tool calls sequentially to avoid DB race conditions on concurrent writes.
-        // Optional-chain the whole entry: a relay can emit a tool_calls item
-        // with no `function` key (truncated / non-conformant shapes), and an
-        // unguarded deref here throws past the loop's catch-less outer try.
-        const functionName: string = toolCall?.function?.name ?? "";
-        // Whitelist + argument guard: disabled/unknown tool names and malformed
-        // argument JSON become readable tool-result errors instead of either
-        // executing a tool the host turned off or throwing past the loop.
-        const guard = resolveToolCall(functionName, toolCall?.function?.arguments ?? "", enabledTools, knownToolNames);
-        if (!guard.ok) {
-          toolCallResults.push({
-            role: "tool",
-            tool_call_id: toolCall?.id ?? "",
-            content: capToolContent(JSON.stringify({ success: false, error: guard.error })),
-          });
-          continue;
-        }
-        const args = guard.args;
-        let result;
-
-        try {
-          const handler = AGENT_TOOL_HANDLERS.get(functionName);
-          result = handler ? await handler(args, toolCtx) : undefined;
-        } catch (e: unknown) {
-          result = { error: e instanceof Error ? e.message : String(e) };
-        }
-
-        // Load-bearing drift net — NOT redundant with the guard: resolveToolCall
-        // validates against the advertised definition list (allTools), not the
-        // handler table. A tool defined without a handler (or a handler that
-        // returns nothing) lands exactly here, and JSON.stringify(undefined) is
-        // not a string. agent-tools.test.ts pins the two lists together.
-        if (result === undefined) {
-          console.error(`[runAgent] Tool "${functionName}" passed the whitelist but has no handler result — agent-tool-definitions and AGENT_TOOL_HANDLERS have drifted.`);
-          result = { success: false, error: `Tool "${functionName}" produced no result.` };
-        }
-
-        toolCallResults.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: capToolContent(JSON.stringify(result)),
-        });
-      }
-
-      currentContext.push(...toolCallResults);
-    }
+    await runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, endpoint, apiKey, tokens });
   } finally {
-    if (accumulatedInputTokens > 0 || accumulatedOutputTokens > 0) {
-      recordTokenUsage(room.hostId, aiConfig.id, accumulatedInputTokens, accumulatedCachedInputTokens, accumulatedOutputTokens)
+    if (tokens.inputTokens > 0 || tokens.outputTokens > 0) {
+      recordTokenUsage(room.hostId, aiConfig.id, tokens.inputTokens, tokens.cachedInputTokens, tokens.outputTokens)
         .catch(err => console.error("[runAgent] Error saving accumulated token usage:", err));
     }
-    const typingEndEvent = {
-      type: "typing",
-      botUserId,
-      nickname: botNickname,
-      typing: false,
-      isPrivate: replyIsPrivate,
-      targetUserId: targetUserId,
-      userId: botUserId
-    };
-    if (replyIsPrivate && targetUserId) {
-      emitToUser(roomId, targetUserId, typingEndEvent);
-      if (targetUserId !== room.hostId) emitToUser(roomId, room.hostId, typingEndEvent);
-    } else {
-      broadcastToRoom(roomId, typingEndEvent);
-    }
+    emitAgentTyping(replyTarget, room.hostId, false);
   }
 
   // 5. Trigger Incremental Summarization (Task #36)
