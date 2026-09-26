@@ -226,9 +226,11 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   `admin.ts`'s `adminGuard` do. Write-action status by module:
   - Converted: `admin` · `ai-import` · `background` · `bot-presets` · `checks` ·
     `dice-announcer` · `event` · `image-cache` · `invite` · `notebook` · `theme`
-    (setters) · `user` (`changeOwnPassword`) · `ai-providers` (`deleteProvider`;
-    `createProvider` / `updateProvider` keep their older `{ error } | data` shape,
-    with localized errors).
+    (setters; `updateSiteFavicon` still returns English errors) · `user`
+    (`changeOwnPassword`) · `ai-providers` (`deleteProvider`; `createProvider` /
+    `updateProvider` keep their older `{ error } | data` shape — their auth and
+    ownership errors are localized, but SSRF-guard and DB errors still pass through
+    in English).
   - Still throwing, to be converted: `inventory` · `character` · `room` · `messages` · `bot`.
 
   Read actions may still throw — their callers render a retry state.
