@@ -81,9 +81,10 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   const [panelError, setPanelError] = useState<string | null>(null);
   type Pending =
     | { kind: "delete"; itemId: number; title: string }
-    // `settle` hands the outcome back to the distribute modal, which is still
-    // awaiting its button press: true lets it play its exit.
-    | { kind: "distributeKp"; title: string; targets: number[] | "all"; settle: (ok: boolean) => void };
+    // `answer` resolves the distribute modal's pending button press. First
+    // answer wins: a Confirm clicked while a Cancel is still animating out must
+    // not be overridden by that Cancel's late `onCancel`.
+    | { kind: "distributeKp"; title: string; targets: number[] | "all"; answer: (confirmed: boolean) => void };
   const [pending, setPending] = useState<Pending | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   // Bumped whenever the distribute / share modal opens or closes, so a request
@@ -232,9 +233,10 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     ).catch(() => ({ success: false as const, error: tCommon("error") }));
     // The modal was closed (or reopened) meanwhile — nothing left to update.
     if (seq !== formSeq.current) { if (res.success) { router.refresh(); void loadData(); } return false; }
-    setFormBusy(false);
     // Keep the modal and its fields so the host can retry.
-    if (!res.success) { setFormError(res.error); return false; }
+    if (!res.success) { setFormBusy(false); setFormError(res.error); return false; }
+    // Busy stays set through the exit (resetForm clears it), so the submit
+    // button can't send a second create while the modal fades out.
     router.refresh();
     void loadData();
     return true;
@@ -248,7 +250,17 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     // leaves the KP's hands (the server then flips it to 全体可见).
     const distItem = roomItems.find((it) => it.id === distributeItemId);
     if (distItem?.type === "info" && distItem.visibility === "kp") {
-      return new Promise((settle) => setPending({ kind: "distributeKp", title: distItem.title, targets, settle }));
+      const itemId = distributeItemId;
+      return new Promise((resolve) => {
+        let answered = false;
+        const answer = (confirmed: boolean) => {
+          if (answered) return;
+          answered = true;
+          if (confirmed) void runDistribute(itemId, targets).then(resolve);
+          else resolve(false);
+        };
+        setPending({ kind: "distributeKp", title: distItem.title, targets, answer });
+      });
     }
     return runDistribute(distributeItemId, targets);
   };
@@ -264,14 +276,15 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     router.refresh();
     void loadData();
     if (seq !== distributeSeq.current) return false;
-    setDistributing(false);
     const failures = ids.flatMap((uid, i) => {
       const r = results[i];
       if (r.success) return [];
       const p = uid === null ? undefined : players.find(pl => pl.id === uid);
       return [{ id: uid, name: uid === null ? null : p?.nickname || p?.username || String(uid), error: r.error }];
     });
+    // On success busy stays set through the exit (closeDistribute clears it).
     if (failures.length === 0) return true;
+    setDistributing(false);
     // Keep the modal open, list every failure, and narrow the selection to the
     // failed members still in the room — the others already hold the item.
     setDistributeErrors(failures);
@@ -309,12 +322,11 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     if (!current) return;
     setPending(null);
     if (current.kind === "delete") void runDelete(current.itemId);
-    else if (distributeItemId) void runDistribute(distributeItemId, current.targets).then(current.settle);
-    else current.settle(false);
+    else current.answer(true);
   };
 
   const cancelPending = () => {
-    if (pending?.kind === "distributeKp") pending.settle(false);
+    if (pending?.kind === "distributeKp") pending.answer(false);
     setPending(null);
   };
 
@@ -347,9 +359,10 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     router.refresh();
     void loadData();
     if (seq !== shareSeq.current) return [];
-    setSharing(false);
-    // Any failure keeps the modal open and lists every one of them.
+    // Any failure keeps the modal open and lists every one of them. On success
+    // busy stays set through the exit (closeShare clears it).
     if (failures.length > 0) {
+      setSharing(false);
       setShareErrors(failures);
       return failures.map(f => f.id);
     }
