@@ -304,7 +304,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                             </span>
                           )}
                           {!isBotDisabled && isProviderError && (
-                            <span className="text-[10px] font-bold rounded px-1.5 py-0.5 leading-none select-none border" style={{ color: "#f59e0b", borderColor: "#f59e0b66", backgroundColor: "#f59e0b1a" }}>
+                            <span className="text-[10px] font-bold rounded px-1.5 py-0.5 leading-none select-none border text-warning border-warning/40 bg-warning/10">
                               {tRoom("tagProviderError")}
                             </span>
                           )}

@@ -134,12 +134,12 @@ export function ConversationPanel({
               <Icons.Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />
               <span className="truncate">{t("btnDm")} · {conv.nickname}</span>
               {conv.isBot && conv.isBotDisabled && (
-                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-red-500/10 text-red-500 border border-red-500/20 shrink-0">
+                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-danger/10 text-danger border border-danger/20 shrink-0">
                   {t("tagDisabled")}
                 </span>
               )}
               {conv.isBot && !conv.isBotDisabled && conv.isProviderError && (
-                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 shrink-0">
+                <span className="text-[8px] font-normal px-0.5 rounded-sm bg-warning/10 text-warning border border-warning/20 shrink-0">
                   {t("tagProviderError")}
                 </span>
               )}
@@ -180,7 +180,7 @@ export function ConversationPanel({
             : 100;
           const visual = vital ? RESOURCE_ICON[vital.key] : undefined;
           const vitalColor = hasBar && (visual?.ratioTone ?? vital.key === "hp")
-            ? (vitalPct > 60 ? "rgb(var(--theme-success))" : vitalPct > 30 ? "#f59e0b" : "rgb(var(--theme-danger))")
+            ? (vitalPct > 60 ? "rgb(var(--theme-success))" : vitalPct > 30 ? "rgb(var(--theme-warning, 245 158 11))" : "rgb(var(--theme-danger))")
             : `rgb(${visual?.color ?? DEFAULT_RESOURCE_COLOR})`;
           const VitalIcon = vital && vital.key !== "hp" ? visual?.Icon : undefined;
           const isSelf = conv.userId === userId;
