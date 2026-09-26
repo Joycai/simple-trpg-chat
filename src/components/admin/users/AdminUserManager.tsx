@@ -13,6 +13,8 @@ import { ChangePasswordModal } from "./ChangePasswordModal";
 import { LoginHistoryModal } from "./LoginHistoryModal";
 import type { User, RoleFilter } from "./types";
 import { PaneTransition } from "@/components/shared/PaneTransition";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Notice } from "@/components/shared/Notice";
 
 interface AdminUserManagerProps {
   users: User[];
@@ -21,8 +23,15 @@ interface AdminUserManagerProps {
   inviteDefaultQuota: number;
 }
 
+/** The account action waiting on the admin's confirmation. */
+type Pending =
+  | { kind: "delete"; user: User }
+  | { kind: "resetQuota"; user: User }
+  | { kind: "ban"; user: User };
+
 export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuota }: AdminUserManagerProps) {
   const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -36,6 +45,10 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
   const [historyUser, setHistoryUser] = useState<{ id: number; displayName: string } | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
+
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [pendingBusy, setPendingBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const counts = useMemo(() => ({
     all: allUsers.length,
@@ -69,35 +82,46 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
     return iso.slice(0, 10);
   };
 
-  const handleDeleteUser = async (user: User) => {
-    if (!confirm(t("deleteUserConfirm", { name: user.username }))) return;
-    try {
-      await deleteUser(user.id);
-      router.refresh();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : String(e));
+  const handleDeleteUser = (user: User) => setPending({ kind: "delete", user });
+  const handleResetInviteQuota = (user: User) => setPending({ kind: "resetQuota", user });
+  const handleToggleBan = (user: User) => setPending({ kind: "ban", user });
+
+  const runPending = async () => {
+    if (!pending) return;
+    setPendingBusy(true);
+    const { kind, user } = pending;
+    const res = await (
+      kind === "delete" ? deleteUser(user.id)
+      : kind === "resetQuota" ? resetInviteQuotaAction(user.id)
+      : toggleBanUser(user.id)
+    ).catch(() => ({ success: false as const, error: t("operationFailed") }));
+    setPendingBusy(false);
+    setPending(null);
+    if (!res.success) {
+      setNotice(res.error);
+      return;
     }
+    setNotice(null);
+    router.refresh();
   };
 
-  const handleResetInviteQuota = async (user: User) => {
-    if (!confirm(t("inviteQuotaResetConfirm", { name: user.username, quota: inviteDefaultQuota }))) return;
-    try {
-      await resetInviteQuotaAction(user.id);
-      router.refresh();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : t("operationFailed"));
+  /** Dialog copy per pending action — the old `confirm()` text is the description. */
+  const pendingCopy = (p: Pending): { title: string; description: string; confirmLabel: string; tone: "danger" | "primary" } => {
+    const name = p.user.username;
+    if (p.kind === "delete") {
+      return { title: t("deleteUser"), description: t("deleteUserConfirm", { name }), confirmLabel: t("delete"), tone: "danger" };
     }
-  };
-
-  const handleToggleBan = async (user: User) => {
-    const msg = user.isBanned ? t("confirmUnban", { username: user.username }) : t("confirmBan", { username: user.username });
-    if (!confirm(msg)) return;
-    try {
-      await toggleBanUser(user.id);
-      router.refresh();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : t("operationFailed"));
+    if (p.kind === "resetQuota") {
+      return {
+        title: t("inviteQuotaReset"),
+        description: t("inviteQuotaResetConfirm", { name, quota: inviteDefaultQuota }),
+        confirmLabel: tCommon("confirm"),
+        tone: "primary",
+      };
     }
+    return p.user.isBanned
+      ? { title: t("confirmUnbanTitle"), description: t("confirmUnban", { username: name }), confirmLabel: t("unban"), tone: "primary" }
+      : { title: t("confirmBanTitle"), description: t("confirmBan", { username: name }), confirmLabel: t("ban"), tone: "danger" };
   };
 
   // AI points display: ∞ for admins, tier-colored otherwise (depleted → dim, low → warning, healthy → ai)
@@ -158,6 +182,12 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
           </button>
         </div>
       </div>
+
+      {notice && (
+        <Notice variant="error" onDismiss={() => setNotice(null)} dismissLabel={tCommon("close")}>
+          {notice}
+        </Notice>
+      )}
 
       {/* Filter pills */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -332,6 +362,20 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
       {creditUser && <AiPointsModal user={creditUser} onClose={() => setCreditTarget(null)} />}
       {showChangePwd && <ChangePasswordModal onClose={() => setShowChangePwd(false)} />}
       {historyUser && <LoginHistoryModal user={historyUser} onClose={() => setHistoryUser(null)} />}
+      {pending && (() => {
+        const copy = pendingCopy(pending);
+        return (
+          <ConfirmDialog
+            title={copy.title}
+            description={copy.description}
+            confirmLabel={copy.confirmLabel}
+            tone={copy.tone}
+            busy={pendingBusy}
+            onConfirm={runPending}
+            onCancel={() => setPending(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

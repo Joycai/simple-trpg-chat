@@ -46,31 +46,32 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
     setSavingEdit(true);
     setEditMsg("");
     setEditStatus("");
-    try {
-      await updateUser(user.id, editName.trim(), editRole);
-      router.refresh();
-      close();
-    } catch (e: unknown) {
-      setEditMsg(e instanceof Error ? e.message : t("operationFailed"));
+    const res = await updateUser(user.id, editName.trim(), editRole)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    setSavingEdit(false);
+    if (!res.success) {
+      setEditMsg(res.error);
       setEditStatus("error");
-    } finally {
-      setSavingEdit(false);
+      return;
     }
+    router.refresh();
+    close();
   };
 
   const handleResetPassword = async () => {
     if (!newPassword.trim()) return;
     if (newPassword.length < 3) { setResetMsg(t("passwordTooShort")); setResetStatus("error"); return; }
-    try {
-      await resetPassword(user.id, newPassword.trim());
-      setResetMsg(t("passwordResetOk"));
-      setResetStatus("success");
-      setNewPassword("");
-      router.refresh();
-    } catch {
-      setResetMsg(t("passwordResetFail"));
+    const res = await resetPassword(user.id, newPassword.trim())
+      .catch(() => ({ success: false as const, error: t("passwordResetFail") }));
+    if (!res.success) {
+      setResetMsg(res.error);
       setResetStatus("error");
+      return;
     }
+    setResetMsg(t("passwordResetOk"));
+    setResetStatus("success");
+    setNewPassword("");
+    router.refresh();
   };
 
   return (

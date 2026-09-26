@@ -33,13 +33,15 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
-    try {
-      await createUser(new FormData(e.currentTarget));
-      close();
-    } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : t("operationFailed"));
+    // An unexpected throw (network drop) has no localized reason — fall back to a generic one.
+    const res = await createUser(new FormData(e.currentTarget))
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (!res.success) {
+      setError(res.error);
       setSubmitting(false);
+      return;
     }
+    close();
   };
 
   const roleLabel = (r: string): string =>

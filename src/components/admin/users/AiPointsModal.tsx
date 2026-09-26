@@ -45,14 +45,15 @@ export function AiPointsModal({ user, onClose }: { user: User; onClose: () => vo
       return;
     }
     const final = finalPoints(current, mode, value);
-    try {
-      await updateUserAiPoints(user.id, final, note.trim() || undefined);
-      router.refresh();
-      close();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : t("pointsUpdateFail"));
+    const res = await updateUserAiPoints(user.id, final, note.trim() || undefined)
+      .catch(() => ({ success: false as const, error: t("pointsUpdateFail") }));
+    if (!res.success) {
+      setMsg(res.error);
       setStatus("error");
+      return;
     }
+    router.refresh();
+    close();
   };
 
   return (
