@@ -7,19 +7,29 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import crypto from "crypto";
 import { broadcastToRoom } from "@/lib/server/events";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import { tryRoomAccess } from "@/lib/auth/room-access";
+import { getTranslations } from "next-intl/server";
 import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/media/avatars";
 import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { NICKNAME_MAX_LENGTH, ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
 
+type Fail = { success: false; error: string };
+type Done = { success: true } | Fail;
+
+async function noAccess(): Promise<Fail> {
+  return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+}
+
 // --- Room Actions ---
 
 export async function createRoomAction(formData: FormData) {
+  const t = await getTranslations("createRoom");
+  const tRoom = await getTranslations("room");
   try {
     const session = await auth();
     if (!session || session.user.role !== "host") {
-      return { success: false, error: "Only hosts can create rooms" };
+      return { success: false, error: t("errorHostOnly") };
     }
 
     const name = formData.get("name") as string;
@@ -27,14 +37,15 @@ export async function createRoomAction(formData: FormData) {
     const themeRaw = (formData.get("theme") as string) || "default";
     const ruleTemplateRaw = (formData.get("ruleTemplate") as string) || "basic";
 
-    if (!THEMES.includes(themeRaw as Theme)) return { success: false, error: "Invalid theme" };
-    if (!RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) return { success: false, error: "Invalid ruleTemplate" };
+    if (!THEMES.includes(themeRaw as Theme) || !RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) {
+      return { success: false, error: tRoom("errorInvalidSettings") };
+    }
     const theme = themeRaw as Theme;
     const ruleTemplate = ruleTemplateRaw as RuleTemplate;
 
-    if (!name || !name.trim()) return { success: false, error: "Room name is required" };
+    if (!name || !name.trim()) return { success: false, error: t("errorNameRequired") };
     if (name.trim().length > ROOM_NAME_MAX_LENGTH) {
-      return { success: false, error: `Room name must be between 1 and ${ROOM_NAME_MAX_LENGTH} characters` };
+      return { success: false, error: tRoom("errorInvalidRoomName", { max: ROOM_NAME_MAX_LENGTH }) };
     }
 
     // Use custom key if provided, otherwise generate one
@@ -62,23 +73,25 @@ export async function createRoomAction(formData: FormData) {
     revalidatePath("/");
     return { success: true, roomId: newRoom.id, secretKey };
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "An error occurred" };
+    console.error("[createRoomAction]", err);
+    return { success: false, error: (await getTranslations("common"))("error") };
   }
 }
 
 export async function joinRoomAction(formData: FormData) {
+  const t = await getTranslations("lobby");
   try {
     const session = await auth();
-    if (!session) return { success: false, error: "Not authenticated" };
+    if (!session) return { success: false, error: t("errorNotAuthenticated") };
 
     const roomId = parseInt(formData.get("roomId") as string);
     const key = (formData.get("key") as string)?.trim();
 
-    if (!roomId || !key) return { success: false, error: "Room ID and key are required" };
+    if (!roomId || !key) return { success: false, error: t("errorMissingRoomKey") };
 
     const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-    if (!room) return { success: false, error: "Room not found" };
-    if (room.secretKey !== key) return { success: false, error: "Invalid key" };
+    if (!room) return { success: false, error: t("errorRoomNotFound") };
+    if (room.secretKey !== key) return { success: false, error: t("errorInvalidKey") };
 
     const userId = parseInt(session.user.id);
 
@@ -102,7 +115,8 @@ export async function joinRoomAction(formData: FormData) {
     revalidatePath("/");
     return { success: true };
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "An error occurred" };
+    console.error("[joinRoomAction]", err);
+    return { success: false, error: (await getTranslations("common"))("error") };
   }
 }
 
@@ -110,12 +124,14 @@ export async function joinRoomAction(formData: FormData) {
 // (Sheet writes live in actions/character.ts — the old updateCharacterDataAction
 // here had no callers and accepted unbounded JSON, so it was removed.)
 
-export async function updateNicknameAction(roomId: number, nickname: string) {
-  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+export async function updateNicknameAction(roomId: number, nickname: string): Promise<Done> {
+  const access = await tryRoomAccess(roomId, false, { requireWritable: true });
+  if (!access) return noAccess();
+  const { userId } = access;
 
   const trimmed = nickname.trim();
   if (!trimmed || trimmed.length > NICKNAME_MAX_LENGTH) {
-    throw new Error(`Invalid nickname (must be between 1 and ${NICKNAME_MAX_LENGTH} characters)`);
+    return { success: false, error: (await getTranslations("room"))("errorInvalidNickname", { max: NICKNAME_MAX_LENGTH }) };
   }
 
   await db.update(roomMembers)
@@ -126,21 +142,22 @@ export async function updateNicknameAction(roomId: number, nickname: string) {
   // no router.refresh() fan-out, no revalidatePath (the room page is fully
   // dynamic; the next real navigation re-renders regardless).
   broadcastToRoom(roomId, { type: "member_updated", userId, nickname: trimmed });
+  return { success: true };
 }
 
-export async function updateRoomMemberColorAction(roomId: number, targetUserId: number, color: string) {
+export async function updateRoomMemberColorAction(roomId: number, targetUserId: number, color: string): Promise<Done> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return noAccess();
 
   const userId = parseInt(session.user.id);
 
   // 1. Get the room to check if the caller is the host
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) throw new Error("Room not found");
+  if (!room) return noAccess();
   const isHost = room.hostId === userId;
 
   // Frozen rooms are read-only for non-hosts
-  if (room.frozen && !isHost) throw new Error("Room is frozen (read-only)");
+  if (room.frozen && !isHost) return noAccess();
 
   // 2. Determine if allowed
   let allowed = false;
@@ -157,7 +174,7 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
     }
   }
 
-  if (!allowed) throw new Error("Unauthorized to change this user's color");
+  if (!allowed) return { success: false, error: (await getTranslations("room"))("errorColorNotAllowed") };
 
   // 3. Update the color in roomMembers
   await db.update(roomMembers)
@@ -166,12 +183,13 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
 
   // Member-level delta — see updateNicknameAction for the rationale.
   broadcastToRoom(roomId, { type: "member_updated", userId: targetUserId, avatarColor: color });
+  return { success: true };
 }
 
 // --- Room Settings ---
 
-export async function updateRoomSettingsAction(roomId: number, formData: FormData) {
-  await checkRoomAccess(roomId, true);
+export async function updateRoomSettingsAction(roomId: number, formData: FormData): Promise<Done> {
+  if (!(await tryRoomAccess(roomId, true))) return noAccess();
 
   const themeRaw = ((formData.get("theme") as string) || "default");
   const themeModeRaw = ((formData.get("themeMode") as string) || "auto");
@@ -180,9 +198,13 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   // `timeline` is a room-only stored mode (light/dark follows inserted dividers)
   // on top of the user-selectable auto/light/dark.
   const storableModes: string[] = [...THEME_MODES, "timeline"];
-  if (!THEMES.includes(themeRaw as Theme)) throw new Error("Invalid theme");
-  if (!storableModes.includes(themeModeRaw)) throw new Error("Invalid themeMode");
-  if (!RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)) throw new Error("Invalid ruleTemplate");
+  if (
+    !THEMES.includes(themeRaw as Theme) ||
+    !storableModes.includes(themeModeRaw) ||
+    !RULE_TEMPLATES.includes(ruleTemplateRaw as RuleTemplate)
+  ) {
+    return { success: false, error: (await getTranslations("room"))("errorInvalidSettings") };
+  }
   const theme = themeRaw as Theme;
   const themeMode = themeModeRaw;
   const ruleTemplate = ruleTemplateRaw as RuleTemplate;
@@ -197,14 +219,15 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
   });
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
-export async function updateRoomNameAction(roomId: number, newName: string) {
-  await checkRoomAccess(roomId, true);
+export async function updateRoomNameAction(roomId: number, newName: string): Promise<Done> {
+  if (!(await tryRoomAccess(roomId, true))) return noAccess();
 
   const trimmed = newName.trim();
   if (!trimmed || trimmed.length > ROOM_NAME_MAX_LENGTH) {
-    throw new Error(`Room name must be between 1 and ${ROOM_NAME_MAX_LENGTH} characters`);
+    return { success: false, error: (await getTranslations("room"))("errorInvalidRoomName", { max: ROOM_NAME_MAX_LENGTH }) };
   }
 
   await db.update(rooms).set({ name: trimmed }).where(eq(rooms.id, roomId));
@@ -214,11 +237,12 @@ export async function updateRoomNameAction(roomId: number, newName: string) {
   });
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
 /** Host-only: toggle a room between active and frozen (read-only for players). */
-export async function setRoomFrozenAction(roomId: number, frozen: boolean) {
-  await checkRoomAccess(roomId, true);
+export async function setRoomFrozenAction(roomId: number, frozen: boolean): Promise<Done> {
+  if (!(await tryRoomAccess(roomId, true))) return noAccess();
 
   await db.update(rooms).set({ frozen }).where(eq(rooms.id, roomId));
 
@@ -227,10 +251,11 @@ export async function setRoomFrozenAction(roomId: number, frozen: boolean) {
   });
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
-export async function regenerateRoomPasswordAction(roomId: number) {
-  await checkRoomAccess(roomId, true);
+export async function regenerateRoomPasswordAction(roomId: number): Promise<{ success: true; secretKey: string } | Fail> {
+  if (!(await tryRoomAccess(roomId, true))) return noAccess();
 
   const newPassword = crypto.randomBytes(4).toString("hex");
   await db.update(rooms).set({ secretKey: newPassword }).where(eq(rooms.id, roomId));
@@ -240,7 +265,7 @@ export async function regenerateRoomPasswordAction(roomId: number) {
   });
 
   revalidatePath(`/rooms/${roomId}`);
-  return { secretKey: newPassword };
+  return { success: true, secretKey: newPassword };
 }
 
 // --- Avatar Actions ---
@@ -248,20 +273,23 @@ export async function regenerateRoomPasswordAction(roomId: number) {
 export async function uploadAvatarAction(
   roomId: number,
   imageData: string
-) {
+): Promise<Done> {
   // Validate membership + reject when the room is frozen (read-only for non-hosts)
-  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+  const access = await tryRoomAccess(roomId, false, { requireWritable: true });
+  if (!access) return noAccess();
+  const { userId } = access;
 
   // Strict whitelist: only JPEG data URLs, capped size, real JPEG magic + dims ≤ 512.
   // The avatar cropper (shared ImageCropper) always emits ≤512 JPEG; anything else is rejected so SVG/
   // mislabelled payloads can't reach the DB or downstream <img> renders.
   const parsed = parseAvatarDataUrl(imageData);
   if (!parsed.ok) {
-    const msg =
-      parsed.error === "too_large" ? "Image is too large" :
-      parsed.error === "bad_dimensions" ? "Avatar must be 512x512 or smaller" :
-      "Invalid image data";
-    throw new Error(msg);
+    const t = await getTranslations("room");
+    const key =
+      parsed.error === "too_large" ? "errorAvatarTooLarge" :
+      parsed.error === "bad_dimensions" ? "errorAvatarDimensions" :
+      "errorAvatarInvalid";
+    return { success: false, error: t(key) };
   }
 
   // Update the avatar in the database

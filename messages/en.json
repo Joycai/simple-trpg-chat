@@ -54,7 +54,11 @@
     "filterJoined": "Joined",
     "noOwnRooms": "No rooms created yet",
     "noJoinedRooms": "No rooms joined yet",
-    "logout": "Logout"
+    "logout": "Logout",
+    "errorNotAuthenticated": "Not signed in",
+    "errorMissingRoomKey": "Room ID and key are required",
+    "errorRoomNotFound": "Room not found",
+    "errorInvalidKey": "Invalid room key"
   },
   "createRoom": {
     "title": "Create New Room",
@@ -89,7 +93,9 @@
     "ruleTemplateTriangleHint": "Roll 6d4 and count the dice showing 3; 9 Qualifications and commendations/reprimands are free-form bookkeeping",
     "ruleTemplateShouhun": "Soul Hunter",
     "ruleTemplateShouhunDesc": "Soul Hunter · 1d20 + bonus dice vs DC",
-    "ruleTemplateShouhunHint": "Rolls 1d20 + x d4 (bonus) ± y d6 (style) vs DC; HP and mana derive from the 3 attributes"
+    "ruleTemplateShouhunHint": "Rolls 1d20 + x d4 (bonus) ± y d6 (style) vs DC; HP and mana derive from the 3 attributes",
+    "errorHostOnly": "Only hosts can create rooms",
+    "errorNameRequired": "Room name is required"
   },
   "hostLabels": {
     "kp": "KP",

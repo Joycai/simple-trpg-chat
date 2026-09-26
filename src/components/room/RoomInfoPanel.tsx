@@ -7,6 +7,7 @@ import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction
 import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { Notice } from "@/components/shared/Notice";
 import { listRules } from "@/lib/rules";
 import { ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
 import { useHostLabel } from "@/components/shared/host-label";
@@ -43,6 +44,9 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [togglingFreeze, setTogglingFreeze] = useState(false);
   const [error, setError] = useState("");
+  // Freeze / password failures — the name form's `error` strip only renders
+  // while that form is open, so these get their own notice.
+  const [opError, setOpError] = useState("");
 
   // Label lookup driven by the rule registry: any registered rule's
   // i18n label key is honored, unknown ids fall back to their raw value.
@@ -54,42 +58,42 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const handleSaveName = async () => {
     setSavingName(true);
     setError("");
-    try {
-      await updateRoomNameAction(room.id, newName);
-      setEditingName(false);
-      router.refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("saveFailed"));
-    } finally {
-      setSavingName(false);
+    const res = await updateRoomNameAction(room.id, newName)
+      .catch(() => ({ success: false as const, error: t("saveFailed") }));
+    setSavingName(false);
+    if (!res.success) {
+      setError(res.error);
+      return;
     }
+    setEditingName(false);
+    router.refresh();
   };
 
   const handleToggleFreeze = async () => {
     setTogglingFreeze(true);
-    setError("");
-    try {
-      await setRoomFrozenAction(room.id, !room.frozen);
-      router.refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("saveFailed"));
-    } finally {
-      setTogglingFreeze(false);
+    setOpError("");
+    const res = await setRoomFrozenAction(room.id, !room.frozen)
+      .catch(() => ({ success: false as const, error: t("saveFailed") }));
+    setTogglingFreeze(false);
+    if (!res.success) {
+      setOpError(res.error);
+      return;
     }
+    router.refresh();
   };
 
   const handleRegeneratePassword = async () => {
     setRegeneratingPassword(true);
-    setError("");
-    try {
-      await regenerateRoomPasswordAction(room.id);
-      setShowPasswordConfirm(false);
-      router.refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("saveFailed"));
-    } finally {
-      setRegeneratingPassword(false);
+    setOpError("");
+    const res = await regenerateRoomPasswordAction(room.id)
+      .catch(() => ({ success: false as const, error: t("saveFailed") }));
+    setRegeneratingPassword(false);
+    if (!res.success) {
+      setOpError(res.error);
+      return;
     }
+    setShowPasswordConfirm(false);
+    router.refresh();
   };
 
   return (
@@ -106,6 +110,12 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
         </div>
 
         <div className="px-6 py-5 flex flex-col gap-5">
+          {opError && (
+            <Notice variant="error" onDismiss={() => setOpError("")} dismissLabel={tCommon("close")}>
+              {opError}
+            </Notice>
+          )}
+
           {/* Room name */}
           <div>
             <label className="text-sm text-text-muted mb-1.5 block">{t("nameLabel")}</label>

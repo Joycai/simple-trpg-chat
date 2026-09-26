@@ -12,6 +12,7 @@ import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ImageCropper } from "@/components/shared/ImageCropper";
+import { Notice } from "@/components/shared/Notice";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
@@ -88,6 +89,14 @@ export function CharacterPanel({
   const [nickname, setNickname] = useState(currentNickname);
   const [editingNick, setEditingNick] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
+  // Last colour the server accepted — a failed pick reverts the swatch to it.
+  const savedColor = useRef(selectedColor);
+  // A failed nickname save keeps the editor open, so Enter and the following
+  // blur can both fire saveNickname; this stops the second one while the
+  // first is in flight.
+  const savingNick = useRef(false);
+  // The panel's single error strip (above the footer) — any failed write.
+  const [panelError, setPanelError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   // Character data — parsed once, then individual fields are pulled into local
@@ -246,9 +255,17 @@ export function CharacterPanel({
   }, [characterData, ruleTemplate]);
 
   const saveNickname = async () => {
-    if (nickname.trim() && nickname !== currentNickname) {
-      await updateNicknameAction(roomId, nickname.trim());
-      onNicknameChange(nickname.trim());
+    if (savingNick.current) return;
+    const next = nickname.trim();
+    if (next && nickname !== currentNickname) {
+      savingNick.current = true;
+      setPanelError(null);
+      const res = await updateNicknameAction(roomId, next)
+        .catch(() => ({ success: false as const, error: tCommon("error") }));
+      savingNick.current = false;
+      // Stay in the editor with the typed name so the player can retry.
+      if (!res.success) { setPanelError(res.error); return; }
+      onNicknameChange(next);
     }
     setEditingNick(false);
   };
@@ -256,11 +273,16 @@ export function CharacterPanel({
   const handleColorChange = async (color: string) => {
     if (readOnly) return;
     setSelectedColor(color);
-    try {
-      await updateRoomMemberColorAction(roomId, userId, color);
-    } catch (err) {
-      console.error("Failed to update avatar color:", err);
+    setPanelError(null);
+    const res = await updateRoomMemberColorAction(roomId, userId, color)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (res.success) {
+      savedColor.current = color;
+      return;
     }
+    // Only revert if no newer pick has replaced this one meanwhile.
+    setSelectedColor(c => (c === color ? savedColor.current : c));
+    setPanelError(res.error);
   };
 
   // Footer "保存" — persists attributes + bio + per-rule sheet in one go.
@@ -668,6 +690,14 @@ export function CharacterPanel({
         </PaneTransition>
         </div>
 
+        {panelError && (
+          <div className="shrink-0 px-6 pt-3">
+            <Notice variant="error" onDismiss={() => setPanelError(null)} dismissLabel={tCommon("close")}>
+              {panelError}
+            </Notice>
+          </div>
+        )}
+
         {/* Footer — 导出 / 保存 */}
         <div className="shrink-0 border-t border-border bg-surface px-6 py-4 flex gap-3">
           <button onClick={handleExport}
@@ -693,7 +723,11 @@ export function CharacterPanel({
         title={t("changeAvatar")}
         onCancel={() => setCropFile(null)}
         onConfirm={async (dataUrl) => {
-          await uploadAvatarAction(roomId, dataUrl);
+          const res = await uploadAvatarAction(roomId, dataUrl)
+            .catch(() => ({ success: false as const, error: tCommon("error") }));
+          // ImageCropper shows a thrown Error's message in its own error strip
+          // and stays open — a local signal, not a server error crossing the wire.
+          if (!res.success) throw new Error(res.error);
           setAvatarOverride(dataUrl);
           setCropFile(null);
           router.refresh();

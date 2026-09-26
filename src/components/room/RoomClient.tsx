@@ -220,16 +220,16 @@ export function RoomClient({
       return;
     }
     setSavingRoomName(true);
-    try {
-      await updateRoomNameAction(room.id, trimmed);
-      setEditingRoomName(false);
-      router.refresh();
-    } catch {
+    const res = await updateRoomNameAction(room.id, trimmed)
+      .catch(() => ({ success: false as const }));
+    setSavingRoomName(false);
+    if (!res.success) {
       // Revert draft on failure; keep editor open so the host can retry
       setRoomNameDraft(room.name);
-    } finally {
-      setSavingRoomName(false);
+      return;
     }
+    setEditingRoomName(false);
+    router.refresh();
   };
 
   const activeTabRef = useRef(activeTab);

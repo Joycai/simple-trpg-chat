@@ -54,7 +54,11 @@
     "filterJoined": "我加入的",
     "noOwnRooms": "还没有创建过房间",
     "noJoinedRooms": "还没有加入过房间",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "errorNotAuthenticated": "未登录",
+    "errorMissingRoomKey": "请填写房间号和密钥",
+    "errorRoomNotFound": "房间不存在",
+    "errorInvalidKey": "房间密钥错误"
   },
   "createRoom": {
     "title": "创建新房间",
@@ -89,7 +93,9 @@
     "ruleTemplateTriangleHint": "掷 6d4 数出「3」的数量即成功数；9 项资质与嘉奖/处分自由记录",
     "ruleTemplateShouhun": "狩魂者",
     "ruleTemplateShouhunDesc": "狩魂者 · 1d20+加骰 对比 DC",
-    "ruleTemplateShouhunHint": "掷 1d20+x个d4（加骰）±y个d6（时髦骰）对比 DC；体魄/智慧/心魂 三属性自动衍生生命与灵力"
+    "ruleTemplateShouhunHint": "掷 1d20+x个d4（加骰）±y个d6（时髦骰）对比 DC；体魄/智慧/心魂 三属性自动衍生生命与灵力",
+    "errorHostOnly": "只有主持人可以创建房间",
+    "errorNameRequired": "请填写房间名"
   },
   "hostLabels": {
     "kp": "KP",
