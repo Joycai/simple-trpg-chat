@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { useMentionTextarea } from "@/components/room/hooks/useMentionTextarea";
 import { MentionPicker } from "@/components/room/MentionPicker";
@@ -66,8 +67,23 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
     timePayload !== (event?.timePayload ?? null) ||
     images.join(" ") !== (event?.images ?? []).join(" ");
 
+  // Every user close path (×, cancel, Escape, backdrop) asks first when there
+  // is unsaved work. Holds the animated `close` to run once the user agrees.
+  const [confirmDiscard, setConfirmDiscard] = useState<(() => void) | null>(null);
+  // Set once a close is underway: the exit animation takes ~220ms, and an
+  // Escape or backdrop click in that window must not ask again.
+  const closing = useRef(false);
+  const requestClose = (close: () => void) => {
+    // A save in flight will close the editor itself; closing now would
+    // discard images the save is about to reference.
+    if (closing.current || saving) return;
+    if (dirty) { setConfirmDiscard(() => close); return; }
+    closing.current = true;
+    close();
+  };
+
+  /** Runs after the exit animation, once closing is settled. */
   const handleClose = () => {
-    if (dirty && !confirm(t("discardConfirm"))) return;
     // Fire-and-forget: the files are cache, and the server keeps any URL a
     // stored event still references.
     if (uploadedThisSession.current.length > 0) {
@@ -131,7 +147,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const toolBtn = "flex items-center justify-center w-8 h-8 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer";
 
   return (
-    <OverlayShell onClose={handleClose} portal panelClassName="w-full max-w-2xl mx-4 h-[86vh] max-h-[720px] min-h-[560px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
+    <OverlayShell onClose={handleClose} onDismiss={requestClose} portal panelClassName="w-full max-w-2xl mx-4 h-[86vh] max-h-[720px] min-h-[560px] bg-surface theme-border rounded-theme shadow-2xl flex flex-col overflow-hidden">
       {(close) => (
         <>
           <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
@@ -139,7 +155,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
             <h3 className="font-bold text-text text-lg font-theme-display flex-1 truncate">
               {event ? t("editTitle") : t("createTitle")}
             </h3>
-            <button onClick={close} className={toolBtn} aria-label={tCommon("cancel")}><Icons.X className="w-5 h-5" /></button>
+            <button onClick={() => requestClose(close)} className={toolBtn} aria-label={tCommon("cancel")}><Icons.X className="w-5 h-5" /></button>
           </div>
 
           {/* Fixed-height body: title / time / images keep their natural size,
@@ -262,7 +278,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
           </div>
 
           <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border shrink-0">
-            <button onClick={close} className="px-4 py-2 rounded-theme border border-border text-text text-sm font-bold hover:bg-surface-alt transition cursor-pointer">{tCommon("cancel")}</button>
+            <button onClick={() => requestClose(close)} className="px-4 py-2 rounded-theme border border-border text-text text-sm font-bold hover:bg-surface-alt transition cursor-pointer">{tCommon("cancel")}</button>
             <button
               onClick={handleSave}
               disabled={!title.trim() || saving}
@@ -279,6 +295,17 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
               maxOutputBytes={CHAT_IMAGE_MAX_BYTES}
               onCancel={() => setCropSource(null)}
               onConfirm={handleCropped}
+            />
+          )}
+
+          {confirmDiscard && (
+            <ConfirmDialog
+              title={t("discardTitle")}
+              description={t("discardConfirm")}
+              confirmLabel={t("discardAction")}
+              icon={<Icons.Undo2 className="w-5 h-5" />}
+              onConfirm={() => { setConfirmDiscard(null); closing.current = true; confirmDiscard(); }}
+              onCancel={() => setConfirmDiscard(null)}
             />
           )}
         </>

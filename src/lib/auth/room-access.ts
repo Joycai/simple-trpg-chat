@@ -73,3 +73,20 @@ export async function checkRoomAccess(
 
   return { userId, isHost, isAdmin: false };
 }
+
+/**
+ * `checkRoomAccess` for actions that return result objects: `null` instead of
+ * a throw. Callers map it to `roomActions.errorNoAccess` — the thrown reasons
+ * (signed out, not a member, frozen) were never shown to users anyway.
+ */
+export async function tryRoomAccess(
+  roomId: number,
+  requireHost = false,
+  opts?: { requireWritable?: boolean }
+): Promise<UserAccess | null> {
+  try {
+    return await checkRoomAccess(roomId, requireHost, opts);
+  } catch {
+    return null;
+  }
+}

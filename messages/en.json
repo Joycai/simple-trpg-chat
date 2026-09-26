@@ -54,7 +54,11 @@
     "filterJoined": "Joined",
     "noOwnRooms": "No rooms created yet",
     "noJoinedRooms": "No rooms joined yet",
-    "logout": "Logout"
+    "logout": "Logout",
+    "errorNotAuthenticated": "Not signed in",
+    "errorMissingRoomKey": "Room ID and key are required",
+    "errorRoomNotFound": "Room not found",
+    "errorInvalidKey": "Invalid room key"
   },
   "createRoom": {
     "title": "Create New Room",
@@ -89,7 +93,9 @@
     "ruleTemplateTriangleHint": "Roll 6d4 and count the dice showing 3; 9 Qualifications and commendations/reprimands are free-form bookkeeping",
     "ruleTemplateShouhun": "Soul Hunter",
     "ruleTemplateShouhunDesc": "Soul Hunter · 1d20 + bonus dice vs DC",
-    "ruleTemplateShouhunHint": "Rolls 1d20 + x d4 (bonus) ± y d6 (style) vs DC; HP and mana derive from the 3 attributes"
+    "ruleTemplateShouhunHint": "Rolls 1d20 + x d4 (bonus) ± y d6 (style) vs DC; HP and mana derive from the 3 attributes",
+    "errorHostOnly": "Only hosts can create rooms",
+    "errorNameRequired": "Room name is required"
   },
   "hostLabels": {
     "kp": "KP",
@@ -194,7 +200,14 @@
     "frozenBadge": "Frozen",
     "frozenBadgeHost": "Frozen · players read-only",
     "frozenNotice": "This room is frozen. You can view it but cannot post.",
-    "observerNotice": "Admin observer mode: you haven't joined this room, view only."
+    "observerNotice": "Admin observer mode: you haven't joined this room, view only.",
+    "errorInvalidNickname": "Nickname must be between 1 and {max} characters",
+    "errorColorNotAllowed": "You can't change this member's color",
+    "errorInvalidSettings": "Invalid room settings",
+    "errorInvalidRoomName": "Room name must be between 1 and {max} characters",
+    "errorAvatarTooLarge": "Avatar image is too large",
+    "errorAvatarDimensions": "Avatar must be 512×512 or smaller",
+    "errorAvatarInvalid": "Invalid avatar image"
   },
   "hotkeys": {
     "title": "Keyboard Shortcuts",
@@ -256,7 +269,9 @@
     "withdrawMiddle": " from the channel. This action is ",
     "withdrawIrreversible": "irreversible",
     "withdrawAfter": ". {host} only.",
-    "confirmWithdraw": "Confirm"
+    "confirmWithdraw": "Confirm",
+    "errorInvalidPayload": "Invalid timeline settings",
+    "errorNotDivider": "That message is not a timeline divider"
   },
   "chat": {
     "eventReceipt": "You received a new event: {title}",
@@ -907,7 +922,14 @@
     "role": "Role",
     "level": "Level",
     "rolePlaceholder": "e.g. Fighter, Wizard",
-    "levelPlaceholder": "Level"
+    "levelPlaceholder": "Level",
+    "errorNotAuthenticated": "Not signed in",
+    "errorNotMember": "You are not a member of this room",
+    "errorRoomFrozen": "The room is frozen (read-only)",
+    "errorDataTooLarge": "Character data is too large",
+    "errorRoomNotFound": "Room not found",
+    "errorUnauthorizedResource": "You can't change this character's resources",
+    "errorTargetNotMember": "That user is not a member of this room"
   },
   "notebook": {
     "title": "Notebook",
@@ -1120,7 +1142,12 @@
     "defaultPlayer": "player",
     "defaultTeammate": "teammate",
     "searchPlaceholder": "Search items...",
-    "emptyHint": "Clues and items appear here once the {host} hands them out"
+    "emptyHint": "Clues and items appear here once the {host} hands them out",
+    "deleteConfirmTitle": "Delete item",
+    "distributeKpConfirmTitle": "Hand out {host}-only info",
+    "sharePartialFailed": "Not delivered to:",
+    "distributeFailed": "Failed to hand out the item",
+    "sharePartialFailedItem": "{name}: {error}"
   },
   "clues": {
     "title": "Clues Management",
@@ -1182,7 +1209,9 @@
     "activationHeader": "Trigger mode",
     "cancel": "Cancel",
     "submitCreate": "Create",
-    "submitSave": "Save"
+    "submitSave": "Save",
+    "errorBotNotFound": "Bot not found",
+    "errorBotNotMember": "That bot is not in this room"
   },
   "aiImport": {
     "title": "AI Import",
@@ -1356,7 +1385,14 @@
     "psyHeader": "{hostNick} performs a Psychology check on {targetNick}",
     "psyHeaderNoSkill": "{hostNick} performs a Psychology check on {targetNick} (skill not set)",
     "sanCheckRequestContent": "{hostNick} requested {targetNicks} to make a Sanity Check",
-    "separator": ", "
+    "separator": ", ",
+    "errorNoAccess": "You can't do that in this room, or the room is frozen",
+    "errorInvalidMessageType": "Invalid message type",
+    "errorMessageLength": "Message must be between 1 and {max} characters",
+    "errorInvalidImageRef": "Invalid image reference",
+    "errorInvalidStickerRef": "Invalid sticker reference",
+    "sendFailed": "Failed to send: {error}",
+    "withdrawFailed": "Failed to withdraw: {error}"
   },
   "commands": {
     "helpTitle": "Command Help",
@@ -1467,7 +1503,10 @@
     "alreadyOwned": "The player already owns this item",
     "defaultTeammate": "Teammate",
     "sharedReceived": "Received item shared by {sender}: {title}",
-    "sharedSent": "Shared item {title} with {recipient}"
+    "sharedSent": "Shared item {title} with {recipient}",
+    "errorItemNotFound": "Item not found",
+    "errorRecipientNotMember": "The recipient is not a member of this room",
+    "errorNotOwned": "You don't have this item"
   },
   "eventActions": {
     "cardFallback": "📜 Event: {title}",
@@ -1586,7 +1625,9 @@
     "retractConfirmAction": "Retract",
     "deleteConfirmTitle": "Delete this event?",
     "expandEditor": "Expand to full editor",
-    "collapseEditor": "Collapse editor"
+    "collapseEditor": "Collapse editor",
+    "discardTitle": "Discard unsaved changes?",
+    "discardAction": "Discard"
   },
   "inventoryDispatch": {
     "allMembers": "all members",

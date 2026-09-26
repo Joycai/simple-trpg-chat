@@ -18,12 +18,14 @@ interface ManageViewProps {
   onEdit: (item: InventoryItem) => void;
   onDelete: (itemId: number, itemTitle: string) => void;
   onDistribute: (itemId: number) => void;
+  /** Item whose delete is in flight — its delete button spins and is disabled. */
+  deletingId?: number | null;
 }
 
 export function ManageView({
   roomItems, history, manageFilterType, onManageFilterTypeChange,
   manageFilterDist, onManageFilterDistChange, onCreateClick,
-  onViewDetail, onEdit, onDelete, onDistribute,
+  onViewDetail, onEdit, onDelete, onDistribute, deletingId = null,
 }: ManageViewProps) {
   const t = useTranslations("inventory");
   const typeTabLabel = (tStr: string) => ({ clue: t("tabClue"), info: t("tabInfo"), character: t("tabChar"), item: t("tabItem") }[tStr] || tStr);
@@ -157,9 +159,9 @@ export function ManageView({
                         className="flex items-center justify-center w-9 h-9 rounded-theme text-text-muted hover:text-accent hover:bg-accent/10 transition cursor-pointer">
                         <Icons.Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => onDelete(item.id, item.title)} title={t("delete")}
-                        className="flex items-center justify-center w-9 h-9 rounded-theme text-text-muted hover:text-danger hover:bg-danger/10 transition cursor-pointer">
-                        <Icons.Trash2 className="w-4 h-4" />
+                      <button onClick={() => onDelete(item.id, item.title)} title={t("delete")} disabled={deletingId === item.id}
+                        className="flex items-center justify-center w-9 h-9 rounded-theme text-text-muted hover:text-danger hover:bg-danger/10 transition cursor-pointer disabled:opacity-50 disabled:cursor-wait">
+                        {deletingId === item.id ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Trash2 className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>

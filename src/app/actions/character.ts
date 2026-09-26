@@ -13,23 +13,30 @@ import {
 } from "@/lib/character/types";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
 import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
+import { getTranslations } from "next-intl/server";
+
+type Fail = { success: false; error: string };
+
+async function fail(key: string): Promise<Fail> {
+  return { success: false, error: (await getTranslations("character"))(key) };
+}
 
 /** Serialize a sheet for persistence, rejecting oversized payloads — the
  *  member list ships every sheet to every client, so an unbounded write is a
- *  room-wide payload amplifier. Throws (this module's actions still throw). */
-function serializeSheetChecked(sheet: CharacterData): string {
+ *  room-wide payload amplifier. `null` when too large. */
+function serializeSheetChecked(sheet: CharacterData): string | null {
   const json = JSON.stringify(sheet);
-  if (json.length > CHARACTER_DATA_MAX_BYTES) {
-    throw new Error("Character data too large");
-  }
-  return json;
+  return json.length > CHARACTER_DATA_MAX_BYTES ? null : json;
 }
 
-/** Verify that a user is a member of a room. Returns userId on success.
- *  Rejects writes when the room is frozen (read-only) unless the caller is the host. */
-async function requireMembership(roomId: number): Promise<number> {
+type Membership = { ok: true; userId: number } | { ok: false; key: string };
+
+/** Verify that a user is a member of a room.
+ *  Rejects writes when the room is frozen (read-only) unless the caller is the host.
+ *  Unlike `tryRoomAccess`, keeps the reason: signed out / not a member / frozen. */
+async function checkMembership(roomId: number): Promise<Membership> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { ok: false, key: "errorNotAuthenticated" };
   const userId = parseInt(session.user.id);
 
   const [member] = await db.select({ id: roomMembers.id })
@@ -39,16 +46,23 @@ async function requireMembership(roomId: number): Promise<number> {
       eq(roomMembers.userId, userId)
     ));
 
-  if (!member) throw new Error("Not a member of this room");
+  if (!member) return { ok: false, key: "errorNotMember" };
 
   const [room] = await db.select({ frozen: rooms.frozen, hostId: rooms.hostId })
     .from(rooms)
     .where(eq(rooms.id, roomId));
   if (room?.frozen && room.hostId !== userId) {
-    throw new Error("Room is frozen (read-only)");
+    return { ok: false, key: "errorRoomFrozen" };
   }
 
-  return userId;
+  return { ok: true, userId };
+}
+
+/** Read actions still throw — their callers render a retry state. */
+async function requireMembership(roomId: number): Promise<number> {
+  const m = await checkMembership(roomId);
+  if (!m.ok) throw new Error(`Character access denied (${m.key})`);
+  return m.userId;
 }
 
 /**
@@ -56,8 +70,10 @@ async function requireMembership(roomId: number): Promise<number> {
  * room's active rule (COC: 9 attrs + derived; d20: 8 attrs + HP; basic: {}).
  * Delegates entirely to `rule.initCharacter()` — the action just persists.
  */
-export async function initCharacterAction(roomId: number) {
-  const userId = await requireMembership(roomId);
+export async function initCharacterAction(roomId: number): Promise<{ success: true; data: CharacterData } | Fail> {
+  const m = await checkMembership(roomId);
+  if (!m.ok) return fail(m.key);
+  const { userId } = m;
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const rule = getRuleForRoom(room || {});
@@ -71,7 +87,7 @@ export async function initCharacterAction(roomId: number) {
     ));
 
   revalidatePath(`/rooms/${roomId}`);
-  return characterData;
+  return { success: true, data: characterData };
 }
 
 /** Result of the on-entry sheet/rule reconciliation. */
@@ -144,8 +160,10 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
  * profile fields (see `CARRYOVER_KEYS`). Invoked only after the player accepts
  * the rule-change prompt.
  */
-export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise<CharacterData> {
-  const userId = await requireMembership(roomId);
+export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise<{ success: true; data: CharacterData } | Fail> {
+  const m = await checkMembership(roomId);
+  if (!m.ok) return fail(m.key);
+  const { userId } = m;
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
@@ -174,7 +192,7 @@ export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise
     ));
 
   revalidatePath(`/rooms/${roomId}`);
-  return rebuilt;
+  return { success: true, data: rebuilt };
 }
 
 /**
@@ -184,8 +202,10 @@ export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise
 export async function saveCharacterDataAction(
   roomId: number,
   data: Partial<CharacterData>
-) {
-  const userId = await requireMembership(roomId);
+): Promise<{ success: true; data: CharacterData } | Fail> {
+  const m = await checkMembership(roomId);
+  if (!m.ok) return fail(m.key);
+  const { userId } = m;
 
   // Get existing data
   const [member] = await db.select({ characterData: roomMembers.characterData })
@@ -206,15 +226,18 @@ export async function saveCharacterDataAction(
   // is identity. Removes the need for a rule-id branch here.
   merged = getRule(merged.ruleTemplate).computeDerived(merged);
 
+  const json = serializeSheetChecked(merged);
+  if (json === null) return fail("errorDataTooLarge");
+
   await db.update(roomMembers)
-    .set({ characterData: serializeSheetChecked(merged) })
+    .set({ characterData: json })
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)
     ));
 
   revalidatePath(`/rooms/${roomId}`);
-  return merged;
+  return { success: true, data: merged };
 }
 
 /**
@@ -223,8 +246,10 @@ export async function saveCharacterDataAction(
 export async function addCustomAttributeAction(
   roomId: number,
   attr: CustomAttribute
-) {
-  const userId = await requireMembership(roomId);
+): Promise<{ success: true } | Fail> {
+  const m = await checkMembership(roomId);
+  if (!m.ok) return fail(m.key);
+  const { userId } = m;
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
@@ -247,15 +272,18 @@ export async function addCustomAttributeAction(
 
   existing.customAttributes = customAttrs;
 
+  const json = serializeSheetChecked(existing);
+  if (json === null) return fail("errorDataTooLarge");
+
   await db.update(roomMembers)
-    .set({ characterData: serializeSheetChecked(existing) })
+    .set({ characterData: json })
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)
     ));
 
   revalidatePath(`/rooms/${roomId}`);
-  return existing;
+  return { success: true };
 }
 
 /**
@@ -264,8 +292,10 @@ export async function addCustomAttributeAction(
 export async function removeCustomAttributeAction(
   roomId: number,
   attrName: string
-) {
-  const userId = await requireMembership(roomId);
+): Promise<{ success: true } | Fail> {
+  const m = await checkMembership(roomId);
+  if (!m.ok) return fail(m.key);
+  const { userId } = m;
 
   const [member] = await db.select({ characterData: roomMembers.characterData })
     .from(roomMembers)
@@ -288,7 +318,7 @@ export async function removeCustomAttributeAction(
     ));
 
   revalidatePath(`/rooms/${roomId}`);
-  return existing;
+  return { success: true };
 }
 
 /**
@@ -334,9 +364,9 @@ export async function updateResourcesAction(
     // 狩魂者-only field — applied to shSheet when the active rule is shouhun.
     mana_current?: number;
   }
-) {
+): Promise<{ success: true } | Fail> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return fail("errorNotAuthenticated");
   const callerId = parseInt(session.user.id);
   const callerRole = session.user.role;
 
@@ -347,25 +377,25 @@ export async function updateResourcesAction(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, callerId)
     ));
-  if (!caller) throw new Error("Not a member of this room");
+  if (!caller) return fail("errorNotMember");
 
   // Check authorization: must be owner, room host, or admin
   const [room] = await db.select({ hostId: rooms.hostId, frozen: rooms.frozen })
     .from(rooms)
     .where(eq(rooms.id, roomId));
-  if (!room) throw new Error("Room not found");
+  if (!room) return fail("errorRoomNotFound");
 
   const isOwner = callerId === targetUserId;
   const isHost = callerId === room.hostId;
   const isAdmin = callerRole === "admin";
 
   if (!isOwner && !isHost && !isAdmin) {
-    throw new Error("Unauthorized to update this character's resources");
+    return fail("errorUnauthorizedResource");
   }
 
   // Frozen rooms are read-only for non-hosts
   if (room.frozen && !isHost && !isAdmin) {
-    throw new Error("Room is frozen (read-only)");
+    return fail("errorRoomFrozen");
   }
 
   // Verify target user is a member
@@ -375,7 +405,7 @@ export async function updateResourcesAction(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, targetUserId)
     ));
-  if (!targetMember) throw new Error("Target user is not a member of this room");
+  if (!targetMember) return fail("errorTargetNotMember");
 
   let charData: CharacterData = targetMember.characterData
     ? JSON.parse(targetMember.characterData)
@@ -404,5 +434,5 @@ export async function updateResourcesAction(
   });
 
   revalidatePath(`/rooms/${roomId}`);
-  return charData;
+  return { success: true };
 }

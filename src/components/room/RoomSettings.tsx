@@ -59,12 +59,16 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
       formData.set("themeMode", followTimeline ? "timeline" : selectedMode);
       formData.set("ruleTemplate", selectedRuleTemplate);
 
-      await updateRoomSettingsAction(roomId, formData);
+      const res = await updateRoomSettingsAction(roomId, formData);
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
 
       close();
       router.refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t("saveFailed"));
+    } catch {
+      setError(t("saveFailed"));
     } finally {
       setSaving(false);
     }

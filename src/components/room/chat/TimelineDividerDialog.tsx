@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { insertTimelineDividerAction } from "@/app/actions/messages";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
+import { Notice } from "@/components/shared/Notice";
 import {
   composeTimelineLabel,
   type TimelineDividerData,
@@ -44,6 +45,7 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
   const [segment, setSegment] = useState<TimelineSegment>("afternoon");
   const [clock, setClock] = useState("12:00");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isCustom = mode === "custom";
 
@@ -69,13 +71,12 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
-    try {
-      const res = await insertTimelineDividerAction(roomId, data);
-      if (res.success) close();
-      else setSubmitting(false);
-    } catch {
-      setSubmitting(false);
-    }
+    setError(null);
+    const res = await insertTimelineDividerAction(roomId, data)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (res.success) { close(); return; }
+    setError(res.error);
+    setSubmitting(false);
   };
 
   // Segmented tab (第几日 / 具体日期 and 时段/时间 toggle share this look).
@@ -215,6 +216,8 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
               <span className="flex-1 h-px bg-gradient-to-l from-transparent to-accent/50" />
             </div>
           </div>
+
+          {error && <Notice variant="error" className="mb-4">{error}</Notice>}
 
           {/* Actions */}
           <div className="flex gap-3">

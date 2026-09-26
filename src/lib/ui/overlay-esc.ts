@@ -37,7 +37,9 @@ export function useEscapeToClose(onEscape: () => void, enabled: boolean = true):
     const id = Symbol("overlay");
     stack.push(id);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.isComposing) return;
+      // An inner control already consumed this Escape (e.g. closing the
+      // @-mention picker inside an editor) — it is not a close request.
+      if (e.key !== "Escape" || e.isComposing || e.defaultPrevented) return;
       if (stack[stack.length - 1] !== id) return;
       e.preventDefault();
       handlerRef.current();

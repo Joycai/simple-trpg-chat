@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Portal } from "./InventorySkeletons";
 import { Icons } from "@/components/shared/icons";
@@ -8,6 +8,7 @@ import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { ImagePreview } from "@/components/shared/ImagePreview";
+import { Notice } from "@/components/shared/Notice";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 import {
@@ -51,11 +52,16 @@ interface CreateEditModalProps {
   onImageChange: (v: string | null) => void;
   onCancel: () => void;
   onSubmit: () => void;
+  /** Why the last save failed; shown above the footer. */
+  error?: string | null;
+  /** Save in flight — blocks the submit button. */
+  busy?: boolean;
 }
 
 export function CreateEditModal({
   roomId, editingItemId, itemType, onItemTypeChange, title, onTitleChange,
   contentFields, onContentFieldsChange, meta, onMetaChange, imageUrl, onImageChange, onCancel, onSubmit,
+  error, busy = false,
 }: CreateEditModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
@@ -330,11 +336,16 @@ export function CreateEditModal({
             </div>
           </div>
 
+          {error && <Notice variant="error" className="mt-4 shrink-0">{error}</Notice>}
+
           {/* Footer */}
           <div className="flex gap-3 justify-end pt-4 items-center shrink-0">
             <button onClick={onCancel} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
-            <button onClick={onSubmit} disabled={!title}
-              className="btn-primary px-6 py-2.5 rounded-theme bg-gradient-to-b from-success to-success/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none shadow-[0_0_16px_rgb(var(--theme-success)/0.35)]">{editingItemId !== null ? t("confirm") : t("create")}</button>
+            <button onClick={onSubmit} disabled={!title || busy}
+              className="btn-primary inline-flex items-center gap-1.5 px-6 py-2.5 rounded-theme bg-gradient-to-b from-success to-success/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none shadow-[0_0_16px_rgb(var(--theme-success)/0.35)]">
+              {busy && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
+              {editingItemId !== null ? t("confirm") : t("create")}
+            </button>
           </div>
         </div>
       </div>
@@ -361,11 +372,16 @@ interface DistributeModalProps {
   setDistributeTargets: React.Dispatch<React.SetStateAction<number[]>>;
   onCancel: () => void;
   onDistribute: (targets: number[] | "all") => void;
+  /** Why the last hand-out failed (per recipient); shown above the actions. */
+  error?: ReactNode;
+  /** Hand-out in flight — blocks both distribute buttons. */
+  busy?: boolean;
 }
 
 export function DistributeModal({
   distributeItemId, roomItems, players, userId,
   distributeTargets, setDistributeTargets, onCancel, onDistribute,
+  error, busy = false,
 }: DistributeModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
@@ -388,8 +404,8 @@ export function DistributeModal({
           </div>
 
           {/* Distribute to all */}
-          <button type="button" onClick={() => onDistribute("all")}
-            className="w-full bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded-md font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
+          <button type="button" onClick={() => onDistribute("all")} disabled={busy}
+            className="disabled:opacity-40 w-full bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded-md font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
             {t("distributeAll")}
           </button>
 
@@ -420,14 +436,17 @@ export function DistributeModal({
             })}
           </div>
 
+          {error && <Notice variant="error" className="mt-4">{error}</Notice>}
+
           {/* Actions */}
           <div className="flex gap-2 mt-4 pt-3 border-t border-border">
             <button type="button" onClick={onCancel}
               className="flex-1 py-2 rounded-md text-xs font-bold text-text-muted hover:text-text hover:bg-surface-alt cursor-pointer transition">
               {tCommon("cancel")}
             </button>
-            <button type="button" onClick={() => onDistribute(distributeTargets)} disabled={distributeTargets.length === 0}
-              className="flex-1 bg-success hover:bg-success/90 disabled:opacity-40 text-white py-2 rounded-md font-bold text-xs cursor-pointer transition">
+            <button type="button" onClick={() => onDistribute(distributeTargets)} disabled={distributeTargets.length === 0 || busy}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-success hover:bg-success/90 disabled:opacity-40 text-white py-2 rounded-md font-bold text-xs cursor-pointer transition">
+              {busy && <Icons.Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {t("distributeConfirm", { count: distributeTargets.length })}
             </button>
           </div>
@@ -656,10 +675,16 @@ interface ShareModalProps {
   userId: number;
   hostId?: number;
   onCancel: () => void;
-  onShare: (targetIds: number[]) => void;
+  /** Resolves to the ids that failed — the selection narrows to them, since
+   *  the others already hold a copy and a retry would only be refused. */
+  onShare: (targetIds: number[]) => Promise<number[]>;
+  /** Per-recipient failures from the last send; shown above the footer. */
+  error?: ReactNode;
+  /** Send in flight — blocks the send button. */
+  busy?: boolean;
 }
 
-export function ShareModal({ item, fromName, players, userId, hostId, onCancel, onShare }: ShareModalProps) {
+export function ShareModal({ item, fromName, players, userId, hostId, onCancel, onShare, error, busy = false }: ShareModalProps) {
   const t = useTranslations("inventory");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
@@ -745,12 +770,14 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
             <Icons.Info className="w-4 h-4 shrink-0 mt-0.5" /> <span>{t("shareNote")}</span>
           </div>
 
+          {error && <Notice variant="error" className="mt-4">{error}</Notice>}
+
           {/* Footer */}
           <div className="mt-5 flex items-center justify-end gap-3">
             <button onClick={onCancel} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
-            <button onClick={() => onShare(selected)} disabled={selected.length === 0}
+            <button onClick={async () => setSelected(await onShare(selected))} disabled={selected.length === 0 || busy}
               className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-theme bg-gradient-to-b from-primary to-primary/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 shadow-[var(--theme-glow)]">
-              <Icons.Send className="w-4 h-4" /> {t("shareConfirmCount", { count: selected.length })}
+              {busy ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Send className="w-4 h-4" />} {t("shareConfirmCount", { count: selected.length })}
             </button>
           </div>
         </div>

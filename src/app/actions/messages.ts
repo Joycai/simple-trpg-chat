@@ -8,13 +8,22 @@ import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
 import type { Audience } from "@/lib/messaging/audience";
 import { executeCommand } from "@/lib/commands/engine";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import type { CommandResult } from "@/lib/commands/command-types";
+import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
 import { checkSensitiveWords } from "@/lib/security/sensitive-words";
 import { isValidStickerRef } from "@/lib/media/stickers";
 import { getTranslations, getLocale } from "next-intl/server";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { botActivationMode } from "@/lib/ai/bot-status";
 import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
+import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
+
+type Fail = { success: false; error: string };
+type Done = { success: true } | Fail;
+
+async function roomActionsError(key: string, params?: Record<string, number>): Promise<Fail> {
+  return { success: false, error: (await getTranslations("roomActions"))(key, params) };
+}
 
 // --- Message & Dice Actions ---
 
@@ -36,8 +45,10 @@ export async function sendMessageAction(
   type: "text" | "image" | "sticker" = "text",
   isPrivate: boolean = false,
   targetUserId?: number // V3.14: Added targetUserId
-) {
-  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+): Promise<Done> {
+  const access = await tryRoomAccess(roomId, false, { requireWritable: true });
+  if (!access) return roomActionsError("errorNoAccess");
+  const { userId } = access;
 
   // Server Actions accept whatever JSON the client sends — TypeScript's union
   // is just a hint. Clients may only post text/image/sticker through this
@@ -50,12 +61,12 @@ export async function sendMessageAction(
   //    like server notifications to other players.
   // Anything else is a typo or attack — bail before we look at content.
   if (type !== "text" && type !== "image" && type !== "sticker") {
-    throw new Error("Invalid message type");
+    return roomActionsError("errorInvalidMessageType");
   }
 
   const trimmedContent = content.trim();
-  if (type === "text" && (!trimmedContent || trimmedContent.length > 10000)) {
-    throw new Error("Message content must be between 1 and 10000 characters");
+  if (type === "text" && (!trimmedContent || trimmedContent.length > MESSAGE_MAX_LENGTH)) {
+    return roomActionsError("errorMessageLength", { max: MESSAGE_MAX_LENGTH });
   }
 
   // Image messages carry a server-relative image path in `content`. Reject
@@ -63,7 +74,7 @@ export async function sendMessageAction(
   // arbitrary/remote URLs being injected as image messages).
   if (type === "image") {
     if (!/^\/api\/rooms\/\d+\/images\/[A-Za-z0-9._-]+$/.test(trimmedContent)) {
-      throw new Error("Invalid image reference");
+      return roomActionsError("errorInvalidImageRef");
     }
     content = trimmedContent; // store the normalized path
   }
@@ -72,7 +83,7 @@ export async function sendMessageAction(
   // that isn't a sticker present in the on-disk manifest.
   if (type === "sticker") {
     if (!isValidStickerRef(trimmedContent)) {
-      throw new Error("Invalid sticker reference");
+      return roomActionsError("errorInvalidStickerRef");
     }
     content = trimmedContent; // store the normalized path
   }
@@ -83,7 +94,7 @@ export async function sendMessageAction(
   if (type === "text") {
     const matchedWord = await checkSensitiveWords(content);
     if (matchedWord) {
-      return await dispatchMessage({
+      await dispatchMessage({
         roomId,
         actorUserId: userId,
         nickname: "SYSTEM",
@@ -93,6 +104,7 @@ export async function sendMessageAction(
         content: t("sensitiveWordsIntercepted"),
         systemKind: "error",
       });
+      return { success: true };
     }
   }
 
@@ -101,7 +113,7 @@ export async function sendMessageAction(
     const result = await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
     if (result.isCommand) {
       if (!result.success) {
-        return await dispatchMessage({
+        await dispatchMessage({
           roomId,
           actorUserId: userId,
           nickname: "SYSTEM",
@@ -112,7 +124,7 @@ export async function sendMessageAction(
           systemKind: "error",
         });
       }
-      return result.message;
+      return { success: true };
     }
   }
 
@@ -125,13 +137,13 @@ export async function sendMessageAction(
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  if (!sender) throw new Error("Not a member");
+  if (!sender) return roomActionsError("errorNoAccess");
 
   // Text/image/sticker never carry diceDetail — only the internal dice paths
   // (rollDiceAction, commands/engine.ts) attach one. Hard-null it so a client can't
   // smuggle a fake check payload onto a text message that would still flip
   // ChatMessage into the dice-bubble renderer.
-  const newMessage = await dispatchMessage({
+  await dispatchMessage({
     roomId,
     actorUserId: userId,
     nickname: sender.nickname,
@@ -175,7 +187,7 @@ export async function sendMessageAction(
     }
   }
 
-  return newMessage;
+  return { success: true };
 }
 
 /**
@@ -191,9 +203,11 @@ export async function rollDiceAction(
   count: number,
   hidden: boolean = false,
   channelPartnerId?: number
-) {
-  const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
-  return dispatchDiceRoll(roomId, userId, faces, count, hidden, channelPartnerId);
+): Promise<Done> {
+  const access = await tryRoomAccess(roomId, false, { requireWritable: true });
+  if (!access) return roomActionsError("errorNoAccess");
+  await dispatchDiceRoll(roomId, access.userId, faces, count, hidden, channelPartnerId);
+  return { success: true };
 }
 
 // --- Timeline divider (host-only) ---
@@ -206,14 +220,16 @@ export async function rollDiceAction(
 export async function insertTimelineDividerAction(
   roomId: number,
   data: TimelineDividerData,
-): Promise<{ success: boolean; error?: string }> {
-  const { userId: hostId } = await checkRoomAccess(roomId, true);
+): Promise<Done> {
+  const access = await tryRoomAccess(roomId, true);
+  if (!access) return roomActionsError("errorNoAccess");
+  const { userId: hostId } = access;
 
   // Reject anything the modal shouldn't have produced. These rules now live in
   // timeline-payload.ts so the event module gates its own writes with the same
   // ones rather than its own (non-)validation.
   const clean = sanitizeTimelineDivider(data);
-  if (!clean) return { success: false, error: "Invalid timeline payload" };
+  if (!clean) return { success: false, error: (await getTranslations("timeline"))("errorInvalidPayload") };
 
   const [hostMember] = await db.select().from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, hostId)));
@@ -247,12 +263,12 @@ export async function insertTimelineDividerAction(
 export async function withdrawTimelineDividerAction(
   roomId: number,
   messageId: number,
-): Promise<{ success: boolean; error?: string }> {
-  await checkRoomAccess(roomId, true);
+): Promise<Done> {
+  if (!(await tryRoomAccess(roomId, true))) return roomActionsError("errorNoAccess");
 
   const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
   if (!row || row.roomId !== roomId || row.type !== "system" || row.systemKind !== "timeline-divider") {
-    return { success: false, error: "Not a timeline divider" };
+    return { success: false, error: (await getTranslations("timeline"))("errorNotDivider") };
   }
 
   await db.delete(messages).where(eq(messages.id, messageId));
@@ -269,17 +285,17 @@ export async function executeCommandAction(
   content: string,
   isPrivate?: boolean,
   targetUserId?: number
-) {
+): Promise<CommandResult> {
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
-  const callerId = parseInt(session.user.id);
+  const callerId = session ? parseInt(session.user.id) : NaN;
 
-  if (callerId !== userId) {
-    throw new Error("Unauthorized: Cannot execute commands as another user");
+  // Signed out, acting as another user, or not a writable member: the same
+  // `{ success, error }` shape the engine returns, so the caller's existing
+  // "指令错误" rendering covers these too.
+  if (callerId !== userId || !(await tryRoomAccess(roomId, false, { requireWritable: true }))) {
+    const denied = await roomActionsError("errorNoAccess");
+    return { ...denied, isCommand: true };
   }
-
-  // Ensure they are a member of the room
-  await checkRoomAccess(roomId, false, { requireWritable: true });
 
   return await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
 }
@@ -327,9 +343,11 @@ export async function getUnreadDMCountAction(roomId: number) {
   return counts;
 }
 
-export async function markDMReadAction(roomId: number, senderUserId: number) {
-  const { userId } = await checkRoomAccess(roomId, false);
-  
+export async function markDMReadAction(roomId: number, senderUserId: number): Promise<Done> {
+  const access = await tryRoomAccess(roomId, false);
+  if (!access) return roomActionsError("errorNoAccess");
+  const { userId } = access;
+
   await db
     .insert(roomDmReads)
     .values({
@@ -346,6 +364,7 @@ export async function markDMReadAction(roomId: number, senderUserId: number) {
   // and this action fires for EVERY inbound DM while its tab is active — the
   // revalidate was embedding a full room-page RSC render into each response
   // (per message, during bot streaming). The DB write alone is the contract.
+  return { success: true };
 }
 
 // --- History loading ---

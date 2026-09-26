@@ -12,6 +12,7 @@ import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ImageCropper } from "@/components/shared/ImageCropper";
+import { Notice } from "@/components/shared/Notice";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
@@ -88,6 +89,19 @@ export function CharacterPanel({
   const [nickname, setNickname] = useState(currentNickname);
   const [editingNick, setEditingNick] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
+  // Last colour the server accepted — a failed pick reverts the swatch to it.
+  // Follows the live prop too, so a change made elsewhere is the new baseline.
+  const savedColor = useRef(selectedColor);
+  useEffect(() => { if (avatarColor) savedColor.current = avatarColor; }, [avatarColor]);
+  // Only the latest pick may revert the swatch or report an error; the colour
+  // input fires on every drag step, so older picks resolve behind newer ones.
+  const colorSeq = useRef(0);
+  // A failed nickname save keeps the editor open, so Enter and the following
+  // blur can both fire saveNickname; this stops the second one while the
+  // first is in flight.
+  const savingNick = useRef(false);
+  // The panel's single error strip (above the footer) — any failed write.
+  const [panelError, setPanelError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   // Character data — parsed once, then individual fields are pulled into local
@@ -136,7 +150,9 @@ export function CharacterPanel({
     // then calls `router.refresh()`, so the response re-renders the entire room
     // tree. Landing that inside the drawer's slide is the difference between a
     // smooth open and a visible hitch.
-    initCharacterAction(roomId).then((data) => {
+    initCharacterAction(roomId).then((res) => {
+      if (!res.success) { setPanelError(res.error); return; }
+      const { data } = res;
       afterEnter(() => {
         setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities, data.shAttributes));
         if (data.d20Sheet) {
@@ -146,7 +162,7 @@ export function CharacterPanel({
         setInitDone(true);
         router.refresh();
       });
-    }).catch(() => {});
+    }).catch(() => setPanelError(tCommon("error")));
     // intentionally omits `router` and `ruleTemplate` from deps — initial-mount-only effect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomRuleTemplate, roomId, initDone, readOnly]);
@@ -156,6 +172,10 @@ export function CharacterPanel({
 
   // Custom attributes / resources (a custom item with `max` set renders as a resource bar)
   const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
+  // Per-name value the server last accepted, so a failed in-place edit rolls
+  // back to it — not to a newer optimistic value that also never landed.
+  // Cleared whenever the sheet re-syncs from props.
+  const confirmedCustom = useRef(new Map<string, { name: string; value: number; max?: number }>());
 
   // Draft the rule's live status from the currently-edited attributes so the
   // bar denominators + derived footer move as the player edits, without the
@@ -235,6 +255,7 @@ export function CharacterPanel({
     setOccupation(cd.occupation || "");
     setAge(cd.age ?? "");
     setCustomAttrs(cd.customAttributes || []);
+    confirmedCustom.current.clear();
     // Resource currents come from the rule's own status snapshot; role/level
     // only for rules that expose them. (Was a dnd5e/triangle/shouhun/coc chain.)
     setCurrentResources(currentsFromStatus(rt, draftStatusFor(rt, cd, attrs)));
@@ -246,26 +267,49 @@ export function CharacterPanel({
   }, [characterData, ruleTemplate]);
 
   const saveNickname = async () => {
-    if (nickname.trim() && nickname !== currentNickname) {
-      await updateNicknameAction(roomId, nickname.trim());
-      onNicknameChange(nickname.trim());
+    if (savingNick.current) return;
+    const next = nickname.trim();
+    if (next && nickname !== currentNickname) {
+      savingNick.current = true;
+      setPanelError(null);
+      const res = await updateNicknameAction(roomId, next)
+        .catch(() => ({ success: false as const, error: tCommon("error") }));
+      savingNick.current = false;
+      // Stay in the editor with the typed name so the player can retry.
+      if (!res.success) { setPanelError(res.error); return; }
+      // Escape during the request reset the draft; show what the server kept.
+      setNickname(next);
+      onNicknameChange(next);
     }
     setEditingNick(false);
   };
 
   const handleColorChange = async (color: string) => {
     if (readOnly) return;
+    const seq = ++colorSeq.current;
     setSelectedColor(color);
-    try {
-      await updateRoomMemberColorAction(roomId, userId, color);
-    } catch (err) {
-      console.error("Failed to update avatar color:", err);
+    setPanelError(null);
+    const res = await updateRoomMemberColorAction(roomId, userId, color)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (res.success) {
+      savedColor.current = color;
+      return;
     }
+    if (seq !== colorSeq.current) return; // a newer pick owns the swatch now
+    setSelectedColor(savedColor.current);
+    setPanelError(res.error);
   };
 
   // Footer "保存" — persists attributes + bio + per-rule sheet in one go.
   const handleSaveAll = async () => {
+    // Failure: the button flashes its error state and the strip says why.
+    const failSave = (error: string) => {
+      setPanelError(error);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    };
     setSaveStatus("saving");
+    setPanelError(null);
     try {
       const basePayload = {
         ruleTemplate, bio,
@@ -301,8 +345,12 @@ export function CharacterPanel({
       if (cap.resourceCurrentsViaAction) {
         // COC / 狩魂者: attributes on the caller's own sheet, currents via
         // updateResourcesAction so a host can adjust another player's bars.
-        await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
-        await updateResourcesAction(roomId, targetUserId || userId, resPatch);
+        const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
+        if (!saved.success) return failSave(saved.error);
+        // A failure here leaves the attributes saved; retrying is idempotent,
+        // so reporting the whole save as failed is acceptable.
+        const res = await updateResourcesAction(roomId, targetUserId || userId, resPatch);
+        if (!res.success) return failSave(res.error);
       } else {
         // d20 / triangle / basic: currents bundle into the player's own sheet —
         // standard resources via applyResourcePatch, counters via applyStatWrite.
@@ -314,15 +362,15 @@ export function CharacterPanel({
             full = rule.applyStatWrite(full, { kind: "resource", key: bar.key, canonical: bar.key }, v).sheet;
           }
         }
-        await saveCharacterDataAction(roomId, { ...basePayload, ...full });
+        const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...full });
+        if (!saved.success) return failSave(saved.error);
       }
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
       router.refresh();
     } catch (e) {
       console.error("Failed to save character", e);
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      failSave(tCommon("error"));
     }
   };
 
@@ -421,32 +469,47 @@ export function CharacterPanel({
     const name = attr.name.trim();
     if (!name) return;
     const item = { ...attr, name };
-    try {
-      await addCustomAttributeAction(roomId, item);
-      setCustomAttrs(prev => {
-        const idx = prev.findIndex(a => a.name === name);
-        if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
-        return [...prev, item];
-      });
-      router.refresh();
-    } catch (e) { console.error(e); }
+    setPanelError(null);
+    const res = await addCustomAttributeAction(roomId, item)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) { setPanelError(res.error); return; }
+    setCustomAttrs(prev => {
+      const idx = prev.findIndex(a => a.name === name);
+      if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
+      return [...prev, item];
+    });
+    router.refresh();
   };
 
   // Edit a custom item's current value / max in place (optimistic + persist).
   const updateCustom = async (name: string, patch: { value?: number; max?: number }) => {
     const existing = customAttrs.find(a => a.name === name);
     if (!existing) return;
+    const confirmed = confirmedCustom.current;
+    if (!confirmed.has(name)) confirmed.set(name, existing);
     const item = { ...existing, ...patch };
     setCustomAttrs(prev => prev.map(a => (a.name === name ? item : a)));
-    try { await addCustomAttributeAction(roomId, item); router.refresh(); } catch (e) { console.error(e); }
+    setPanelError(null);
+    const res = await addCustomAttributeAction(roomId, item)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) {
+      // Roll back the optimistic edit unless a newer edit has replaced it.
+      const base = confirmed.get(name) ?? existing;
+      setCustomAttrs(prev => prev.map(a => (a === item ? base : a)));
+      setPanelError(res.error);
+      return;
+    }
+    confirmed.set(name, item);
+    router.refresh();
   };
 
   const removeCustomAttr = async (name: string) => {
-    try {
-      await removeCustomAttributeAction(roomId, name);
-      setCustomAttrs(prev => prev.filter(a => a.name !== name));
-      router.refresh();
-    } catch (e) { console.error(e); }
+    setPanelError(null);
+    const res = await removeCustomAttributeAction(roomId, name)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) { setPanelError(res.error); return; }
+    setCustomAttrs(prev => prev.filter(a => a.name !== name));
+    router.refresh();
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -668,6 +731,14 @@ export function CharacterPanel({
         </PaneTransition>
         </div>
 
+        {panelError && (
+          <div className="shrink-0 px-6 pt-3">
+            <Notice variant="error" onDismiss={() => setPanelError(null)} dismissLabel={tCommon("close")}>
+              {panelError}
+            </Notice>
+          </div>
+        )}
+
         {/* Footer — 导出 / 保存 */}
         <div className="shrink-0 border-t border-border bg-surface px-6 py-4 flex gap-3">
           <button onClick={handleExport}
@@ -693,7 +764,11 @@ export function CharacterPanel({
         title={t("changeAvatar")}
         onCancel={() => setCropFile(null)}
         onConfirm={async (dataUrl) => {
-          await uploadAvatarAction(roomId, dataUrl);
+          const res = await uploadAvatarAction(roomId, dataUrl)
+            .catch(() => ({ success: false as const, error: tCommon("error") }));
+          // ImageCropper shows a thrown Error's message in its own error strip
+          // and stays open — a local signal, not a server error crossing the wire.
+          if (!res.success) throw new Error(res.error);
           setAvatarOverride(dataUrl);
           setCropFile(null);
           router.refresh();

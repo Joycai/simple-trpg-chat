@@ -237,7 +237,7 @@ export function formatDiceRollMessage(
   // If there's only one term and it's a dice term
   if (terms.length === 1 && terms[0].type === "dice") {
     const term = terms[0];
-    const keptLabel = t("keptLabel") || "保留";
+    const keptLabel = t("keptLabel");
     let content = "";
     if (term.keep !== undefined) {
       content = `🎲 ${term.count}d${term.faces}k${term.keep}: [${term.rolls.join(", ")}](${keptLabel}[${term.keptRolls.join(", ")}]) = ${totalSum}`;
@@ -281,7 +281,7 @@ export function formatDiceRollMessage(
     if (term.type === "constant") {
       termDisplay = term.sum.toString();
     } else {
-      const keptLabel = t("keptLabel") || "保留";
+      const keptLabel = t("keptLabel");
       if (term.keep !== undefined) {
         termDisplay = `${term.count}d${term.faces}k${term.keep}([${term.rolls.join(", ")}], ${keptLabel}[${term.keptRolls.join(", ")}])`;
       } else {

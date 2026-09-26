@@ -222,16 +222,18 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   `getTranslations`. Never surface a thrown message to the client: Next.js redacts
   server-action errors in production, so `err.message` renders as "An error occurred in
   the Server Components render…". `checkRoomAccess` and `requireAdmin` still throw (they
-  are shared); wrap them per-action, as `background.ts`'s `requireRoomHost` and
-  `admin.ts`'s `adminGuard` do. Write-action status by module:
-  - Converted: `admin` · `ai-import` · `background` · `bot-presets` · `checks` ·
-    `dice-announcer` · `event` · `image-cache` · `invite` · `notebook` · `theme`
-    (setters; `updateSiteFavicon` still returns English errors) · `user`
-    (`changeOwnPassword`) · `ai-providers` (`deleteProvider`; `createProvider` /
-    `updateProvider` keep their older `{ error } | data` shape — their auth and
-    ownership errors are localized, but SSRF-guard and DB errors still pass through
-    in English).
-  - Still throwing, to be converted: `inventory` · `character` · `room` · `messages` · `bot`.
+  are shared, and read actions rely on it). In a write action use `tryRoomAccess` (same
+  module, returns `null` instead of throwing — map it to `roomActions.errorNoAccess`),
+  or wrap `requireAdmin` as `admin.ts`'s `adminGuard` does. Write-action status by module:
+  - Converted: `admin` · `ai-import` · `background` · `bot` · `bot-presets` ·
+    `character` · `checks` · `dice-announcer` · `event` · `image-cache` · `inventory` ·
+    `invite` · `messages` · `notebook` · `room` · `theme` (setters;
+    `updateSiteFavicon` still returns English errors) · `user` (`changeOwnPassword`) ·
+    `ai-providers` (`deleteProvider`; `createProvider` / `updateProvider` keep their
+    older `{ error } | data` shape — their auth and ownership errors are localized, but
+    SSRF-guard and DB errors still pass through in English).
+  - `executeCommandAction` returns the command engine's `CommandResult`
+    (`{ success, error?, isCommand }`), so its failures render like any command error.
 
   Read actions may still throw — their callers render a retry state.
 - **Validation**: Validate at the action boundary — `zod` where a schema fits
@@ -243,10 +245,12 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   block on mobile. Confirmations use `components/shared/ConfirmDialog.tsx`
   (built on `OverlayShell`; always portals, so it centers correctly when opened
   from inside a drawer). Notifications use `components/shared/Notice.tsx` as an
-  inline strip — pass `onDismiss` for a close button. Converted so far:
-  `notebook` (all paths), the admin panel (users, rooms, bot presets, image
-  cache), the user settings `InvitesTab`, and `event` (hand-rolled equivalents,
-  predates the shared component).
+  inline strip — pass `onDismiss` for a close button. No native dialog is left
+  in `src/components` or `src/app`. A confirm that must stack above an inventory
+  modal (`z-[60]` / `z-[70]`) passes `layerClassName`. A panel with unsaved
+  work guards its close paths with `OverlayShell`'s `onDismiss`, which runs
+  before the exit animation — `onClose` runs after it, too late to ask (see
+  `EventEditor`).
 - **Motion**: overlay enter/exit is driven by `motion` springs in
   `src/lib/ui/useOverlayTransition.ts` — attach its `panelRef` / `backdropRef`, and
   call `close()` (never `onClose`) so the exit plays before the parent unmounts.

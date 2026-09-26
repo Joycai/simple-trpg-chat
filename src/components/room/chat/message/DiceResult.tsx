@@ -509,9 +509,9 @@ export function DiceResultDisplay({
   if (d.sanityCheck) {
     const { oldSanity, newSanity, deductExpression, deduction, isSuccess } = d.sanityCheck;
     const grade: Exclude<DiceGrade, "none"> = isSuccess ? "success" : "failure";
-    const sanityLabel = t("scSanityLabel") || "理智";
-    const deductLabel = t("scDeductLabel") || "扣除";
-    const insanityLabel = t("scWarningInsanityShort") || "临时疯狂";
+    const sanityLabel = t("scSanityLabel");
+    const deductLabel = t("scDeductLabel");
+    const insanityLabel = t("scWarningInsanityShort");
     const insanity = deduction >= 5;
     return (
       <div className="sc-card bg-dice-card-bg border border-dice-card-border rounded-theme overflow-hidden min-w-[280px]">
@@ -586,7 +586,7 @@ export function DiceResultDisplay({
     d.keptRolls.length < d.results.length
       ? d.keptRolls
       : null;
-  const keptLabel = t("keptLabel") || "保留";
+  const keptLabel = t("keptLabel");
 
   // Per-die rendering with face highlighting (Triangle Agency accents every
   // 3). Only when the detail carries `highlightFace` — all other rules keep

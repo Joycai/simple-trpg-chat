@@ -19,6 +19,8 @@ interface ConfirmDialogProps {
   icon?: ReactNode;
   /** Shows a spinner and blocks the confirm button while the action runs. */
   busy?: boolean;
+  /** Passed to `OverlayShell` — raise it to stack above a higher modal. */
+  layerClassName?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -40,6 +42,7 @@ export function ConfirmDialog({
   tone = "danger",
   icon,
   busy = false,
+  layerClassName,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -57,6 +60,7 @@ export function ConfirmDialog({
     <OverlayShell
       onClose={onCancel}
       portal
+      layerClassName={layerClassName}
       panelClassName="w-full max-w-sm mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden font-theme"
     >
       {(close) => (
