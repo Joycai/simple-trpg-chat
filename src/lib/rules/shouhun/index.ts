@@ -363,6 +363,10 @@ export const shouhunRule: RuleModule = {
     if (x > 0 || y > 0) group = `+${x}`;
     if (y > 0) group += `+${y}`;
     else if (y < 0) group = x > 0 || name ? `+${x}${y}` : `${y}`;
+    // A name that itself ends in a signed number would still lend those digits
+    // to a shorter (or absent) group. The parser takes at most two groups, so
+    // spelling out both (`+x±y`, y as `+0`) leaves the name's suffix in the name.
+    if (/[+-][0-9]+$/.test(name)) group = `+${x}${y < 0 ? y : `+${y}`}`;
     const preview =
       `1d20${x > 0 ? `+${x}d4` : ""}${y > 0 ? `+${y}d6` : y < 0 ? `-${-y}d6` : ""} ≥ ${dc ?? 10}`;
 
