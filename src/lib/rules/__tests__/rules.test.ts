@@ -2060,6 +2060,14 @@ describe("quickCheckPanel ⇔ buildCheckCommand", () => {
     }
   });
 
+  it("声明 checkRequestOptions 的规则必须实现 buildCheckCommand(检定请求的响应指令由它生成)", () => {
+    for (const rule of listRules()) {
+      if (rule.capabilities.checkRequestOptions) {
+        expect(typeof rule.buildCheckCommand, rule.id).toBe("function");
+      }
+    }
+  });
+
   it("triangle 不声明面板(无 .rc 检定)", () => {
     expect(triangleRule.capabilities.quickCheckPanel).toBeUndefined();
   });

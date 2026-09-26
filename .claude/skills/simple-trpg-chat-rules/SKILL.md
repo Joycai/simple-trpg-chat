@@ -171,7 +171,7 @@ checkRequestOptions?: {
 }
 ```
 
-声明后:主持人对话框把 diceType 选择器换成上述字段;请求 detail 携带 `{dc, styleDice}`;响应方被提示填加骰数,服务端据此合成该规则的 `.rc name+x±y DC` 命令。目前只有 shouhun 用。消费方:`actions/room.ts`、`RoomOverlays.tsx`、`HostCheckDialog.tsx`。
+声明后:主持人对话框把 diceType 选择器换成上述字段;请求 detail 携带 `{dc, styleDice}`;响应方被提示填加骰数,服务端调用该规则的 `buildCheckCommand` 生成命令——**声明了本能力位就必须实现 `buildCheckCommand`**,否则每次响应都失败(`rules.test.ts` 有配对用例)。目前只有 shouhun 用。消费方:`actions/checks.ts`、`RoomOverlays.tsx`、`HostCheckDialog.tsx`。
 
 ### `quickCheckPanel` —— 玩家快速检定面板(v0.19 新增)
 
