@@ -2060,6 +2060,16 @@ describe("quickCheckPanel ⇔ buildCheckCommand", () => {
     }
   });
 
+  it("声明 checkRequestOptions 的规则必须实现 buildCheckCommand(检定请求的响应指令由它生成)", () => {
+    for (const rule of listRules()) {
+      if (rule.capabilities.checkRequestOptions) {
+        expect(typeof rule.buildCheckCommand, rule.id).toBe("function");
+        // Responses are always named and public — the builder must express them.
+        expect(rule.buildCheckCommand!({ name: "侦查", bonusDice: 0, styleDice: 0, dc: 10, hidden: false }), rule.id).not.toBeNull();
+      }
+    }
+  });
+
   it("triangle 不声明面板(无 .rc 检定)", () => {
     expect(triangleRule.capabilities.quickCheckPanel).toBeUndefined();
   });
@@ -2115,6 +2125,8 @@ describe("quickCheckPanel ⇔ buildCheckCommand", () => {
     // 时髦骰为正、加投为 0:必须显式 +0(孤立正组会被读成加投)
     expect(shouhunRule.buildCheckCommand!({ name: "", styleDice: 2, hidden: false })!.command).toBe(".r+0+2");
     expect(shouhunRule.buildCheckCommand!({ name: "", styleDice: -2, hidden: false })!.command).toBe(".r-2");
+    // 具名 + 时髦骰为负、加投为 0:也补 +0,否则名称末尾的 +n/-n 会被并入骰组
+    expect(shouhunRule.buildCheckCommand!({ name: "侦查", styleDice: -2, hidden: false })!.command).toBe(".rc 侦查+0-2");
   });
 
   it("shouhun:无名 + 暗骰不可表达 → null(面板据此禁用按钮)", () => {

@@ -95,7 +95,7 @@ description: >
 | --- | --- |
 | `parseQuickCheckArgs?(args)` | 把 `.r <args>` 认领成简写检定。在通用表达式解析**之前**被调用;返 null 则回落为普通掷骰。狩魂者 用它实现 `.r+x±y [DC]` |
 | `naturalGrade?(roll, faces, count)` | 普通掷骰(`.rd`/`.r`,非检定)的文化/机制解读,供 AI bot 反应。COC 认 1d100 的 01–05/96–100,basic 给 CoC 文化提示(1/100),其余省略(返 null)。取代 `ai/agent.ts` 里原本的 `id === "coc7th"/"basic"` 分支。PR #176 新增 |
-| `buildCheckCommand?(input)` | **快速检定面板**(输入框左侧 ◎)把面板状态变成"玩家本可手打的命令"+ 投掷按钮预览(`{command, preview}`)。与 `capabilities.quickCheckPanel` **成对声明**(`rules.test.ts` 有配对断言);返 null = 该组合无法表达(狩魂者 无名+暗骰),面板禁用按钮。必须纯函数、client-safe。v0.19 新增 |
+| `buildCheckCommand?(input)` | **快速检定面板**(输入框左侧 ◎)把面板状态变成"玩家本可手打的命令"+ 投掷按钮预览(`{command, preview}`)。与 `capabilities.quickCheckPanel` **成对声明**(`rules.test.ts` 有配对断言);返 null = 该组合无法表达(狩魂者 无名+暗骰),面板禁用按钮。**`capabilities.checkRequestOptions` 也依赖它**:主持人检定请求的响应命令(玩家响应 `actions/checks.ts`、Bot 的 `respond_check` 工具)都由它生成,因此对具名、`hidden:false` 的输入不得返回 null。必须纯函数、client-safe。v0.19 新增 |
 | `resolvePlainRoll?(args)` | 把 `.rd/.r/.rh <args>` 认领成**规则专属纯投掷**(COC 的 `.rd100b2` 奖惩骰投——额外 d10 替换十位)。在数字前缀改写与通用表达式解析**之前**、且**含 `.rh` 暗投**地被调用;规则自己掷骰,返回 `{notation, display, total, detail}`(引擎补 `command` 与代投标记);返 null 落回普通掷骰。v0.19 新增 |
 
 另:`parseRcArgs` / `parseQuickCheckArgs` 的返回值多了可选 `ruleData?: Record<string, unknown>` 槽——规则专属的语法附加物(COC 的奖励/惩罚骰数)经引擎**原样透传**到 `CheckRequest.ruleData`,`resolveCheck` 自取自清洗。引擎不认识其中任何字段。
@@ -144,7 +144,7 @@ interface CheckResult {
 | `hasPsychologyRoll` | `boolean` | `psychologyHiddenRollAction` 守卫 + TopBar 心理学暗骰菜单项 |
 | `hasManaPoints` | `boolean` | MP 资源条渲染 |
 | `checkMenuModes` | `("check"\|"psychology"\|"sancheck")[]` | TopBar 检定项;>1 渲染下拉,=1 单按钮,空数组整个隐藏(triangle) |
-| `supportedCommands` | `string[]` | `commands/engine.ts` 的命令门控(`.sc` 就读这个) |
+| `supportedCommands` | `string[]` | 命令门控(`.sc` 就读这个,见 `commands/sanity-check-command.ts`) |
 | `resourceBars` | `{key,labelKey,style?}[]` | 角色卡预置资源条。`style:"counter"` 渲染为无上限计数器(Triangle 嘉奖/处分),默认 `"bar"` 为 当前/上限 |
 | `attributeKeys` | `{key,labelKey}[]` | 角色卡属性宫格(basic=0, coc7th=9, dnd5e=8, triangle=9, shouhun=3);同时是 `clampAttributes` 的白名单来源 |
 | `derivedStats?` | `{key,labelKey}[]` | 属性宫格后的只读衍生卡(shouhun=术法强度)。值由 `readStatus().derived` 现算 |
@@ -171,7 +171,7 @@ checkRequestOptions?: {
 }
 ```
 
-声明后:主持人对话框把 diceType 选择器换成上述字段;请求 detail 携带 `{dc, styleDice}`;响应方被提示填加骰数,服务端据此合成该规则的 `.rc name+x±y DC` 命令。目前只有 shouhun 用。消费方:`actions/room.ts`、`RoomOverlays.tsx`、`HostCheckDialog.tsx`。
+声明后:主持人对话框把 diceType 选择器换成上述字段;请求 detail 携带 `{dc, styleDice}`;响应方被提示填加骰数,服务端调用该规则的 `buildCheckCommand` 生成命令——**声明了本能力位就必须实现 `buildCheckCommand`**,否则每次响应都失败(`rules.test.ts` 有配对用例)。目前只有 shouhun 用。消费方:`actions/checks.ts`、`ai/agent-tool-handlers.ts`(Bot 的 `respond_check`,加骰由工具参数 `bonusDice` 提供)、`RoomOverlays.tsx`、`HostCheckDialog.tsx`。
 
 ### `quickCheckPanel` —— 玩家快速检定面板(v0.19 新增)
 
@@ -285,7 +285,7 @@ UI 侧不用改。
 | `CharacterPanel` `resourceMaxEditable` / init 守卫 | `capabilities.resourceMaxEditable`;init 守卫用 `DEFAULT_RULE_ID` 常量比较 |
 | `LobbyClient` coc7th 骷髅徽标 | `useRuleLabelResolver()`(host-label.tsx)对任意非默认规则渲染其 `labelKey` |
 | `ai/agent.ts` 1d100 裸骰吉凶 | `rule.naturalGrade(roll, faces, count)` |
-| `commands/engine.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
+| `commands/sanity-check-command.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
 | `character.ts` `updateResourcesAction` 三分支 | `rule.applyResourcePatch(sheet, patch)` 单行委派 |
 | `lib/{coc,d20,ta,sh}-stats.ts` 散落公共 lib | 迁进 `rules/<id>/stats.ts`,每套规则物理自包含 |
 
@@ -311,7 +311,7 @@ COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名
 1. **在引擎/UI 里写 `if (rule.id === "xxx")`** —— 先扩 `RuleCapabilities`(纯数据)再用 capability 驱动。§5 是例外清单,不是许可证。
 2. **声明了 `sheetToolSchemaFields` 却没在 `applySheetPatch` 里消费** —— 模型会照 schema 正确调用,写入被静默丢弃,**没有任何报错**。triangle 和狩魂者 都踩过。`rules.test.ts` 现在有一条循环用例守住这个契约。
 3. **`RuleCapabilities` 里塞 React 组件/图标** —— 规则模块要在 server 端可用。
-4. **`rollDie` 留在 `commands/engine.ts` 预掷** —— 预掷使比较方向无法被规则改写,d20 直接挂掉。必须在 `resolveCheck` 内部调用。
+4. **`rollDie` 留在命令层(`commands/check-roll-command.ts`)预掷** —— 预掷使比较方向无法被规则改写,d20 直接挂掉。必须在 `resolveCheck` 内部调用。
 5. **新规则加了但下拉框里看不到** —— 检查 `schema.ts` 的 `RULE_TEMPLATES`。
 6. **导出的房间信息标着别的规则名** —— 检查 `messages.export` 里有没有你的 `labelKey`。
 7. **假设 `room.diceRules`** —— 该列已删,`getRuleForRoom` 签名是 `{ ruleTemplate?: string | null }`。

@@ -23,7 +23,7 @@
 
 ## Dice Roll (.rc command)
 1. Player sends `.rc 侦查`
-2. `executeCommand` → `handleRollCheck` (in `src/lib/commands/engine.ts`)
+2. `executeCommand` (`src/lib/commands/engine.ts`) → `handleRollCheck` (`check-roll-command.ts`)
 3. Server: random d100, check against `room_skills` value
 4. If `diceRules = "coc7th"`: 01-05 = critical success (🟢), 96-100 = fumble (🔴)
 5. Result stored in `messages.diceDetail` JSON with `check` metadata: `{ skillName, target, roll, success, grade }`

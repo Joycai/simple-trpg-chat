@@ -5,11 +5,11 @@
  * card is re-skinned with that bot's visual identity plus a short quip. The
  * message itself never changes ownership (`actorUserId` stays the roller) —
  * only `diceDetail.announcer` is tagged, mirroring the `proxiedBy*` pattern
- * in commands/engine.ts's `attachProxy`.
+ * in commands/command-message.ts's `attachProxy`.
  *
  * Deliberately does NOT reuse `runAgent`/`parseBotConfig`/`fetchWithBackoff`
  * from ai/agent.ts: that module imports `executeCommand` from commands/engine.ts,
- * and commands/engine.ts imports this module — importing ai/agent.ts here would
+ * and commands/engine.ts reaches this module (via command-message.ts) — importing ai/agent.ts here would
  * create a cycle. This module keeps its own minimal config parse + single
  * fetch call (no retries — a missed quip isn't worth burning provider quota).
  */
@@ -72,7 +72,7 @@ export async function resolveAnnouncer(roomId: number, rollerUserId: number): Pr
 }
 
 // ---------------------------------------------------------------------------
-// diceDetail tagging — pure, mirrors commands/engine.ts's attachProxy
+// diceDetail tagging — pure, mirrors commands/command-message.ts's attachProxy
 // ---------------------------------------------------------------------------
 
 export interface AnnouncerTag {

@@ -278,8 +278,10 @@ export interface RuleCapabilities {
    *  - the host dialog swaps the diceType selector for the declared fields
    *    (optional DC + style-dice stepper) and makes the check name optional;
    *  - the request detail carries `{ dc, styleDice }`;
-   *  - responding players are prompted for a bonus-dice count before rolling
-   *    (the server synthesizes the rule's `.rc name+x±y DC` command).
+   *  - responding players are prompted for a bonus-dice count before rolling;
+   *    the server builds the command with the rule's `buildCheckCommand`
+   *    (name, bonusDice, styleDice, dc), so a rule declaring this must
+   *    implement it — without it every response fails.
    * Absent (all other rules): the legacy skill-name + diceType flow.
    */
   checkRequestOptions?: {
@@ -623,6 +625,8 @@ export interface RuleModule {
    * a player could have typed (plus a human-readable dice preview for the
    * roll button, e.g. `1d100 ≤ 60`). Present iff
    * `capabilities.quickCheckPanel` is declared — the two are one contract.
+   * Also required by `capabilities.checkRequestOptions`: the server builds
+   * host-check responses with it (`respondToCheckRequestAction`).
    *
    * Returns `null` for combinations the rule's syntax cannot express (狩魂者
    * nameless + hidden); the panel disables its roll button then. Must be

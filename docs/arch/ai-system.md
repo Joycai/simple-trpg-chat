@@ -29,7 +29,7 @@ Free-text replies are **not** a tool — they are broadcast directly from the mo
 | Tool | Description |
 | ---- | ----------- |
 | `roll_dice` | Roll dice (1–20 dice, 1–1000 faces); optional privacy flag |
-| `respond_check` | Respond to a host-issued skill/sanity check targeting the bot — rolls `.rc`/`.sc` against its own sheet, records `respondedUserIds`, broadcasts `check_update` (same as a player clicking the check message); the tool result includes the roll outcome text so the bot can roleplay it |
+| `respond_check` | Respond to a host-issued skill/sanity check targeting the bot — rolls `.rc`/`.sc` against its own sheet (a 狩魂者 request keeps the host's DC and 时髦骰 via the rule's `buildCheckCommand`; optional `bonusDice` supplies the bot's 加骰), records `respondedUserIds`, broadcasts `check_update` (same as a player clicking the check message); the tool result includes the roll outcome text so the bot can roleplay it |
 | `roll_skill_check` | Proactively roll `.rc <expression>` against the bot's own sheet when someone asks in plain chat (no formal check request) — expression syntax is owned by the room's rule module; defaults to the triggering channel's privacy |
 | `list_members` | List room members (`userId`, nickname, host/bot flags) — resolves nicknames to ids for `give_item` / `reveal_clue` |
 | `give_item` | Give an item the bot possesses to a human member — same core as the player share flow (`src/lib/room/inventory-share.ts`): backpack insert + recipient/GM notices; self and bot recipients rejected |

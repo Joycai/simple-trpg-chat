@@ -190,7 +190,7 @@ export async function respondToCheckRequestAction(
   };
 
   // For a proxy roll, surface the host's nickname so the dice bubble can show
-  // a "代投 by <host>" chip (filled in by commands/engine.ts via diceDetail).
+  // a "代投 by <host>" chip (filled in by commands/command-message.ts via diceDetail).
   let proxiedBy: { userId: number; nickname: string } | undefined;
   if (isProxy) {
     const [hostMember] = await db.select({ nickname: roomMembers.nickname }).from(roomMembers)
@@ -217,18 +217,27 @@ export async function respondToCheckRequestAction(
       }
     }
   } else if (cr.shCheck) {
-    // Rule-specialized check (狩魂者): synthesize the `.rc 名称+x±y DC` command
-    // from the host's DC/style dice and the responder's bonus-dice count. The
-    // DC is always made explicit (host value or the rule default 10) so a
-    // check name that happens to end in digits can't be misread as a DC.
+    // Rule-specialized check (狩魂者): the rule builds the `.rc 名称+x±y DC`
+    // command from the host's DC/style dice and the responder's bonus-dice
+    // count. The DC is always made explicit (host value or the rule default
+    // 10) so a check name that happens to end in digits can't be misread as a DC.
     const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-    const maxBonus = getRuleForRoom(room || {}).capabilities.checkRequestOptions?.responderBonusDice?.max ?? 0;
+    const rule = getRuleForRoom(room || {});
+    const maxBonus = rule.capabilities.checkRequestOptions?.responderBonusDice?.max ?? 0;
     const rawX = opts?.bonusDice ?? 0;
     const x = Number.isFinite(rawX) ? Math.min(maxBonus, Math.max(0, Math.floor(rawX))) : 0;
-    const y = cr.shCheck.styleDice ?? 0;
-    const dc = typeof cr.shCheck.dc === "number" ? cr.shCheck.dc : 10;
-    const group = x > 0 || y !== 0 ? `+${x}${y > 0 ? `+${y}` : y < 0 ? `${y}` : ""}` : "";
-    const result = await executeCommand(roomId, rollerId, `.rc ${cr.skillName}${group} ${dc}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+    const built = rule.buildCheckCommand?.({
+      name: cr.skillName ?? "", // non-empty: the claim rejects nameless requests
+      bonusDice: x,
+      styleDice: cr.shCheck.styleDice ?? 0,
+      dc: typeof cr.shCheck.dc === "number" ? cr.shCheck.dc : 10,
+      hidden: false,
+    });
+    if (!built) {
+      await unclaim();
+      return { success: false, error: t("checkRequestNotFound") };
+    }
+    const result = await executeCommand(roomId, rollerId, built.command, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
     if (!result.success) {
       await unclaim();
       return { success: false, error: result.error };
