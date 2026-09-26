@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { shouhunRule } from "../shouhun";
 
-// respondToCheckRequestAction used to hand-build the 狩魂者 responder command.
-// It now calls shouhunRule.buildCheckCommand; this locks the two together at
-// the parser: every command the old concatenation produced must parse to the
-// same check as the builder's output.
+// respondToCheckRequestAction used to hand-build the 狩魂者 responder command
+// and now gets it from shouhunRule.buildCheckCommand. This locks the two
+// together at the parser: every command the old concatenation produced must
+// parse to the same check as the builder's output.
 
 /** The concatenation checks.ts used before switching to the rule module. */
 function legacyCommand(name: string, x: number, y: number, dc: number): string {
