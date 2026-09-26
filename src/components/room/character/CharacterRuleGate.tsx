@@ -86,6 +86,8 @@ export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }
     try {
       window.localStorage.removeItem(dismissKey(roomId));
     } catch { /* ignore */ }
+    // The gate stays mounted; a later rule switch reopens it ready to click.
+    setBusy(false);
     setPrompt(null);
     router.refresh();
   };

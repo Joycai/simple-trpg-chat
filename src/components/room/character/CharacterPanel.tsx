@@ -172,6 +172,10 @@ export function CharacterPanel({
 
   // Custom attributes / resources (a custom item with `max` set renders as a resource bar)
   const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
+  // Per-name value the server last accepted, so a failed in-place edit rolls
+  // back to it — not to a newer optimistic value that also never landed.
+  // Cleared whenever the sheet re-syncs from props.
+  const confirmedCustom = useRef(new Map<string, { name: string; value: number; max?: number }>());
 
   // Draft the rule's live status from the currently-edited attributes so the
   // bar denominators + derived footer move as the player edits, without the
@@ -251,6 +255,7 @@ export function CharacterPanel({
     setOccupation(cd.occupation || "");
     setAge(cd.age ?? "");
     setCustomAttrs(cd.customAttributes || []);
+    confirmedCustom.current.clear();
     // Resource currents come from the rule's own status snapshot; role/level
     // only for rules that expose them. (Was a dnd5e/triangle/shouhun/coc chain.)
     setCurrentResources(currentsFromStatus(rt, draftStatusFor(rt, cd, attrs)));
@@ -342,6 +347,8 @@ export function CharacterPanel({
         // updateResourcesAction so a host can adjust another player's bars.
         const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
         if (!saved.success) return failSave(saved.error);
+        // A failure here leaves the attributes saved; retrying is idempotent,
+        // so reporting the whole save as failed is acceptable.
         const res = await updateResourcesAction(roomId, targetUserId || userId, resPatch);
         if (!res.success) return failSave(res.error);
       } else {
@@ -478,6 +485,8 @@ export function CharacterPanel({
   const updateCustom = async (name: string, patch: { value?: number; max?: number }) => {
     const existing = customAttrs.find(a => a.name === name);
     if (!existing) return;
+    const confirmed = confirmedCustom.current;
+    if (!confirmed.has(name)) confirmed.set(name, existing);
     const item = { ...existing, ...patch };
     setCustomAttrs(prev => prev.map(a => (a.name === name ? item : a)));
     setPanelError(null);
@@ -485,10 +494,12 @@ export function CharacterPanel({
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) {
       // Roll back the optimistic edit unless a newer edit has replaced it.
-      setCustomAttrs(prev => prev.map(a => (a === item ? existing : a)));
+      const base = confirmed.get(name) ?? existing;
+      setCustomAttrs(prev => prev.map(a => (a === item ? base : a)));
       setPanelError(res.error);
       return;
     }
+    confirmed.set(name, item);
     router.refresh();
   };
 
