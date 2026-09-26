@@ -90,7 +90,12 @@ export function CharacterPanel({
   const [editingNick, setEditingNick] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
   // Last colour the server accepted — a failed pick reverts the swatch to it.
+  // Follows the live prop too, so a change made elsewhere is the new baseline.
   const savedColor = useRef(selectedColor);
+  useEffect(() => { if (avatarColor) savedColor.current = avatarColor; }, [avatarColor]);
+  // Only the latest pick may revert the swatch or report an error; the colour
+  // input fires on every drag step, so older picks resolve behind newer ones.
+  const colorSeq = useRef(0);
   // A failed nickname save keeps the editor open, so Enter and the following
   // blur can both fire saveNickname; this stops the second one while the
   // first is in flight.
@@ -267,6 +272,8 @@ export function CharacterPanel({
       savingNick.current = false;
       // Stay in the editor with the typed name so the player can retry.
       if (!res.success) { setPanelError(res.error); return; }
+      // Escape during the request reset the draft; show what the server kept.
+      setNickname(next);
       onNicknameChange(next);
     }
     setEditingNick(false);
@@ -274,6 +281,7 @@ export function CharacterPanel({
 
   const handleColorChange = async (color: string) => {
     if (readOnly) return;
+    const seq = ++colorSeq.current;
     setSelectedColor(color);
     setPanelError(null);
     const res = await updateRoomMemberColorAction(roomId, userId, color)
@@ -282,8 +290,8 @@ export function CharacterPanel({
       savedColor.current = color;
       return;
     }
-    // Only revert if no newer pick has replaced this one meanwhile.
-    setSelectedColor(c => (c === color ? savedColor.current : c));
+    if (seq !== colorSeq.current) return; // a newer pick owns the swatch now
+    setSelectedColor(savedColor.current);
     setPanelError(res.error);
   };
 

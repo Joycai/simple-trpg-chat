@@ -115,6 +115,16 @@ describe("host room settings", () => {
       .toEqual({ success: false, error: `room.errorInvalidRoomName:{"max":${ROOM_NAME_MAX_LENGTH}}` });
   });
 
+  it("updateRoomNameAction saves a valid name", async () => {
+    expect(await updateRoomNameAction(5, " Tavern ")).toEqual({ success: true });
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("setRoomFrozenAction freezes for the host", async () => {
+    expect(await setRoomFrozenAction(5, true)).toEqual({ success: true });
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
   it("setRoomFrozenAction rejects a non-host", async () => {
     tryRoomAccess.mockResolvedValue(null);
     expect(await setRoomFrozenAction(5, true)).toEqual(NO_ACCESS);
@@ -134,6 +144,11 @@ describe("uploadAvatarAction", () => {
     expect(await uploadAvatarAction(5, "data:image/jpeg;base64,")).toEqual(NO_ACCESS);
   });
 
+  it("rejects an oversized payload", async () => {
+    const huge = "data:image/jpeg;base64," + "A".repeat(2_000_000);
+    expect(await uploadAvatarAction(5, huge)).toEqual({ success: false, error: "room.errorAvatarTooLarge" });
+  });
+
   it("rejects a non-JPEG payload", async () => {
     expect(await uploadAvatarAction(5, "data:image/svg+xml;base64,PHN2Zz4="))
       .toEqual({ success: false, error: "room.errorAvatarInvalid" });
@@ -146,6 +161,17 @@ describe("lobby actions", () => {
     selectQueue = [[{ id: 5, secretKey: "abc" }]];
     expect(await joinRoomAction(form({ roomId: "5", key: "xyz" })))
       .toEqual({ success: false, error: "lobby.errorInvalidKey" });
+  });
+
+  it("joinRoomAction joins with the right key", async () => {
+    selectQueue = [[{ id: 5, secretKey: "abc", ruleTemplate: "basic" }], []];
+    expect(await joinRoomAction(form({ roomId: "5", key: "abc" }))).toEqual({ success: true });
+  });
+
+  it("createRoomAction creates a room for a host", async () => {
+    session = { user: { id: "1", role: "host", name: "KP" } };
+    const res = await createRoomAction(form({ name: "Tavern", key: "k1" }));
+    expect(res).toEqual({ success: true, roomId: 1, secretKey: "k1" });
   });
 
   it("createRoomAction refuses a player", async () => {
