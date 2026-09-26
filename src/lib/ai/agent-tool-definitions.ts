@@ -32,7 +32,8 @@ export function buildAgentToolDefinitions(roomId: number) {
         parameters: {
           type: "object",
           properties: {
-            checkRequestId: { type: "integer", description: "Optional message id of a specific pending check request. Omit to respond to the most recent check still awaiting you." }
+            checkRequestId: { type: "integer", description: "Optional message id of a specific pending check request. Omit to respond to the most recent check still awaiting you." },
+            bonusDice: { type: "integer", description: "Only for rules whose checks add bonus dice from the responder's own skills (狩魂者 加骰, d4 each): how many you get for this check. Ignored by other rules. Defaults to 0." }
           },
           required: []
         }

@@ -68,7 +68,7 @@ async function rollDiceTool(args: ParsedToolArgs, ctx: AgentToolContext): Promis
 }
 
 async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Promise<unknown> {
-  const { roomId, botUserId } = ctx;
+  const { roomId, botUserId, room } = ctx;
   // Find the pending check_request(s) the host issued to this bot.
   // Mirrors respondToCheckRequestAction (actions/checks.ts) but runs without a
   // session, attributing the roll to the bot.
@@ -90,7 +90,7 @@ async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Pr
 
   let chosen: {
     row: typeof candidates[number];
-    cr: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string } };
+    cr: { skillName?: string; diceType?: string; targetUserIds?: number[]; respondedUserIds?: number[]; sanCheck?: { successExpr: string; failureExpr: string }; shCheck?: { dc?: number | null; styleDice?: number } };
   } | null = null;
   for (const row of candidates) {
     if (args.checkRequestId && row.id !== args.checkRequestId) continue;
@@ -117,6 +117,23 @@ async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Pr
     let cmdResult;
     if (cr.sanCheck) {
       cmdResult = await executeCommand(roomId, botUserId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, ctx);
+    } else if (cr.shCheck) {
+      // Rule-specialized check (狩魂者): build the command from the host's
+      // DC/style dice exactly as a player's response does (actions/checks.ts);
+      // the bot supplies its own 加骰 count in place of the player's prompt.
+      const rule = getRuleForRoom(room);
+      const maxBonus = rule.capabilities.checkRequestOptions?.responderBonusDice?.max ?? 0;
+      const rawX = Number(args.bonusDice ?? 0);
+      const x = Number.isFinite(rawX) ? Math.min(maxBonus, Math.max(0, Math.floor(rawX))) : 0;
+      const built = rule.buildCheckCommand?.({
+        name: cr.skillName ?? "", // non-empty: the candidate scan skips nameless requests
+        bonusDice: x,
+        styleDice: cr.shCheck.styleDice ?? 0,
+        dc: typeof cr.shCheck.dc === "number" ? cr.shCheck.dc : 10,
+        hidden: false,
+      });
+      if (!built) return { success: false, error: "This check request can't be rolled under the room's current rule." };
+      cmdResult = await executeCommand(roomId, botUserId, built.command, ctx);
     } else if ((cr.diceType || "d100") === "d100") {
       cmdResult = await executeCommand(roomId, botUserId, `.rc ${cr.skillName}`, ctx);
     } else {
