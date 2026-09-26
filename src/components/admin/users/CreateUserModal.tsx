@@ -6,6 +6,7 @@ import { UserPlus, X, Eye, EyeOff, Minus, Plus } from "lucide-react";
 import { createUser } from "@/app/actions/admin";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
+import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 
 const AI_POINTS_STEP = 100;
 const DEFAULT_AI_POINTS = 500;
@@ -32,13 +33,15 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
-    try {
-      await createUser(new FormData(e.currentTarget));
-      close();
-    } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : t("operationFailed"));
+    // An unexpected throw (network drop) has no localized reason — fall back to a generic one.
+    const res = await createUser(new FormData(e.currentTarget))
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (!res.success) {
+      setError(res.error);
       setSubmitting(false);
+      return;
     }
+    close();
   };
 
   const roleLabel = (r: string): string =>
@@ -83,7 +86,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
                 name="username"
                 required
                 autoComplete="off"
-                maxLength={50}
+                maxLength={USERNAME_MAX_LENGTH}
                 className={`${inputCls} font-theme-mono`}
               />
               <span className="text-xs text-text-dim">{t("usernameHint")}</span>
@@ -92,7 +95,7 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
             {/* Nickname */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="cu-nickname" className="text-xs text-text-dim font-medium">{t("nickname")}</label>
-              <input id="cu-nickname" name="displayName" maxLength={50} className={inputCls} />
+              <input id="cu-nickname" name="displayName" maxLength={DISPLAY_NAME_MAX_LENGTH} className={inputCls} />
             </div>
 
             {/* Initial password */}

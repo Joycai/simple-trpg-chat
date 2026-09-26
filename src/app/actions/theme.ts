@@ -5,7 +5,15 @@ import { users, systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import type { ThemeId, ThemeMode } from "@/themes/types";
+
+/*
+ * The setters return `{ success: true } | { success: false, error }` with a
+ * localized error instead of throwing — Next.js redacts thrown messages in
+ * production. The getters never throw (they fall back to defaults).
+ */
+type Fail = { success: false; error: string };
 
 /** Safe userId extraction — guards against NaN */
 function getUserId(session: { user?: { id?: string } }): number | null {
@@ -34,10 +42,10 @@ export async function getSiteTheme(): Promise<ThemeId> {
 /**
  * Set the site-wide default theme (admin only).
  */
-export async function setSiteTheme(theme: ThemeId) {
+export async function setSiteTheme(theme: ThemeId): Promise<{ success: true } | Fail> {
   const session = await auth();
   if (!session || session.user.role !== "admin") {
-    throw new Error("Only admin can set site theme");
+    return { success: false, error: (await getTranslations("admin"))("errorNotAdmin") };
   }
 
   await db
@@ -72,10 +80,10 @@ export async function getSiteThemeMode(): Promise<ThemeMode> {
 /**
  * Set the site-wide default color mode (admin only).
  */
-export async function setSiteThemeMode(mode: ThemeMode) {
+export async function setSiteThemeMode(mode: ThemeMode): Promise<{ success: true } | Fail> {
   const session = await auth();
   if (!session || session.user.role !== "admin") {
-    throw new Error("Only admin can set site theme mode");
+    return { success: false, error: (await getTranslations("admin"))("errorNotAdmin") };
   }
 
   await db
@@ -160,12 +168,13 @@ export async function updateSiteFavicon(dataUrl: string): Promise<{ success: boo
 /**
  * Save the user's personal theme preference.
  */
-export async function updateUserThemePreference(theme: ThemeId) {
+export async function updateUserThemePreference(theme: ThemeId): Promise<{ success: true } | Fail> {
+  const t = await getTranslations("theme");
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { success: false, error: t("errorNotAuthenticated") };
 
   const userId = getUserId(session);
-  if (!userId) throw new Error("Invalid user session");
+  if (!userId) return { success: false, error: t("errorInvalidSession") };
 
   await db
     .update(users)
@@ -178,12 +187,13 @@ export async function updateUserThemePreference(theme: ThemeId) {
 /**
  * Save the user's personal color mode preference.
  */
-export async function updateUserThemeModePreference(mode: ThemeMode) {
+export async function updateUserThemeModePreference(mode: ThemeMode): Promise<{ success: true } | Fail> {
+  const t = await getTranslations("theme");
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { success: false, error: t("errorNotAuthenticated") };
 
   const userId = getUserId(session);
-  if (!userId) throw new Error("Invalid user session");
+  if (!userId) return { success: false, error: t("errorInvalidSession") };
 
   await db
     .update(users)

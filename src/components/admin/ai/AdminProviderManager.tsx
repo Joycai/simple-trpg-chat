@@ -7,12 +7,16 @@ import { getAllProviders, createProvider, updateProvider, deleteProvider } from 
 import { testAiConnection } from "@/app/actions/ai";
 import { useTranslations } from "next-intl";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { Notice } from "@/components/shared/Notice";
 import { VendorSelect } from "@/components/shared/VendorSelect";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { COMPAT_VENDOR_ID, getVendor, getVendorModelPreset } from "@/lib/ai/provider-presets";
 
 export function AdminProviderManager() {
   const tp = useTranslations("adminProviders");
+  const tCommon = useTranslations("common");
+  /** A failed delete — shown above the list, since `msg` lives in the form modal. */
+  const [listError, setListError] = useState<string | null>(null);
 
   const [providers, setProviders] = useState<Awaited<ReturnType<typeof getAllProviders>>>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +71,17 @@ export function AdminProviderManager() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, []);
 
+  const handleDelete = async (id: number) => {
+    const res = await deleteProvider(id)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) {
+      setListError(res.error);
+      return;
+    }
+    setListError(null);
+    await load();
+  };
+
   const handleSave = async (close: () => void) => {
     if (!name.trim() || !endpoint.trim() || (!editId && !key.trim())) {
       setMsg(tp("msgRequireFields")); return;
@@ -113,6 +128,12 @@ export function AdminProviderManager() {
         )}
       </div>
 
+      {listError && (
+        <Notice variant="error" onDismiss={() => setListError(null)} dismissLabel={tCommon("close")}>
+          {listError}
+        </Notice>
+      )}
+
       {loading ? (
         <div className="text-center text-text-dim py-4 text-sm">{tp("loading")}</div>
       ) : providers.length === 0 && !showForm ? (
@@ -152,7 +173,7 @@ export function AdminProviderManager() {
                   setShowForm(true);
                 }}
                   className="text-sm font-medium text-primary hover:text-primary-hover transition cursor-pointer">{tp("btnEdit")}</button>
-                <button onClick={async () => { try { await deleteProvider(p.id); await load(); } catch {} }}
+                <button onClick={() => handleDelete(p.id)}
                   className="text-sm font-medium text-danger hover:text-danger/80 transition cursor-pointer">{tp("btnDelete")}</button>
               </div>
             </div>

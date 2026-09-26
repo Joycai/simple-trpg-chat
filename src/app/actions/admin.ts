@@ -9,9 +9,32 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 
-export async function createUser(formData: FormData) {
-  await requireAdmin();
+/*
+ * Write actions return `{ success: true, ... } | { success: false, error }`,
+ * with `error` localized server-side (same convention as notebook.ts /
+ * background.ts). They used to throw bare English `Error`s, which Next.js
+ * redacts in production — the admin then saw "An error occurred in the Server
+ * Components render…" instead of, say, "this user still hosts 2 rooms".
+ */
+
+type Fail = { success: false; error: string };
+type Done = { success: true } | Fail;
+
+/** requireAdmin throws (it is shared); the write actions need a boolean. */
+async function adminGuard(): Promise<boolean> {
+  try {
+    await requireAdmin();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function createUser(formData: FormData): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   const username = (formData.get("username") as string)?.trim();
   const password = formData.get("password") as string;
@@ -21,15 +44,21 @@ export async function createUser(formData: FormData) {
   // Initial AI quota granted at creation; clamp to a non-negative integer.
   const aiPoints = Math.max(0, Math.floor(Number(formData.get("aiPoints")) || 0));
 
-  if (!username || !password || !role) throw new Error("Missing fields");
+  if (!username || !password || !role) return { success: false, error: t("errorMissingFields") };
 
   const allowedRoles = ["player", "host", "admin"];
-  if (!allowedRoles.includes(role)) throw new Error("Invalid role");
+  if (!allowedRoles.includes(role)) return { success: false, error: t("errorInvalidRole") };
+  if (username.length > USERNAME_MAX_LENGTH) {
+    return { success: false, error: t("errorFieldTooLong", { max: USERNAME_MAX_LENGTH }) };
+  }
+  if (displayName.length > DISPLAY_NAME_MAX_LENGTH) {
+    return { success: false, error: t("errorFieldTooLong", { max: DISPLAY_NAME_MAX_LENGTH }) };
+  }
 
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.username, username));
   if (existing) {
-    const t = await getTranslations("register");
-    throw new Error(t("errorUsernameTaken"));
+    const tRegister = await getTranslations("register");
+    return { success: false, error: tRegister("errorUsernameTaken") };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -64,20 +93,25 @@ export async function createUser(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  return { success: true };
 }
 
-export async function updateUser(id: number, displayName: string, role: string) {
-  await requireAdmin();
+export async function updateUser(id: number, displayName: string, role: string): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   const allowedRoles = ["player", "host", "admin"];
-  if (!allowedRoles.includes(role)) throw new Error("Invalid role");
+  if (!allowedRoles.includes(role)) return { success: false, error: t("errorInvalidRole") };
   const name = displayName.trim();
-  if (!name) throw new Error("Missing display name");
+  if (!name) return { success: false, error: t("errorMissingDisplayName") };
+  if (name.length > DISPLAY_NAME_MAX_LENGTH) {
+    return { success: false, error: t("errorFieldTooLong", { max: DISPLAY_NAME_MAX_LENGTH }) };
+  }
 
   const [user] = await db.select().from(users).where(eq(users.id, id));
-  if (!user) throw new Error("User not found");
+  if (!user) return { success: false, error: t("errorUserNotFound") };
   // Never let the built-in admin be demoted out of the admin role (lockout guard).
-  if (user.username === "admin" && role !== "admin") throw new Error("Cannot change the default admin's role");
+  if (user.username === "admin" && role !== "admin") return { success: false, error: t("errorCannotDemoteDefaultAdmin") };
 
   // Promotion to host grants the configured default invite quota; any other
   // role change zeroes it (players/admins don't generate codes).
@@ -100,6 +134,7 @@ export async function updateUser(id: number, displayName: string, role: string) 
   // A role change must refresh the cached session so it takes effect immediately.
   invalidateSessionCache(String(id));
   revalidatePath("/admin");
+  return { success: true };
 }
 
 /**
@@ -107,12 +142,13 @@ export async function updateUser(id: number, displayName: string, role: string) 
  * (`invite_default_quota`, clamped 0–99). Host-only by design — players don't
  * generate codes and admins create accounts directly.
  */
-export async function resetInviteQuotaAction(id: number) {
-  await requireAdmin();
+export async function resetInviteQuotaAction(id: number): Promise<{ success: true; quota: number } | Fail> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, id));
-  if (!user) throw new Error("User not found");
-  if (user.role !== "host") throw new Error("Invite quota only applies to hosts");
+  if (!user) return { success: false, error: t("errorUserNotFound") };
+  if (user.role !== "host") return { success: false, error: t("errorQuotaHostsOnly") };
 
   const { getInviteConfig } = await import("@/lib/auth/invites");
   const { defaultQuota } = await getInviteConfig();
@@ -122,27 +158,29 @@ export async function resetInviteQuotaAction(id: number) {
     .where(eq(users.id, id));
 
   revalidatePath("/admin");
-  return { quota: defaultQuota };
+  return { success: true, quota: defaultQuota };
 }
 
-export async function deleteUser(id: number) {
-  await requireAdmin();
+export async function deleteUser(id: number): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   // Guard against the destructive cascade: deleting a host would wipe every room
   // they own (and all members' messages/items/clues in them). Require those rooms
   // to be transferred or deleted first.
   const hosted = await db.select({ id: rooms.id }).from(rooms).where(eq(rooms.hostId, id));
   if (hosted.length > 0) {
-    const t = await getTranslations("admin");
-    throw new Error(t("deleteUserHostsRooms", { count: hosted.length }));
+    return { success: false, error: t("deleteUserHostsRooms", { count: hosted.length }) };
   }
 
   await db.delete(users).where(eq(users.id, id));
   revalidatePath("/admin");
+  return { success: true };
 }
 
-export async function deleteRoom(id: number) {
-  await requireAdmin();
+export async function deleteRoom(id: number): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   // Background FILES live outside the DB — remove them before the row delete
   // cascades away the room_backgrounds rows that name them (best-effort; a
@@ -156,38 +194,46 @@ export async function deleteRoom(id: number) {
   // skills, dm reads, inventory items/distributions, clue cards, backgrounds).
   await db.delete(rooms).where(eq(rooms.id, id));
   revalidatePath("/admin/rooms");
+  return { success: true };
 }
 
-export async function adminSetRoomFrozen(id: number, frozen: boolean) {
-  await requireAdmin();
+export async function adminSetRoomFrozen(id: number, frozen: boolean): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
   await db.update(rooms).set({ frozen }).where(eq(rooms.id, id));
   // Notify any live members so the freeze takes effect without a manual reload.
   broadcastToRoom(id, { type: "room_settings_updated" });
   revalidatePath("/admin/rooms");
+  return { success: true };
 }
 
-export async function adminSetRoomStatus(id: number, status: "active" | "closed") {
-  await requireAdmin();
-  if (status !== "active" && status !== "closed") throw new Error("Invalid status");
+export async function adminSetRoomStatus(id: number, status: "active" | "closed"): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
+  if (status !== "active" && status !== "closed") return { success: false, error: t("errorInvalidStatus") };
   await db.update(rooms).set({ status }).where(eq(rooms.id, id));
   broadcastToRoom(id, { type: "room_settings_updated" });
   revalidatePath("/admin/rooms");
+  return { success: true };
 }
 
-export async function resetPassword(id: number, newPassword: string) {
-  await requireAdmin();
+export async function resetPassword(id: number, newPassword: string): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, id));
   revalidatePath("/admin");
+  return { success: true };
 }
 
-export async function toggleBanUser(id: number) {
-  await requireAdmin();
+export async function toggleBanUser(id: number): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   const [user] = await db.select().from(users).where(eq(users.id, id));
-  if (!user) throw new Error("User not found");
-  if (user.username === "admin") throw new Error("Cannot ban the default admin");
+  if (!user) return { success: false, error: t("errorUserNotFound") };
+  if (user.username === "admin") return { success: false, error: t("errorCannotBanDefaultAdmin") };
 
   const newBanStatus = !user.isBanned;
 
@@ -202,15 +248,25 @@ export async function toggleBanUser(id: number) {
   invalidateSessionCache(String(id));
 
   revalidatePath("/admin");
+  return { success: true };
 }
 
-export async function updateUserAiPoints(id: number, points: number, note?: string) {
-  await requireAdmin();
+export async function updateUserAiPoints(id: number, points: number, note?: string): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
-  await db.transaction(async (tx) => {
+  // Checked before the transaction: a Fail returned from inside the callback
+  // would let the transaction commit instead of rolling back.
+  const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, id));
+  if (!target) return { success: false, error: t("errorUserNotFound") };
+  if (target.role === "admin") return { success: false, error: t("errorCannotModifyAdminPoints") };
+
+  const outcome = await db.transaction(async (tx) => {
     const [user] = await tx.select().from(users).where(eq(users.id, id)).for('update');
-    if (!user) throw new Error("User not found");
-    if (user.role === "admin") throw new Error("Cannot modify points for admin users");
+    // Re-checked under the row lock; nothing has been written yet, so bailing
+    // out here leaves an empty transaction to commit.
+    if (!user) return "notFound" as const;
+    if (user.role === "admin") return "admin" as const;
 
     const beforePoints = Number(user.aiPoints || 0);
     const afterPoints = Math.max(0, Number(points.toFixed(6)));
@@ -230,7 +286,11 @@ export async function updateUserAiPoints(id: number, points: number, note?: stri
       type: "admin",
       description: note?.trim() || "Admin adjusted points",
     });
+    return "ok" as const;
   });
+  if (outcome === "notFound") return { success: false, error: t("errorUserNotFound") };
+  if (outcome === "admin") return { success: false, error: t("errorCannotModifyAdminPoints") };
 
   revalidatePath("/admin");
+  return { success: true };
 }

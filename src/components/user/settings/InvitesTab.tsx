@@ -9,6 +9,7 @@ import {
   revokeInviteCodeAction,
   type InviteCodeView,
 } from "@/app/actions/invite";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 /** Host-only tab: generate / track / revoke invite codes (48h TTL, quota-based). */
 export function InvitesTab() {
@@ -24,6 +25,8 @@ export function InvitesTab() {
   const [busy, setBusy] = useState(false);
   const [freshCode, setFreshCode] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  /** Code id waiting on the revoke confirmation. */
+  const [pendingRevoke, setPendingRevoke] = useState<number | null>(null);
   // Captured once on mount so remaining-time formatting stays pure across re-renders.
   const [now] = useState(() => Date.now());
 
@@ -66,8 +69,12 @@ export function InvitesTab() {
     }
   };
 
-  const handleRevoke = async (id: number) => {
-    if (!confirm(ti("revokeConfirm"))) return;
+  const handleRevoke = (id: number) => setPendingRevoke(id);
+
+  const runRevoke = async () => {
+    if (pendingRevoke === null) return;
+    const id = pendingRevoke;
+    setPendingRevoke(null);
     setBusy(true);
     setError("");
     try {
@@ -236,6 +243,16 @@ export function InvitesTab() {
             )}
           </div>
         </div>
+      )}
+
+      {pendingRevoke !== null && (
+        <ConfirmDialog
+          title={ti("revoke")}
+          description={ti("revokeConfirm")}
+          confirmLabel={ti("revoke")}
+          onConfirm={runRevoke}
+          onCancel={() => setPendingRevoke(null)}
+        />
       )}
     </div>
   );

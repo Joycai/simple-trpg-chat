@@ -725,11 +725,33 @@
     "showDefaults": "Expand built-in list",
     "customPlaceholder": "e.g. gambling, vpn, tyranny",
     "sensitiveWordsHint": "When a message sent in a room contains any of the above words, it will be blocked, and only the sender will see a warning message.",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "errorNotAdmin": "Admin only",
+    "errorMissingFields": "Please fill in all required fields",
+    "errorInvalidRole": "Invalid role",
+    "errorFieldTooLong": "Username and nickname must be at most {max} characters",
+    "errorMissingDisplayName": "Nickname is required",
+    "errorUserNotFound": "User not found",
+    "errorCannotDemoteDefaultAdmin": "Cannot change the default admin's role",
+    "errorQuotaHostsOnly": "Invite quota only applies to hosts",
+    "errorInvalidStatus": "Invalid room status",
+    "errorCannotBanDefaultAdmin": "Cannot ban the default admin",
+    "errorCannotModifyAdminPoints": "Cannot modify AI points for admin users",
+    "errorInvalidScope": "Invalid cleanup scope",
+    "errorInvalidRange": "Invalid cleanup range",
+    "confirmBanTitle": "Ban account",
+    "confirmUnbanTitle": "Unban account",
+    "closeRoomTitle": "Close room",
+    "deleteRoomTitle": "Delete room",
+    "imageCacheConfirmTitle": "Clean image cache",
+    "confirmDeletePresetTitle": "Delete preset",
+    "confirmDeletePreset": "Delete preset \"{name}\"? This cannot be undone."
   },
   "theme": {
     "switch": "Switch Theme",
-    "label": "Theme"
+    "label": "Theme",
+    "errorNotAuthenticated": "Not signed in",
+    "errorInvalidSession": "Invalid session, please sign in again"
   },
   "themeMode": {
     "label": "Appearance",
@@ -1315,7 +1337,10 @@
     "msgSaved": "Saved successfully",
     "msgRequireFields": "Please fill name, API endpoint, and key",
     "msgRequireTestFields": "Please fill API endpoint and key",
-    "msgConnectOk": "✨ Connection successful!"
+    "msgConnectOk": "✨ Connection successful!",
+    "errorNotAuthenticated": "Not signed in",
+    "errorProviderNotFound": "Provider not found",
+    "errorNotAuthorized": "Not authorized to change this provider"
   },
   "roomActions": {
     "sensitiveWordsIntercepted": "Send failed: Your message contains sensitive words and has been intercepted by the system.",

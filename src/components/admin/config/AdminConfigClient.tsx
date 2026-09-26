@@ -71,6 +71,13 @@ export function AdminConfigClient({
   // Theme / mode apply instantly (matches the rest of the app).
   const [theme, setTheme] = useState<ThemeId>(currentTheme);
   const [mode, setMode] = useState<ThemeMode>(currentMode);
+  // Last values the server accepted (the rollback target) and a per-picker
+  // request counter: with quick successive clicks only the latest request may
+  // move the picker, so it never lands on an unsaved intermediate pick.
+  const savedTheme = useRef<ThemeId>(currentTheme);
+  const savedMode = useRef<ThemeMode>(currentMode);
+  const themeSeq = useRef(0);
+  const modeSeq = useRef(0);
 
   const addWord = () => {
     const w = wordInput.trim();
@@ -98,15 +105,38 @@ export function AdminConfigClient({
     reader.readAsDataURL(file);
   };
 
+  // Optimistic: the picker moves at once and snaps back if the save fails.
   const handleThemeChange = async (id: ThemeId) => {
+    const seq = ++themeSeq.current;
     setTheme(id);
-    await setSiteTheme(id);
+    const res = await setSiteTheme(id)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (res.success) savedTheme.current = id;
+    if (seq !== themeSeq.current) return; // a newer pick owns the picker now
+    if (!res.success) {
+      setTheme(savedTheme.current);
+      setMsg(res.error);
+      setMsgType("error");
+      return;
+    }
+    if (msgType === "error") setMsg("");
     router.refresh();
   };
 
   const handleModeChange = async (m: ThemeMode) => {
+    const seq = ++modeSeq.current;
     setMode(m);
-    await setSiteThemeMode(m);
+    const res = await setSiteThemeMode(m)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (res.success) savedMode.current = m;
+    if (seq !== modeSeq.current) return; // a newer pick owns the picker now
+    if (!res.success) {
+      setMode(savedMode.current);
+      setMsg(res.error);
+      setMsgType("error");
+      return;
+    }
+    if (msgType === "error") setMsg("");
     router.refresh();
   };
 

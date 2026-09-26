@@ -725,11 +725,33 @@
     "showDefaults": "展开预置列表",
     "customPlaceholder": "例如：赌博, 翻墙, 暴政",
     "sensitiveWordsHint": "当房间中用户发送的消息包含上述任一词汇时，消息将被阻断，且仅发送者本人能看到警告提示。",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "errorNotAdmin": "仅管理员可操作",
+    "errorMissingFields": "请填写所有必填项",
+    "errorInvalidRole": "无效的角色",
+    "errorFieldTooLong": "用户名和昵称不能超过 {max} 个字符",
+    "errorMissingDisplayName": "昵称不能为空",
+    "errorUserNotFound": "用户不存在",
+    "errorCannotDemoteDefaultAdmin": "不能更改默认管理员的角色",
+    "errorQuotaHostsOnly": "邀请额度仅适用于主持人",
+    "errorInvalidStatus": "无效的房间状态",
+    "errorCannotBanDefaultAdmin": "不能封禁默认管理员",
+    "errorCannotModifyAdminPoints": "不能修改管理员的 AI 资源点",
+    "errorInvalidScope": "无效的清理范围",
+    "errorInvalidRange": "无效的清理时间段",
+    "confirmBanTitle": "封禁账号",
+    "confirmUnbanTitle": "解封账号",
+    "closeRoomTitle": "关闭房间",
+    "deleteRoomTitle": "删除房间",
+    "imageCacheConfirmTitle": "清理图片缓存",
+    "confirmDeletePresetTitle": "删除预设",
+    "confirmDeletePreset": "确定删除预设「{name}」吗？此操作不可撤销。"
   },
   "theme": {
     "switch": "切换主题",
-    "label": "主题"
+    "label": "主题",
+    "errorNotAuthenticated": "未登录",
+    "errorInvalidSession": "登录状态无效，请重新登录"
   },
   "themeMode": {
     "label": "显示模式",
@@ -1315,7 +1337,10 @@
     "msgSaved": "已保存",
     "msgRequireFields": "请填写名称、API地址和密钥",
     "msgRequireTestFields": "请填写 API 地址和密钥",
-    "msgConnectOk": "✨ 连接成功！"
+    "msgConnectOk": "✨ 连接成功！",
+    "errorNotAuthenticated": "未登录",
+    "errorProviderNotFound": "服务商不存在",
+    "errorNotAuthorized": "无权操作该服务商"
   },
   "roomActions": {
     "sensitiveWordsIntercepted": "发送失败：您的消息中包含敏感词汇，已被系统拦截。",

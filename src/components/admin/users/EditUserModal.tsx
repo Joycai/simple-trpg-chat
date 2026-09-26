@@ -8,6 +8,7 @@ import { updateUser, resetPassword } from "@/app/actions/admin";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
+import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 import type { User } from "./types";
 
 interface EditUserModalProps {
@@ -45,31 +46,32 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
     setSavingEdit(true);
     setEditMsg("");
     setEditStatus("");
-    try {
-      await updateUser(user.id, editName.trim(), editRole);
-      router.refresh();
-      close();
-    } catch (e: unknown) {
-      setEditMsg(e instanceof Error ? e.message : t("operationFailed"));
+    const res = await updateUser(user.id, editName.trim(), editRole)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    setSavingEdit(false);
+    if (!res.success) {
+      setEditMsg(res.error);
       setEditStatus("error");
-    } finally {
-      setSavingEdit(false);
+      return;
     }
+    router.refresh();
+    close();
   };
 
   const handleResetPassword = async () => {
     if (!newPassword.trim()) return;
     if (newPassword.length < 3) { setResetMsg(t("passwordTooShort")); setResetStatus("error"); return; }
-    try {
-      await resetPassword(user.id, newPassword.trim());
-      setResetMsg(t("passwordResetOk"));
-      setResetStatus("success");
-      setNewPassword("");
-      router.refresh();
-    } catch {
-      setResetMsg(t("passwordResetFail"));
+    const res = await resetPassword(user.id, newPassword.trim())
+      .catch(() => ({ success: false as const, error: t("passwordResetFail") }));
+    if (!res.success) {
+      setResetMsg(res.error);
       setResetStatus("error");
+      return;
     }
+    setResetMsg(t("passwordResetOk"));
+    setResetStatus("success");
+    setNewPassword("");
+    router.refresh();
   };
 
   return (
@@ -119,7 +121,7 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
               <input
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
-                maxLength={50}
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
                 className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary"
               />
             </div>

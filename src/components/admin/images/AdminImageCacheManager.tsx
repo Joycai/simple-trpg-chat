@@ -11,12 +11,15 @@ import {
 } from "@/app/actions/image-cache";
 import type { CleanupRange } from "@/lib/media/image-cache";
 import { formatBytes, splitBytes } from "@/lib/format/bytes";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Notice } from "@/components/shared/Notice";
 
 /** Bar tint tiers matching the dashboard's warm→cool gradient across rooms. */
 const BAR_TINTS = ["bg-primary", "bg-accent", "bg-warning", "bg-success", "bg-ai"];
 
 export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCacheStatsView }) {
   const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const [stats, setStats] = useState<ImageCacheStatsView>(initialStats);
   const [scanning, setScanning] = useState(false);
   /** Key of the cleanup currently running, e.g. `"all:7d"` or `"12:all"`. */
@@ -26,6 +29,9 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
   /** Explicit opt-in: cleanup also deletes room backgrounds. Default OFF —
       backgrounds are host prep material, not an aging cache. */
   const [includeBackgrounds, setIncludeBackgrounds] = useState(false);
+  /** Cleanup waiting on the admin's confirmation. */
+  const [pending, setPending] = useState<{ scope: "all" | number; range: CleanupRange; key: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const rescan = async () => {
     setScanning(true);
@@ -38,27 +44,25 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
     }
   };
 
-  const cleanup = async (scope: "all" | number, range: CleanupRange, key: string) => {
-    let confirmMsg =
-      range === "all"
-        ? scope === "all"
-          ? t("imageCacheConfirmAllRooms")
-          : t("imageCacheConfirmRoomAll")
-        : t("imageCacheConfirmRange");
-    if (includeBackgrounds) {
-      confirmMsg += "\n\n" + t("imageCacheConfirmBackgrounds");
-    }
-    if (!window.confirm(confirmMsg)) return;
+  const cleanup = (scope: "all" | number, range: CleanupRange, key: string) => setPending({ scope, range, key });
+
+  const runCleanup = async () => {
+    if (!pending) return;
+    const { scope, range, key } = pending;
+    setPending(null);
     setBusy(key);
-    try {
-      const res = await cleanupImageCacheAction(scope, range, includeBackgrounds);
-      setStats(res.stats);
-      setExpanded(null);
-    } catch (e) {
+    const res = await cleanupImageCacheAction(scope, range, includeBackgrounds).catch((e) => {
       console.error("Failed to clean image cache:", e);
-    } finally {
-      setBusy(null);
+      return { success: false as const, error: t("operationFailed") };
+    });
+    setBusy(null);
+    if (!res.success) {
+      setNotice(res.error);
+      return;
     }
+    setNotice(null);
+    setStats(res.stats);
+    setExpanded(null);
   };
 
   const { value, unit } = splitBytes(stats.totalBytes);
@@ -85,6 +89,12 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
           <span className="text-sm font-medium">{t("imageCacheRescan")}</span>
         </button>
       </div>
+
+      {notice && (
+        <Notice variant="error" onDismiss={() => setNotice(null)} dismissLabel={tCommon("close")}>
+          {notice}
+        </Notice>
+      )}
 
       {/* Summary + batch cleanup */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -209,6 +219,27 @@ export function AdminImageCacheManager({ initialStats }: { initialStats: ImageCa
           ))
         )}
       </section>
+
+      {pending && (
+        <ConfirmDialog
+          title={t("imageCacheConfirmTitle")}
+          description={
+            <>
+              {pending.range === "all"
+                ? pending.scope === "all"
+                  ? t("imageCacheConfirmAllRooms")
+                  : t("imageCacheConfirmRoomAll")
+                : t("imageCacheConfirmRange")}
+              {includeBackgrounds && (
+                <span className="block mt-3 text-danger">{t("imageCacheConfirmBackgrounds")}</span>
+              )}
+            </>
+          }
+          confirmLabel={t("imageCacheClean")}
+          onConfirm={runCleanup}
+          onCancel={() => setPending(null)}
+        />
+      )}
     </div>
   );
 }

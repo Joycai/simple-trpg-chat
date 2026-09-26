@@ -1,6 +1,7 @@
 "use server";
 
 import { inArray } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { db } from "@/db";
 import { rooms } from "@/db/schema";
@@ -95,14 +96,24 @@ export async function cleanupImageCacheAction(
   scope: "all" | number,
   range: CleanupRange,
   includeBackgrounds = false
-): Promise<{ freedBytes: number; deletedCount: number; stats: ImageCacheStatsView }> {
-  await requireAdmin();
+): Promise<
+  | { success: true; freedBytes: number; deletedCount: number; stats: ImageCacheStatsView }
+  | { success: false; error: string }
+> {
+  const t = await getTranslations("admin");
+  // requireAdmin throws (it is shared); a write action returns a localized
+  // error instead, since Next.js redacts thrown messages in production.
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, error: t("errorNotAdmin") };
+  }
 
   if (scope !== "all" && (!Number.isInteger(scope) || scope <= 0)) {
-    throw new Error("Invalid room scope");
+    return { success: false, error: t("errorInvalidScope") };
   }
   if (range !== "7d" && range !== "30d" && range !== "all") {
-    throw new Error("Invalid cleanup range");
+    return { success: false, error: t("errorInvalidRange") };
   }
 
   let { freedBytes, deletedCount } = await cleanupImageCache(scope, range);
@@ -118,5 +129,5 @@ export async function cleanupImageCacheAction(
     }
   }
 
-  return { freedBytes, deletedCount, stats: await buildStatsView() };
+  return { success: true, freedBytes, deletedCount, stats: await buildStatsView() };
 }

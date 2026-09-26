@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { deleteRoom, adminSetRoomFrozen, adminSetRoomStatus } from "@/app/actions/admin";
 import { PaneTransition } from "@/components/shared/PaneTransition";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Notice } from "@/components/shared/Notice";
 
 interface Room {
   id: number;
@@ -26,17 +28,23 @@ interface AdminRoomManagerProps {
 type RoomState = "active" | "frozen" | "closed";
 type RoomFilter = "all" | RoomState;
 
+/** The destructive room action waiting on the admin's confirmation. */
+type Pending = { kind: "close"; room: Room } | { kind: "delete"; room: Room };
+
 // Closed wins over frozen; a live room is "frozen" only while still active.
 const roomState = (r: Room): RoomState =>
   r.status !== "active" ? "closed" : r.frozen ? "frozen" : "active";
 
 export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
   const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const router = useRouter();
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<RoomFilter>("all");
   const [busy, setBusy] = useState<number | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const c = { all: rooms.length, active: 0, frozen: 0, closed: 0 };
@@ -53,42 +61,31 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
     });
   }, [rooms, filter, search]);
 
-  const handleFreeze = async (room: Room) => {
+  /** Run one room action; a failure (or an unexpected throw) lands in the notice. */
+  const runAction = async (room: Room, action: Promise<{ success: true } | { success: false; error: string }>, fallback: string) => {
     setBusy(room.id);
-    try {
-      await adminSetRoomFrozen(room.id, !room.frozen);
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : t("operationFailed"));
-    } finally {
-      setBusy(null);
+    const res = await action.catch(() => ({ success: false as const, error: fallback }));
+    setBusy(null);
+    if (!res.success) {
+      setNotice(res.error);
+      return;
     }
+    setNotice(null);
+    router.refresh();
   };
 
-  const handleClose = async (room: Room) => {
-    if (!confirm(t("confirmCloseRoom", { roomName: room.name }))) return;
-    setBusy(room.id);
-    try {
-      await adminSetRoomStatus(room.id, "closed");
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : t("operationFailed"));
-    } finally {
-      setBusy(null);
-    }
-  };
+  const handleFreeze = (room: Room) =>
+    runAction(room, adminSetRoomFrozen(room.id, !room.frozen), t("operationFailed"));
+  const handleClose = (room: Room) => setPending({ kind: "close", room });
+  const handleDelete = (room: Room) => setPending({ kind: "delete", room });
 
-  const handleDelete = async (room: Room) => {
-    if (!confirm(t("confirmDeleteRoom", { roomName: room.name }))) return;
-    setBusy(room.id);
-    try {
-      await deleteRoom(room.id);
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : t("roomDeletionFailed"));
-    } finally {
-      setBusy(null);
-    }
+  const runPending = () => {
+    if (!pending) return;
+    const { kind, room } = pending;
+    setPending(null);
+    return kind === "close"
+      ? runAction(room, adminSetRoomStatus(room.id, "closed"), t("operationFailed"))
+      : runAction(room, deleteRoom(room.id), t("roomDeletionFailed"));
   };
 
   const statusBadge: Record<RoomState, { label: string; cls: string; dot: string }> = {
@@ -135,6 +132,12 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
           />
         </div>
       </div>
+
+      {notice && (
+        <Notice variant="error" onDismiss={() => setNotice(null)} dismissLabel={tCommon("close")}>
+          {notice}
+        </Notice>
+      )}
 
       {/* Filter pills */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -245,6 +248,20 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
           </table>
         </PaneTransition>
       </div>
+
+      {pending && (
+        <ConfirmDialog
+          title={pending.kind === "close" ? t("closeRoomTitle") : t("deleteRoomTitle")}
+          description={
+            pending.kind === "close"
+              ? t("confirmCloseRoom", { roomName: pending.room.name })
+              : t("confirmDeleteRoom", { roomName: pending.room.name })
+          }
+          confirmLabel={pending.kind === "close" ? t("close") : t("delete")}
+          onConfirm={runPending}
+          onCancel={() => setPending(null)}
+        />
+      )}
     </div>
   );
 }
