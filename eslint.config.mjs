@@ -20,19 +20,21 @@ const eslintConfig = defineConfig([
     },
   },
   // Layering rules (CLAUDE.md › Layering). Each block owns a disjoint file set:
-  // a later `no-restricted-imports` entry replaces, not merges, an earlier one.
+  // a later entry for the same rule replaces, not merges, an earlier one.
+  // R2–R4 use import/no-restricted-paths because it resolves the real file, so
+  // a relative specifier (`../../db`) can't slip past an alias-only pattern.
   // R2: schema.ts may only pull in dependency-free, client-safe modules.
   {
     files: ["src/db/schema.ts"],
     rules: {
-      "no-restricted-imports": [
+      "import/no-restricted-paths": [
         "error",
         {
-          patterns: [
+          zones: [
             {
-              // A regex, not a `group`: gitignore-style `!` can't re-include a
-              // file whose parent directory an earlier pattern already excluded.
-              regex: "^@/(lib/(?!messaging/audience$)|components/|app/)",
+              target: "./src/db/schema.ts",
+              from: ["./src/lib", "./src/components", "./src/app"],
+              except: ["./messaging/audience.ts"],
               message:
                 "schema.ts may only import dependency-free, client-safe modules (see CLAUDE.md › Layering).",
             },
@@ -45,12 +47,13 @@ const eslintConfig = defineConfig([
   {
     files: ["src/components/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-imports": [
+      "import/no-restricted-paths": [
         "error",
         {
-          patterns: [
+          zones: [
             {
-              group: ["@/db", "@/db/*"],
+              target: "./src/components",
+              from: "./src/db",
               message: "Components must not import from @/db — use a client-safe export under src/lib/.",
             },
           ],
@@ -63,12 +66,13 @@ const eslintConfig = defineConfig([
     files: ["src/lib/**/*.{ts,tsx}"],
     ignores: ["src/lib/**/__tests__/**"],
     rules: {
-      "no-restricted-imports": [
+      "import/no-restricted-paths": [
         "error",
         {
-          patterns: [
+          zones: [
             {
-              group: ["@/components/*", "@/app/*"],
+              target: "./src/lib",
+              from: ["./src/components", "./src/app"],
               message: "src/lib must not depend on components/app.",
             },
           ],

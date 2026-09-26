@@ -197,8 +197,9 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   after what it does. Files are kebab-case; React hooks keep the `useX.ts` name.
 - **Layering**: `src/lib` sits below `src/components` and `src/app`, and only server
   code reaches `src/db` (components call server actions instead).
-  `pnpm lint` enforces R2–R5 (`no-restricted-imports` in `eslint.config.mjs`); the
-  build enforces R1.
+  `pnpm lint` enforces R2–R5 (`eslint.config.mjs`: `import/no-restricted-paths` for
+  R2–R4, which resolves real paths so relative imports can't bypass it;
+  `no-restricted-imports` for R5); the build enforces R1.
   - R1 — `src/db/index.ts`, `src/lib/server/*` and `src/lib/security/{encryption,url-guard,sensitive-words}`
     start with `import "server-only"`, so a client component that reaches them fails
     the build. `schema.ts` is exempt because `drizzle-kit` loads it directly. tsx
