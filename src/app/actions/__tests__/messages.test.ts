@@ -38,17 +38,19 @@ function chain(rows: () => unknown) {
   return c;
 }
 const del = vi.fn(() => chain(() => []));
+const insert = vi.fn(() => ({ values: () => ({ onConflictDoUpdate: () => Promise.resolve() }) }));
 vi.mock("@/db", () => ({
   db: {
     select: () => chain(() => selectQueue.shift() ?? []),
     delete: () => del(),
+    insert: () => insert(),
   },
   sqlNow: vi.fn(),
 }));
 
 import {
   sendMessageAction, rollDiceAction, insertTimelineDividerAction,
-  withdrawTimelineDividerAction, executeCommandAction,
+  withdrawTimelineDividerAction, executeCommandAction, markDMReadAction,
 } from "../messages";
 import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
 
@@ -95,6 +97,12 @@ describe("sendMessageAction", () => {
     expect(dispatchMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects a sender whose membership row is gone", async () => {
+    selectQueue = [[]];
+    expect(await sendMessageAction(5, "hello")).toEqual(NO_ACCESS);
+    expect(dispatchMessage).not.toHaveBeenCalled();
+  });
+
   it("treats a failed command as handled (the error goes into the feed)", async () => {
     executeCommand.mockResolvedValue({ isCommand: true, success: false, error: "bad" });
     expect(await sendMessageAction(5, ".rc nope")).toEqual({ success: true });
@@ -125,6 +133,14 @@ describe("timeline dividers", () => {
       .toEqual({ success: false, error: "timeline.errorInvalidPayload" });
   });
 
+  it("insert posts a valid divider", async () => {
+    tryRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
+    selectQueue = [[{ nickname: "KP" }]];
+    const data = { mode: "day", day: 2, date: null, custom: null, timeMode: "segment", segment: "morning", clock: null };
+    expect(await insertTimelineDividerAction(5, data as never)).toEqual({ success: true });
+    expect(dispatchMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("withdraw refuses a message that is not a divider", async () => {
     selectQueue = [[{ id: 9, roomId: 5, type: "text", systemKind: null }]];
     expect(await withdrawTimelineDividerAction(5, 9))
@@ -152,8 +168,28 @@ describe("executeCommandAction", () => {
       .toEqual({ success: false, error: "roomActions.errorNoAccess", isCommand: true });
   });
 
+  it("refuses the caller in a room they can't write to", async () => {
+    tryRoomAccess.mockResolvedValue(null);
+    expect(await executeCommandAction(5, 2, ".r d6"))
+      .toEqual({ success: false, error: "roomActions.errorNoAccess", isCommand: true });
+    expect(executeCommand).not.toHaveBeenCalled();
+  });
+
   it("passes the engine's result through", async () => {
     executeCommand.mockResolvedValue({ isCommand: true, success: true });
     expect(await executeCommandAction(5, 2, ".r d6")).toEqual({ isCommand: true, success: true });
+  });
+});
+
+describe("markDMReadAction", () => {
+  it("rejects a non-member", async () => {
+    tryRoomAccess.mockResolvedValue(null);
+    expect(await markDMReadAction(5, 3)).toEqual(NO_ACCESS);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("records the read marker", async () => {
+    expect(await markDMReadAction(5, 3)).toEqual({ success: true });
+    expect(insert).toHaveBeenCalledTimes(1);
   });
 });
