@@ -13,7 +13,8 @@
 /**
  * The 7 predefined label colors a category can pick from. Stored as keys in
  * notebook_categories.color; each key maps to theme-token classes client-side
- * (COLOR_META in notebook-helpers), so labels recolor with the active theme.
+ * (COLOR_META in components/room/notebook/notebook-styles.ts), so labels
+ * recolor with the active theme.
  */
 export const NOTEBOOK_COLORS = ['primary', 'accent', 'success', 'warning', 'danger', 'ai', 'neutral'] as const;
 export type NotebookColor = (typeof NOTEBOOK_COLORS)[number];

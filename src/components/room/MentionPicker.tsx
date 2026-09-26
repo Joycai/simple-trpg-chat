@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { entityMeta } from "@/components/room/notebook/notebook-helpers";
+import { entityMeta } from "@/components/room/notebook/notebook-styles";
 import type { NotebookLinkEntity } from "@/lib/room/notebook";
 
 /**

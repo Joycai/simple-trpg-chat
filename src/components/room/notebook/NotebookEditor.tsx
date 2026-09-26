@@ -10,7 +10,8 @@ import {
   NOTE_TITLE_MAX,
   NOTE_CONTENT_MAX,
 } from "@/lib/room/notebook";
-import { colorMeta, type Category, type Note } from "./notebook-helpers";
+import { colorMeta } from "./notebook-styles";
+import type { Category, Note } from "./notebook-types";
 
 interface NotebookEditorProps {
   note: Note | null; // null = create

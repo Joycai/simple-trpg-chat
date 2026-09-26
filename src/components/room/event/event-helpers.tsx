@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
-import { MentionChip } from "@/components/room/notebook/notebook-helpers";
+import { MentionChip } from "@/components/room/notebook/NotebookChips";
 import { getMyInventory, getRoomItems } from "@/app/actions/inventory";
 import type { NotebookLinkEntity } from "@/lib/room/notebook";
 import { composeTimelineLabel, parseTimelinePayload } from "@/lib/messaging/timeline-payload";
