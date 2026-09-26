@@ -2064,6 +2064,8 @@ describe("quickCheckPanel ⇔ buildCheckCommand", () => {
     for (const rule of listRules()) {
       if (rule.capabilities.checkRequestOptions) {
         expect(typeof rule.buildCheckCommand, rule.id).toBe("function");
+        // Responses are always named and public — the builder must express them.
+        expect(rule.buildCheckCommand!({ name: "侦查", bonusDice: 0, styleDice: 0, dc: 10, hidden: false }), rule.id).not.toBeNull();
       }
     }
   });
