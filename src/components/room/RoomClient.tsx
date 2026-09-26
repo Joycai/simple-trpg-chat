@@ -24,7 +24,7 @@ import { getCharacterDataAction } from "@/app/actions/character";
 import { getMySkillsAction } from "@/app/actions/skills";
 import { getMyEventsAction, getUnreadEventCountAction, type EventView } from "@/app/actions/event";
 import { EventDataProvider, type EventData } from "@/components/room/event/EventDataContext";
-import { useBackpackEntities } from "@/components/room/event/event-helpers";
+import { useBackpackEntities } from "@/components/room/hooks/useBackpackEntities";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getBotStatus } from "@/lib/ai/bot-status";

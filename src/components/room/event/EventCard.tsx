@@ -6,7 +6,7 @@ import { Icons } from "@/components/shared/icons";
 import { composeTimelineLabel, dayPartFromDivider, type TimelineSegment } from "@/lib/messaging/timeline-payload";
 import type { EventCardPayload } from "@/lib/room/story-events";
 import { useEventData } from "./EventDataContext";
-import { EventBodyPreview } from "./event-helpers";
+import { EventBodyPreview } from "./EventBadges";
 
 /**
  * Time-pill tint by day-part — a bright warm morning, a warmer afternoon, and a

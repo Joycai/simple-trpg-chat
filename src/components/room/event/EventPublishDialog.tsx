@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { publishEventAction, addEventViewersAction, type EventView } from "@/app/actions/event";
-import { EventTimeLabel, type EventPlayer } from "./event-helpers";
+import { EventTimeLabel } from "./EventBadges";
+import type { EventPlayer } from "./event-types";
 
 /**
  * One selectable recipient.
