@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { Notice } from "@/components/shared/Notice";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ImagePreview } from "@/components/shared/ImagePreview";
 import { MentionChip } from "@/components/room/notebook/NotebookChips";
@@ -52,6 +53,7 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
   const [editing, setEditing] = useState(false);
   const [publishing, setPublishing] = useState<"publish" | "add" | null>(null);
   const [confirmRetract, setConfirmRetract] = useState(false);
+  const [retractError, setRetractError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -78,16 +80,17 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
   const doRetract = async () => {
     if (busy) return;
     setBusy(true);
+    setRetractError(null);
     try {
       const res = await retractEventAction(roomId, eventId);
       if (!res.success) {
-        alert(res.error);
+        setRetractError(res.error);
         return;
       }
       setConfirmRetract(false);
       afterChange();
     } catch {
-      alert(tCommon("error"));
+      setRetractError(tCommon("error"));
     } finally {
       setBusy(false);
     }
@@ -240,7 +243,7 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
             />
           )}
           {confirmRetract && event && (
-            <OverlayShell onClose={() => setConfirmRetract(false)} portal panelClassName="w-full max-w-sm mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden">
+            <OverlayShell onClose={() => { setConfirmRetract(false); setRetractError(null); }} portal panelClassName="w-full max-w-sm mx-4 bg-surface theme-border rounded-theme shadow-2xl overflow-hidden">
               {(c) => (
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-3">
@@ -252,6 +255,7 @@ export function EventDetailModal({ roomId, eventId, isHost = false, players = []
                   <p className="text-sm text-text-muted leading-6 mb-5">
                     {t.rich("retractConfirmBody", { title: event.title, b: (chunks) => <strong className="font-bold text-text">{chunks}</strong> })}
                   </p>
+                  {retractError && <Notice variant="error" className="mb-4">{retractError}</Notice>}
                   <div className="flex justify-end gap-2">
                     <button onClick={c} className="px-4 py-2 rounded-theme border border-border text-text text-sm font-bold hover:bg-surface-alt transition cursor-pointer">{tCommon("cancel")}</button>
                     <button onClick={doRetract} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-theme bg-danger text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-50 cursor-pointer">
