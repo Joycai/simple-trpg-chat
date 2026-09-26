@@ -73,7 +73,8 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   // modal the action came from; a delete (no modal) reports at the panel top.
   const [formError, setFormError] = useState<string | null>(null);
   const [formBusy, setFormBusy] = useState(false);
-  const [distributeError, setDistributeError] = useState<string | null>(null);
+  // One entry per failed recipient; `name` is null for a hand-out to everyone.
+  const [distributeErrors, setDistributeErrors] = useState<{ id: number | null; name: string | null; error: string }[]>([]);
   const [distributing, setDistributing] = useState(false);
   const [shareErrors, setShareErrors] = useState<{ id: number; name: string; error: string }[]>([]);
   const [sharing, setSharing] = useState(false);
@@ -252,19 +253,28 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   const runDistribute = async (itemId: number, targets: number[] | "all") => {
     const seq = distributeSeq.current;
     setDistributing(true);
-    setDistributeError(null);
+    setDistributeErrors([]);
     const fallback = { success: false as const, error: t("distributeFailed") };
-    const results = targets === "all"
-      ? [await distributeItemAction(roomId, itemId, "all").catch(() => fallback)]
-      : await Promise.all(targets.map(uid => distributeItemAction(roomId, itemId, uid).catch(() => fallback)));
+    const ids = targets === "all" ? [null] : targets;
+    const results = await Promise.all(ids.map(uid =>
+      distributeItemAction(roomId, itemId, uid ?? "all").catch(() => fallback)));
     router.refresh();
     void loadData();
     if (seq !== distributeSeq.current) return;
     setDistributing(false);
-    const failed = results.find(r => !r.success);
-    // Keep the modal open on failure; the successful hand-outs already landed.
-    if (failed && !failed.success) { setDistributeError(failed.error); return; }
-    closeDistribute();
+    const failures = ids.flatMap((uid, i) => {
+      const r = results[i];
+      if (r.success) return [];
+      const p = uid === null ? undefined : players.find(pl => pl.id === uid);
+      return [{ id: uid, name: uid === null ? null : p?.nickname || p?.username || String(uid), error: r.error }];
+    });
+    if (failures.length === 0) { closeDistribute(); return; }
+    // Keep the modal open, list every failure, and narrow the selection to the
+    // failed members still in the room — the others already hold the item.
+    setDistributeErrors(failures);
+    if (targets !== "all") {
+      setDistributeTargets(failures.flatMap(f => (f.id !== null && players.some(p => p.id === f.id) ? [f.id] : [])));
+    }
   };
 
   const closeDistribute = () => {
@@ -272,7 +282,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     setDistributing(false);
     setDistributeItemId(null);
     setDistributeTargets([]);
-    setDistributeError(null);
+    setDistributeErrors([]);
   };
 
   const handleDeleteItem = (itemId: number, itemTitle: string) => {
@@ -350,7 +360,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   const openDistribute = (itemId: number) => {
     distributeSeq.current++;
     setDistributing(false);
-    setDistributeError(null);
+    setDistributeErrors([]);
     setDistributeItemId(itemId);
     setDistributeTargets([]);
     setDetailItem(null);
@@ -379,12 +389,16 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
-          {panelError && (
-            <Notice variant="error" className="mb-4" onDismiss={() => setPanelError(null)} dismissLabel={tCommon("close")}>
+        {/* Outside the scroll area so a failure is visible wherever the list is scrolled. */}
+        {panelError && (
+          <div className="shrink-0 px-6 pt-4">
+            <Notice variant="error" onDismiss={() => setPanelError(null)} dismissLabel={tCommon("close")}>
               {panelError}
             </Notice>
-          )}
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           {/* Opacity only, no rise: the skeletons are shape-matched to the real
               layouts precisely so nothing moves on the swap, and a translate
               would put the jump back. The wrapper mounts when `loading` flips
@@ -452,7 +466,18 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
               setDistributeTargets={setDistributeTargets}
               onCancel={closeDistribute}
               onDistribute={handleDistribute}
-              error={distributeError}
+              error={distributeErrors.length === 0 ? null
+                : distributeErrors.length === 1 && distributeErrors[0].name === null ? distributeErrors[0].error
+                : (
+                  <>
+                    {t("sharePartialFailed")}
+                    {distributeErrors.map(f => (
+                      <span key={f.id ?? "all"} className="block">
+                        {f.name === null ? f.error : t("sharePartialFailedItem", { name: f.name, error: f.error })}
+                      </span>
+                    ))}
+                  </>
+                )}
               busy={distributing}
             />
           )}

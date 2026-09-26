@@ -372,8 +372,8 @@ interface DistributeModalProps {
   setDistributeTargets: React.Dispatch<React.SetStateAction<number[]>>;
   onCancel: () => void;
   onDistribute: (targets: number[] | "all") => void;
-  /** Why the last hand-out failed; shown above the actions. */
-  error?: string | null;
+  /** Why the last hand-out failed (per recipient); shown above the actions. */
+  error?: ReactNode;
   /** Hand-out in flight — blocks both distribute buttons. */
   busy?: boolean;
 }
