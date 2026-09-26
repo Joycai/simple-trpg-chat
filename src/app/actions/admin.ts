@@ -178,8 +178,9 @@ export async function deleteUser(id: number): Promise<Done> {
   return { success: true };
 }
 
-export async function deleteRoom(id: number) {
-  await requireAdmin();
+export async function deleteRoom(id: number): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
   // Background FILES live outside the DB — remove them before the row delete
   // cascades away the room_backgrounds rows that name them (best-effort; a
@@ -193,22 +194,27 @@ export async function deleteRoom(id: number) {
   // skills, dm reads, inventory items/distributions, clue cards, backgrounds).
   await db.delete(rooms).where(eq(rooms.id, id));
   revalidatePath("/admin/rooms");
+  return { success: true };
 }
 
-export async function adminSetRoomFrozen(id: number, frozen: boolean) {
-  await requireAdmin();
+export async function adminSetRoomFrozen(id: number, frozen: boolean): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
   await db.update(rooms).set({ frozen }).where(eq(rooms.id, id));
   // Notify any live members so the freeze takes effect without a manual reload.
   broadcastToRoom(id, { type: "room_settings_updated" });
   revalidatePath("/admin/rooms");
+  return { success: true };
 }
 
-export async function adminSetRoomStatus(id: number, status: "active" | "closed") {
-  await requireAdmin();
-  if (status !== "active" && status !== "closed") throw new Error("Invalid status");
+export async function adminSetRoomStatus(id: number, status: "active" | "closed"): Promise<Done> {
+  const t = await getTranslations("admin");
+  if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
+  if (status !== "active" && status !== "closed") return { success: false, error: t("errorInvalidStatus") };
   await db.update(rooms).set({ status }).where(eq(rooms.id, id));
   broadcastToRoom(id, { type: "room_settings_updated" });
   revalidatePath("/admin/rooms");
+  return { success: true };
 }
 
 export async function resetPassword(id: number, newPassword: string): Promise<Done> {

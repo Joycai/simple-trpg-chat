@@ -8,6 +8,8 @@ vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: () => requireAdmin() 
 vi.mock("@/auth.config", () => ({ invalidateSessionCache: vi.fn() }));
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const cleanupRoomBackgrounds = vi.fn(() => Promise.resolve());
+vi.mock("@/lib/media/image-cache", () => ({ cleanupRoomBackgrounds: () => cleanupRoomBackgrounds() }));
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(() => Promise.resolve("hash")) } }));
 // Echo the key so assertions name the message, not its wording.
 vi.mock("next-intl/server", () => ({
@@ -35,7 +37,10 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { toggleBanUser, createUser, updateUser, updateUserAiPoints, deleteUser } from "../admin";
+import {
+  toggleBanUser, createUser, updateUser, updateUserAiPoints, deleteUser,
+  deleteRoom, adminSetRoomStatus,
+} from "../admin";
 import { USERNAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 
 function form(fields: Record<string, string>) {
@@ -139,5 +144,23 @@ describe("updateUserAiPoints", () => {
     selectQueue = [[{ role: "player" }], [{ id: 2, role: "player", aiPoints: 10 }]];
     expect(await updateUserAiPoints(2, 50)).toEqual({ success: true });
     expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("room actions", () => {
+  it("deleteRoom rejects a non-admin before touching background files", async () => {
+    requireAdmin.mockImplementation(() => Promise.reject(new Error("Unauthorized")));
+    expect(await deleteRoom(5)).toEqual({ success: false, error: "admin.errorNotAdmin" });
+    expect(cleanupRoomBackgrounds).not.toHaveBeenCalled();
+  });
+
+  it("deleteRoom succeeds for an admin", async () => {
+    expect(await deleteRoom(5)).toEqual({ success: true });
+    expect(cleanupRoomBackgrounds).toHaveBeenCalledTimes(1);
+  });
+
+  it("adminSetRoomStatus rejects an unknown status", async () => {
+    expect(await adminSetRoomStatus(5, "archived" as "closed")).toEqual({ success: false, error: "admin.errorInvalidStatus" });
+    expect(update).not.toHaveBeenCalled();
   });
 });
