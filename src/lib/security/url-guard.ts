@@ -3,6 +3,7 @@
 // so this must resolve the hostname and check the *actual* IP — a regex over
 // the URL string can't catch a hostname that simply resolves to an internal
 // address (DNS rebinding, `internal-service.local`, etc).
+import "server-only";
 import dns from "node:dns/promises";
 import net from "node:net";
 

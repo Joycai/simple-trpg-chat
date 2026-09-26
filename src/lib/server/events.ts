@@ -1,3 +1,4 @@
+import "server-only";
 import { EventEmitter } from "events";
 
 // Next.js HMR workaround: persist eventHub on globalThis during development
