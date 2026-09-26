@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { createRoomAction, joinRoomAction } from "@/app/actions/room";
+import { ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
 import { useLocale, useTranslations } from "next-intl";
 import { THEME_LIST, getThemeName } from "@/themes/types";
 import { Icons } from "@/components/shared/icons";
@@ -168,6 +169,7 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                     name="name"
                     placeholder={tc("namePlaceholder")}
                     required
+                    maxLength={ROOM_NAME_MAX_LENGTH}
                     className={FIELD_CLS}
                     autoFocus
                   />
