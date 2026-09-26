@@ -68,7 +68,7 @@ diceAnnouncerBotId: integer('dice_announcer_bot_id')
 
 ### 4.1 `src/lib/commands/command-message.ts` → `emitCommandMessage`
 
-4 个 dice 调用点（`.r` 系 ~L262、表达式掷骰 ~L304、`runRuleCheck` 检定 ~L721、`.sc` 理智 ~L814）全部经过它。在 `emitCommandMessage` 内部对 `type === "dice"` 做注入：
+4 个 dice 调用点（`.r` 系与表达式掷骰在 `dice-roll-command.ts`，检定在 `check-roll-command.ts` 的 `performSkillCheck`，`.sc` 理智在 `sanity-check-command.ts`）全部经过它。在 `emitCommandMessage` 内部对 `type === "dice"` 做注入：
 
 ```ts
 // type === "dice" 时：

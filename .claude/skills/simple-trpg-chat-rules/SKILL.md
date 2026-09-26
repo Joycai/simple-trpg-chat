@@ -144,7 +144,7 @@ interface CheckResult {
 | `hasPsychologyRoll` | `boolean` | `psychologyHiddenRollAction` 守卫 + TopBar 心理学暗骰菜单项 |
 | `hasManaPoints` | `boolean` | MP 资源条渲染 |
 | `checkMenuModes` | `("check"\|"psychology"\|"sancheck")[]` | TopBar 检定项;>1 渲染下拉,=1 单按钮,空数组整个隐藏(triangle) |
-| `supportedCommands` | `string[]` | `commands/engine.ts` 的命令门控(`.sc` 就读这个) |
+| `supportedCommands` | `string[]` | 命令门控(`.sc` 就读这个,见 `commands/sanity-check-command.ts`) |
 | `resourceBars` | `{key,labelKey,style?}[]` | 角色卡预置资源条。`style:"counter"` 渲染为无上限计数器(Triangle 嘉奖/处分),默认 `"bar"` 为 当前/上限 |
 | `attributeKeys` | `{key,labelKey}[]` | 角色卡属性宫格(basic=0, coc7th=9, dnd5e=8, triangle=9, shouhun=3);同时是 `clampAttributes` 的白名单来源 |
 | `derivedStats?` | `{key,labelKey}[]` | 属性宫格后的只读衍生卡(shouhun=术法强度)。值由 `readStatus().derived` 现算 |
@@ -311,7 +311,7 @@ COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名
 1. **在引擎/UI 里写 `if (rule.id === "xxx")`** —— 先扩 `RuleCapabilities`(纯数据)再用 capability 驱动。§5 是例外清单,不是许可证。
 2. **声明了 `sheetToolSchemaFields` 却没在 `applySheetPatch` 里消费** —— 模型会照 schema 正确调用,写入被静默丢弃,**没有任何报错**。triangle 和狩魂者 都踩过。`rules.test.ts` 现在有一条循环用例守住这个契约。
 3. **`RuleCapabilities` 里塞 React 组件/图标** —— 规则模块要在 server 端可用。
-4. **`rollDie` 留在 `commands/engine.ts` 预掷** —— 预掷使比较方向无法被规则改写,d20 直接挂掉。必须在 `resolveCheck` 内部调用。
+4. **`rollDie` 留在命令层(`commands/check-roll-command.ts`)预掷** —— 预掷使比较方向无法被规则改写,d20 直接挂掉。必须在 `resolveCheck` 内部调用。
 5. **新规则加了但下拉框里看不到** —— 检查 `schema.ts` 的 `RULE_TEMPLATES`。
 6. **导出的房间信息标着别的规则名** —— 检查 `messages.export` 里有没有你的 `labelKey`。
 7. **假设 `room.diceRules`** —— 该列已删,`getRuleForRoom` 签名是 `{ ruleTemplate?: string | null }`。
