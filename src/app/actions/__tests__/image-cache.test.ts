@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanupImageCacheAction } from "../image-cache";
 
+const requireAdminMock = vi.fn(() => Promise.resolve());
 vi.mock("@/lib/auth/require-admin", () => ({
-  requireAdmin: vi.fn(() => Promise.resolve()),
+  requireAdmin: () => requireAdminMock(),
 }));
 
 const broadcastToRoomMock = vi.fn();
@@ -67,6 +68,12 @@ describe("cleanupImageCacheAction — backgrounds are opt-in only", () => {
 });
 
 describe("cleanupImageCacheAction — rejected input", () => {
+  it("returns a localized error for a non-admin caller", async () => {
+    requireAdminMock.mockImplementationOnce(() => Promise.reject(new Error("Unauthorized")));
+    expect(await cleanupImageCacheAction("all", "all")).toEqual({ success: false, error: "admin.errorNotAdmin" });
+    expect(cleanupImageCacheMock).not.toHaveBeenCalled();
+  });
+
   it("returns a localized error for an invalid room scope", async () => {
     expect(await cleanupImageCacheAction(-1, "all")).toEqual({ success: false, error: "admin.errorInvalidScope" });
     expect(cleanupImageCacheMock).not.toHaveBeenCalled();

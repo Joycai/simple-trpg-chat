@@ -45,6 +45,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const [editSystemPrompt, setEditSystemPrompt] = useState("");
   const [editAllowEditPrompt, setEditAllowEditPrompt] = useState(true);
   const [editError, setEditError] = useState("");
+  /** A failed delete, keyed to its preset so it never shows in another preset's editor. */
+  const [deleteError, setDeleteError] = useState<{ id: number; text: string } | null>(null);
   /** Preset waiting on the delete confirmation. */
   const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null);
   /** The pending delete whose request is in flight (the dialog stays cancellable). */
@@ -112,14 +114,15 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
     setDeleting(current);
     const res = await deleteBotPresetAction(id)
       .catch(() => ({ success: false as const, error: t("operationFailed") }));
-    setDeleting(null);
-    // Only close the dialog this request came from, not one opened after a cancel.
+    // The dialog can be cancelled mid-request and another opened, so only
+    // clear state that still belongs to this request.
+    setDeleting((d) => (d === current ? null : d));
     setPendingDelete((p) => (p === current ? null : p));
     if (!res.success) {
-      setEditError(res.error);
+      setDeleteError({ id, text: res.error });
       return;
     }
-    if (editingId === id) setEditingId(null);
+    setEditingId((cur) => (cur === id ? null : cur));
     router.refresh();
   };
 
@@ -131,6 +134,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
     setEditSystemPrompt(preset.systemPrompt);
     setEditAllowEditPrompt(preset.allowEditPrompt);
     setEditError("");
+    setDeleteError(null);
   };
 
   return (
@@ -197,7 +201,9 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                 </div>
               </label>
 
-              {editError && <p className="text-xs text-danger">{editError}</p>}
+              {(editError || (deleteError?.id === editingId && deleteError.text)) && (
+                <p className="text-xs text-danger">{editError || deleteError?.text}</p>
+              )}
 
               <div className="flex items-center gap-3 pt-1">
                 <button type="button"

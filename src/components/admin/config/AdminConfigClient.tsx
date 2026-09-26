@@ -71,6 +71,10 @@ export function AdminConfigClient({
   // Theme / mode apply instantly (matches the rest of the app).
   const [theme, setTheme] = useState<ThemeId>(currentTheme);
   const [mode, setMode] = useState<ThemeMode>(currentMode);
+  // Last values the server accepted — the rollback target, so a failed save
+  // after quick successive clicks doesn't restore an unsaved intermediate pick.
+  const [savedTheme, setSavedTheme] = useState<ThemeId>(currentTheme);
+  const [savedMode, setSavedMode] = useState<ThemeMode>(currentMode);
 
   const addWord = () => {
     const w = wordInput.trim();
@@ -100,30 +104,32 @@ export function AdminConfigClient({
 
   // Optimistic: the picker moves at once and snaps back if the save fails.
   const handleThemeChange = async (id: ThemeId) => {
-    const prev = theme;
     setTheme(id);
     const res = await setSiteTheme(id)
       .catch(() => ({ success: false as const, error: t("operationFailed") }));
     if (!res.success) {
-      setTheme(prev);
+      setTheme(savedTheme);
       setMsg(res.error);
       setMsgType("error");
       return;
     }
+    setSavedTheme(id);
+    if (msgType === "error") setMsg("");
     router.refresh();
   };
 
   const handleModeChange = async (m: ThemeMode) => {
-    const prev = mode;
     setMode(m);
     const res = await setSiteThemeMode(m)
       .catch(() => ({ success: false as const, error: t("operationFailed") }));
     if (!res.success) {
-      setMode(prev);
+      setMode(savedMode);
       setMsg(res.error);
       setMsgType("error");
       return;
     }
+    setSavedMode(m);
+    if (msgType === "error") setMsg("");
     router.refresh();
   };
 

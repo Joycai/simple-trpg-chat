@@ -98,8 +98,9 @@ export function AdminUserManager({ users: allUsers, lastLogins, inviteDefaultQuo
       : kind === "resetQuota" ? resetInviteQuotaAction(user.id)
       : toggleBanUser(user.id)
     ).catch(() => ({ success: false as const, error: t("operationFailed") }));
-    setRunning(null);
-    // Only close the dialog this request came from, not one opened after a cancel.
+    // The dialog can be cancelled mid-request and another opened, so only
+    // clear state that still belongs to this request.
+    setRunning((r) => (r === current ? null : r));
     setPending((p) => (p === current ? null : p));
     if (!res.success) {
       setNotice(res.error);
