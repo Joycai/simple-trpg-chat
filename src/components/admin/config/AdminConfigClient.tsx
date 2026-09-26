@@ -98,15 +98,32 @@ export function AdminConfigClient({
     reader.readAsDataURL(file);
   };
 
+  // Optimistic: the picker moves at once and snaps back if the save fails.
   const handleThemeChange = async (id: ThemeId) => {
+    const prev = theme;
     setTheme(id);
-    await setSiteTheme(id);
+    const res = await setSiteTheme(id)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (!res.success) {
+      setTheme(prev);
+      setMsg(res.error);
+      setMsgType("error");
+      return;
+    }
     router.refresh();
   };
 
   const handleModeChange = async (m: ThemeMode) => {
+    const prev = mode;
     setMode(m);
-    await setSiteThemeMode(m);
+    const res = await setSiteThemeMode(m)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (!res.success) {
+      setMode(prev);
+      setMsg(res.error);
+      setMsgType("error");
+      return;
+    }
     router.refresh();
   };
 

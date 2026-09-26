@@ -30,7 +30,7 @@ export interface ProviderData {
 /** Create a new AI provider (host or admin) */
 export async function createProvider(data: ProviderData): Promise<{ error: string } | { id: number }> {
   const session = await auth();
-  if (!session) return { error: "Not authenticated" };
+  if (!session) return { error: (await getTranslations("adminProviders"))("errorNotAuthenticated") };
 
   const userId = parseInt(session.user.id);
   const isAdmin = session.user.role === "admin";
@@ -68,15 +68,16 @@ export async function createProvider(data: ProviderData): Promise<{ error: strin
 
 /** Update an existing provider (owner or admin) */
 export async function updateProvider(providerId: number, data: Partial<ProviderData>): Promise<{ error: string } | undefined> {
+  const t = await getTranslations("adminProviders");
   const session = await auth();
-  if (!session) return { error: "Not authenticated" };
+  if (!session) return { error: t("errorNotAuthenticated") };
 
   const userId = parseInt(session.user.id);
   const isAdmin = session.user.role === "admin";
 
   const [existing] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
-  if (!existing) return { error: "Provider not found" };
-  if (existing.ownerId !== userId && !isAdmin) return { error: "Not authorized" };
+  if (!existing) return { error: t("errorProviderNotFound") };
+  if (existing.ownerId !== userId && !isAdmin) return { error: t("errorNotAuthorized") };
 
   const values: Record<string, unknown> = { updatedAt: sqlNow() };
   if (data.name?.trim()) values.name = data.name.trim();
@@ -108,20 +109,26 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   }
 }
 
-/** Delete a provider (owner or admin) */
-export async function deleteProvider(providerId: number) {
+/**
+ * Delete a provider (owner or admin). Returns `{ success, error }` with a
+ * localized error — unlike create/update above, which keep their older
+ * `{ error } | data` shape because their callers already consume it.
+ */
+export async function deleteProvider(providerId: number): Promise<{ success: true } | { success: false; error: string }> {
+  const t = await getTranslations("adminProviders");
   const session = await auth();
-  if (!session) throw new Error("Not authenticated");
+  if (!session) return { success: false, error: t("errorNotAuthenticated") };
 
   const userId = parseInt(session.user.id);
   const isAdmin = session.user.role === "admin";
 
   const [existing] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
-  if (!existing) throw new Error("Provider not found");
-  if (existing.ownerId !== userId && !isAdmin) throw new Error("Not authorized");
+  if (!existing) return { success: false, error: t("errorProviderNotFound") };
+  if (existing.ownerId !== userId && !isAdmin) return { success: false, error: t("errorNotAuthorized") };
 
   await db.delete(aiProviders).where(eq(aiProviders.id, providerId));
   revalidatePath("/");
+  return { success: true };
 }
 
 // ============================================================

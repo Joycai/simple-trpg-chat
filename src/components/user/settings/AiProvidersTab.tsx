@@ -102,13 +102,14 @@ export function AiProvidersTab() {
   };
 
   const handleDeleteProvider = async (id: number) => {
-    try {
-      await deleteProvider(id);
-      setProviders(providers.filter(p => p.id !== id));
-    } catch (e: unknown) {
-      setProvMsg(e instanceof Error ? e.message : t("saveFailed"));
+    const res = await deleteProvider(id)
+      .catch(() => ({ success: false as const, error: t("saveFailed") }));
+    if (!res.success) {
+      setProvMsg(res.error);
       setProvSuccess(false);
+      return;
     }
+    setProviders(providers.filter(p => p.id !== id));
   };
 
   return (

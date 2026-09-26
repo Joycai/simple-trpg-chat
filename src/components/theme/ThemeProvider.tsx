@@ -139,14 +139,16 @@ export function ThemeProvider({ children, siteTheme, userTheme, siteMode, userMo
   const setTheme = (newTheme: ThemeId) => {
     setThemeState(newTheme);
     localStorage.setItem("trpg-theme", newTheme);
-    // Persist to server (fire-and-forget)
+    // Persist to server (fire-and-forget): the choice is already applied and
+    // kept in localStorage, so a failed save (e.g. signed out) needs no UI and
+    // the result is deliberately ignored. The catch covers network errors.
     updateUserThemePreference(newTheme).catch(() => {});
   };
 
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode);
     localStorage.setItem("trpg-theme-mode", newMode);
-    // Persist to server (fire-and-forget)
+    // Persist to server (fire-and-forget) — see setTheme above.
     updateUserThemeModePreference(newMode).catch(() => {});
   };
 
