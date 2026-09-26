@@ -9,6 +9,7 @@ import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/
 import { formatHotkey } from "@/lib/ui/hotkeys";
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
+import { ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
 import { useHostLabel } from "@/components/shared/host-label";
 
 type CheckMode = null | "check" | "psychology" | "sancheck";
@@ -244,7 +245,7 @@ export function RoomTopBar({
                   if (e.key === "Enter") { e.preventDefault(); onSaveRoomName(); }
                   else if (e.key === "Escape") { setRoomNameDraft(room.name); setEditingRoomName(false); }
                 }}
-                maxLength={100}
+                maxLength={ROOM_NAME_MAX_LENGTH}
                 autoFocus
                 disabled={savingRoomName}
                 className="text-lg font-bold text-text leading-tight bg-input-bg border border-input-border rounded px-1.5 py-0.5 outline-none focus:ring-[3px] focus:ring-primary/[0.18] max-w-[12rem] disabled:opacity-60"

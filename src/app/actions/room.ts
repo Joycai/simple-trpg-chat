@@ -11,6 +11,7 @@ import { checkRoomAccess } from "@/lib/auth/room-access";
 import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/media/avatars";
 import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { getRule, getRuleForRoom } from "@/lib/rules";
+import { NICKNAME_MAX_LENGTH, ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
 
 // --- Room Actions ---
 
@@ -110,8 +111,8 @@ export async function updateNicknameAction(roomId: number, nickname: string) {
   const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
 
   const trimmed = nickname.trim();
-  if (!trimmed || trimmed.length > 50) {
-    throw new Error("Invalid nickname (must be between 1 and 50 characters)");
+  if (!trimmed || trimmed.length > NICKNAME_MAX_LENGTH) {
+    throw new Error(`Invalid nickname (must be between 1 and ${NICKNAME_MAX_LENGTH} characters)`);
   }
 
   await db.update(roomMembers)
@@ -199,8 +200,8 @@ export async function updateRoomNameAction(roomId: number, newName: string) {
   await checkRoomAccess(roomId, true);
 
   const trimmed = newName.trim();
-  if (!trimmed || trimmed.length > 100) {
-    throw new Error("Room name must be between 1 and 100 characters");
+  if (!trimmed || trimmed.length > ROOM_NAME_MAX_LENGTH) {
+    throw new Error(`Room name must be between 1 and ${ROOM_NAME_MAX_LENGTH} characters`);
   }
 
   await db.update(rooms).set({ name: trimmed }).where(eq(rooms.id, roomId));
