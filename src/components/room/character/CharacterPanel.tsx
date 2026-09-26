@@ -145,7 +145,9 @@ export function CharacterPanel({
     // then calls `router.refresh()`, so the response re-renders the entire room
     // tree. Landing that inside the drawer's slide is the difference between a
     // smooth open and a visible hitch.
-    initCharacterAction(roomId).then((data) => {
+    initCharacterAction(roomId).then((res) => {
+      if (!res.success) { setPanelError(res.error); return; }
+      const { data } = res;
       afterEnter(() => {
         setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities, data.shAttributes));
         if (data.d20Sheet) {
@@ -155,7 +157,7 @@ export function CharacterPanel({
         setInitDone(true);
         router.refresh();
       });
-    }).catch(() => {});
+    }).catch(() => setPanelError(tCommon("error")));
     // intentionally omits `router` and `ruleTemplate` from deps — initial-mount-only effect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomRuleTemplate, roomId, initDone, readOnly]);
@@ -287,7 +289,14 @@ export function CharacterPanel({
 
   // Footer "保存" — persists attributes + bio + per-rule sheet in one go.
   const handleSaveAll = async () => {
+    // Failure: the button flashes its error state and the strip says why.
+    const failSave = (error: string) => {
+      setPanelError(error);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    };
     setSaveStatus("saving");
+    setPanelError(null);
     try {
       const basePayload = {
         ruleTemplate, bio,
@@ -323,8 +332,10 @@ export function CharacterPanel({
       if (cap.resourceCurrentsViaAction) {
         // COC / 狩魂者: attributes on the caller's own sheet, currents via
         // updateResourcesAction so a host can adjust another player's bars.
-        await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
-        await updateResourcesAction(roomId, targetUserId || userId, resPatch);
+        const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
+        if (!saved.success) return failSave(saved.error);
+        const res = await updateResourcesAction(roomId, targetUserId || userId, resPatch);
+        if (!res.success) return failSave(res.error);
       } else {
         // d20 / triangle / basic: currents bundle into the player's own sheet —
         // standard resources via applyResourcePatch, counters via applyStatWrite.
@@ -336,15 +347,15 @@ export function CharacterPanel({
             full = rule.applyStatWrite(full, { kind: "resource", key: bar.key, canonical: bar.key }, v).sheet;
           }
         }
-        await saveCharacterDataAction(roomId, { ...basePayload, ...full });
+        const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...full });
+        if (!saved.success) return failSave(saved.error);
       }
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 2000);
       router.refresh();
     } catch (e) {
       console.error("Failed to save character", e);
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      failSave(tCommon("error"));
     }
   };
 
@@ -443,15 +454,16 @@ export function CharacterPanel({
     const name = attr.name.trim();
     if (!name) return;
     const item = { ...attr, name };
-    try {
-      await addCustomAttributeAction(roomId, item);
-      setCustomAttrs(prev => {
-        const idx = prev.findIndex(a => a.name === name);
-        if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
-        return [...prev, item];
-      });
-      router.refresh();
-    } catch (e) { console.error(e); }
+    setPanelError(null);
+    const res = await addCustomAttributeAction(roomId, item)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) { setPanelError(res.error); return; }
+    setCustomAttrs(prev => {
+      const idx = prev.findIndex(a => a.name === name);
+      if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
+      return [...prev, item];
+    });
+    router.refresh();
   };
 
   // Edit a custom item's current value / max in place (optimistic + persist).
@@ -460,15 +472,25 @@ export function CharacterPanel({
     if (!existing) return;
     const item = { ...existing, ...patch };
     setCustomAttrs(prev => prev.map(a => (a.name === name ? item : a)));
-    try { await addCustomAttributeAction(roomId, item); router.refresh(); } catch (e) { console.error(e); }
+    setPanelError(null);
+    const res = await addCustomAttributeAction(roomId, item)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) {
+      // Roll back the optimistic edit unless a newer edit has replaced it.
+      setCustomAttrs(prev => prev.map(a => (a === item ? existing : a)));
+      setPanelError(res.error);
+      return;
+    }
+    router.refresh();
   };
 
   const removeCustomAttr = async (name: string) => {
-    try {
-      await removeCustomAttributeAction(roomId, name);
-      setCustomAttrs(prev => prev.filter(a => a.name !== name));
-      router.refresh();
-    } catch (e) { console.error(e); }
+    setPanelError(null);
+    const res = await removeCustomAttributeAction(roomId, name)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) { setPanelError(res.error); return; }
+    setCustomAttrs(prev => prev.filter(a => a.name !== name));
+    router.refresh();
   };
 
   const tabs: { id: TabId; label: string }[] = [

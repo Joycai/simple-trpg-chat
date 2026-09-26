@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { Notice } from "@/components/shared/Notice";
 import {
   ensureCharacterSheetAction,
   rebuildCharacterForRoomRuleAction,
@@ -37,10 +38,12 @@ interface CharacterRuleGateProps {
 export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }: CharacterRuleGateProps) {
   const t = useTranslations("character");
   const tRules = useTranslations("roomSettings");
+  const tCommon = useTranslations("common");
   const router = useRouter();
 
   const [prompt, setPrompt] = useState<{ sheetRule: string; roomRule: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (disabled) return;
@@ -72,16 +75,19 @@ export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }
 
   const handleRebuild = async () => {
     setBusy(true);
-    try {
-      await rebuildCharacterForRoomRuleAction(roomId);
-      try {
-        window.localStorage.removeItem(dismissKey(roomId));
-      } catch { /* ignore */ }
-      setPrompt(null);
-      router.refresh();
-    } catch {
+    setError(null);
+    const res = await rebuildCharacterForRoomRuleAction(roomId)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) {
+      setError(res.error);
       setBusy(false);
+      return;
     }
+    try {
+      window.localStorage.removeItem(dismissKey(roomId));
+    } catch { /* ignore */ }
+    setPrompt(null);
+    router.refresh();
   };
 
   const handleDismiss = () => {
@@ -90,6 +96,7 @@ export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }
         window.localStorage.setItem(dismissKey(roomId), prompt.roomRule);
       } catch { /* ignore */ }
     }
+    setError(null);
     setPrompt(null);
   };
 
@@ -122,6 +129,7 @@ export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }
             <span>{t("ruleChangedWarn")}</span>
           </div>
 
+          {error && <Notice variant="error" className="mt-4">{error}</Notice>}
           <div className="mt-5 flex gap-3">
             <button
               onClick={handleDismiss}
