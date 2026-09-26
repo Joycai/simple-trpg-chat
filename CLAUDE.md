@@ -221,12 +221,17 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   `{ success: false, error }`, with `error` already localized via server-side
   `getTranslations`. Never surface a thrown message to the client: Next.js redacts
   server-action errors in production, so `err.message` renders as "An error occurred in
-  the Server Components render…". `checkRoomAccess` still throws (it is shared); wrap it
-  per-action, as `background.ts`'s `requireRoomHost` does.
-  Converted so far: `background` / `invite` / `ai-import` / `event` / `notebook` /
-  `checks` / `dice-announcer` / `user` (`changeOwnPassword`).
-  Still throwing, to be converted: `inventory` / `character` / `room` / `messages` /
-  `theme` / `bot` / `ai-providers`. Read actions may still throw — their callers render a retry state.
+  the Server Components render…". `checkRoomAccess` and `requireAdmin` still throw (they
+  are shared); wrap them per-action, as `background.ts`'s `requireRoomHost` and
+  `admin.ts`'s `adminGuard` do. Write-action status by module:
+  - Converted: `admin` · `ai-import` · `background` · `bot-presets` · `checks` ·
+    `dice-announcer` · `event` · `image-cache` · `invite` · `notebook` · `theme`
+    (setters) · `user` (`changeOwnPassword`) · `ai-providers` (`deleteProvider`;
+    `createProvider` / `updateProvider` keep their older `{ error } | data` shape,
+    with localized errors).
+  - Still throwing, to be converted: `inventory` · `character` · `room` · `messages` · `bot`.
+
+  Read actions may still throw — their callers render a retry state.
 - **Validation**: Validate at the action boundary — `zod` where a schema fits
   (`background.ts`, `invite.ts`), an explicit hand-written sanitizer where the rules are
   shared with another caller (`sanitizeTimelineDivider` in `lib/messaging/timeline-payload.ts`,
@@ -237,8 +242,9 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   (built on `OverlayShell`; always portals, so it centers correctly when opened
   from inside a drawer). Notifications use `components/shared/Notice.tsx` as an
   inline strip — pass `onDismiss` for a close button. Converted so far:
-  `notebook` (all paths), `event` (hand-rolled equivalents, predates the
-  shared component).
+  `notebook` (all paths), the admin panel (users, rooms, bot presets, image
+  cache), the user settings `InvitesTab`, and `event` (hand-rolled equivalents,
+  predates the shared component).
 - **Motion**: overlay enter/exit is driven by `motion` springs in
   `src/lib/ui/useOverlayTransition.ts` — attach its `panelRef` / `backdropRef`, and
   call `close()` (never `onClose`) so the exit plays before the parent unmounts.
