@@ -231,7 +231,7 @@ const AGENT_COOLDOWN_MS = 3000;
  */
 const MAX_AGENT_ITERATIONS = 5;
 
-/** How a run was triggered; absent for the host's manual trigger, which infers the channel. */
+/** How a run was triggered. Every current caller passes one; without it, the reply channel is inferred from recent history. */
 interface AgentTrigger {
   triggeringUserId: number;
   isPrivate: boolean;
@@ -322,13 +322,13 @@ async function resolveAgentProvider(botUserId: number, room: typeof rooms.$infer
     return null;
   }
 
-  // 2. Verify that provider is owned by the room's host or is shared globally
+  // Verify that provider is owned by the room's host or is shared globally
   if (aiConfig.ownerId !== room.hostId && !aiConfig.isShared) {
     console.error(`[runAgent] AI Provider (ID: ${botCfg.providerId}) is neither owned by room host ${room.hostId} nor shared globally.`);
     return null;
   }
 
-  // 3. Verify quota for shared provider
+  // Verify quota for shared provider
   if (aiConfig.isShared) {
     const [hostUser] = await db.select().from(users).where(eq(users.id, room.hostId)).limit(1);
     if (hostUser && hostUser.role !== "admin" && Number(hostUser.aiPoints || 0) <= 0) {
@@ -467,7 +467,7 @@ async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, cu
   const { botUserId, botNickname } = toolCtx;
   let iterations = 0;
 
-  // 2. Fetch the LLM completion
+  // Fetch the LLM completion
   while (iterations < MAX_AGENT_ITERATIONS) {
     iterations++;
     const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
@@ -657,7 +657,7 @@ export async function runAgent(
   if (!loaded) return;
   const { room, botUser, member } = loaded;
 
-  // 1. Verify global AI switch
+  // Verify global AI switch
   if (!(await isAiGloballyEnabled(botUserId))) return;
 
   const botCfg = parseBotConfig(botUser.botConfigJson);
@@ -705,7 +705,7 @@ export async function runAgent(
     emitAgentTyping(replyTarget, room.hostId, false);
   }
 
-  // 5. Trigger Incremental Summarization (Task #36)
+  // Trigger Incremental Summarization (Task #36)
   summarizeHistoryAction(botUserId, roomId).catch(console.error);
 }
 

@@ -7,14 +7,17 @@ import { rooms, users, roomMembers, systemConfig, aiProviders } from "@/db/schem
 
 // db.select() chains resolve by table, so a test states what each table holds
 // instead of depending on query order (runAgent loads three in parallel).
+// A table with queued results answers successive queries in turn (e.g. the
+// bot's user row, then the host's), then falls back to tableRows.
 const tableRows = new Map<unknown, unknown[]>();
+const tableQueue = new Map<unknown, unknown[][]>();
 const selectSpy = vi.fn();
 function chain(table?: unknown) {
   const c: Record<string, unknown> = {};
   for (const m of ["where", "orderBy", "limit"]) c[m] = () => c;
   c.from = (t: unknown) => chain(t);
   c.then = (resolve: (rows: unknown[]) => unknown, reject: (e: unknown) => unknown) =>
-    Promise.resolve(tableRows.get(table) ?? []).then(resolve, reject);
+    Promise.resolve(tableQueue.get(table)?.shift() ?? tableRows.get(table) ?? []).then(resolve, reject);
   return c;
 }
 vi.mock("@/db", () => ({
@@ -68,12 +71,16 @@ function seed(overrides: {
   host?: Partial<{ role: string; aiPoints: number }>;
 } = {}) {
   tableRows.clear();
+  tableQueue.clear();
   tableRows.set(rooms, [{ id: ROOM_ID, hostId: HOST_ID, ruleTemplate: "basic" }]);
-  tableRows.set(users, [{
-    id: BOT_ID, displayName: "Bot", isBot: true, role: overrides.host?.role ?? "host",
-    aiPoints: overrides.host?.aiPoints ?? 100,
+  const botRow = {
+    id: BOT_ID, displayName: "Bot", isBot: true, role: "player", aiPoints: 100,
     botConfigJson: JSON.stringify({ providerId: PROVIDER_ID, model: "m" }),
-  }]);
+  };
+  const hostRow = { id: HOST_ID, isBot: false, role: "host", aiPoints: 100, ...overrides.host };
+  tableRows.set(users, [botRow]);
+  // runAgent reads users twice when the provider is shared: the bot, then the host.
+  tableQueue.set(users, [[botRow], [hostRow]]);
   tableRows.set(roomMembers, [{ roomId: ROOM_ID, userId: BOT_ID, nickname: "阿尔法" }]);
   tableRows.set(systemConfig, [{ key: "ai_enabled", value: overrides.aiEnabled ?? "true" }]);
   tableRows.set(aiProviders, [{
@@ -144,9 +151,16 @@ describe("runAgent", () => {
   });
 
   it("T4: skips a shared provider when the host's points are spent", async () => {
-    seed({ provider: { ownerId: 999, isShared: true }, host: { role: "host", aiPoints: 0 } });
+    seed({ provider: { ownerId: 999, isShared: true }, host: { aiPoints: 0 } });
     await runAgent(BOT_ID, ROOM_ID, { triggeringUserId: PLAYER_ID, isPrivate: false });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("T4b: runs on a shared provider while the host has points (the bot's own points don't matter)", async () => {
+    seed({ provider: { ownerId: 999, isShared: true }, host: { aiPoints: 5 } });
+    queueCompletions({ content: "ok", usage: { prompt_tokens: 1, completion_tokens: 1 } });
+    await runAgent(BOT_ID, ROOM_ID, { triggeringUserId: PLAYER_ID, isPrivate: false });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("T5: one reply without tools — says it once, bills its tokens, typing on then off", async () => {
@@ -193,6 +207,19 @@ describe("runAgent", () => {
     expect(dispatchMessage).toHaveBeenCalledTimes(1);
     expect(dispatchMessage.mock.calls[0][0].content).toMatch(/^\(阿尔法\) encountered an error connecting to AI: AI API error \(400\)/);
     expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 10, 0, 5);
+    expect(typingEvents(broadcastToRoom).map((e) => e.typing)).toEqual([true, false]);
+  });
+
+  it("T9: a throw inside the loop still bills every round so far and stops typing", async () => {
+    queueCompletions(
+      { tool_calls: [{ id: "c1", type: "function", function: { name: "roll_dice", arguments: "{}" } }], finish_reason: "tool_calls",
+        usage: { prompt_tokens: 10, completion_tokens: 5 } },
+      { content: "掷出了 7", usage: { prompt_tokens: 20, completion_tokens: 7 } },
+    );
+    dispatchMessage.mockRejectedValueOnce(new Error("db down"));
+    await expect(runAgent(BOT_ID, ROOM_ID, { triggeringUserId: PLAYER_ID, isPrivate: false })).rejects.toThrow("db down");
+
+    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 30, 0, 12);
     expect(typingEvents(broadcastToRoom).map((e) => e.typing)).toEqual([true, false]);
   });
 
