@@ -95,6 +95,7 @@ export function RoomClient({
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tra = useTranslations("roomActions");
+  const tCommon = useTranslations("common");
   const tHotkeys = useTranslations("hotkeys");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -590,6 +591,23 @@ export function RoomClient({
     setSkillRefreshKey(k => k + 1);
   }, [router]);
 
+  // A self-only SYSTEM error row that never reached the server — how command,
+  // send and withdraw failures surface in the feed. Gone on reload.
+  const pushLocalError = useCallback((content: string, channelUserId: number | null = null) => {
+    const errorMsg = {
+      id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
+      content,
+      type: "system" as const, audience: "self" as const,
+      systemKind: "error" as const,
+      targetUserId: null, channelUserId,
+      isPrivate: true, diceDetail: null,
+      createdAt: new Date().toISOString()
+    };
+    seenIdsRef.current.add(String(errorMsg.id));
+    liveEnterRef.current.set(String(errorMsg.id), Date.now());
+    setMessages(prev => [...prev, errorMsg]);
+  }, [room.id, userId]);
+
   const handleSendMessage = useCallback(async (
     content: string,
     type: "text" | "dice" | "image" | "sticker",
@@ -622,24 +640,17 @@ export function RoomClient({
       try {
         const result = await executeCommandAction(room.id, userId, content, finalIsPrivate, finalTargetId);
         if (!result.success && result.error) {
-          const errorMsg = {
-            id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
-            content: tra("commandError", { error: result.error }),
-            type: "system" as const, audience: "self" as const,
-            systemKind: "error" as const,
-            targetUserId: null, channelUserId: channelPartner ?? null,
-            isPrivate: true, diceDetail: null,
-            createdAt: new Date().toISOString()
-          };
-          seenIdsRef.current.add(String(errorMsg.id));
-          liveEnterRef.current.set(String(errorMsg.id), Date.now());
-          setMessages(prev => [...prev, errorMsg]);
+          pushLocalError(tra("commandError", { error: result.error }), channelPartner ?? null);
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+        pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
+      }
       if (isSheetMutationCmd) refreshSelfSheet();
       return;
     }
     try {
+      let res: { success: true } | { success: false; error: string };
       if (type === "dice") {
         // Dice always go through rollDiceAction so the server is the source of
         // truth for the result. Skip silently if the caller didn't include the
@@ -650,13 +661,20 @@ export function RoomClient({
         // `isPrivate` here is the dice panel's 🔒 secret toggle → a hidden (self-only)
         // roll. `channelPartner` decides where it lands (current DM, or public).
         const hidden = !!isPrivate;
-        await rollDiceAction(room.id, faces, detail.count, hidden, channelPartner);
+        res = await rollDiceAction(room.id, faces, detail.count, hidden, channelPartner);
       } else {
-        await sendMessageAction(room.id, content, type, finalIsPrivate, finalTargetId);
+        res = await sendMessageAction(room.id, content, type, finalIsPrivate, finalTargetId);
+      }
+      if (!res.success) {
+        pushLocalError(tra("sendFailed", { error: res.error }), channelPartner ?? null);
+        return;
       }
       if (isSheetMutationCmd) refreshSelfSheet();
-    } catch (e) { console.error(e); }
-  }, [room.id, userId, activeTab, tra, refreshSelfSheet]);
+    } catch (e) {
+      console.error(e);
+      pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
+    }
+  }, [room.id, userId, activeTab, tra, tCommon, refreshSelfSheet, pushLocalError]);
 
   const handleViewPlayerCard = useCallback(async (targetUserId: number, targetNickname: string) => {
     setShowMembers(false);
@@ -742,19 +760,23 @@ export function RoomClient({
     if (!pendingSkillCheck) return;
     const { messageId, skillName } = pendingSkillCheck;
     setPendingSkillCheck(null);
-    await executeCommandAction(room.id, userId, `.st ${skillName}${value}`);
+    const res = await executeCommandAction(room.id, userId, `.st ${skillName}${value}`)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    // Without the stat the check would only ask for it again — stop here.
+    if (!res.success) {
+      pushLocalError(tra("commandError", { error: res.error || tCommon("error") }));
+      return;
+    }
     await respondCheck(messageId);
-  }, [pendingSkillCheck, room.id, userId, respondCheck]);
+  }, [pendingSkillCheck, room.id, userId, respondCheck, pushLocalError, tra, tCommon]);
 
   // Host withdraws a timeline divider. The row is removed for everyone via the
   // `message_deleted` SSE event (handled in useRoomEvents), including this client.
   const handleWithdrawTimeline = useCallback(async (messageId: number) => {
-    try {
-      await withdrawTimelineDividerAction(room.id, messageId);
-    } catch (e) {
-      console.error("Failed to withdraw timeline divider:", e);
-    }
-  }, [room.id]);
+    const res = await withdrawTimelineDividerAction(room.id, messageId)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) pushLocalError(tra("withdrawFailed", { error: res.error }));
+  }, [room.id, pushLocalError, tra, tCommon]);
 
   // Stable identity matters: this reaches every ChatMessage via ChatArea, and
   // one unstable prop defeats the whole list's memo() bail-out.
