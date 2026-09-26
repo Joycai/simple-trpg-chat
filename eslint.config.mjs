@@ -30,11 +30,12 @@ const eslintConfig = defineConfig([
       "import/no-restricted-paths": [
         "error",
         {
+          basePath: import.meta.dirname,
           zones: [
             {
               target: "./src/db/schema.ts",
-              from: ["./src/lib", "./src/components", "./src/app"],
-              except: ["./messaging/audience.ts"],
+              from: "./src",
+              except: ["./db/schema.ts", "./lib/messaging/audience.ts", "./themes/types.ts"],
               message:
                 "schema.ts may only import dependency-free, client-safe modules (see CLAUDE.md › Layering).",
             },
@@ -43,18 +44,31 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // R3: components never reach into the db layer, not even for types.
+  // R3: client code never reaches into the db layer, not even for types.
+  // Covers every "use client" location: components, themes, the login/register
+  // forms, and lib/ui (the last via the R4 block, which owns src/lib).
   {
-    files: ["src/components/**/*.{ts,tsx}"],
+    files: [
+      "src/components/**/*.{ts,tsx}",
+      "src/themes/**/*.{ts,tsx}",
+      "src/app/login/LoginForm.tsx",
+      "src/app/register/RegisterForm.tsx",
+    ],
     rules: {
       "import/no-restricted-paths": [
         "error",
         {
+          basePath: import.meta.dirname,
           zones: [
             {
-              target: "./src/components",
+              target: [
+                "./src/components",
+                "./src/themes",
+                "./src/app/login/LoginForm.tsx",
+                "./src/app/register/RegisterForm.tsx",
+              ],
               from: "./src/db",
-              message: "Components must not import from @/db — use a client-safe export under src/lib/.",
+              message: "Client code must not import from @/db — use a client-safe export under src/lib/.",
             },
           ],
         },
@@ -69,11 +83,17 @@ const eslintConfig = defineConfig([
       "import/no-restricted-paths": [
         "error",
         {
+          basePath: import.meta.dirname,
           zones: [
             {
               target: "./src/lib",
               from: ["./src/components", "./src/app"],
               message: "src/lib must not depend on components/app.",
+            },
+            {
+              target: "./src/lib/ui",
+              from: "./src/db",
+              message: "Client code must not import from @/db — use a client-safe export under src/lib/.",
             },
           ],
         },

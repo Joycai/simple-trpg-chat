@@ -205,10 +205,12 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
     the build. `schema.ts` is exempt because `drizzle-kit` loads it directly. tsx
     scripts that import these must run with `--conditions=react-server` (the
     `db:*` scripts already do); vitest aliases `server-only` to `tests/stubs/`.
-  - R2 — `src/db/schema.ts` imports only dependency-free, client-safe modules
-    (`@/lib/messaging/audience`, `@/themes/types`).
-  - R3 — `src/components/` never imports `@/db` or `@/db/schema`, types included;
-    take them from a client-safe re-export under `src/lib/`.
+  - R2 — within `src/`, `src/db/schema.ts` imports only the dependency-free,
+    client-safe `@/lib/messaging/audience` and `@/themes/types`.
+  - R3 — client code never imports `@/db` or `@/db/schema`, types included; take
+    them from a client-safe re-export under `src/lib/`. Lint covers `src/components/`,
+    `src/themes/`, `src/lib/ui/` and the login/register forms — a `"use client"` file
+    added elsewhere needs adding to the R3 block.
   - R4 — `src/lib/` never imports `@/components` or `@/app`.
   - R5 — server actions never import each other; shared logic goes to `src/lib/`.
 - **Server Actions**: `src/app/actions/`, `"use server"` directive

@@ -1,6 +1,6 @@
 # 🎲 Simple TRPG Chat
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.2.6-black?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3.5-black?style=flat-square&logo=next.js)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19.2.4-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-06B6D4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -39,7 +39,7 @@
 
 ## 🛠️ 技术栈说明
 
-- **前端框架**：Next.js 16.2.6 (App Router) & React 19
+- **前端框架**：Next.js 16.3.5 (App Router) & React 19
 - **样式系统**：Tailwind CSS v4 (配合 `@tailwindcss/postcss`) 带来极速且原生级的主题变量定义
 - **数据库 ORM**：Drizzle ORM + `postgres` 驱动，直连 PostgreSQL 16
 - **身份验证**：NextAuth v5 (beta) Credentials 凭据认证模式
