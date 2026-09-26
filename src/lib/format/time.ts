@@ -73,3 +73,31 @@ function formatWithDate(date: Date, t?: (key: string, opts?: Record<string, stri
   });
 }
 
+
+// Fixed-format stamps for compact UI labels. Unlike formatTime they read the
+// ISO string as-is (no timezone normalization) and render in the viewer's
+// local time; an unparseable input yields "".
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Distribution timestamp → "14:20". Local time, no date: the backpack lists a
+ *  single session's handouts, so the clock is the useful part. */
+export function formatClockTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** "10-14" — note-list date stamp. */
+export function formatMonthDay(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** "10-14 22:07" — viewer header timestamp. */
+export function formatMonthDayTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
