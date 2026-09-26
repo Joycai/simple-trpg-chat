@@ -34,7 +34,7 @@ import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
 import { NotebookShareModal } from "./NotebookShareModal";
 import { DetailModal } from "@/components/room/inventory/InventoryModals";
-import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-helpers";
+import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-types";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
 interface NotebookPanelProps {

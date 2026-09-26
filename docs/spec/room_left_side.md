@@ -22,7 +22,7 @@ relevant to the chosen type is written; the rest is set to `null`.
 | 物品 item | 类别 (category) | `category` text | 武器 / 工具 / 消耗品 / 其他 |
 | 物品 item | 数量 (quantity) | `quantity` integer | select 1–10 |
 
-Enum value → i18n key maps and badge colours live in `inventory-helpers.ts`
+Enum value → i18n key maps and badge colours live in `inventory-styles.ts`
 (`sourceKey` / `visibilityKey` / `relationKey` / `categoryKey` / `relationBadgeClass`,
 plus `ItemMeta` / `DEFAULT_ITEM_META`). Older rows (pre-migration) have null metadata and
 fall back to the create defaults in the detail view.

@@ -6,7 +6,7 @@ import { Icons } from "@/components/shared/icons";
 import { Notice } from "@/components/shared/Notice";
 import { Portal } from "@/components/room/inventory/InventorySkeletons";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
-import type { InventoryPlayer } from "@/components/room/inventory/inventory-helpers";
+import type { InventoryPlayer } from "@/components/room/inventory/inventory-types";
 import type { Note } from "./notebook-helpers";
 
 interface NotebookShareModalProps {
