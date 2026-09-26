@@ -5,10 +5,13 @@ import { users, roomMembers, rooms } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
+import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { broadcastToRoom } from "@/lib/server/events";
 import { getRuleForRoom } from "@/lib/rules";
+
+type Fail = { success: false; error: string };
 
 /**
  * createBotAction
@@ -26,9 +29,11 @@ export async function createBotAction(
     providerId?: number;
     avatarColor?: string;
   }
-) {
+): Promise<{ success: true } | Fail> {
   // Only room hosts can create bots in the room
-  await checkRoomAccess(roomId, true);
+  if (!(await tryRoomAccess(roomId, true))) {
+    return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+  }
 
   // 1. Create a "Shadow User" for the bot (atomic transaction)
   const botUsername = `bot_${crypto.randomBytes(4).toString("hex")}`;
@@ -38,7 +43,7 @@ export async function createBotAction(
     .from(rooms)
     .where(eq(rooms.id, roomId));
 
-  const botUser = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const [userRecord] = await tx.insert(users).values({
       username: botUsername,
       passwordHash,
@@ -66,11 +71,10 @@ export async function createBotAction(
       characterData: JSON.stringify(getRuleForRoom(room || {}).initCharacter()),
     });
 
-    return userRecord;
   });
 
   revalidatePath(`/rooms/${roomId}`);
-  return botUser;
+  return { success: true };
 }
 
 /**
@@ -105,18 +109,21 @@ export async function updateBotAction(
   roomId: number,
   botUserId: number,
   data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number; avatarColor?: string }
-) {
+): Promise<{ success: true } | Fail> {
   // Only room hosts can edit bots
-  await checkRoomAccess(roomId, true);
+  if (!(await tryRoomAccess(roomId, true))) {
+    return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+  }
+  const t = await getTranslations("bots");
 
   const [botUser] = await db.select().from(users).where(eq(users.id, botUserId));
-  if (!botUser || !botUser.isBot) throw new Error("Bot not found");
+  if (!botUser || !botUser.isBot) return { success: false, error: t("errorBotNotFound") };
 
   // Verify the bot is actually a member of this room
   const [botMember] = await db.select({ id: roomMembers.id })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
-  if (!botMember) throw new Error("Bot is not a member of this room");
+  if (!botMember) return { success: false, error: t("errorBotNotMember") };
   const existingConfig = JSON.parse(botUser.botConfigJson || "{}");
 
   await db.update(users).set({
@@ -134,15 +141,18 @@ export async function updateBotAction(
   });
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
 /**
  * Manually trigger a bot to respond in the room.
  * Only the Host can trigger bots manually.
  */
-export async function triggerBotAction(roomId: number, botUserId: number) {
+export async function triggerBotAction(roomId: number, botUserId: number): Promise<{ success: true } | Fail> {
   // Only room hosts can manually trigger bots
-  const { userId } = await checkRoomAccess(roomId, true);
+  const access = await tryRoomAccess(roomId, true);
+  if (!access) return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+  const { userId } = access;
 
   // Async trigger — bot responds in the background
   import("@/lib/ai/agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);

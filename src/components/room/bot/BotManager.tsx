@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { PRESET_AVATAR_COLORS, getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { Notice } from "@/components/shared/Notice";
 import { Icons } from "@/components/shared/icons";
 import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 import { SlidersHorizontal, AtSign, MousePointerClick, Sparkles } from "lucide-react";
@@ -60,6 +61,12 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const [presets, setPresets] = useState<{ id: number; name: string; defaultNickname: string; systemPrompt: string; allowEditPrompt: boolean }[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<number | string>("");
   const [allowEditPrompt, setAllowEditPrompt] = useState(true);
+
+  // Create/update in flight — disables the form's buttons (and the edit
+  // pencils, so the form can't be switched to another bot mid-request).
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [triggerError, setTriggerError] = useState<string | null>(null);
 
   useEffect(() => {
     getMyProviders().then(list => {
@@ -124,8 +131,10 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   };
 
   const handleCreate = async () => {
-    if (!botName || !botNickname) return;
-    await createBotAction(roomId, {
+    if (!botName || !botNickname || submitting) return;
+    setSubmitting(true);
+    setFormError(null);
+    const res = await createBotAction(roomId, {
       name: botName,
       nickname: botNickname,
       systemPrompt: systemPrompt || "你是一个TRPG跑团助手，熟悉COC规则。你需要帮助玩家和主持人推进剧情。",
@@ -134,15 +143,22 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       enableTools,
       providerId: providerId ?? undefined,
       avatarColor: botColor,
-    });
+    }).catch(() => ({ success: false as const, error: tCommon("error") }));
+    setSubmitting(false);
+    if (!res.success) {
+      setFormError(res.error);
+      return;
+    }
     resetForm();
     router.refresh();
     loadBots();
   };
 
   const handleUpdate = async () => {
-    if (!editingBot || !botName || !botNickname) return;
-    await updateBotAction(roomId, editingBot.id, {
+    if (!editingBot || !botName || !botNickname || submitting) return;
+    setSubmitting(true);
+    setFormError(null);
+    const res = await updateBotAction(roomId, editingBot.id, {
       name: botName,
       nickname: botNickname,
       systemPrompt: systemPrompt || "你是一个TRPG跑团助手。",
@@ -151,14 +167,31 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       enableTools,
       providerId: providerId ?? undefined,
       avatarColor: botColor,
-    });
+    }).catch(() => ({ success: false as const, error: tCommon("error") }));
+    setSubmitting(false);
+    if (!res.success) {
+      setFormError(res.error);
+      return;
+    }
     setEditingBot(null);
     resetForm();
     router.refresh();
     loadBots();
   };
 
+  const handleTrigger = async (botId: number) => {
+    setTriggerError(null);
+    const res = await triggerBotAction(roomId, botId)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    if (!res.success) {
+      setTriggerError(res.error);
+      return;
+    }
+    router.refresh();
+  };
+
   const startEdit = (bot: BotInfo) => {
+    setFormError(null);
     setEditingBot(bot);
     setBotName(bot.config.name || "");
     setBotNickname(bot.nickname || "");
@@ -186,6 +219,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   };
 
   const cancelEdit = () => {
+    setFormError(null);
     setEditingBot(null);
     resetForm();
   };
@@ -233,6 +267,11 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
             {bots.length > 0 && (
               <div className="flex flex-col gap-2.5">
                 <h4 className="text-sm text-text-muted">{t("createdBots")}</h4>
+                {triggerError && (
+                  <Notice variant="error" onDismiss={() => setTriggerError(null)} dismissLabel={tCommon("close")}>
+                    {triggerError}
+                  </Notice>
+                )}
                 {bots.map(bot => {
                   const isBotDisabled = !aiEnabled;
                   const botProviderId = bot.config.providerId;
@@ -269,14 +308,14 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                         </div>
                       </div>
                       {isHost && (
-                        <button onClick={async () => { await triggerBotAction(roomId, bot.id); router.refresh(); }}
+                        <button onClick={() => handleTrigger(bot.id)}
                           title={t("triggerManual")} aria-label={t("triggerManual")}
                           className="flex items-center justify-center w-9 h-9 rounded-theme bg-accent/10 text-accent hover:bg-accent/20 transition cursor-pointer shrink-0">
                           <Icons.Zap className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => startEdit(bot)} title={t("edit")} aria-label={t("edit")}
-                        className="flex items-center justify-center w-9 h-9 rounded-theme text-text-muted hover:text-primary hover:bg-surface-alt transition cursor-pointer shrink-0">
+                      <button onClick={() => startEdit(bot)} disabled={submitting} title={t("edit")} aria-label={t("edit")}
+                        className="flex items-center justify-center w-9 h-9 rounded-theme text-text-muted hover:text-primary hover:bg-surface-alt transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
                         <Icons.Pencil className="w-4 h-4" />
                       </button>
                     </div>
@@ -419,16 +458,23 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                   </div>
                 </div>
 
+                {formError && (
+                  <Notice variant="error" onDismiss={() => setFormError(null)} dismissLabel={tCommon("close")}>
+                    {formError}
+                  </Notice>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-3 pt-1">
                   {editingBot && (
-                    <button onClick={cancelEdit}
-                      className="flex-1 py-3 rounded-theme border border-border text-text-muted hover:text-text hover:bg-surface-alt font-bold text-sm cursor-pointer transition">
+                    <button onClick={cancelEdit} disabled={submitting}
+                      className="flex-1 py-3 rounded-theme border border-border text-text-muted hover:text-text hover:bg-surface-alt font-bold text-sm cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed">
                       {tCommon("cancel")}
                     </button>
                   )}
-                  <button onClick={editingBot ? handleUpdate : handleCreate} disabled={!botName || !botNickname}
-                    className="flex-1 py-3 rounded-theme bg-gradient-to-b from-primary to-primary/85 text-primary-foreground font-bold text-sm transition hover:brightness-110 cursor-pointer disabled:opacity-40 disabled:shadow-none shadow-[var(--theme-glow)]">
+                  <button onClick={editingBot ? handleUpdate : handleCreate} disabled={!botName || !botNickname || submitting}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-3 rounded-theme bg-gradient-to-b from-primary to-primary/85 text-primary-foreground font-bold text-sm transition hover:brightness-110 cursor-pointer disabled:opacity-40 disabled:shadow-none shadow-[var(--theme-glow)]">
+                    {submitting && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
                     {editingBot ? t("submitSave") : t("submitCreate")}
                   </button>
                 </div>
