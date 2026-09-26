@@ -1145,7 +1145,9 @@
     "emptyHint": "Clues and items appear here once the {host} hands them out",
     "deleteConfirmTitle": "Delete item",
     "distributeKpConfirmTitle": "Hand out KP-only info",
-    "sharePartialFailed": "Some recipients didn't receive it:"
+    "sharePartialFailed": "Some recipients didn't receive it:",
+    "distributeFailed": "Failed to hand out the item",
+    "sharePartialFailedItem": "{name}: {error}"
   },
   "clues": {
     "title": "Clues Management",
@@ -1503,7 +1505,8 @@
     "sharedReceived": "Received item shared by {sender}: {title}",
     "sharedSent": "Shared item {title} with {recipient}",
     "errorItemNotFound": "Item not found",
-    "errorRecipientNotMember": "The recipient is not a member of this room"
+    "errorRecipientNotMember": "The recipient is not a member of this room",
+    "errorNotOwned": "You don't have this item"
   },
   "eventActions": {
     "cardFallback": "📜 Event: {title}",

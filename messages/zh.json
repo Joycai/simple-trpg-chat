@@ -1145,7 +1145,9 @@
     "emptyHint": "线索与物品会在 {host} 分发后出现在这里",
     "deleteConfirmTitle": "删除道具",
     "distributeKpConfirmTitle": "发放仅 KP 可见的情报",
-    "sharePartialFailed": "部分成员未能收到："
+    "sharePartialFailed": "部分成员未能收到：",
+    "distributeFailed": "发放失败",
+    "sharePartialFailedItem": "{name}：{error}"
   },
   "clues": {
     "title": "线索管理",
@@ -1503,7 +1505,8 @@
     "sharedReceived": "获得了来自 {sender} 分享的道具：{title}",
     "sharedSent": "已将道具 {title} 分享给 {recipient}",
     "errorItemNotFound": "道具不存在",
-    "errorRecipientNotMember": "接收者不是该房间成员"
+    "errorRecipientNotMember": "接收者不是该房间成员",
+    "errorNotOwned": "你的背包里没有这件道具"
   },
   "eventActions": {
     "cardFallback": "📜 事件：{title}",

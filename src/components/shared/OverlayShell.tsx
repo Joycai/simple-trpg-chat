@@ -13,6 +13,9 @@ interface OverlayShellProps {
   panelClassName: string;
   /** Extra classes for the root layer (centered modal only). */
   rootClassName?: string;
+  /** Stacking class for the root layer. Raise it (`z-[80]`) for a dialog that
+   *  must sit above one of the inventory modals (`z-[60]`/`z-[70]`). */
+  layerClassName?: string;
   /** Whether clicking the backdrop closes the overlay (default true). */
   closeOnBackdrop?: boolean;
   /** Whether Escape closes the overlay (defaults to `closeOnBackdrop`, so a
@@ -50,6 +53,7 @@ export function OverlayShell({
   variant = "modal",
   panelClassName,
   rootClassName = "",
+  layerClassName = "z-50",
   closeOnBackdrop = true,
   closeOnEscape = closeOnBackdrop,
   portal = false,
@@ -76,7 +80,7 @@ export function OverlayShell({
 
   const tree =
     variant === "drawer" ? (
-      <div className="fixed inset-0 z-50 flex" onClick={closeOnBackdrop ? close : undefined}>
+      <div className={`fixed inset-0 ${layerClassName} flex`} onClick={closeOnBackdrop ? close : undefined}>
         <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
         <div
           ref={panelRef}
@@ -91,7 +95,7 @@ export function OverlayShell({
       // the backdrop ref; the card inside is what springs.
       <div
         ref={backdropRef}
-        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${rootClassName}`}
+        className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-black/40 ${rootClassName}`}
         onClick={closeOnBackdrop ? close : undefined}
       >
         <div

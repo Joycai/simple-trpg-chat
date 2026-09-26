@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createInventoryItemAction, updateInventoryItemAction, distributeItemAction, getRoomItems, getDistributionHistory, getMyInventory, shareItemAction, markInventoryViewedAction, deleteInventoryItemAction } from "@/app/actions/inventory";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -10,6 +10,8 @@ import { ManageView } from "./ManageView";
 import { BackpackView } from "./BackpackView";
 import { CreateEditModal, DistributeModal, DetailModal, ShareModal } from "./InventoryModals";
 import { Icons } from "@/components/shared/icons";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Notice } from "@/components/shared/Notice";
 import { useHostLabel } from "@/components/shared/host-label";
 import type { InventoryItem, Distribution, ContentFields, InventoryItemType, ItemMeta } from "./inventory-types";
 import { DEFAULT_ITEM_META } from "./inventory-types";
@@ -66,6 +68,26 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
   // Share state — the player-side "分发道具" modal (multi-select)
   const [shareItem, setShareItem] = useState<InventoryItem | null>(null);
   const [shareDist, setShareDist] = useState<Distribution | null>(null);
+
+  // Themed stand-ins for the old alert()/confirm() calls. Errors live in the
+  // modal the action came from; a delete (no modal) reports at the panel top.
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formBusy, setFormBusy] = useState(false);
+  const [distributeError, setDistributeError] = useState<string | null>(null);
+  const [distributing, setDistributing] = useState(false);
+  const [shareErrors, setShareErrors] = useState<{ id: number; name: string; error: string }[]>([]);
+  const [sharing, setSharing] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
+  type Pending =
+    | { kind: "delete"; itemId: number; title: string }
+    | { kind: "distributeKp"; title: string; targets: number[] | "all" };
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  // Bumped whenever the distribute / share modal opens or closes, so a request
+  // that outlives its modal can't close or annotate the next one.
+  const distributeSeq = useRef(0);
+  const shareSeq = useRef(0);
+  const formSeq = useRef(0);
 
   // The fetch starts immediately; only the *commit* waits for the drawer to
   // finish sliding. Rendering a full backpack is the single heaviest thing this
@@ -146,6 +168,9 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     setImageUrl(null);
     setContentFields({ text: "", basicInfo: "", detail: "", appearance: "", extra: "" });
     setMeta({ ...DEFAULT_ITEM_META });
+    setFormError(null);
+    setFormBusy(false);
+    formSeq.current++;
   };
 
   // Prefill the shared form from an existing item and switch it into edit mode.
@@ -170,6 +195,9 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
       category: (item.category as ItemMeta["category"]) || DEFAULT_ITEM_META.category,
       quantity: item.quantity ?? DEFAULT_ITEM_META.quantity,
     });
+    setFormError(null);
+    setFormBusy(false);
+    formSeq.current++;
     setShowCreate(true);
     setDetailItem(null);
   };
@@ -191,59 +219,90 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
     };
 
     const content = JSON.parse(JSON.stringify(contentJson));
-    try {
-      if (editingItemId !== null) {
-        await updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content, imageUrl: imageUrl ?? null, ...metaFields });
-      } else {
-        await createInventoryItemAction(roomId, { type: itemType, title, content, imageUrl: imageUrl ?? undefined, ...metaFields });
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
-      return;
-    }
+    const seq = formSeq.current;
+    setFormBusy(true);
+    setFormError(null);
+    const res = await (editingItemId !== null
+      ? updateInventoryItemAction(roomId, editingItemId, { type: itemType, title, content, imageUrl: imageUrl ?? null, ...metaFields })
+      : createInventoryItemAction(roomId, { type: itemType, title, content, imageUrl: imageUrl ?? undefined, ...metaFields })
+    ).catch(() => ({ success: false as const, error: tCommon("error") }));
+    // The modal was closed (or reopened) meanwhile — nothing left to update.
+    if (seq !== formSeq.current) { if (res.success) { router.refresh(); void loadData(); } return; }
+    setFormBusy(false);
+    // Keep the modal and its fields so the host can retry.
+    if (!res.success) { setFormError(res.error); return; }
     resetForm();
     router.refresh();
     void loadData();
   };
 
-  const handleDistribute = async (targets: number[] | "all") => {
+  const handleDistribute = (targets: number[] | "all") => {
     if (!distributeItemId || !targets) return;
+    if (targets !== "all" && targets.length === 0) return;
     // Soft constraint: a KP-only info is host prep material — confirm before it
     // leaves the KP's hands (the server then flips it to 全体可见).
     const distItem = roomItems.find((it) => it.id === distributeItemId);
     if (distItem?.type === "info" && distItem.visibility === "kp") {
-      if (!confirm(t("distributeKpConfirm", { title: distItem.title, host: hostLabel }))) return;
+      setPending({ kind: "distributeKp", title: distItem.title, targets });
+      return;
     }
-    try {
-      if (targets === "all") {
-        await distributeItemAction(roomId, distributeItemId, "all");
-      } else {
-        if (targets.length === 0) return;
-        await Promise.all(targets.map(uid => distributeItemAction(roomId, distributeItemId, uid)));
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : t("distributeFailed"));
-    }
+    void runDistribute(distributeItemId, targets);
+  };
+
+  const runDistribute = async (itemId: number, targets: number[] | "all") => {
+    const seq = distributeSeq.current;
+    setDistributing(true);
+    setDistributeError(null);
+    const fallback = { success: false as const, error: t("distributeFailed") };
+    const results = targets === "all"
+      ? [await distributeItemAction(roomId, itemId, "all").catch(() => fallback)]
+      : await Promise.all(targets.map(uid => distributeItemAction(roomId, itemId, uid).catch(() => fallback)));
+    router.refresh();
+    void loadData();
+    if (seq !== distributeSeq.current) return;
+    setDistributing(false);
+    const failed = results.find(r => !r.success);
+    // Keep the modal open on failure; the successful hand-outs already landed.
+    if (failed && !failed.success) { setDistributeError(failed.error); return; }
+    closeDistribute();
+  };
+
+  const closeDistribute = () => {
+    distributeSeq.current++;
+    setDistributing(false);
     setDistributeItemId(null);
     setDistributeTargets([]);
+    setDistributeError(null);
+  };
+
+  const handleDeleteItem = (itemId: number, itemTitle: string) => {
+    setPending({ kind: "delete", itemId, title: itemTitle });
+  };
+
+  const runDelete = async (itemId: number) => {
+    setDeletingId(itemId);
+    setPanelError(null);
+    const res = await deleteInventoryItemAction(roomId, itemId)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    setDeletingId(id => (id === itemId ? null : id));
+    if (!res.success) { setPanelError(res.error); return; }
     router.refresh();
     void loadData();
   };
 
-  const handleDeleteItem = async (itemId: number, itemTitle: string) => {
-    const confirmMsg = t("deleteConfirm", { title: itemTitle });
-    if (!confirm(confirmMsg)) return;
-    try {
-      await deleteInventoryItemAction(roomId, itemId);
-      router.refresh();
-      void loadData();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : tCommon("error"));
-    }
+  const confirmPending = () => {
+    const current = pending;
+    if (!current) return;
+    setPending(null);
+    if (current.kind === "delete") void runDelete(current.itemId);
+    else if (distributeItemId) void runDistribute(distributeItemId, current.targets);
   };
 
   // Open the share modal for the item the player is currently viewing.
   const openShare = (item: InventoryItem, dist: Distribution | null) => {
+    shareSeq.current++;
+    setSharing(false);
+    setShareErrors([]);
     setShareItem(item);
     setShareDist(dist);
     setDetailItem(null); // close the detail view; the share modal stands alone
@@ -251,26 +310,47 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
 
   // Share copies of the item to every selected target (skipping any that error,
   // e.g. a recipient who already owns it).
-  const handleShareMulti = async (targetIds: number[]) => {
-    if (!shareItem || targetIds.length === 0) return;
-    let lastErr: string | null = null;
+  const handleShareMulti = async (targetIds: number[]): Promise<number[]> => {
+    if (!shareItem || targetIds.length === 0) return targetIds;
+    const seq = shareSeq.current;
+    setSharing(true);
+    setShareErrors([]);
+    const failures: { id: number; name: string; error: string }[] = [];
     for (const id of targetIds) {
-      try {
-        await shareItemAction(roomId, shareItem.id, id);
-      } catch (err: unknown) {
-        lastErr = err instanceof Error ? err.message : tCommon("error");
+      const res = await shareItemAction(roomId, shareItem.id, id)
+        .catch(() => ({ success: false as const, error: tCommon("error") }));
+      if (!res.success) {
+        const p = players.find(pl => pl.id === id);
+        failures.push({ id, name: p?.nickname || p?.username || String(id), error: res.error });
       }
     }
-    if (lastErr) alert(lastErr);
+    router.refresh();
+    void loadData();
+    if (seq !== shareSeq.current) return [];
+    setSharing(false);
+    // Any failure keeps the modal open and lists every one of them.
+    if (failures.length > 0) {
+      setShareErrors(failures);
+      return failures.map(f => f.id);
+    }
+    closeShare();
+    return [];
+  };
+
+  const closeShare = () => {
+    shareSeq.current++;
+    setSharing(false);
     setShareItem(null);
     setShareDist(null);
-    router.refresh();
-    loadData();
+    setShareErrors([]);
   };
 
   // Opening the distribute modal: select the item, reset target selection, and
   // close any open detail modal (the distribute flow replaces it).
   const openDistribute = (itemId: number) => {
+    distributeSeq.current++;
+    setDistributing(false);
+    setDistributeError(null);
     setDistributeItemId(itemId);
     setDistributeTargets([]);
     setDetailItem(null);
@@ -300,6 +380,11 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          {panelError && (
+            <Notice variant="error" className="mb-4" onDismiss={() => setPanelError(null)} dismissLabel={tCommon("close")}>
+              {panelError}
+            </Notice>
+          )}
           {/* Opacity only, no rise: the skeletons are shape-matched to the real
               layouts precisely so nothing moves on the swap, and a translate
               would put the jump back. The wrapper mounts when `loading` flips
@@ -322,6 +407,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
                   onEdit={startEdit}
                   onDelete={handleDeleteItem}
                   onDistribute={openDistribute}
+                  deletingId={deletingId}
                 />
               ) : (
                 <BackpackView
@@ -351,6 +437,8 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
               onImageChange={setImageUrl}
               onCancel={resetForm}
               onSubmit={handleSubmit}
+              error={formError}
+              busy={formBusy}
             />
           )}
 
@@ -362,8 +450,10 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
               userId={userId}
               distributeTargets={distributeTargets}
               setDistributeTargets={setDistributeTargets}
-              onCancel={() => { setDistributeItemId(null); setDistributeTargets([]); }}
+              onCancel={closeDistribute}
               onDistribute={handleDistribute}
+              error={distributeError}
+              busy={distributing}
             />
           )}
 
@@ -388,8 +478,39 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
               players={players}
               userId={userId}
               hostId={hostId}
-              onCancel={() => { setShareItem(null); setShareDist(null); }}
+              onCancel={closeShare}
               onShare={handleShareMulti}
+              busy={sharing}
+              error={shareErrors.length > 0 && (
+                <>
+                  {t("sharePartialFailed")}
+                  {shareErrors.map(f => <span key={f.id} className="block">{t("sharePartialFailedItem", { name: f.name, error: f.error })}</span>)}
+                </>
+              )}
+            />
+          )}
+
+          {pending?.kind === "delete" && (
+            <ConfirmDialog
+              title={t("deleteConfirmTitle")}
+              description={t("deleteConfirm", { title: pending.title })}
+              confirmLabel={t("delete")}
+              icon={<Icons.Trash2 className="w-5 h-5" />}
+              onConfirm={confirmPending}
+              onCancel={() => setPending(null)}
+            />
+          )}
+
+          {pending?.kind === "distributeKp" && (
+            <ConfirmDialog
+              title={t("distributeKpConfirmTitle")}
+              description={t("distributeKpConfirm", { title: pending.title, host: hostLabel })}
+              confirmLabel={pending.targets === "all" ? t("distributeAll") : t("distributeConfirm", { count: pending.targets.length })}
+              tone="primary"
+              icon={<Icons.Send className="w-5 h-5" />}
+              layerClassName="z-[80]"
+              onConfirm={confirmPending}
+              onCancel={() => setPending(null)}
             />
           )}
         </div>

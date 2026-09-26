@@ -5,12 +5,23 @@ import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db
 import { eq, and, not, desc, inArray, count, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 import { shareItemCore } from "@/lib/room/inventory-share";
+
+type Fail = { success: false; error: string };
+type Done = { success: true } | Fail;
+
+async function noAccess(): Promise<Fail> {
+  return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+}
+
+async function itemNotFound(): Promise<Fail> {
+  return { success: false, error: (await getTranslations("inventoryActions"))("errorItemNotFound") };
+}
 
 /**
  * createInventoryItemAction
@@ -28,10 +39,12 @@ export async function createInventoryItemAction(
     category?: string | null;
     quantity?: number | null;
   }
-) {
-  const { userId } = await checkRoomAccess(roomId, true);
+): Promise<Done> {
+  const access = await tryRoomAccess(roomId, true);
+  if (!access) return noAccess();
+  const { userId } = access;
 
-  const [newItem] = await db.insert(inventoryItems).values({
+  await db.insert(inventoryItems).values({
     roomId,
     creatorId: userId,
     type: data.type,
@@ -43,10 +56,10 @@ export async function createInventoryItemAction(
     relation: data.relation ?? null,
     category: data.category ?? null,
     quantity: data.quantity ?? null,
-  }).returning();
+  });
 
   revalidatePath(`/rooms/${roomId}`);
-  return newItem;
+  return { success: true };
 }
 
 /**
@@ -74,13 +87,14 @@ export async function updateInventoryItemAction(
     category?: string | null;
     quantity?: number | null;
   }
-) {
-  const { userId: hostId } = await checkRoomAccess(roomId, true);
+): Promise<Done> {
+  const access = await tryRoomAccess(roomId, true);
+  if (!access) return noAccess();
+  const { userId: hostId } = access;
 
   // Verify item belongs to room
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  if (!item) throw new Error("Item not found");
-  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+  if (!item || item.roomId !== roomId) return itemNotFound();
 
   const [updated] = await db
     .update(inventoryItems)
@@ -171,7 +185,7 @@ export async function updateInventoryItemAction(
   broadcastToRoom(roomId, { type: "inventory_updated", itemId });
 
   revalidatePath(`/rooms/${roomId}`);
-  return updated;
+  return { success: true };
 }
 
 /**
@@ -181,13 +195,14 @@ export async function distributeItemAction(
   roomId: number,
   itemId: number,
   toUserId: number | "all"
-) {
-  const { userId: fromUserId } = await checkRoomAccess(roomId, true);
+): Promise<Done> {
+  const access = await tryRoomAccess(roomId, true);
+  if (!access) return noAccess();
+  const { userId: fromUserId } = access;
 
   // Verify that the item exists and belongs to the room
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  if (!item) throw new Error("Item not found");
-  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+  if (!item || item.roomId !== roomId) return itemNotFound();
 
   let targetUserIds: number[] = [];
   if (toUserId === "all") {
@@ -205,12 +220,14 @@ export async function distributeItemAction(
     const [recipientMember] = await db.select().from(roomMembers).where(
       and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, toUserId))
     );
-    if (!recipientMember) throw new Error("Recipient is not a member of this room");
+    if (!recipientMember) {
+      return { success: false, error: (await getTranslations("inventoryActions"))("errorRecipientNotMember") };
+    }
     
     targetUserIds = [toUserId];
   }
 
-  if (targetUserIds.length === 0) return;
+  if (targetUserIds.length === 0) return { success: true };
 
   // Filter out users who already have this item
   const existing = await db
@@ -245,7 +262,7 @@ export async function distributeItemAction(
         recipient: toUserId === "all" ? { kind: "all" } : { kind: "user" },
       }),
     });
-    return;
+    return { success: true };
   }
 
   const values = targetUserIds.map((tid) => ({
@@ -327,6 +344,7 @@ export async function distributeItemAction(
   await Promise.all(promises);
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
 /**
@@ -336,16 +354,29 @@ export async function shareItemAction(
   roomId: number,
   itemId: number,
   toUserId: number
-) {
+): Promise<Done> {
   const t = await getTranslations("inventoryActions");
-  const { userId: fromUserId } = await checkRoomAccess(roomId, false, { requireWritable: true });
+  const access = await tryRoomAccess(roomId, false, { requireWritable: true });
+  if (!access) return noAccess();
+  const { userId: fromUserId } = access;
   const session = await auth();
   const senderName = session?.user?.name || t("defaultPlayer");
 
   const result = await shareItemCore({ roomId, itemId, fromUserId, toUserId, senderName });
-  if (!result.success) throw new Error(result.error);
+  if (!result.success) {
+    // The core's messages are English except ALREADY_OWNED (the bot agent
+    // reads them as tool output) — localize the rest for the player here.
+    const key = {
+      ITEM_NOT_FOUND: "errorItemNotFound",
+      ROOM_MISMATCH: "errorItemNotFound",
+      RECIPIENT_NOT_MEMBER: "errorRecipientNotMember",
+      NOT_OWNED: "errorNotOwned",
+    }[result.code as string];
+    return { success: false, error: key ? t(key) : result.error };
+  }
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
 /**
@@ -416,8 +447,10 @@ export async function getDistributionHistory(roomId: number) {
  * Mark all inventory items as viewed for a user in a room.
  * Called when the player opens their inventory panel.
  */
-export async function markInventoryViewedAction(roomId: number) {
-  const { userId } = await checkRoomAccess(roomId, false);
+export async function markInventoryViewedAction(roomId: number): Promise<Done> {
+  const access = await tryRoomAccess(roomId, false);
+  if (!access) return noAccess();
+  const { userId } = access;
 
   // Opening the panel acknowledges both freshly-received ("new") and edited
   // ("updated") copies, so clear both flags in one pass.
@@ -432,6 +465,7 @@ export async function markInventoryViewedAction(roomId: number) {
     );
 
   revalidatePath(`/rooms/${roomId}`);
+  return { success: true };
 }
 
 /**
@@ -457,13 +491,12 @@ export async function getUnreadInventoryCountAction(roomId: number) {
  * Delete an inventory item (Host only).
  * Cascades to delete all distribution records.
  */
-export async function deleteInventoryItemAction(roomId: number, itemId: number) {
-  await checkRoomAccess(roomId, true);
+export async function deleteInventoryItemAction(roomId: number, itemId: number): Promise<Done> {
+  if (!(await tryRoomAccess(roomId, true))) return noAccess();
 
   // Verify item belongs to room
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
-  if (!item) throw new Error("Item not found");
-  if (item.roomId !== roomId) throw new Error("Item room mismatch");
+  if (!item || item.roomId !== roomId) return itemNotFound();
 
   await db.delete(inventoryItems).where(eq(inventoryItems.id, itemId));
 
