@@ -67,6 +67,9 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [triggerError, setTriggerError] = useState<string | null>(null);
+  // Bot whose manual trigger is in flight — the action bypasses the agent
+  // cooldown, so a double click would start two generations.
+  const [triggeringId, setTriggeringId] = useState<number | null>(null);
 
   useEffect(() => {
     getMyProviders().then(list => {
@@ -180,9 +183,12 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   };
 
   const handleTrigger = async (botId: number) => {
+    if (triggeringId !== null) return;
+    setTriggeringId(botId);
     setTriggerError(null);
     const res = await triggerBotAction(roomId, botId)
       .catch(() => ({ success: false as const, error: tCommon("error") }));
+    setTriggeringId(null);
     if (!res.success) {
       setTriggerError(res.error);
       return;
@@ -308,9 +314,9 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                         </div>
                       </div>
                       {isHost && (
-                        <button onClick={() => handleTrigger(bot.id)}
+                        <button onClick={() => handleTrigger(bot.id)} disabled={triggeringId !== null}
                           title={t("triggerManual")} aria-label={t("triggerManual")}
-                          className="flex items-center justify-center w-9 h-9 rounded-theme bg-accent/10 text-accent hover:bg-accent/20 transition cursor-pointer shrink-0">
+                          className="flex items-center justify-center w-9 h-9 rounded-theme bg-accent/10 text-accent hover:bg-accent/20 transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
                           <Icons.Zap className="w-4 h-4" />
                         </button>
                       )}
