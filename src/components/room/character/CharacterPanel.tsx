@@ -342,14 +342,27 @@ export function CharacterPanel({
         hpMax: cap.resourceMaxEditable ? resourceMaxes.hp : undefined,
       };
 
-      if (cap.resourceCurrentsViaAction) {
+      if (readOnly && targetUserId) {
+        // Host viewing another member's card: only the resource bars are
+        // editable here, and they belong to the target. The own-sheet writes
+        // below would land on the host's row (saveCharacterDataAction writes
+        // the caller's sheet), so send everything through the target-scoped
+        // action — counters included, which it writes via the rule.
+        const counters: Record<string, number> = {};
+        for (const bar of cap.resourceBars) {
+          const v = currentResources[bar.key];
+          if (bar.style === "counter" && v !== undefined) counters[bar.key] = v;
+        }
+        const res = await updateResourcesAction(roomId, targetUserId, { ...resPatch, counters });
+        if (!res.success) return failSave(res.error);
+      } else if (cap.resourceCurrentsViaAction) {
         // COC / 狩魂者: attributes on the caller's own sheet, currents via
         // updateResourcesAction so a host can adjust another player's bars.
         const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
         if (!saved.success) return failSave(saved.error);
         // A failure here leaves the attributes saved; retrying is idempotent,
         // so reporting the whole save as failed is acceptable.
-        const res = await updateResourcesAction(roomId, targetUserId || userId, resPatch);
+        const res = await updateResourcesAction(roomId, userId, resPatch);
         if (!res.success) return failSave(res.error);
       } else {
         // d20 / triangle / basic: currents bundle into the player's own sheet —
