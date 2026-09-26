@@ -111,6 +111,9 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   const [sharing, setSharing] = useState<Note | null>(null);
   const [sendingShare, setSendingShare] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  // Bumped when the picker closes, so a send that outlives its picker can't
+  // annotate the next one.
+  const shareSeq = useRef(0);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
   const [banner, setBanner] = useState<Banner | null>(null);
@@ -275,10 +278,15 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   /** True once sent — the picker then animates out and `closeShare` runs. */
   const handleShare = async (targetIds: number[]): Promise<boolean> => {
     if (!sharing || targetIds.length === 0) return false;
+    const seq = shareSeq.current;
     setSendingShare(true);
     setShareError(null);
     try {
       const res = await shareNoteAction(roomId, sharing.id, targetIds);
+      // The copies went out even if the picker was closed meanwhile, so the
+      // banner stays accurate; only the picker's own state is off-limits.
+      if (res.success) setBanner({ kind: "success", text: t("shareSuccess", { count: res.count }) });
+      if (seq !== shareSeq.current) return false;
       // Reported inside the picker, which stays open: the selection is still
       // there to retry with, and a banner behind the modal would be unreadable.
       if (!res.success) {
@@ -288,9 +296,9 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
       }
       // Sending stays set through the exit (closeShare clears it), so the
       // button can't send a second copy while the picker fades out.
-      setBanner({ kind: "success", text: t("shareSuccess", { count: res.count }) });
       return true;
     } catch {
+      if (seq !== shareSeq.current) return false;
       setSendingShare(false);
       setShareError(tCommon("error"));
       return false;
@@ -298,6 +306,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   };
 
   const closeShare = () => {
+    shareSeq.current++;
     setSendingShare(false);
     setSharing(null);
     setShareError(null);
