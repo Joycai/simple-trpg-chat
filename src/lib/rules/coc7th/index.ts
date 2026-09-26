@@ -188,7 +188,7 @@ export const coc7thRule: RuleModule = {
     const recomputed = computeCocDerived(sheet.cocAttributes);
 
     // Preserve player-set current values, re-clamped to new maxes. This
-    // mirrors `syncCharacterStat`'s attribute branch in lib/commands/engine.ts.
+    // mirrors `syncCharacterStat`'s attribute branch in lib/commands/character-stat-sync.ts.
     const clampOpt = (v: unknown, max: number) =>
       typeof v === "number" ? Math.min(Math.max(0, v), max) : undefined;
     const hpCur = clampOpt(prev.hp_current, recomputed.hpMax);
@@ -436,7 +436,7 @@ export const coc7thRule: RuleModule = {
 
   /**
    * Hosts the attribute/resource write logic that used to live inline in
-   * `syncCharacterStat` (commands/engine.ts). Byte-for-byte compatible:
+   * `syncCharacterStat` (commands/character-stat-sync.ts). Byte-for-byte compatible:
    *  - attribute: write `cocAttributes[key]`, recompute derived while
    *    preserving player-set current resource values (clamped to new maxes).
    *  - resource: clamp to `${key}Max` (SAN cap forced to 99 per COC 7th),

@@ -190,7 +190,7 @@ export async function respondToCheckRequestAction(
   };
 
   // For a proxy roll, surface the host's nickname so the dice bubble can show
-  // a "代投 by <host>" chip (filled in by commands/engine.ts via diceDetail).
+  // a "代投 by <host>" chip (filled in by commands/command-message.ts via diceDetail).
   let proxiedBy: { userId: number; nickname: string } | undefined;
   if (isProxy) {
     const [hostMember] = await db.select({ nickname: roomMembers.nickname }).from(roomMembers)

@@ -285,7 +285,7 @@ UI 侧不用改。
 | `CharacterPanel` `resourceMaxEditable` / init 守卫 | `capabilities.resourceMaxEditable`;init 守卫用 `DEFAULT_RULE_ID` 常量比较 |
 | `LobbyClient` coc7th 骷髅徽标 | `useRuleLabelResolver()`(host-label.tsx)对任意非默认规则渲染其 `labelKey` |
 | `ai/agent.ts` 1d100 裸骰吉凶 | `rule.naturalGrade(roll, faces, count)` |
-| `commands/engine.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
+| `commands/sanity-check-command.ts` `readCurrentSanity` | `capabilities.hasSanity` + `readStatus(sheet).resources.san` |
 | `character.ts` `updateResourcesAction` 三分支 | `rule.applyResourcePatch(sheet, patch)` 单行委派 |
 | `lib/{coc,d20,ta,sh}-stats.ts` 散落公共 lib | 迁进 `rules/<id>/stats.ts`,每套规则物理自包含 |
 

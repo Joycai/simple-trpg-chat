@@ -66,7 +66,7 @@ diceAnnouncerBotId: integer('dice_announcer_bot_id')
 
 所有掷骰派发只有两个咽喉点，都要注入：
 
-### 4.1 `src/lib/commands/engine.ts` → `emitCommandMessage`（~L106）
+### 4.1 `src/lib/commands/command-message.ts` → `emitCommandMessage`
 
 4 个 dice 调用点（`.r` 系 ~L262、表达式掷骰 ~L304、`runRuleCheck` 检定 ~L721、`.sc` 理智 ~L814）全部经过它。在 `emitCommandMessage` 内部对 `type === "dice"` 做注入：
 

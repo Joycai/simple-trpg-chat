@@ -32,7 +32,7 @@ export async function dispatchDiceRoll(
   const audience: Audience = hidden ? "self" : channelPartnerId ? "dm" : "everyone";
 
   // 投娘 (dice announcer) tag — see docs/design/dice-announcer.md. Mirrors the
-  // injection in commands/engine.ts's emitCommandMessage; this is the 🎲 panel's own
+  // injection in commands/command-message.ts's emitCommandMessage; this is the 🎲 panel's own
   // dispatch path, which doesn't go through executeCommand.
   const announcer = await resolveAnnouncer(roomId, userId);
   const finalDetail = announcer ? attachAnnouncer(detail, announcer) : detail;
