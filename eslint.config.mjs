@@ -19,6 +19,80 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Layering rules (CLAUDE.md › Layering). Each block owns a disjoint file set:
+  // a later `no-restricted-imports` entry replaces, not merges, an earlier one.
+  // R2: schema.ts may only pull in dependency-free, client-safe modules.
+  {
+    files: ["src/db/schema.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              // A regex, not a `group`: gitignore-style `!` can't re-include a
+              // file whose parent directory an earlier pattern already excluded.
+              regex: "^@/(lib/(?!messaging/audience$)|components/|app/)",
+              message:
+                "schema.ts may only import dependency-free, client-safe modules (see CLAUDE.md › Layering).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // R3: components never reach into the db layer, not even for types.
+  {
+    files: ["src/components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/db", "@/db/*"],
+              message: "Components must not import from @/db — use a client-safe export under src/lib/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // R4: lib sits below components and app.
+  {
+    files: ["src/lib/**/*.{ts,tsx}"],
+    ignores: ["src/lib/**/__tests__/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/components/*", "@/app/*"],
+              message: "src/lib must not depend on components/app.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // R5: server actions don't import each other; shared logic lives in src/lib.
+  {
+    files: ["src/app/actions/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/app/actions/*", "./*"],
+              message: "Server actions must not import each other — move shared logic to src/lib.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
