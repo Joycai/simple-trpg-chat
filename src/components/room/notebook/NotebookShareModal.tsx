@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { Notice } from "@/components/shared/Notice";
-import { Portal } from "@/components/room/inventory/InventorySkeletons";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import type { InventoryPlayer } from "@/components/room/inventory/inventory-types";
 import type { Note } from "./notebook-types";
@@ -15,7 +15,8 @@ interface NotebookShareModalProps {
   /** The sharing user — excluded from the recipient list. */
   userId: number;
   onCancel: () => void;
-  onShare: (targetIds: number[]) => void;
+  /** Resolves true once sent — the modal then plays its exit and calls `onCancel`. */
+  onShare: (targetIds: number[]) => Promise<boolean>;
   sending: boolean;
   /** Send failure, shown in place — the picker stays open to retry from. */
   error?: string | null;
@@ -39,12 +40,13 @@ export function NotebookShareModal({ note, players, userId, onCancel, onShare, s
   const allSelected = targetIds.length > 0 && targetIds.every((id) => selected.includes(id));
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onCancel}>
-        <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={(e) => e.stopPropagation()}>
+    <OverlayShell portal onClose={onCancel} layerClassName="z-[70]" scrimClassName="bg-scrim/50" rootClassName="p-4"
+      panelClassName="bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal">
+      {(close) => (
+        <>
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-xl text-text font-theme-display">{t("shareTitle")}</h3>
-            <button onClick={onCancel} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <button onClick={close} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
               <Icons.X className="w-5 h-5" />
             </button>
           </div>
@@ -102,15 +104,15 @@ export function NotebookShareModal({ note, players, userId, onCancel, onShare, s
 
           {/* Footer */}
           <div className="mt-5 flex items-center justify-end gap-3">
-            <button onClick={onCancel} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
-            <button onClick={() => onShare(selected)} disabled={selected.length === 0 || sending}
+            <button onClick={close} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
+            <button onClick={async () => { if (await onShare(selected)) close(); }} disabled={selected.length === 0 || sending}
               className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-theme bg-gradient-to-b from-primary to-primary/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 shadow-[var(--theme-glow)]">
               {sending ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Send className="w-4 h-4" />}
               {t("shareConfirmCount", { count: selected.length })}
             </button>
           </div>
-        </div>
-      </div>
-    </Portal>
+        </>
+      )}
+    </OverlayShell>
   );
 }

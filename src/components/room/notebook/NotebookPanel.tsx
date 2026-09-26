@@ -272,8 +272,9 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   const handleCategoryUpdate = (id: number, input: { name: string; color: NotebookColor }) =>
     wrapCategoryError(() => updateCategoryAction(roomId, id, input));
 
-  const handleShare = async (targetIds: number[]) => {
-    if (!sharing || targetIds.length === 0) return;
+  /** True once sent — the picker then animates out and `closeShare` runs. */
+  const handleShare = async (targetIds: number[]): Promise<boolean> => {
+    if (!sharing || targetIds.length === 0) return false;
     setSendingShare(true);
     setShareError(null);
     try {
@@ -282,12 +283,13 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
       // there to retry with, and a banner behind the modal would be unreadable.
       if (!res.success) {
         setShareError(res.error);
-        return;
+        return false;
       }
-      setSharing(null);
       setBanner({ kind: "success", text: t("shareSuccess", { count: res.count }) });
+      return true;
     } catch {
       setShareError(tCommon("error"));
+      return false;
     } finally {
       setSendingShare(false);
     }

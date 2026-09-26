@@ -1,14 +1,3 @@
-import { createPortal } from "react-dom";
-
-/* Renders children at document.body so nested fixed-position modals are sized
-   to the viewport, not the drawer panel. The drawer uses transform/will-change
-   for its slide animation, which would otherwise become the containing block
-   for `position: fixed` and trap the modals inside the sidebar's width. */
-export function Portal({ children }: { children: React.ReactNode }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(children, document.body);
-}
-
 /* Loading placeholders — content-shaped grey skeletons shown while the panel
    fetches data, so opening it never flashes a blank/empty drawer. The shapes
    mirror the real layouts to avoid a jump when content swaps in. */
