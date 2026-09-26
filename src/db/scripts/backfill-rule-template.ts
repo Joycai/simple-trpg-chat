@@ -5,7 +5,7 @@
  * and `dice_rules` can be safely dropped via `pnpm db:push`.
  *
  * Usage (run BEFORE `pnpm db:push` drops the column):
- *   pnpm tsx src/db/scripts/backfill-rule-template.ts
+ *   pnpm tsx --conditions=react-server src/db/scripts/backfill-rule-template.ts
  *
  * Idempotent — safe to re-run. Reports counts so ops can spot-check.
  */

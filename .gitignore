@@ -59,3 +59,6 @@ ds-bundle/
 
 # qoder IDE workspace state
 .qoder/
+
+# dev-workflow task artifacts
+.claude/tasks/

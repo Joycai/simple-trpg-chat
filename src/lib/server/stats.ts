@@ -1,3 +1,4 @@
+import "server-only";
 import { db } from "@/db";
 import { dailyStats } from "@/db/schema";
 import { sql, asc } from "drizzle-orm";

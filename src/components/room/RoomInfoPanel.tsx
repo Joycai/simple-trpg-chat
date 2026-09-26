@@ -8,6 +8,7 @@ import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { listRules } from "@/lib/rules";
+import { ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
 import { useHostLabel } from "@/components/shared/host-label";
 
 interface RoomInfoPanelProps {
@@ -130,7 +131,7 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder={t("nameLabel")}
-                maxLength={100}
+                maxLength={ROOM_NAME_MAX_LENGTH}
                 className="px-3.5 py-2.5 border border-input-border bg-input-bg rounded-theme outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary text-text text-sm"
                 autoFocus
               />

@@ -8,6 +8,7 @@
  * leaks nothing about content the viewer isn't cleared for.
  */
 import type { EventStatus } from "@/db/schema";
+export type { EventStatus };
 import type { TimelineDividerData } from "@/lib/messaging/timeline-payload";
 
 /** Max images per event (first is the cover). */

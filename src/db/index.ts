@@ -1,3 +1,4 @@
+import "server-only";
 import { sql } from 'drizzle-orm';
 import * as path from 'path';
 import * as fs from 'fs';

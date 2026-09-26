@@ -8,7 +8,7 @@ import { MentionChip } from "@/components/room/notebook/notebook-helpers";
 import { getMyInventory, getRoomItems } from "@/app/actions/inventory";
 import type { NotebookLinkEntity } from "@/lib/room/notebook";
 import { composeTimelineLabel, parseTimelinePayload } from "@/lib/messaging/timeline-payload";
-import type { EventStatus } from "@/db/schema";
+import type { EventStatus } from "@/lib/room/story-events";
 
 /**
  * MarkdownRenderer emits block elements (headings, paragraphs, lists, quotes,

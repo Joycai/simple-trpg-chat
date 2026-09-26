@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Layer      | Technology                                          |
 | ---------- | --------------------------------------------------- |
-| Framework  | Next.js 16.2.6 (App Router)                        |
+| Framework  | Next.js 16.3.5 (App Router)                        |
 | Language   | TypeScript 5                                        |
 | React      | React 19                                            |
 | Styling    | Tailwind CSS v4 (`@tailwindcss/postcss`)            |
@@ -160,7 +160,7 @@ Users can upload and crop custom avatars for each room they join. Avatars are st
 - Avatar displayed in chat messages next to user nickname
 
 **Implementation:**
-- Component: `src/components/AvatarCropper.tsx` (client-side upload/crop)
+- Component: `src/components/shared/ImageCropper.tsx` (client-side upload/crop)
 - Action: `src/app/actions/room.ts` → `uploadAvatarAction()`
 - Database: `roomMembers.avatar` (text, nullable, base64 JPEG)
 - i18n: `messages/{en,zh}.json` → `avatar.*` keys
@@ -195,6 +195,24 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
 - **Module layout**: new logic goes in the matching `src/lib/<domain>/` folder, with
   tests in that folder's `__tests__/`. Don't add a catch-all `utils.ts`; name the file
   after what it does. Files are kebab-case; React hooks keep the `useX.ts` name.
+- **Layering**: `src/lib` sits below `src/components` and `src/app`, and only server
+  code reaches `src/db` (components call server actions instead).
+  `pnpm lint` enforces R2–R5 (`eslint.config.mjs`: `import/no-restricted-paths` for
+  R2–R4, which resolves real paths so relative imports can't bypass it;
+  `no-restricted-imports` for R5); the build enforces R1.
+  - R1 — `src/db/index.ts`, `src/lib/server/*` and `src/lib/security/{encryption,url-guard,sensitive-words}`
+    start with `import "server-only"`, so a client component that reaches them fails
+    the build. `schema.ts` is exempt because `drizzle-kit` loads it directly. tsx
+    scripts that import these must run with `--conditions=react-server` (the
+    `db:*` scripts already do); vitest aliases `server-only` to `tests/stubs/`.
+  - R2 — within `src/`, `src/db/schema.ts` imports only the dependency-free,
+    client-safe `@/lib/messaging/audience` and `@/themes/types`.
+  - R3 — client code never imports `@/db` or `@/db/schema`, types included; take
+    them from a client-safe re-export under `src/lib/`. Lint covers `src/components/`,
+    `src/themes/`, `src/lib/ui/` and the login/register forms — a `"use client"` file
+    added elsewhere needs adding to the R3 block.
+  - R4 — `src/lib/` never imports `@/components` or `@/app`.
+  - R5 — server actions never import each other; shared logic goes to `src/lib/`.
 - **Server Actions**: `src/app/actions/`, `"use server"` directive
 - **Client components**: `src/components/`, `"use client"` directive
 - **Styling**: Semantic Tailwind tokens only — never arbitrary colors
@@ -231,7 +249,9 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   classes still belong on the panel — they are now **theme styling hooks only**
   (rainglass frosts them, shrine reshapes their corners), not animation classes.
   Non-overlay motion (sidebar width, `.overlay-pop` dropdowns) stays in CSS.
-- **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`
+- **Types**: Co-locate in `src/db/schema.ts` and `src/themes/types.ts`; room UI types
+  live in `src/components/room/types.ts`. A client-safe enum may have its canonical
+  definition in a dependency-free module that `schema.ts` re-exports (see `THEME_MODES`).
 
 ## License
 
