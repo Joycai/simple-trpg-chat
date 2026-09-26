@@ -198,6 +198,11 @@ export function CharacterPanel({
   const [currentResources, setCurrentResources] = useState<Record<string, number>>(() =>
     currentsFromStatus(ruleTemplate, draftStatusFor(ruleTemplate, charData, attributeValues))
   );
+  // Resource values as last loaded or saved. A host editing another member's
+  // card sends only what differs from this, so a snapshot that went stale
+  // while the panel was open can't roll back the member's other values, and
+  // resources the member doesn't have are never written as 0.
+  const loadedResources = useRef(currentResources);
 
   // Skills
   const [skills, setSkills] = useState<SkillItem[]>([]);
@@ -258,7 +263,9 @@ export function CharacterPanel({
     confirmedCustom.current.clear();
     // Resource currents come from the rule's own status snapshot; role/level
     // only for rules that expose them. (Was a dnd5e/triangle/shouhun/coc chain.)
-    setCurrentResources(currentsFromStatus(rt, draftStatusFor(rt, cd, attrs)));
+    const loaded = currentsFromStatus(rt, draftStatusFor(rt, cd, attrs));
+    setCurrentResources(loaded);
+    loadedResources.current = loaded;
     if (getRule(rt).capabilities.hasRoleLevel) {
       setD20Role(cd.d20Sheet?.role ?? "");
       setD20Level(cd.d20Sheet?.level ?? "");
@@ -342,14 +349,36 @@ export function CharacterPanel({
         hpMax: cap.resourceMaxEditable ? resourceMaxes.hp : undefined,
       };
 
-      if (cap.resourceCurrentsViaAction) {
+      if (readOnly && targetUserId) {
+        // Host viewing another member's card: only the resource bars are
+        // editable here, and they belong to the target. The own-sheet writes
+        // below would land on the host's row (saveCharacterDataAction writes
+        // the caller's sheet), so send everything through the target-scoped
+        // action — counters included, which it writes via the rule.
+        const base = loadedResources.current;
+        const changed = (key: string) =>
+          currentResources[key] !== undefined && currentResources[key] !== base[key];
+        const patch: ResourcePatch & { counters?: Record<string, number> } = {};
+        if (changed("hp")) patch.hp_current = currentResources.hp;
+        if (changed("san")) patch.san_current = currentResources.san;
+        if (changed("mp")) patch.mp_current = currentResources.mp;
+        if (changed("mana")) patch.mana_current = currentResources.mana;
+        for (const bar of cap.resourceBars) {
+          if (bar.style === "counter" && changed(bar.key)) {
+            patch.counters = { ...patch.counters, [bar.key]: currentResources[bar.key] };
+          }
+        }
+        const res = await updateResourcesAction(roomId, targetUserId, patch);
+        if (!res.success) return failSave(res.error);
+        loadedResources.current = { ...currentResources };
+      } else if (cap.resourceCurrentsViaAction) {
         // COC / 狩魂者: attributes on the caller's own sheet, currents via
         // updateResourcesAction so a host can adjust another player's bars.
         const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
         if (!saved.success) return failSave(saved.error);
         // A failure here leaves the attributes saved; retrying is idempotent,
         // so reporting the whole save as failed is acceptable.
-        const res = await updateResourcesAction(roomId, targetUserId || userId, resPatch);
+        const res = await updateResourcesAction(roomId, userId, resPatch);
         if (!res.success) return failSave(res.error);
       } else {
         // d20 / triangle / basic: currents bundle into the player's own sheet —

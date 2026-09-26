@@ -22,7 +22,13 @@ function chain(rows: () => unknown) {
     Promise.resolve(rows()).then(resolve, reject);
   return c;
 }
-const update = vi.fn(() => chain(() => []));
+/** The last `characterData` written by `db.update(...).set(...)`. */
+let written: Record<string, unknown> | null = null;
+const update = vi.fn(() => {
+  const c = chain(() => []);
+  c.set = (v: { characterData?: string }) => { if (v.characterData) written = JSON.parse(v.characterData); return c; };
+  return c;
+});
 vi.mock("@/db", () => ({
   db: {
     select: () => chain(() => selectQueue.shift() ?? []),
@@ -43,6 +49,7 @@ const member = (room: { frozen: boolean; hostId: number } = { frozen: false, hos
 beforeEach(() => {
   vi.clearAllMocks();
   selectQueue = [];
+  written = null;
   session = { user: { id: "2", role: "player" } };
 });
 
@@ -119,6 +126,22 @@ describe("updateResourcesAction", () => {
     expect(await updateResourcesAction(5, 9, { hp_current: 1 }))
       .toEqual({ success: false, error: "character.errorTargetNotMember" });
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("lets the host set another member's counter resources (triangle)", async () => {
+    session = { user: { id: "1", role: "host" } };
+    const sheet = { ruleTemplate: "triangle", taSheet: { commendations: 0, reprimands: 0 } };
+    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }], [{ characterData: JSON.stringify(sheet) }]];
+    expect(await updateResourcesAction(5, 3, { counters: { commendations: 4, reprimands: 1 } })).toEqual({ success: true });
+    expect(written).toMatchObject({ taSheet: { commendations: 4, reprimands: 1 } });
+  });
+
+  it("ignores counters the rule doesn't declare", async () => {
+    session = { user: { id: "1", role: "host" } };
+    const sheet = { ruleTemplate: "basic" };
+    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }], [{ characterData: JSON.stringify(sheet) }]];
+    expect(await updateResourcesAction(5, 3, { counters: { commendations: 4 } })).toEqual({ success: true });
+    expect(written).toEqual({ ruleTemplate: "basic" });
   });
 
   it("updates the caller's own resources", async () => {

@@ -363,6 +363,9 @@ export async function updateResourcesAction(
     hpMax?: number;
     // 狩魂者-only field — applied to shSheet when the active rule is shouhun.
     mana_current?: number;
+    /** Values for the rule's counter-style bars (triangle's 嘉奖/申诫),
+     *  keyed by bar key — written through `applyStatWrite`. */
+    counters?: Record<string, number>;
   }
 ): Promise<{ success: true } | Fail> {
   const session = await auth();
@@ -413,9 +416,17 @@ export async function updateResourcesAction(
 
   // Each rule owns where its resources live and how they clamp (d20 → d20Sheet
   // with editable max; 狩魂者 → shSheet, maxes derived; COC → cocDerived; basic/
-  // triangle → no structured resources). The action just forwards the whole
-  // patch — this replaced a `ruleTemplate === "…"` chain.
-  charData = getRule(charData.ruleTemplate).applyResourcePatch(charData, resources);
+  // triangle → no standard resources). The action just forwards the whole
+  // patch — this replaced a `ruleTemplate === "…"` chain. Counter-style bars
+  // (triangle's 嘉奖/申诫) go through the rule's stat writer instead.
+  const rule = getRule(charData.ruleTemplate);
+  charData = rule.applyResourcePatch(charData, resources);
+  for (const bar of rule.capabilities.resourceBars) {
+    if (bar.style !== "counter") continue;
+    const v = resources.counters?.[bar.key];
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    charData = rule.applyStatWrite(charData, { kind: "resource", key: bar.key, canonical: bar.key }, Math.trunc(v)).sheet;
+  }
 
   await db.update(roomMembers)
     .set({ characterData: JSON.stringify(charData) })
