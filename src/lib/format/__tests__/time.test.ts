@@ -53,6 +53,13 @@ describe("formatMonthDayTime", () => {
   it("drops the year across a year boundary", () => {
     expect(formatMonthDayTime(local(2025, 12, 31, 23, 59))).toBe("12-31 23:59");
   });
+  it("converts an offset-bearing ISO string to local time", () => {
+    const iso = "2026-01-01T00:30:00+14:00";
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, "0");
+    const expected = `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    expect(formatMonthDayTime(iso)).toBe(expected);
+  });
   it("returns an empty string for an unparseable input", () => {
     expect(formatMonthDayTime("garbage")).toBe("");
   });
