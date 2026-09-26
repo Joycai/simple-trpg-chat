@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Portal } from "./InventorySkeletons";
 import { Icons } from "@/components/shared/icons";
+import { OverlayShell } from "@/components/shared/OverlayShell";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
@@ -51,7 +51,8 @@ interface CreateEditModalProps {
   imageUrl: string | null;
   onImageChange: (v: string | null) => void;
   onCancel: () => void;
-  onSubmit: () => void;
+  /** Resolves true once saved — the modal then plays its exit and calls `onCancel`. */
+  onSubmit: () => Promise<boolean>;
   /** Why the last save failed; shown above the footer. */
   error?: string | null;
   /** Save in flight — blocks the submit button. */
@@ -134,14 +135,16 @@ export function CreateEditModal({
   };
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onCancel}>
-        <div className={`bg-surface rounded-theme theme-border p-6 max-w-lg w-full ${contentExpanded ? "h-[86vh] max-h-[720px] min-h-[560px]" : "max-h-[88vh]"} flex flex-col overflow-hidden shadow-2xl border border-border overlay-modal`} onClick={e => e.stopPropagation()}>
+    <>
+    <OverlayShell portal onClose={onCancel} layerClassName="z-[60]" scrimClassName="bg-scrim/50" rootClassName="p-4"
+      panelClassName={`bg-surface rounded-theme theme-border p-6 max-w-lg w-full ${contentExpanded ? "h-[86vh] max-h-[720px] min-h-[560px]" : "max-h-[88vh]"} flex flex-col overflow-hidden shadow-2xl border border-border overlay-modal`}>
+      {(close) => (
+        <>
           <div className="flex justify-between items-center mb-4 shrink-0">
             <h3 className={`font-bold text-xl font-theme-display ${typeColorClass[itemType]}`}>
               {editingItemId !== null ? t("editItem") : t("createTyped", { type: typeTabLabel(itemType) })}
             </h3>
-            <button onClick={onCancel} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <button onClick={close} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
               <Icons.X className="w-5 h-5" />
             </button>
           </div>
@@ -340,15 +343,16 @@ export function CreateEditModal({
 
           {/* Footer */}
           <div className="flex gap-3 justify-end pt-4 items-center shrink-0">
-            <button onClick={onCancel} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
-            <button onClick={onSubmit} disabled={!title || busy}
+            <button onClick={close} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
+            <button onClick={async () => { if (await onSubmit()) close(); }} disabled={!title || busy}
               className="btn-primary inline-flex items-center gap-1.5 px-6 py-2.5 rounded-theme bg-gradient-to-b from-success to-success/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none shadow-[0_0_16px_rgb(var(--theme-success)/0.35)]">
               {busy && <Icons.Loader2 className="w-4 h-4 animate-spin" />}
               {editingItemId !== null ? t("confirm") : t("create")}
             </button>
           </div>
-        </div>
-      </div>
+        </>
+      )}
+    </OverlayShell>
       {/* Character avatars crop square; clue/item photos stay free-form. */}
       {cropSource && (
         <ImageCropper
@@ -358,7 +362,7 @@ export function CreateEditModal({
           onConfirm={handleCroppedUpload}
         />
       )}
-    </Portal>
+    </>
   );
 }
 
@@ -371,7 +375,9 @@ interface DistributeModalProps {
   distributeTargets: number[];
   setDistributeTargets: React.Dispatch<React.SetStateAction<number[]>>;
   onCancel: () => void;
-  onDistribute: (targets: number[] | "all") => void;
+  /** Resolves true once every recipient got it — the modal then plays its exit
+   *  and calls `onCancel`. */
+  onDistribute: (targets: number[] | "all") => Promise<boolean>;
   /** Why the last hand-out failed (per recipient); shown above the actions. */
   error?: ReactNode;
   /** Hand-out in flight — blocks both distribute buttons. */
@@ -391,20 +397,20 @@ export function DistributeModal({
   const otherPlayers = players.filter(p => p.id !== userId);
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/50 overlay-backdrop"
-        onClick={onCancel}>
-        <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
+    <OverlayShell portal onClose={onCancel} layerClassName="z-[60]" scrimClassName="bg-scrim/50"
+      panelClassName="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border overlay-modal">
+      {(close) => (
+        <>
           <div className="flex justify-between items-start mb-4 gap-2">
             <div className="min-w-0">
               <h3 className="font-bold text-lg text-text">{t("selectTarget")}</h3>
               {distItem && <p className="text-xs text-text-muted truncate mt-0.5">{distItem.title}</p>}
             </div>
-            <button onClick={onCancel} className="text-text-muted hover:text-text text-xl leading-none cursor-pointer shrink-0">×</button>
+            <button onClick={close} className="text-text-muted hover:text-text text-xl leading-none cursor-pointer shrink-0">×</button>
           </div>
 
           {/* Distribute to all */}
-          <button type="button" onClick={() => onDistribute("all")} disabled={busy}
+          <button type="button" onClick={async () => { if (await onDistribute("all")) close(); }} disabled={busy}
             className="disabled:opacity-40 w-full bg-accent hover:bg-accent-hover text-accent-foreground py-2 rounded-md font-bold text-sm cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
             {t("distributeAll")}
           </button>
@@ -440,19 +446,19 @@ export function DistributeModal({
 
           {/* Actions */}
           <div className="flex gap-2 mt-4 pt-3 border-t border-border">
-            <button type="button" onClick={onCancel}
+            <button type="button" onClick={close}
               className="flex-1 py-2 rounded-md text-xs font-bold text-text-muted hover:text-text hover:bg-surface-alt cursor-pointer transition">
               {tCommon("cancel")}
             </button>
-            <button type="button" onClick={() => onDistribute(distributeTargets)} disabled={distributeTargets.length === 0 || busy}
+            <button type="button" onClick={async () => { if (await onDistribute(distributeTargets)) close(); }} disabled={distributeTargets.length === 0 || busy}
               className="flex-1 inline-flex items-center justify-center gap-1.5 bg-success hover:bg-success/90 disabled:opacity-40 text-white py-2 rounded-md font-bold text-xs cursor-pointer transition">
               {busy && <Icons.Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {t("distributeConfirm", { count: distributeTargets.length })}
             </button>
           </div>
-        </div>
-      </div>
-    </Portal>
+        </>
+      )}
+    </OverlayShell>
   );
 }
 
@@ -508,9 +514,11 @@ export function DetailModal({
   const mQuantity = detailItem.quantity ?? 1;
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onClose}>
-        <div className="bg-surface rounded-theme theme-border p-6 max-w-lg w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
+    <>
+    <OverlayShell portal onClose={onClose} layerClassName="z-[60]" scrimClassName="bg-scrim/50" rootClassName="p-4"
+      panelClassName="bg-surface rounded-theme theme-border p-6 max-w-lg w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal">
+      {(close) => (
+        <>
           {/* Type badge (+ category for item) ... source/relation badge + close */}
           <div className="flex justify-between items-start mb-3 gap-2">
             <div className="flex items-center gap-2 flex-wrap">
@@ -528,7 +536,7 @@ export function DetailModal({
               {type === "character" && (
                 <span className={`inline-flex items-center text-xs font-bold px-3 py-1 rounded-full border ${relationBadgeClass[mRelation]}`}>{t(relationKey[mRelation])}</span>
               )}
-              <button onClick={onClose} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+              <button onClick={close} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
                 <Icons.X className="w-5 h-5" />
               </button>
             </div>
@@ -658,12 +666,13 @@ export function DetailModal({
               </button>
             </div>
           )}
-        </div>
-      </div>
+        </>
+      )}
+    </OverlayShell>
       {previewOpen && detailItem.imageUrl && (
         <ImagePreview src={detailItem.imageUrl} alt={detailItem.title} onClose={() => setPreviewOpen(false)} />
       )}
-    </Portal>
+    </>
   );
 }
 
@@ -675,9 +684,11 @@ interface ShareModalProps {
   userId: number;
   hostId?: number;
   onCancel: () => void;
-  /** Resolves to the ids that failed — the selection narrows to them, since
-   *  the others already hold a copy and a retry would only be refused. */
-  onShare: (targetIds: number[]) => Promise<number[]>;
+  /** Resolves to `"done"` when every copy went out (the modal then plays its
+   *  exit and calls `onCancel`), else to the ids that failed — the selection
+   *  narrows to them, since the others already hold a copy and a retry would
+   *  only be refused. */
+  onShare: (targetIds: number[]) => Promise<number[] | "done">;
   /** Per-recipient failures from the last send; shown above the footer. */
   error?: ReactNode;
   /** Send in flight — blocks the send button. */
@@ -709,12 +720,13 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
   const metaLine = metaParts.join(" · ");
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onCancel}>
-        <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
+    <OverlayShell portal onClose={onCancel} layerClassName="z-[70]" scrimClassName="bg-scrim/50" rootClassName="p-4"
+      panelClassName="bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal">
+      {(close) => (
+        <>
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-xl text-text font-theme-display">{t("shareTitle")}</h3>
-            <button onClick={onCancel} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+            <button onClick={close} aria-label={tCommon("close")} className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
               <Icons.X className="w-5 h-5" />
             </button>
           </div>
@@ -774,14 +786,17 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
 
           {/* Footer */}
           <div className="mt-5 flex items-center justify-end gap-3">
-            <button onClick={onCancel} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
-            <button onClick={async () => setSelected(await onShare(selected))} disabled={selected.length === 0 || busy}
+            <button onClick={close} className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">{tCommon("cancel")}</button>
+            <button onClick={async () => {
+              const res = await onShare(selected);
+              if (res === "done") close(); else setSelected(res);
+            }} disabled={selected.length === 0 || busy}
               className="btn-primary inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-theme bg-gradient-to-b from-primary to-primary/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 shadow-[var(--theme-glow)]">
               {busy ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Send className="w-4 h-4" />} {t("shareConfirmCount", { count: selected.length })}
             </button>
           </div>
-        </div>
-      </div>
-    </Portal>
+        </>
+      )}
+    </OverlayShell>
   );
 }
