@@ -194,7 +194,14 @@
     "frozenBadge": "已冻结",
     "frozenBadgeHost": "已冻结 · 玩家只读",
     "frozenNotice": "房间已冻结，你可以查看但无法发言。",
-    "observerNotice": "管理员观察模式：你未加入该房间，仅可查看。"
+    "observerNotice": "管理员观察模式：你未加入该房间，仅可查看。",
+    "errorInvalidNickname": "昵称长度需为 1–{max} 字符",
+    "errorColorNotAllowed": "无权修改该成员的颜色",
+    "errorInvalidSettings": "房间设置无效",
+    "errorInvalidRoomName": "房间名长度需为 1–{max} 字符",
+    "errorAvatarTooLarge": "头像图片过大",
+    "errorAvatarDimensions": "头像尺寸不能超过 512×512",
+    "errorAvatarInvalid": "无效的头像图片"
   },
   "hotkeys": {
     "title": "键盘快捷键",
@@ -256,7 +263,9 @@
     "withdrawMiddle": "，此操作",
     "withdrawIrreversible": "不可恢复",
     "withdrawAfter": "。仅{host}可执行。",
-    "confirmWithdraw": "确认撤回"
+    "confirmWithdraw": "确认撤回",
+    "errorInvalidPayload": "时间线设定无效",
+    "errorNotDivider": "该消息不是时间线分割"
   },
   "chat": {
     "eventReceipt": "你收到了新事件：{title}",
@@ -907,7 +916,14 @@
     "role": "角色",
     "level": "等级",
     "rolePlaceholder": "如：战士、法师",
-    "levelPlaceholder": "等级"
+    "levelPlaceholder": "等级",
+    "errorNotAuthenticated": "未登录",
+    "errorNotMember": "你不是该房间成员",
+    "errorRoomFrozen": "房间已冻结（只读）",
+    "errorDataTooLarge": "角色卡数据过大",
+    "errorRoomNotFound": "房间不存在",
+    "errorUnauthorizedResource": "无权修改该角色的资源值",
+    "errorTargetNotMember": "目标用户不是该房间成员"
   },
   "notebook": {
     "title": "记事本",
@@ -1120,7 +1136,10 @@
     "defaultPlayer": "玩家",
     "defaultTeammate": "队友",
     "searchPlaceholder": "搜索道具...",
-    "emptyHint": "线索与物品会在 {host} 分发后出现在这里"
+    "emptyHint": "线索与物品会在 {host} 分发后出现在这里",
+    "deleteConfirmTitle": "删除道具",
+    "distributeKpConfirmTitle": "发放仅 KP 可见的情报",
+    "sharePartialFailed": "部分成员未能收到："
   },
   "clues": {
     "title": "线索管理",
@@ -1182,7 +1201,9 @@
     "activationHeader": "触发方式",
     "cancel": "取消",
     "submitCreate": "创建",
-    "submitSave": "保存"
+    "submitSave": "保存",
+    "errorBotNotFound": "机器人不存在",
+    "errorBotNotMember": "该机器人不在此房间"
   },
   "aiImport": {
     "title": "AI 导入",
@@ -1356,7 +1377,14 @@
     "psyHeader": "{hostNick}对 {targetNick} 进行心理学检定",
     "psyHeaderNoSkill": "{hostNick}对 {targetNick} 进行心理学检定（未设定）",
     "sanCheckRequestContent": "{hostNick} 要求 {targetNicks} 进行 理智检定",
-    "separator": "、"
+    "separator": "、",
+    "errorNoAccess": "无权操作该房间，或房间已冻结",
+    "errorInvalidMessageType": "无效的消息类型",
+    "errorMessageLength": "消息长度需为 1–{max} 字符",
+    "errorInvalidImageRef": "无效的图片引用",
+    "errorInvalidStickerRef": "无效的贴纸引用",
+    "sendFailed": "发送失败：{error}",
+    "withdrawFailed": "撤回失败：{error}"
   },
   "commands": {
     "helpTitle": "指令帮助",
@@ -1467,7 +1495,9 @@
     "alreadyOwned": "该玩家已拥有此道具",
     "defaultTeammate": "队友",
     "sharedReceived": "获得了来自 {sender} 分享的道具：{title}",
-    "sharedSent": "已将道具 {title} 分享给 {recipient}"
+    "sharedSent": "已将道具 {title} 分享给 {recipient}",
+    "errorItemNotFound": "道具不存在",
+    "errorRecipientNotMember": "接收者不是该房间成员"
   },
   "eventActions": {
     "cardFallback": "📜 事件：{title}",
@@ -1586,7 +1616,9 @@
     "retractConfirmAction": "确认撤回",
     "deleteConfirmTitle": "删除该事件？",
     "expandEditor": "展开为全窗口编辑",
-    "collapseEditor": "收起编辑区"
+    "collapseEditor": "收起编辑区",
+    "discardTitle": "放弃未保存的修改？",
+    "discardAction": "放弃修改"
   },
   "inventoryDispatch": {
     "allMembers": "全体成员",
