@@ -28,6 +28,10 @@ vi.mock("@/lib/media/image-cache", () => ({
   cleanupRoomBackgrounds: (...args: unknown[]) => cleanupRoomBackgroundsMock(...args as []),
 }));
 
+vi.mock("next-intl/server", () => ({
+  getTranslations: vi.fn(async (ns: string) => (key: string) => `${ns}.${key}`),
+}));
+
 // withRoomNames short-circuits on empty usage lists, so db is never queried here.
 vi.mock("@/db", () => ({ db: {} }));
 
@@ -41,7 +45,7 @@ describe("cleanupImageCacheAction — backgrounds are opt-in only", () => {
     expect(cleanupImageCacheMock).toHaveBeenCalledWith("all", "all");
     expect(cleanupRoomBackgroundsMock).not.toHaveBeenCalled();
     expect(broadcastToRoomMock).not.toHaveBeenCalled();
-    expect(res.deletedCount).toBe(2);
+    expect(res).toMatchObject({ success: true, deletedCount: 2 });
   });
 
   it("explicit false never touches room backgrounds", async () => {
@@ -53,12 +57,23 @@ describe("cleanupImageCacheAction — backgrounds are opt-in only", () => {
     const res = await cleanupImageCacheAction(3, "all", true);
     expect(cleanupRoomBackgroundsMock).toHaveBeenCalledWith(3);
     expect(broadcastToRoomMock).toHaveBeenCalledWith(7, { type: "room_settings_updated" });
-    expect(res.freedBytes).toBe(150);
-    expect(res.deletedCount).toBe(3);
+    expect(res).toMatchObject({ success: true, freedBytes: 150, deletedCount: 3 });
   });
 
   it("a truthy-but-not-true flag does not count as opt-in (defensive against sloppy callers)", async () => {
     await cleanupImageCacheAction("all", "all", 1 as unknown as boolean);
     expect(cleanupRoomBackgroundsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("cleanupImageCacheAction — rejected input", () => {
+  it("returns a localized error for an invalid room scope", async () => {
+    expect(await cleanupImageCacheAction(-1, "all")).toEqual({ success: false, error: "admin.errorInvalidScope" });
+    expect(cleanupImageCacheMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a localized error for an invalid range", async () => {
+    expect(await cleanupImageCacheAction("all", "1y" as "all")).toEqual({ success: false, error: "admin.errorInvalidRange" });
+    expect(cleanupImageCacheMock).not.toHaveBeenCalled();
   });
 });

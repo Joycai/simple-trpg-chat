@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Edit2, Trash2, Plus, X, Check } from "lucide-react";
 import { createBotPresetAction, updateBotPresetAction, deleteBotPresetAction } from "@/app/actions/bot-presets";
 import { OverlayShell } from "@/components/shared/OverlayShell";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 const DOT_COLORS = ["bg-ai", "bg-primary", "bg-accent", "bg-success", "bg-warning"];
 
@@ -44,32 +45,35 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const [editSystemPrompt, setEditSystemPrompt] = useState("");
   const [editAllowEditPrompt, setEditAllowEditPrompt] = useState(true);
   const [editError, setEditError] = useState("");
+  /** Preset waiting on the delete confirmation. */
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleCreate = async (e: React.FormEvent, close: () => void) => {
     e.preventDefault();
     setCreateError("");
 
     if (!name.trim() || !defaultNickname.trim() || !systemPrompt.trim()) {
-      setCreateError("All fields are required");
+      setCreateError(t("errorMissingFields"));
       return;
     }
 
-    try {
-      await createBotPresetAction({
-        name: name.trim(),
-        defaultNickname: defaultNickname.trim(),
-        systemPrompt: systemPrompt.trim(),
-        allowEditPrompt,
-      });
-      setName("");
-      setDefaultNickname("");
-      setSystemPrompt("");
-      setAllowEditPrompt(true);
-      close();
-      router.refresh();
-    } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : "Failed to create preset");
+    const res = await createBotPresetAction({
+      name: name.trim(),
+      defaultNickname: defaultNickname.trim(),
+      systemPrompt: systemPrompt.trim(),
+      allowEditPrompt,
+    }).catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (!res.success) {
+      setCreateError(res.error);
+      return;
     }
+    setName("");
+    setDefaultNickname("");
+    setSystemPrompt("");
+    setAllowEditPrompt(true);
+    close();
+    router.refresh();
   };
 
   const handleUpdateSubmit = async (e: React.FormEvent, close: () => void) => {
@@ -78,34 +82,42 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
 
     if (!editingId) return;
     if (!editName.trim() || !editDefaultNickname.trim() || !editSystemPrompt.trim()) {
-      setEditError("All fields are required");
+      setEditError(t("errorMissingFields"));
       return;
     }
 
-    try {
-      await updateBotPresetAction(editingId, {
-        name: editName.trim(),
-        defaultNickname: editDefaultNickname.trim(),
-        systemPrompt: editSystemPrompt.trim(),
-        allowEditPrompt: editAllowEditPrompt,
-      });
-      close();
-      router.refresh();
-    } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : "Failed to update preset");
+    const res = await updateBotPresetAction(editingId, {
+      name: editName.trim(),
+      defaultNickname: editDefaultNickname.trim(),
+      systemPrompt: editSystemPrompt.trim(),
+      allowEditPrompt: editAllowEditPrompt,
+    }).catch(() => ({ success: false as const, error: t("operationFailed") }));
+    if (!res.success) {
+      setEditError(res.error);
+      return;
     }
+    close();
+    router.refresh();
   };
 
-  const handleDelete = async (id: number, presetName: string) => {
-    if (confirm(`Are you sure you want to delete preset "${presetName}"?`)) {
-      try {
-        await deleteBotPresetAction(id);
-        if (editingId === id) setEditingId(null);
-        router.refresh();
-      } catch (err: unknown) {
-        alert(err instanceof Error ? err.message : "Failed to delete preset");
-      }
+  const handleDelete = (id: number, presetName: string) => setPendingDelete({ id, name: presetName });
+
+  // Delete is only offered inside the edit modal, so a failure is shown in
+  // that modal's error slot, which stays open.
+  const runDelete = async () => {
+    if (!pendingDelete) return;
+    const { id } = pendingDelete;
+    setDeleting(true);
+    const res = await deleteBotPresetAction(id)
+      .catch(() => ({ success: false as const, error: t("operationFailed") }));
+    setDeleting(false);
+    setPendingDelete(null);
+    if (!res.success) {
+      setEditError(res.error);
+      return;
     }
+    if (editingId === id) setEditingId(null);
+    router.refresh();
   };
 
   const startEdit = (preset: BotPreset) => {
@@ -296,6 +308,17 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
             </button>
           ))}
         </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={t("confirmDeletePresetTitle")}
+          description={t("confirmDeletePreset", { name: pendingDelete.name })}
+          confirmLabel={t("delete")}
+          busy={deleting}
+          onConfirm={runDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </section>
   );
