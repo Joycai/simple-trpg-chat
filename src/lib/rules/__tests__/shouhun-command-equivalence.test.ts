@@ -71,4 +71,9 @@ describe("shouhun buildCheckCommand: the parser recovers name and dice", () => {
     expect(build("侦查", 0, 0, 10)).toBe(".rc 侦查 10");
     expect(build("侦查", 2, 0, 10)).toBe(".rc 侦查+2 10");
   });
+
+  it("re-trims a name the 50-char cap cuts after a space", () => {
+    const long = `${"a".repeat(47)}+5 zz`;
+    expect(parse(build(long, 0, 0, 10))).toEqual({ skillName: `${"a".repeat(47)}+5`, explicitTarget: 10, modifierExpression: undefined });
+  });
 });

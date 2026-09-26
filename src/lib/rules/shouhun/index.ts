@@ -352,7 +352,7 @@ export const shouhunRule: RuleModule = {
       : undefined;
     const dcPart = dc !== undefined ? ` ${dc}` : "";
 
-    const name = input.name.trim().slice(0, 50);
+    const name = input.name.trim().slice(0, 50).trim();
 
     // `+x[±y]` — 时髦骰 without 加骰 needs the explicit `+0` (a lone positive
     // group always reads as x). A lone negative group is 时髦骰 by itself, but
