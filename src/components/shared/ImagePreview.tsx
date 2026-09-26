@@ -166,12 +166,12 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
   };
 
   const btn =
-    "w-9 h-9 flex items-center justify-center rounded-full text-white/90 hover:bg-white/15 transition disabled:opacity-30 disabled:hover:bg-transparent";
+    "w-9 h-9 flex items-center justify-center rounded-full text-on-scrim/90 hover:bg-on-scrim/15 transition disabled:opacity-30 disabled:hover:bg-transparent";
 
   return createPortal(
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden animate-in fade-in"
+      className="fixed inset-0 z-[200] bg-scrim/85 backdrop-blur-sm flex items-center justify-center overflow-hidden animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
@@ -181,13 +181,13 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
     >
       {/* Toolbar */}
       <div
-        className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 bg-black/50 border border-white/15 rounded-full px-2 py-1 backdrop-blur"
+        className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 bg-scrim/50 border border-on-scrim/15 rounded-full px-2 py-1 backdrop-blur"
         onClick={(e) => e.stopPropagation()}
       >
         <button className={btn} onClick={() => zoomBy(1 / ZOOM_STEP)} disabled={view.scale <= MIN_SCALE} title={t("zoomOut")} aria-label={t("zoomOut")}>
           <ZoomOut className="w-5 h-5" />
         </button>
-        <span className="text-white/90 text-xs font-mono w-12 text-center select-none">
+        <span className="text-on-scrim/90 text-xs font-mono w-12 text-center select-none">
           {Math.round(view.scale * 100)}%
         </span>
         <button className={btn} onClick={() => zoomBy(ZOOM_STEP)} disabled={view.scale >= MAX_SCALE} title={t("zoomIn")} aria-label={t("zoomIn")}>
@@ -196,7 +196,7 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
         <button className={btn} onClick={reset} title={t("resetZoom")} aria-label={t("resetZoom")}>
           <RotateCcw className="w-[18px] h-[18px]" />
         </button>
-        <div className="w-px h-5 bg-white/15 mx-1" />
+        <div className="w-px h-5 bg-on-scrim/15 mx-1" />
         <button className={btn} onClick={toggleFullscreen} title={isFullscreen ? t("exitFullscreen") : t("fullscreen")} aria-label={isFullscreen ? t("exitFullscreen") : t("fullscreen")}>
           {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
         </button>
@@ -210,7 +210,7 @@ export function ImagePreview({ src, alt, onClose }: ImagePreviewProps) {
         onClick={handleClose}
         title={t("closePreview")}
         aria-label={t("closePreview")}
-        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-on-scrim/10 hover:bg-on-scrim/20 text-on-scrim flex items-center justify-center transition"
       >
         <X className="w-5 h-5" />
       </button>

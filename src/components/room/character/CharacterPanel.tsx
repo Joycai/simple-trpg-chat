@@ -550,7 +550,7 @@ export function CharacterPanel({
   // Shared drawer chrome for the loading / empty states.
   const drawerShell = (body: React.ReactNode) => (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
-      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
       <div ref={panelRef} className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="shrink-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center">
@@ -587,7 +587,7 @@ export function CharacterPanel({
   return (
     <>
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
-      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
       <div ref={panelRef} className={`relative ml-auto w-full sm:w-[34rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={e => e.stopPropagation()}>
 

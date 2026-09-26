@@ -156,7 +156,7 @@ export function HostCheckDialog({ roomId, players, isPrivate = false, channelTar
     : "bg-gradient-to-b from-accent to-accent/80 text-accent-foreground shadow-[0_0_18px_rgb(var(--theme-accent)/0.4)]";
 
   return (
-    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4" onClick={close}>
       <div ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}

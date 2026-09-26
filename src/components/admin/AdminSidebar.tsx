@@ -47,7 +47,7 @@ export function AdminSidebar({ onLogout, siteName, version }: AdminSidebarProps)
       {isOpen && (
         <div
           onClick={closeSidebar}
-          className="fixed inset-0 bg-black/40 z-30 md:hidden transition-opacity"
+          className="fixed inset-0 bg-scrim/40 z-30 md:hidden transition-opacity"
         />
       )}
 

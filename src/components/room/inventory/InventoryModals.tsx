@@ -135,7 +135,7 @@ export function CreateEditModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 overlay-backdrop p-4" onClick={onCancel}>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onCancel}>
         <div className={`bg-surface rounded-theme theme-border p-6 max-w-lg w-full ${contentExpanded ? "h-[86vh] max-h-[720px] min-h-[560px]" : "max-h-[88vh]"} flex flex-col overflow-hidden shadow-2xl border border-border overlay-modal`} onClick={e => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4 shrink-0">
             <h3 className={`font-bold text-xl font-theme-display ${typeColorClass[itemType]}`}>
@@ -293,7 +293,7 @@ export function CreateEditModal({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={imageUrl} alt="" className="w-full max-h-48 object-cover" />
                         <button onClick={() => onImageChange(null)} aria-label={tCommon("close")}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80">
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-scrim/60 text-on-scrim flex items-center justify-center hover:bg-scrim/80">
                           <Icons.X className="w-4 h-4" />
                         </button>
                       </div>
@@ -392,7 +392,7 @@ export function DistributeModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 overlay-backdrop"
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/50 overlay-backdrop"
         onClick={onCancel}>
         <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full mx-4 shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
           <div className="flex justify-between items-start mb-4 gap-2">
@@ -509,7 +509,7 @@ export function DetailModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 overlay-backdrop p-4" onClick={onClose}>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onClose}>
         <div className="bg-surface rounded-theme theme-border p-6 max-w-lg w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
           {/* Type badge (+ category for item) ... source/relation badge + close */}
           <div className="flex justify-between items-start mb-3 gap-2">
@@ -564,7 +564,7 @@ export function DetailModal({
                 {/* User-supplied image URL (arbitrary domain or data URL) — next/image can't optimize these. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={detailItem.imageUrl} alt={detailItem.title} className="w-full max-h-72 object-cover block" />
-                <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-scrim/55 text-on-scrim flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                   <Icons.Search className="w-3.5 h-3.5" />
                 </span>
               </button>
@@ -710,7 +710,7 @@ export function ShareModal({ item, fromName, players, userId, hostId, onCancel, 
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 overlay-backdrop p-4" onClick={onCancel}>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onCancel}>
         <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={e => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-xl text-text font-theme-display">{t("shareTitle")}</h3>

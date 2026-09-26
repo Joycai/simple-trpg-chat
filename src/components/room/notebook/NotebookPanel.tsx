@@ -370,7 +370,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={guardedClose}>
-      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
       <div
         ref={panelRef} className={`notebook-panel relative ml-auto w-full sm:w-[44rem] bg-surface border-l border-border shadow-2xl h-full flex flex-col overflow-hidden ${panelClass}`}
         onClick={(e) => e.stopPropagation()}

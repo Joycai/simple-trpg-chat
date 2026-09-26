@@ -372,7 +372,7 @@ export function InventoryPanel({ roomId, userId, isHost, hostId, players, onClos
 
   return (
     <div className="fixed inset-0 z-50 flex font-theme" onClick={close}>
-      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
       {/* Flex column rather than one scrolling block with a sticky header (the
           shape CharacterPanel / NotebookPanel already use): it gives the body a
           definite height, which is what lets the backpack's category rail — and

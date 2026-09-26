@@ -90,7 +90,7 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
     "w-full h-12 px-3.5 border border-input-border bg-input-bg rounded-theme text-text text-sm outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent placeholder:text-text-dim transition";
 
   return (
-    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4" onClick={close}>
       <div
         ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
         onClick={(e) => e.stopPropagation()}

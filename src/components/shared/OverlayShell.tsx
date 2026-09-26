@@ -94,7 +94,7 @@ export function OverlayShell({
   const tree =
     variant === "drawer" ? (
       <div className={`fixed inset-0 ${layerClassName} flex`} onClick={closeOnBackdrop ? dismiss : undefined}>
-        <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+        <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
         <div
           ref={panelRef}
           className={`relative ml-auto ${panelClassName} ${panelClass}`}
@@ -108,7 +108,7 @@ export function OverlayShell({
       // the backdrop ref; the card inside is what springs.
       <div
         ref={backdropRef}
-        className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-black/40 ${rootClassName}`}
+        className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-scrim/40 ${rootClassName}`}
         onClick={closeOnBackdrop ? dismiss : undefined}
       >
         <div

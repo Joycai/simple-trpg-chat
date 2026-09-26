@@ -914,7 +914,7 @@ export function RoomClient({
         {isMobile && (
           <div
             aria-hidden={sidebarCollapsed}
-            className={`fixed inset-0 bg-black/40 z-20 transition-opacity duration-300 ${
+            className={`fixed inset-0 bg-scrim/40 z-20 transition-opacity duration-300 ${
               sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 cursor-pointer"
             }`}
             onClick={() => setSidebarCollapsed(true)}

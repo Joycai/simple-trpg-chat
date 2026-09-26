@@ -40,7 +40,7 @@ export function NotebookShareModal({ note, players, userId, onCancel, onShare, s
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 overlay-backdrop p-4" onClick={onCancel}>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim/50 overlay-backdrop p-4" onClick={onCancel}>
         <div className="bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-border overlay-modal" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-xl text-text font-theme-display">{t("shareTitle")}</h3>

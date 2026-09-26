@@ -185,7 +185,7 @@ export function LoginForm({ siteTitle, version, icp, icpUrl, policeIcon, policeH
       </form>
 
       {showLicense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-xs">
           <div className="bg-surface border border-border rounded-theme max-w-lg w-full max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 border-b border-border flex items-center justify-between">

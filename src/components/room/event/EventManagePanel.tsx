@@ -374,7 +374,7 @@ function EventRow({
             <Icons.Flag className="w-6 h-6 text-text-dim" />
           )}
           {event.images.length > 1 && (
-            <span className="absolute right-0.5 bottom-0.5 text-[9px] font-theme-mono bg-black/55 text-white px-1 rounded">{event.images.length}</span>
+            <span className="absolute right-0.5 bottom-0.5 text-[9px] font-theme-mono bg-scrim/55 text-on-scrim px-1 rounded">{event.images.length}</span>
           )}
         </span>
 
