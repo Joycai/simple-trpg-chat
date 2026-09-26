@@ -8,6 +8,7 @@ import { updateUser, resetPassword } from "@/app/actions/admin";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
+import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 import type { User } from "./types";
 
 interface EditUserModalProps {
@@ -119,7 +120,7 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
               <input
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
-                maxLength={50}
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
                 className="px-3.5 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm outline-none transition focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary"
               />
             </div>
