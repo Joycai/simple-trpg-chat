@@ -29,12 +29,12 @@ export function SaveButton({ status, onClick, idleLabel, className = "" }: SaveB
       {status === "saving" ? (
         <>
           <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-1" />
-          {t("saving") || "保存中..."}
+          {t("saving")}
         </>
       ) : status === "success" ? (
-        <><Check className="w-4 h-4" /> {t("saveSuccess") || "保存成功"}</>
+        <><Check className="w-4 h-4" /> {t("saveSuccess")}</>
       ) : status === "error" ? (
-        <><X className="w-4 h-4" /> {t("saveFailed") || "保存失败"}</>
+        <><X className="w-4 h-4" /> {t("saveFailed")}</>
       ) : (
         idleLabel
       )}
