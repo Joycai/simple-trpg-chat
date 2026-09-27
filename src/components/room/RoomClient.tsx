@@ -1,10 +1,6 @@
 "use client";
 
-// Decrementing counter for local-only ephemeral message IDs (never persisted to DB).
-// Negative IDs guarantee no collision with real DB auto-increment IDs.
-let localEphemeralId = -1;
-
-import { useState, useRef, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
 import { RoomTopBar } from "@/components/room/RoomTopBar";
 import { RoomBackground } from "@/components/room/RoomBackground";
@@ -12,76 +8,30 @@ import { ChatArea } from "@/components/room/chat/ChatArea";
 import { RoomOverlays } from "@/components/room/RoomOverlays";
 import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
-import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
+import { useChatScroll } from "@/components/room/hooks/useChatScroll";
+import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
+import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
+import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
+import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInventoryCount";
+import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
+import { usePlayerCardViewer } from "@/components/room/hooks/usePlayerCardViewer";
+import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
+import { useRoomNameEditor } from "@/components/room/hooks/useRoomNameEditor";
+import { useChatSend } from "@/components/room/hooks/useChatSend";
+import { useRoomShortcuts } from "@/components/room/hooks/useRoomShortcuts";
+import { useMessageLog } from "@/components/room/hooks/useMessageLog";
+import { useLivePlayers } from "@/components/room/hooks/useLivePlayers";
+import { useOverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
-import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
-import { Icons } from "@/components/shared/icons";
-import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, loadMoreMessagesAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
-import { updateRoomNameAction } from "@/app/actions/room";
-import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
-import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
-import { getCharacterDataAction } from "@/app/actions/character";
-import { getMySkillsAction } from "@/app/actions/skills";
-import { getMyEventsAction, getUnreadEventCountAction, type EventView } from "@/app/actions/event";
-import { EventDataProvider, type EventData } from "@/components/room/event/EventDataContext";
-import { useBackpackEntities } from "@/components/room/hooks/useBackpackEntities";
+import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintToast";
+import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
+import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { getBotStatus } from "@/lib/ai/bot-status";
-import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
-
-/**
- * External store for the one-time hotkey-discoverability toast. Persisted in
- * localStorage per browser (not per room). `getSnapshot` also gates on a fine
- * pointer, so touch-only devices — where the shortcuts don't exist — never see
- * the toast. `markSeen` notifies same-tab subscribers directly, since the
- * native `storage` event only fires cross-tab.
- */
-const hotkeyHintStore = {
-  listeners: new Set<() => void>(),
-  subscribe(cb: () => void) {
-    hotkeyHintStore.listeners.add(cb);
-    return () => {
-      hotkeyHintStore.listeners.delete(cb);
-    };
-  },
-  getSnapshot(): boolean {
-    try {
-      return (
-        !window.localStorage.getItem(HOTKEY_HINT_SEEN_KEY) &&
-        window.matchMedia("(pointer: fine)").matches
-      );
-    } catch {
-      return false;
-    }
-  },
-  getServerSnapshot(): boolean {
-    return false;
-  },
-  markSeen() {
-    try {
-      window.localStorage.setItem(HOTKEY_HINT_SEEN_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    hotkeyHintStore.listeners.forEach((l) => l());
-  },
-};
+import { buildMentionTargets, buildDmConversations, totalUnread, countRoster, countOnline } from "@/lib/room/mention-targets";
+import type { RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
-import { getRuleForRoom, primaryVital, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
-import type { CharacterData } from "@/lib/character/types";
+import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
-import { useTheme } from "@/components/theme/ThemeProvider";
-import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
-import type { ThemeMode } from "@/themes/types";
-
-/** The two lookups the event list feeds (detail modal by id, chat-card lock state). */
-function indexEvents(rows: EventView[]) {
-  return {
-    byId: new Map(rows.map((e) => [e.id, e])),
-    visibleIds: new Set(rows.map((e) => e.id)),
-  };
-}
 
 export function RoomClient({
   room,
@@ -103,106 +53,31 @@ export function RoomClient({
   initialSnapshot,
 }: RoomClientProps) {
   const t = useTranslations("room");
-  const tra = useTranslations("roomActions");
-  const tCommon = useTranslations("common");
-  const tHotkeys = useTranslations("hotkeys");
-  const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
-  const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
-  // Message id → arrival timestamp for messages that arrived live (SSE, reconnect
-  // catch-up, or local error pills). ChatArea consults it so only genuinely new
-  // messages play the entrance animation — history loads / pagination / tab
-  // switches mount silently. Entries are never deleted (the 3s window simply
-  // lapses), which keeps it safe under StrictMode double-mounting.
-  const liveEnterRef = useRef(new Map<string, number>());
-  // Latest messages snapshot for event handlers (e.g. infinite-scroll) that must read the
-  // current oldest id without being re-created on every message change. Synced in an effect
-  // (see below) rather than during render, per react-hooks/refs.
-  const messagesRef = useRef(messages);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // Loaded messages + the seen-id / live-arrival / latest-list refs.
+  const { messages, setMessages, seenIdsRef, liveEnterRef, messagesRef } = useMessageLog(initialMessages);
   const [nickname, setNickname] = useState(currentNickname);
-  // Live member list: seeded from the server, patched in place by
-  // `member_updated` SSE deltas (nickname / color / avatar changes) so those
-  // no longer cost every client a full router.refresh(). A real server
-  // re-render (navigation, or the remaining refresh events) re-seeds it via
-  // the render-time reset below (React's derive-state-from-props pattern —
-  // re-renders immediately without committing the stale tree).
-  const [players, setPlayers] = useState(initialPlayers);
-  const [seededPlayers, setSeededPlayers] = useState(initialPlayers);
-  if (seededPlayers !== initialPlayers) {
-    setSeededPlayers(initialPlayers);
-    setPlayers(initialPlayers);
-  }
+  // Members, patched by SSE and re-seeded on each server render.
+  const { players, setPlayers } = useLivePlayers(initialPlayers);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const [hasMore, setHasMore] = useState(initialMessages.length >= 100);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showCharacter, setShowCharacter] = useState(false);
-  const [showInventory, setShowInventory] = useState(false);
-  const [showNotebook, setShowNotebook] = useState(false);
-  const [showItemManager, setShowItemManager] = useState(false);
-  const [showEvents, setShowEvents] = useState(false);
-  const [showEventManage, setShowEventManage] = useState(false);
-  const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
-  const [visibleEventIds, setVisibleEventIds] = useState(() => indexEvents(initialSnapshot.events).visibleIds);
-  const [eventsById, setEventsById] = useState(() => indexEvents(initialSnapshot.events).byId);
-  const [eventsOrdered, setEventsOrdered] = useState<EventView[]>(initialSnapshot.events);
-  const [eventsError, setEventsError] = useState(false);
-  const [unreadEvents, setUnreadEvents] = useState(initialSnapshot.unreadEvents);
-  const [unreadEventsKey, setUnreadEventsKey] = useState(0);
-  const [eventDetailId, setEventDetailId] = useState<number | null>(null);
-  // Passed into every ChatMessage — must stay referentially stable (see
-  // handleToggleInventory below).
-  const handleOpenEvent = useCallback((id: number) => setEventDetailId(id), []);
-  const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
-  const [showBotManager, setShowBotManager] = useState(false);
-  const [showAiImport, setShowAiImport] = useState(false);
-  const [showRoomInfo, setShowRoomInfo] = useState(false);
-  const [showMembers, setShowMembers] = useState(false);
-  const [checkMode, setCheckMode] = useState<CheckMode | null>(null);
-  const [showCheckMenu, setShowCheckMenu] = useState(false);
-  const [pendingSkillCheck, setPendingSkillCheck] = useState<PendingSkillCheck | null>(null);
-  const [pendingBonusDice, setPendingBonusDice] = useState<{ messageId: number } | null>(null);
-  const [showSystemMenu, setShowSystemMenu] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
-  const [showUserSettings, setShowUserSettings] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
-  // One-time discoverability toast for the hotkey system. Read via
-  // useSyncExternalStore (same pattern as RoomTopBar's event badge): no
-  // setState-in-effect, no hydration flash — the server snapshot is always
-  // "seen" (toast hidden). Desktop only; retired for good once the user closes
-  // it or opens the help sheet by any path (Alt+/, gear menu, the toast).
-  const showHotkeyHint = useSyncExternalStore(
-    hotkeyHintStore.subscribe,
-    hotkeyHintStore.getSnapshot,
-    hotkeyHintStore.getServerSnapshot,
-  );
+  // Open/closed state for the room's panels, dialogs and top-bar menus (see
+  // useOverlayVisibility for the ones that keep their own state).
+  const overlays = useOverlayVisibility();
+  const { setters: overlaySetters } = overlays;
   const openHotkeyHelp = useCallback(() => {
     hotkeyHintStore.markSeen();
-    setShowHotkeyHelp(true);
-  }, []);
+    overlaySetters.hotkeyHelp(true);
+  }, [overlaySetters]);
   // Inline room-name editing (host only, top bar)
-  const [editingRoomName, setEditingRoomName] = useState(false);
-  const [roomNameDraft, setRoomNameDraft] = useState(room.name);
-  const [savingRoomName, setSavingRoomName] = useState(false);
+  const { editingRoomName, setEditingRoomName, roomNameDraft, setRoomNameDraft, savingRoomName, handleSaveRoomName } =
+    useRoomNameEditor(room);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
-  const [unreadItems, setUnreadItems] = useState(initialSnapshot.unreadItems);
-  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>(initialSnapshot.unreadDms);
+  const { unreadCounts, setUnreadCounts, markTabRead } = useUnreadDmCounts(room.id, initialSnapshot.unreadDms);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   // Live overrides pushed by SSE, keyed by userId — one entry per member,
   // holding the rule's primary vital (HP where the rule has one).
   const [characterResources, setCharacterResources] = useState<Map<number, StatusEntry>>(new Map());
-  const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
-  const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
-  const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
-  const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
   const [typingBots, setTypingBots] = useState<TypingBots>({});
 
   // Conversation sidebar (width / collapsed / mobile + drag-to-resize).
@@ -222,191 +97,64 @@ export function RoomClient({
   // Admin observers (viewing a room they haven't joined) are always read-only.
   const readOnly = (!!room.frozen && !isHost) || isObserver;
 
-  const handleSaveRoomName = async () => {
-    const trimmed = roomNameDraft.trim();
-    if (!trimmed || trimmed === room.name) {
-      setEditingRoomName(false);
-      return;
-    }
-    setSavingRoomName(true);
-    const res = await updateRoomNameAction(room.id, trimmed)
-      .catch(() => ({ success: false as const }));
-    setSavingRoomName(false);
-    if (!res.success) {
-      // Revert draft on failure; keep editor open so the host can retry
-      setRoomNameDraft(room.name);
-      return;
-    }
-    setEditingRoomName(false);
-    router.refresh();
-  };
-
   const activeTabRef = useRef(activeTab);
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
-  // Incremental pruning: when seenIdsRef exceeds 500, drop the oldest half
-  // instead of rebuilding from messages (avoids O(n) rebuild on every batch).
-  useEffect(() => {
-    if (seenIdsRef.current.size > 500) {
-      const toDelete = Array.from(seenIdsRef.current).slice(0, 250);
-      for (const id of toDelete) seenIdsRef.current.delete(id);
-    }
-  }, [messages.length]);
-
   const handleTabChange = useCallback((tab: "public" | number) => {
     setActiveTab(tab);
-    if (tab !== "public") {
-      setUnreadCounts((prev) => ({
-        ...prev,
-        [tab]: 0,
-      }));
-      markDMReadAction(room.id, tab).catch(() => {});
-    }
+    if (tab !== "public") markTabRead(tab);
     if (isMobile) {
       setSidebarCollapsed(true);
     }
-  }, [room.id, isMobile, setSidebarCollapsed]);
+  }, [markTabRead, isMobile, setSidebarCollapsed]);
 
-  // Build mention targets (players + bots, excluding self)
-  const mentionTargets = useMemo(() => {
-    return (players || [])
-      .filter((p: { users?: { id?: number }; user_id?: number }) => (p.users?.id || p.user_id) !== userId)
-      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string; characterData?: string | null; avatar?: string | null; avatarColor?: string | null } }) => {
-        const u = p.users || p.user;
-        const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
-        const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
-        return {
-          id: (u?.id || p.user_id) ?? 0,
-          nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
-          isBot: !!u?.isBot,
-          isBotDisabled,
-          isProviderError,
-          vital: primaryVital(charData),
-          avatar: p.room_members?.avatar ?? null,
-          avatarColor: p.room_members?.avatarColor ?? null,
-        };
-      });
-  }, [players, userId, aiEnabled, validProviderIds]);
-
-  // Build DM conversations
-  const dmConversations = useMemo(() => {
-    return mentionTargets.map(p => {
-      const liveRes = characterResources.get(p.id);
-      return {
-        userId: p.id,
-        nickname: p.nickname,
-        isBot: p.isBot,
-        unread: unreadCounts[p.id] || 0,
-        isBotDisabled: p.isBotDisabled,
-        isProviderError: p.isProviderError,
-        isOnline: onlineUserIds.has(p.id),
-        vital: liveRes ?? p.vital,
-        avatar: p.avatar,
-        avatarColor: p.avatarColor,
-      };
-    });
-  }, [mentionTargets, unreadCounts, onlineUserIds, characterResources]);
-
-  const totalUnread = useMemo(() => {
-    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
-  }, [unreadCounts]);
+  // Mention targets (players + bots, excluding self), the DM list and its
+  // badge total — pure derivations in lib/room/mention-targets.
+  const mentionTargets = useMemo(
+    () => buildMentionTargets(players || [], userId, aiEnabled, validProviderIds),
+    [players, userId, aiEnabled, validProviderIds],
+  );
+  const dmConversations = useMemo(
+    () => buildDmConversations(mentionTargets, unreadCounts, onlineUserIds, characterResources),
+    [mentionTargets, unreadCounts, onlineUserIds, characterResources],
+  );
+  const totalUnreadCount = useMemo(() => totalUnread(unreadCounts), [unreadCounts]);
 
   // Capabilities drive every rule-specific UI gate (TopBar check menu,
   // tooltips, host-only buttons). Looked up once per render so child props
   // stay stable.
   const ruleCapabilities = getRuleForRoom(room).capabilities;
 
-  // "Set up your character" nudge on the 角色档案 top-bar icon. Only for rules
-  // with a structured sheet (coc7th/TA/DnD/狩魂; basic/通用 d100 never hints),
-  // and only for the current user. Roll-up: lights up when attributes are still
-  // at their rule defaults OR the user has no skills yet. Skills are counted
-  // here (the top bar has no sheet/skill data of its own), keyed on the shared
-  // skillRefreshKey so .st commands and in-panel skill edits keep it live.
-  // The first value comes with the server render (initialSnapshot); only a
-  // bump re-reads it.
-  const [skillsEmpty, setSkillsEmpty] = useState(initialSnapshot.skillsEmpty);
-  useEffect(() => {
-    if (skillRefreshKey === 0) return;
-    getMySkillsAction(room.id)
-      .then(s => setSkillsEmpty(s.length === 0))
-      .catch(() => {});
-  }, [room.id, skillRefreshKey]);
+  // "Set up your character" nudge on the 角色档案 top-bar icon.
+  const characterHint = useCharacterHint({
+    room,
+    characterData,
+    skillRefreshKey,
+    initialSkillsEmpty: initialSnapshot.skillsEmpty,
+  });
 
-  // Events: one fetch for the whole room, shared through EventDataContext with
-  // the chat cards, the events panel and the detail modal — see that file for
-  // why this is centralized. The same response drives the readable-id set that
-  // gates each chat card's lock state, plus the top-bar unread badge.
-  // Re-fetched on the shared eventsRefreshKey, which the `events_updated` SSE
-  // bumps, so publish/retract/promote/edit all reflect live. The first list
-  // comes with the server render (initialSnapshot), so key 0 skips the fetch.
-  useEffect(() => {
-    if (eventsRefreshKey === 0) return;
-    let alive = true;
-    void (async () => {
-      try {
-        const rows = await getMyEventsAction(room.id);
-        if (!alive) return;
-        const { byId, visibleIds } = indexEvents(rows);
-        setEventsOrdered(rows);
-        setEventsById(byId);
-        setVisibleEventIds(visibleIds);
-        setEventsError(false);
-      } catch {
-        // A failed refresh keeps the current list on screen (and its "updated"
-        // highlights); consumers only show the error when there is no list.
-        if (alive) setEventsError(true);
-      }
-    })();
-    return () => { alive = false; };
-  }, [room.id, eventsRefreshKey]);
-
-  useEffect(() => {
-    if (eventsRefreshKey === 0 && unreadEventsKey === 0) return;
-    getUnreadEventCountAction(room.id).then(setUnreadEvents).catch(() => {});
-  }, [room.id, eventsRefreshKey, unreadEventsKey]);
-
-  const bumpEvents = useCallback(() => setEventsRefreshKey((k) => k + 1), []);
-  /** Refresh only the top-bar badge. Marking events read must NOT re-fetch the
-   *  list — that is what used to erase the "已更新" highlights ~300ms after the
-   *  player opened the panel to look at them. */
-  const refreshEventBadge = useCallback(() => setUnreadEventsKey((k) => k + 1), []);
-
-  const eventEntities = useBackpackEntities(room.id, inventoryRefreshKey);
-  const eventData = useMemo<EventData>(() => ({
-    eventsById, eventsOrdered, entities: eventEntities,
-    error: eventsError, retry: bumpEvents,
-  }), [eventsById, eventsOrdered, eventEntities, eventsError, bumpEvents]);
-
-  const characterHint = useMemo(() => {
-    const rule = getRuleForRoom(room);
-    if (!ruleUsesStructuredSheet(rule)) return false;
-    let sheet: CharacterData | null = null;
-    if (characterData) {
-      try { sheet = JSON.parse(characterData) as CharacterData; } catch {}
-    }
-    return attributesUnset(sheet, rule) || skillsEmpty;
-  }, [room, characterData, skillsEmpty]);
+  // Events for this viewer: the EventDataContext list, the chat-card unlock
+  // set, the top-bar badge and the open detail modal.
+  const {
+    eventsRefreshKey, setEventsRefreshKey,
+    visibleEventIds, unreadEvents,
+    eventDetailId, setEventDetailId, handleOpenEvent,
+    bumpEvents, refreshEventBadge, eventData,
+  } = useRoomEventsData({
+    roomId: room.id,
+    initialEvents: initialSnapshot.events,
+    initialUnreadEvents: initialSnapshot.unreadEvents,
+    inventoryRefreshKey,
+  });
 
   const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 
-  const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
-  const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
-
-  // Live "online" count: non-bot members with an active SSE connection, plus
-  // self (always online as the viewer). Single source of truth shared by the
-  // top bar and the left roster panel so their "X 在线" labels stay in sync —
-  // presence lives in `onlineUserIds` (SSE presence_update), not the roster.
-  const onlineCount = useMemo(
-    () =>
-      (players || []).filter((p: { users?: { id?: number; isBot?: boolean }; user?: { id?: number; isBot?: boolean }; user_id?: number }) => {
-        const u = p.users || p.user;
-        const id = u?.id ?? p.user_id;
-        return !u?.isBot && (id === userId || onlineUserIds.has(id ?? -1));
-      }).length,
-    [players, onlineUserIds, userId]
-  );
+  // Roster counts for the top bar, and the live online count it shares with
+  // the roster panel (presence comes from SSE, not the roster).
+  const { botCount, playerCount } = countRoster(players || []);
+  const onlineCount = useMemo(() => countOnline(players || [], userId, onlineUserIds), [players, onlineUserIds, userId]);
 
   // Bucket each visible message into its channel/tab. `messages` already only
   // contains rows this viewer may see (filtered by the SSE route + initial query),
@@ -416,112 +164,26 @@ export function RoomClient({
     return messages.filter(m => channelOf(m, userId) === activeTab);
   }, [messages, activeTab, userId]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const statusRef = useRef(status);
-  const isAtBottomRef = useRef(true);
+  // Backpack badge: seeded from the page, recounted on later item messages.
+  const { unreadItems, setUnreadItems } = useUnreadInventoryCount({
+    roomId: room.id,
+    initialUnread: initialSnapshot.unreadItems,
+    initialMessages,
+    messages,
+  });
 
-  useEffect(() => { statusRef.current = status; }, [status]);
-
-  // The badge's first value comes with the page (initialSnapshot), so the
-  // message the room opened on doesn't trigger a recount — only later ones do.
-  const firstPaintLastMsgIdRef = useRef(initialMessages[initialMessages.length - 1]?.id);
-  useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg && lastMsg.id === firstPaintLastMsgIdRef.current) return;
-    if (lastMsg?.type === "system" && (lastMsg.content.includes("道具") || lastMsg.content.toLowerCase().includes("item"))) {
-      getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
-    }
-  }, [messages, room.id]);
-
-  const scrollToBottom = (smooth = true) => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: smooth ? "smooth" : "instant",
-      });
-      isAtBottomRef.current = true;
-      setShowScrollButton(false);
-    }
-  };
-
-  const scrollTimeoutRef = useRef<number | null>(null);
-
-  const handleScroll = useCallback(() => {
-    if (scrollTimeoutRef.current !== null) return;
-    scrollTimeoutRef.current = window.requestAnimationFrame(async () => {
-      scrollTimeoutRef.current = null;
-      const el = scrollRef.current;
-      if (!el) return;
-      const threshold = 150;
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-      isAtBottomRef.current = atBottom;
-      setShowScrollButton(!atBottom);
-
-      // Infinite scroll load more (R8) — read the live snapshot via ref so the
-      // handler needn't list `messages` as a dep (which would recreate it on every message).
-      const currentMessages = messagesRef.current;
-      if (el.scrollTop < 10 && hasMore && !loadingMore && currentMessages.length > 0) {
-        setLoadingMore(true);
-        const oldestId = currentMessages[0].id;
-        try {
-          const older = await loadMoreMessagesAction(room.id, oldestId, 50) as unknown as Message[];
-          if (older.length < 50) {
-            setHasMore(false);
-          }
-          if (older.length > 0) {
-            const prevScrollHeight = el.scrollHeight;
-
-            // Add to seenIdsRef
-            older.forEach(m => seenIdsRef.current.add(String(m.id)));
-
-            setMessages(prev => {
-              const filteredOlder = older.filter(o => !prev.some(p => p.id === o.id));
-              return [...filteredOlder, ...prev];
-            });
-
-            // Adjust scroll position after rendering to keep it stable.
-            // Must be an explicit `instant` scroll: the container carries
-            // `scroll-smooth`, and a bare scrollTop assignment scrolls with
-            // behavior `auto` — which scroll-behavior turns into an ANIMATED
-            // glide from ~0 down to delta. Besides the visible lurch, the
-            // intermediate scroll events still satisfy `scrollTop < 10` after
-            // `loadingMore` resets, spuriously fetching a second page.
-            requestAnimationFrame(() => {
-              if (scrollRef.current) {
-                const delta = scrollRef.current.scrollHeight - prevScrollHeight;
-                scrollRef.current.scrollTo({ top: delta, behavior: "instant" });
-              }
-            });
-          }
-        } catch (err) {
-          console.error("Failed to load more messages:", err);
-        } finally {
-          setLoadingMore(false);
-        }
-      }
-    });
-  }, [room.id, hasMore, loadingMore]);
-
-  useEffect(() => {
-    if (isAtBottomRef.current) {
-      requestAnimationFrame(() => {
-        scrollToBottom(false);
-      });
-    }
-  }, [tabMessages, typingBots]); // Re-scroll when switching tabs or typing state changes
-
-  // Cap the in-memory list: SSE only ever appends, so a multi-hour session
-  // accumulates thousands of mounted ChatMessage trees. While the user sits at
-  // the bottom (i.e. not reading scrollback), trim to the newest window and
-  // re-arm `hasMore` — scrolling up refetches the trimmed rows via
-  // loadMoreMessagesAction exactly like the initial 100-row page.
-  useEffect(() => {
-    const MAX = 400, KEEP = 300;
-    if (messages.length > MAX && isAtBottomRef.current) {
-      setMessages((prev) => (prev.length > MAX ? prev.slice(prev.length - KEEP) : prev));
-      setHasMore(true);
-    }
-  }, [messages.length]);
+  // Stick-to-bottom, the back-to-bottom button, older-page loading and the
+  // in-memory window cap.
+  const { scrollRef, handleScroll, showScrollButton, scrollToBottom } = useChatScroll({
+    roomId: room.id,
+    initialCount: initialMessages.length,
+    messagesRef,
+    messagesLength: messages.length,
+    seenIdsRef,
+    setMessages,
+    tabMessages,
+    typingBots,
+  });
 
   // Single SSE connection: routes inbound events into the right state setter.
   useRoomEvents({
@@ -543,291 +205,52 @@ export function RoomClient({
     setCharacterResources,
   });
 
-  // Room display mode — RoomClient is the single owner of the theme context's
-  // roomMode (RoomThemeSetter owns only the theme). Normally this is the room's
-  // configured auto/light/dark. When themeMode is "timeline", light/dark instead
-  // follows the most recent timeline divider (night → dark, morning/afternoon →
-  // light). The latest divider is the max-id one in the loaded window; if none is
-  // loaded we fall back to the server-resolved initial (the true latest may
-  // predate the window).
-  const { setRoomMode } = useTheme();
-  const followsTimeline = room.themeMode === "timeline";
-  // Mode resolved from the newest divider inside the loaded window; null when
-  // the window holds no divider (never loaded, or trimmed out by the
-  // message-window cap).
-  const scannedDividerMode = useMemo<ThemeMode | null>(() => {
-    if (!followsTimeline) return null;
-    let latest: Message | null = null;
-    for (const m of messages) {
-      if (m.type === "system" && m.systemKind === "timeline-divider" && (!latest || m.id > latest.id)) {
-        latest = m;
-      }
-    }
-    if (!latest) return null;
-    return resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
-  }, [followsTimeline, messages]);
-  // Last divider-resolved mode ever seen this session (render-time derived
-  // state, same pattern as `seededPlayers` above). Needed because the
-  // message-window cap can trim the divider row itself out of `messages` —
-  // without this, the mode would silently snap back to the page-load initial.
-  const [lastDividerMode, setLastDividerMode] = useState<ThemeMode | null>(null);
-  if (scannedDividerMode !== null && scannedDividerMode !== lastDividerMode) {
-    setLastDividerMode(scannedDividerMode);
-  }
-  const effectiveRoomMode: ThemeMode = !followsTimeline
-    ? (room.themeMode as ThemeMode) || "auto"
-    : scannedDividerMode ?? lastDividerMode ?? initialTimelineMode ?? "light";
+  // Light/dark for the room (configured, or following the timeline).
+  useRoomThemeMode({ room, messages, initialTimelineMode });
 
-  useEffect(() => {
-    setRoomMode(effectiveRoomMode);
-    // Cache for the pre-paint FOUC script (src/app/layout.tsx) on next navigation.
-    try { window.sessionStorage.setItem("room-mode-" + room.id, effectiveRoomMode); } catch {}
-    return () => setRoomMode(null);
-  }, [effectiveRoomMode, room.id, setRoomMode]);
+  // Sending (messages, dice, commands, divider withdrawal) and the two helpers
+  // the check flow shares: local error rows and the self-sheet refresh.
+  const { pushLocalError, refreshSelfSheet, handleSendMessage, handleWithdrawTimeline } = useChatSend({
+    roomId: room.id,
+    userId,
+    activeTab,
+    seenIdsRef,
+    liveEnterRef,
+    setMessages,
+    setSkillRefreshKey,
+  });
 
-  // Re-fetch the current user's sheet so an open 角色卡 reflects command-driven
-  // changes (.st / .sc) without a full page reload. router.refresh() updates the
-  // characterData prop; the key bump reloads the CharacterPanel's 技能 tab.
-  const refreshSelfSheet = useCallback(() => {
-    router.refresh();
-    setSkillRefreshKey(k => k + 1);
-  }, [router]);
+  // Another member's card, read-only; opening one closes the members panel.
+  const closeMembers = useCallback(() => overlaySetters.members(false), [overlaySetters]);
+  const {
+    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard,
+    handleViewPlayerCard, closeViewingPlayer,
+  } = usePlayerCardViewer(room.id, closeMembers);
 
-  // A self-only SYSTEM error row that never reached the server — how command,
-  // send and withdraw failures surface in the feed. Gone on reload.
-  const pushLocalError = useCallback((content: string, channelUserId: number | null = null) => {
-    const errorMsg = {
-      id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
-      content,
-      type: "system" as const, audience: "self" as const,
-      systemKind: "error" as const,
-      targetUserId: null, channelUserId,
-      isPrivate: true, diceDetail: null,
-      createdAt: new Date().toISOString()
-    };
-    seenIdsRef.current.add(String(errorMsg.id));
-    liveEnterRef.current.set(String(errorMsg.id), Date.now());
-    setMessages(prev => [...prev, errorMsg]);
-  }, [room.id, userId]);
-
-  const handleSendMessage = useCallback(async (
-    content: string,
-    type: "text" | "dice" | "image" | "sticker",
-    diceDetail?: string,
-    isPrivate?: boolean,
-    targetUserId?: number
-  ) => {
-    // The channel we're posting in: public, or a DM with this partner.
-    const channelPartner = activeTab !== "public" ? activeTab : undefined;
-
-    // Text/image inherit the channel's privacy (a DM tab → a `dm` whisper). The
-    // dice panel's 🔒 "secret" toggle is handled separately below (hidden roll),
-    // so it is NOT folded into the channel here.
-    let finalIsPrivate = isPrivate;
-    let finalTargetId = targetUserId;
-    if (channelPartner !== undefined) {
-      finalIsPrivate = true;
-      finalTargetId = channelPartner;
-    }
-
-    // .st / .sc mutate the character sheet — refresh the open panels afterwards (both
-    // command prefixes, and whether intercepted on the client or inside sendMessageAction).
-    // No \b after st/sc: the compact form (.stsan60) has no boundary, and no other
-    // command token starts with "st"/"sc", so a bare prefix match is correct.
-    const isSheetMutationCmd = type === "text" && /^[.。]\s*(st|sc)/i.test(content.trim());
-
-    // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
-    // Pass the channel context so command feedback stays inside a DM instead of broadcasting publicly.
-    if (content.startsWith(".") && type === "text") {
-      try {
-        const result = await executeCommandAction(room.id, userId, content, finalIsPrivate, finalTargetId);
-        if (!result.success && result.error) {
-          pushLocalError(tra("commandError", { error: result.error }), channelPartner ?? null);
-        }
-      } catch (e) {
-        console.error(e);
-        pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
-      }
-      if (isSheetMutationCmd) refreshSelfSheet();
-      return;
-    }
-    try {
-      let res: { success: true } | { success: false; error: string };
-      if (type === "dice") {
-        // Dice always go through rollDiceAction so the server is the source of
-        // truth for the result. Skip silently if the caller didn't include the
-        // detail we need — that's a programming bug, not a chat message.
-        if (!diceDetail) return;
-        const detail = JSON.parse(diceDetail);
-        const faces = parseInt(detail.dice.replace("d", ""));
-        // `isPrivate` here is the dice panel's 🔒 secret toggle → a hidden (self-only)
-        // roll. `channelPartner` decides where it lands (current DM, or public).
-        const hidden = !!isPrivate;
-        res = await rollDiceAction(room.id, faces, detail.count, hidden, channelPartner);
-      } else {
-        res = await sendMessageAction(room.id, content, type, finalIsPrivate, finalTargetId);
-      }
-      if (!res.success) {
-        pushLocalError(tra("sendFailed", { error: res.error }), channelPartner ?? null);
-        return;
-      }
-      if (isSheetMutationCmd) refreshSelfSheet();
-    } catch (e) {
-      console.error(e);
-      pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
-    }
-  }, [room.id, userId, activeTab, tra, tCommon, refreshSelfSheet, pushLocalError]);
-
-  const handleViewPlayerCard = useCallback(async (targetUserId: number, targetNickname: string) => {
-    setShowMembers(false);
-    setViewingPlayerId(targetUserId);
-    setViewingPlayerNickname(targetNickname);
-    setLoadingPlayerCard(true);
-    try {
-      const data = await getCharacterDataAction(room.id, targetUserId);
-      setViewingPlayerCharData(data ? JSON.stringify(data) : null);
-    } catch (e) {
-      console.error("Failed to load player character card", e);
-    } finally {
-      setLoadingPlayerCard(false);
-    }
-  }, [room.id]);
-
-  // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
-  // (so the caller can open the prompt); otherwise surfaces any error inline.
-  const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number, bonusDice?: number): Promise<{ needsSkill?: boolean }> => {
-    const result = await respondToCheckRequestAction(
-      room.id, messageId,
-      onBehalfOfUserId !== undefined || bonusDice !== undefined ? { onBehalfOfUserId, bonusDice } : undefined
-    );
-    if (result.needsSkill) return { needsSkill: true };
-    if (!result.success && result.error) {
-      pushLocalError(tra("commandError", { error: result.error }));
-    } else if (result.success && !onBehalfOfUserId) {
-      // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
-      // (Proxy rolls deduct the proxied player's sanity, not the host's — no self refresh.)
-      refreshSelfSheet();
-    }
-    return {};
-  }, [room.id, tra, refreshSelfSheet, pushLocalError]);
-
-  const handleCheckRequest = useCallback((messageId: number, skillName: string, opts?: { bonusDicePrompt?: boolean }) => {
-    // Rule-specialized request (狩魂者): ask the player for their 加骰 count
-    // first; the roll fires from the prompt's confirm.
-    if (opts?.bonusDicePrompt) {
-      setPendingBonusDice({ messageId });
-      return;
-    }
-    // Let the server roll the check. If the stat isn't set, it reports needsSkill and we
-    // open a themed in-page prompt. The server (lookupCheckTarget) is the source of truth,
-    // so COC attributes/resources already on the character sheet won't trigger the prompt.
-    respondCheck(messageId).then(r => {
-      if (r.needsSkill) setPendingSkillCheck({ messageId, skillName });
-    });
-  }, [respondCheck]);
-
-  // Player confirmed their 加骰 count for a rule-specialized check request.
-  const handleConfirmBonusDice = useCallback((bonusDice: number) => {
-    if (!pendingBonusDice) return;
-    const { messageId } = pendingBonusDice;
-    setPendingBonusDice(null);
-    respondCheck(messageId, undefined, bonusDice);
-  }, [pendingBonusDice, respondCheck]);
-
-  /** Host proxy: roll on behalf of an absent target. Skill prompt never triggers
-   *  (the host can't set another player's skill — the server returns a plain error). */
-  const handleProxyCheckRequest = useCallback((messageId: number, onBehalfOfUserId: number) => {
-    respondCheck(messageId, onBehalfOfUserId);
-  }, [respondCheck]);
-
-  /** Fetch pending targets + each player's resolved skill value for the popover preview. */
-  const loadProxyTargets = useCallback((messageId: number) => {
-    return getProxyCheckTargetsAction(room.id, messageId);
-  }, [room.id]);
-
-  // Player confirmed a skill value in the prompt: set it via the .st command (which applies
-  // the COC 7th rule adaptation — attributes/resources go to the character sheet, not skills),
-  // then roll the check.
-  const handleConfirmSkillSet = useCallback(async (value: number) => {
-    if (!pendingSkillCheck) return;
-    const { messageId, skillName } = pendingSkillCheck;
-    setPendingSkillCheck(null);
-    const res = await executeCommandAction(room.id, userId, `.st ${skillName}${value}`)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    // Without the stat the check would only ask for it again — stop here.
-    if (!res.success) {
-      pushLocalError(tra("commandError", { error: res.error || tCommon("error") }));
-      return;
-    }
-    await respondCheck(messageId);
-  }, [pendingSkillCheck, room.id, userId, respondCheck, pushLocalError, tra, tCommon]);
-
-  // Host withdraws a timeline divider. The row is removed for everyone via the
-  // `message_deleted` SSE event (handled in useRoomEvents), including this client.
-  const handleWithdrawTimeline = useCallback(async (messageId: number) => {
-    const res = await withdrawTimelineDividerAction(room.id, messageId)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (!res.success) pushLocalError(tra("withdrawFailed", { error: res.error }));
-  }, [room.id, pushLocalError, tra, tCommon]);
+  // Check requests, the 加骰 / set-skill prompts, host proxy rolls, and the
+  // top-bar check dialog/menu.
+  const {
+    checkMode, setCheckMode, showCheckMenu, setShowCheckMenu,
+    pendingSkillCheck, setPendingSkillCheck, pendingBonusDice, setPendingBonusDice,
+    handleCheckRequest, handleConfirmBonusDice, handleProxyCheckRequest, loadProxyTargets, handleConfirmSkillSet,
+  } = useCheckFlow({ roomId: room.id, userId, pushLocalError, refreshSelfSheet });
 
   // Stable identity matters: this reaches every ChatMessage via ChatArea, and
   // one unstable prop defeats the whole list's memo() bail-out.
   const handleToggleInventory = useCallback(() => {
-    setShowInventory((v) => !v);
+    overlaySetters.inventory((v) => !v);
     // Clear only the local unread dot here. The server-side "viewed" flags are
     // acknowledged by the InventoryPanel *after* it loads, so the new/updated
     // highlights still render this session instead of being cleared mid-open.
     setUnreadItems(0);
-  }, []);
+  }, [overlaySetters, setUnreadItems]); // both stable, so this callback still is
 
-  // Alt+↑/↓: cycle through the conversation tabs (public first, then the DM
-  // list in sidebar order). Wraps around at both ends.
-  const cycleTab = useCallback((dir: 1 | -1) => {
-    const order: ("public" | number)[] = ["public", ...dmConversations.map((c) => c.userId)];
-    const i = order.indexOf(activeTab);
-    handleTabChange(order[(Math.max(i, 0) + dir + order.length) % order.length]);
-  }, [dmConversations, activeTab, handleTabChange]);
-
-  // Room-wide keyboard shortcuts (bindings defined in src/lib/ui/hotkeys.ts).
-  useRoomHotkeys({
-    isHost,
-    readOnly,
-    onAction: (action: RoomHotkeyAction) => {
-      switch (action) {
-        case "toggle-character": setShowCharacter((v) => !v); break;
-        case "toggle-inventory": handleToggleInventory(); break;
-        case "toggle-notebook": setShowNotebook((v) => !v); break;
-        case "toggle-events": setShowEvents((v) => !v); break;
-        case "toggle-sidebar": toggleSidebar(); break;
-        case "toggle-dice":
-          if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_DICE_EVENT));
-          break;
-        case "toggle-quick-check":
-          // The ChatInput no-ops this when the rule declares no quickCheckPanel.
-          if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_QUICK_CHECK_EVENT));
-          break;
-        case "toggle-check":
-          // Mirrors the top-bar button: multi-mode rules get the dropdown,
-          // single-mode rules toggle the direct check dialog, no-check rules no-op.
-          if (ruleCapabilities.checkMenuModes.length > 1) setShowCheckMenu((v) => !v);
-          else if (ruleCapabilities.checkMenuModes.length === 1) setCheckMode((m) => (m === "check" ? null : "check"));
-          break;
-        case "toggle-item-manager": setShowItemManager((v) => !v); break;
-        case "toggle-timeline": setShowTimeline((v) => !v); break;
-        case "prev-tab": cycleTab(-1); break;
-        case "next-tab": cycleTab(1); break;
-        case "help":
-          hotkeyHintStore.markSeen();
-          setShowHotkeyHelp((v) => !v);
-          break;
-      }
-    },
-    // Escape with no overlay mounted: close whichever top-bar dropdown is open.
-    onEscape: () => {
-      setShowSystemMenu(false);
-      setShowAiMenu(false);
-      setShowCheckMenu(false);
-    },
+  // Room-wide keyboard shortcuts (bindings in src/lib/ui/hotkeys.ts).
+  useRoomShortcuts({
+    isHost, readOnly, checkMenuModes: ruleCapabilities.checkMenuModes,
+    activeTab, tabPartners: dmConversations, onTabChange: handleTabChange,
+    toggleInventory: handleToggleInventory, toggleSidebar,
+    overlaySetters, setShowCheckMenu, setCheckMode,
   });
 
   return (
@@ -848,7 +271,7 @@ export function RoomClient({
         onlineCount={onlineCount}
         botCount={botCount}
         sidebarCollapsed={sidebarCollapsed}
-        totalUnread={totalUnread}
+        totalUnread={totalUnreadCount}
         onToggleSidebar={toggleSidebar}
         editingRoomName={editingRoomName}
         roomNameDraft={roomNameDraft}
@@ -856,41 +279,16 @@ export function RoomClient({
         setRoomNameDraft={setRoomNameDraft}
         setEditingRoomName={setEditingRoomName}
         onSaveRoomName={handleSaveRoomName}
-        showCharacter={showCharacter}
-        setShowCharacter={setShowCharacter}
         characterHint={characterHint}
-        showInventory={showInventory}
         unreadItems={unreadItems}
         onToggleInventory={handleToggleInventory}
-        showNotebook={showNotebook}
-        setShowNotebook={setShowNotebook}
-        showEvents={showEvents}
-        setShowEvents={setShowEvents}
         unreadEvents={unreadEvents}
         checkMode={checkMode}
         setCheckMode={setCheckMode}
         showCheckMenu={showCheckMenu}
         setShowCheckMenu={setShowCheckMenu}
-        showItemManager={showItemManager}
-        setShowItemManager={setShowItemManager}
-        setShowEventManage={setShowEventManage}
-        showTimeline={showTimeline}
-        setShowTimeline={setShowTimeline}
-        showAiMenu={showAiMenu}
-        setShowAiMenu={setShowAiMenu}
-        setShowAiImport={setShowAiImport}
-        setShowBotManager={setShowBotManager}
-        showSystemMenu={showSystemMenu}
-        setShowSystemMenu={setShowSystemMenu}
-        setShowMembers={setShowMembers}
-        setShowRoomInfo={setShowRoomInfo}
-        setShowExport={setShowExport}
-        setShowSettings={setShowSettings}
-        setShowUserSettings={setShowUserSettings}
-        setShowHotkeyHelp={(v) => {
-          hotkeyHintStore.markSeen();
-          setShowHotkeyHelp(v);
-        }}
+        overlays={overlays}
+        onOpenHotkeyHelp={openHotkeyHelp}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -911,38 +309,13 @@ export function RoomClient({
           resizing={sidebarResizing || !sidebarHydrated}
         />
 
-        {/* Backdrop for mobile sidebar — stays mounted so it can fade in/out
-            in step with the drawer slide. */}
-        {isMobile && (
-          <div
-            aria-hidden={sidebarCollapsed}
-            className={`fixed inset-0 bg-scrim/40 z-20 transition-opacity duration-300 ${
-              sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 cursor-pointer"
-            }`}
-            onClick={() => setSidebarCollapsed(true)}
-          />
-        )}
-
-        {/* Resize Handle */}
+        {isMobile && <SidebarBackdrop collapsed={sidebarCollapsed} onCollapse={() => setSidebarCollapsed(true)} />}
         {!sidebarCollapsed && !isMobile && (
-          <div
-            onMouseDown={handleResizeStart}
-            className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-colors duration-150 shrink-0 relative z-10 group"
-            title={t("tooltipResize")}
-            onDoubleClick={resetSidebarWidth}
-          >
-            {/* Collapse toggle button on the handle (like VS Code or Notion) */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-4 h-8 bg-surface border border-border hover:border-primary/50 rounded flex items-center justify-center shadow-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-20"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSidebarCollapsed(true);
-              }}
-              title={t("tooltipCollapseSidebar")}
-            >
-              <span className="text-[9px] text-text-muted hover:text-primary select-none">◀</span>
-            </div>
-          </div>
+          <SidebarResizeHandle
+            onResizeStart={handleResizeStart}
+            onResetWidth={resetSidebarWidth}
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
         )}
 
         {/* Main Content: Chat Area */}
@@ -1005,44 +378,12 @@ export function RoomClient({
         viewingPlayerNickname={viewingPlayerNickname}
         viewingPlayerCharData={viewingPlayerCharData}
         loadingPlayerCard={loadingPlayerCard}
-        onCloseViewingPlayer={() => {
-          setViewingPlayerId(null);
-          setViewingPlayerCharData(null);
-          setViewingPlayerNickname("");
-        }}
-        showCharacter={showCharacter}
-        setShowCharacter={setShowCharacter}
-        showBotManager={showBotManager}
-        setShowBotManager={setShowBotManager}
-        showAiImport={showAiImport}
-        setShowAiImport={setShowAiImport}
-        showMembers={showMembers}
-        setShowMembers={setShowMembers}
-        showInventory={showInventory}
-        setShowInventory={setShowInventory}
-        showNotebook={showNotebook}
-        setShowNotebook={setShowNotebook}
-        showItemManager={showItemManager}
-        setShowItemManager={setShowItemManager}
-        showEvents={showEvents}
-        setShowEvents={setShowEvents}
-        showEventManage={showEventManage}
-        setShowEventManage={setShowEventManage}
+        onCloseViewingPlayer={closeViewingPlayer}
         eventsRefreshKey={eventsRefreshKey}
         onEventsChanged={bumpEvents}
         onEventBadgeChanged={refreshEventBadge}
         eventDetailId={eventDetailId}
         setEventDetailId={setEventDetailId}
-        showTimeline={showTimeline}
-        setShowTimeline={setShowTimeline}
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
-        showRoomInfo={showRoomInfo}
-        setShowRoomInfo={setShowRoomInfo}
-        showExport={showExport}
-        setShowExport={setShowExport}
-        showUserSettings={showUserSettings}
-        setShowUserSettings={setShowUserSettings}
         checkMode={checkMode}
         setCheckMode={setCheckMode}
         pendingSkillCheck={pendingSkillCheck}
@@ -1054,31 +395,14 @@ export function RoomClient({
         onNicknameChange={(newNick) => setNickname(newNick)}
         onViewPlayerCard={handleViewPlayerCard}
         onStartDM={handleTabChange}
+        overlays={overlays}
       />
 
-      {showHotkeyHint && (
-        <div className="fixed bottom-24 right-4 z-30 flex items-center gap-2.5 bg-surface theme-border rounded-theme shadow-xl pl-3.5 pr-2 py-2.5 overlay-pop"
-          style={{ transformOrigin: "bottom right", "--overlay-pop-y": "6px" } as React.CSSProperties} role="status">
-          <Icons.Keyboard className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-sm text-text">{tHotkeys("hintText")}</span>
-          <button
-            onClick={openHotkeyHelp}
-            className="text-sm font-bold text-primary hover:text-primary-hover transition cursor-pointer whitespace-nowrap"
-          >
-            {tHotkeys("hintAction", { key: formatHotkey("Slash") })}
-          </button>
-          <button
-            onClick={() => hotkeyHintStore.markSeen()}
-            className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer"
-            aria-label={tHotkeys("hintDismiss")}
-          >
-            <Icons.X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <HotkeyHintToast onOpenHelp={openHotkeyHelp} />
 
-      {showHotkeyHelp && (
-        <RoomHotkeyHelp isHost={isHost} onClose={() => setShowHotkeyHelp(false)} />
+
+      {overlays.shown.hotkeyHelp && (
+        <RoomHotkeyHelp isHost={isHost} onClose={() => overlaySetters.hotkeyHelp(false)} />
       )}
     </div>
     </EventDataProvider>

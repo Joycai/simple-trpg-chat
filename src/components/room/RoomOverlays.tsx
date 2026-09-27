@@ -20,6 +20,7 @@ import { getRuleForRoom } from "@/lib/rules";
 import { UserSettingsPanel } from "@/components/user/UserSettingsPanel";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { MembersDialog } from "@/components/room/MembersDialog";
+import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import type { Room, PlayerEntry, MentionTarget, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import type { ThemeId, StoredThemeMode } from "@/themes/types";
 
@@ -53,24 +54,6 @@ interface RoomOverlaysProps {
   loadingPlayerCard: boolean;
   onCloseViewingPlayer: () => void;
 
-  showCharacter: boolean;
-  setShowCharacter: (v: boolean) => void;
-  showBotManager: boolean;
-  setShowBotManager: (v: boolean) => void;
-  showAiImport: boolean;
-  setShowAiImport: (v: boolean) => void;
-  showMembers: boolean;
-  setShowMembers: (v: boolean) => void;
-  showInventory: boolean;
-  setShowInventory: (v: boolean) => void;
-  showNotebook: boolean;
-  setShowNotebook: (v: boolean) => void;
-  showItemManager: boolean;
-  setShowItemManager: (v: boolean) => void;
-  showEvents: boolean;
-  setShowEvents: (v: boolean) => void;
-  showEventManage: boolean;
-  setShowEventManage: (v: boolean) => void;
   eventsRefreshKey: number;
   /** Re-fetch the shared event list (host mutations, and closing the log). */
   onEventsChanged: () => void;
@@ -80,16 +63,6 @@ interface RoomOverlaysProps {
   /** Event whose detail modal is open (from a chat card), or null. */
   eventDetailId: number | null;
   setEventDetailId: (v: number | null) => void;
-  showTimeline: boolean;
-  setShowTimeline: (v: boolean) => void;
-  showSettings: boolean;
-  setShowSettings: (v: boolean) => void;
-  showRoomInfo: boolean;
-  setShowRoomInfo: (v: boolean) => void;
-  showExport: boolean;
-  setShowExport: (v: boolean) => void;
-  showUserSettings: boolean;
-  setShowUserSettings: (v: boolean) => void;
 
   checkMode: CheckMode | null;
   setCheckMode: (v: CheckMode | null) => void;
@@ -106,6 +79,8 @@ interface RoomOverlaysProps {
   onNicknameChange: (newNick: string) => void;
   onViewPlayerCard: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (tab: "public" | number) => void;
+  /** Open/closed state and setters for the room's panels and dialogs. */
+  overlays: OverlayVisibility;
 }
 
 /* The room's modal/overlay layer — every panel rendered on top of the chat.
@@ -116,17 +91,29 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
     inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
-    showCharacter, setShowCharacter, showBotManager, setShowBotManager, showAiImport, setShowAiImport,
-    showMembers, setShowMembers, showInventory, setShowInventory, showNotebook, setShowNotebook, showItemManager, setShowItemManager,
-    showEvents, setShowEvents, showEventManage, setShowEventManage, eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
+    eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
     eventDetailId, setEventDetailId,
-    showTimeline, setShowTimeline,
-    showSettings, setShowSettings, showRoomInfo, setShowRoomInfo, showExport, setShowExport,
-    showUserSettings, setShowUserSettings,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
     pendingBonusDice, setPendingBonusDice, onConfirmBonusDice,
     onNicknameChange, onViewPlayerCard, onStartDM,
+    overlays,
   } = props;
+  const {
+    shown: {
+      character: showCharacter, botManager: showBotManager, aiImport: showAiImport,
+      members: showMembers, inventory: showInventory, notebook: showNotebook,
+      itemManager: showItemManager, events: showEvents, eventManage: showEventManage,
+      timeline: showTimeline, settings: showSettings, roomInfo: showRoomInfo, export: showExport,
+      userSettings: showUserSettings,
+    },
+    setters: {
+      character: setShowCharacter, botManager: setShowBotManager, aiImport: setShowAiImport,
+      members: setShowMembers, inventory: setShowInventory, notebook: setShowNotebook,
+      itemManager: setShowItemManager, events: setShowEvents, eventManage: setShowEventManage,
+      timeline: setShowTimeline, settings: setShowSettings, roomInfo: setShowRoomInfo,
+      export: setShowExport, userSettings: setShowUserSettings,
+    },
+  } = overlays;
 
   const checkRequestOptions = getRuleForRoom(room).capabilities.checkRequestOptions;
 

@@ -7,6 +7,7 @@ import { Icons } from "@/components/shared/icons";
 import { useClickOutside } from "@/lib/ui/useClickOutside";
 import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
 import { formatHotkey } from "@/lib/ui/hotkeys";
+import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
 import { ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
@@ -64,43 +65,21 @@ interface RoomTopBarProps {
   setRoomNameDraft: Dispatch<SetStateAction<string>>;
   setEditingRoomName: Dispatch<SetStateAction<boolean>>;
   onSaveRoomName: () => void;
-  // Panel toggles
-  showCharacter: boolean;
-  setShowCharacter: Dispatch<SetStateAction<boolean>>;
   // Gentle nudge dot when the current user's character sheet isn't set up yet
-  // (structured-sheet rules only; see RoomClient).
+  // (structured-sheet rules only; see useCharacterHint).
   characterHint?: boolean;
-  showInventory: boolean;
   unreadItems: number;
   onToggleInventory: () => void;
-  showNotebook: boolean;
-  setShowNotebook: Dispatch<SetStateAction<boolean>>;
-  // Events (事件) — player-facing panel toggle + unread badge.
-  showEvents: boolean;
-  setShowEvents: Dispatch<SetStateAction<boolean>>;
+  // Events (事件) — unread badge on the player-facing panel toggle.
   unreadEvents: number;
   checkMode: CheckMode;
   setCheckMode: Dispatch<SetStateAction<CheckMode>>;
   showCheckMenu: boolean;
   setShowCheckMenu: Dispatch<SetStateAction<boolean>>;
-  showItemManager: boolean;
-  setShowItemManager: Dispatch<SetStateAction<boolean>>;
-  // Host event management panel (opened from the 道具/事件 dropdown).
-  setShowEventManage: Dispatch<SetStateAction<boolean>>;
-  showTimeline: boolean;
-  setShowTimeline: Dispatch<SetStateAction<boolean>>;
-  showAiMenu: boolean;
-  setShowAiMenu: Dispatch<SetStateAction<boolean>>;
-  setShowAiImport: Dispatch<SetStateAction<boolean>>;
-  setShowBotManager: Dispatch<SetStateAction<boolean>>;
-  showSystemMenu: boolean;
-  setShowSystemMenu: Dispatch<SetStateAction<boolean>>;
-  setShowMembers: Dispatch<SetStateAction<boolean>>;
-  setShowRoomInfo: Dispatch<SetStateAction<boolean>>;
-  setShowExport: Dispatch<SetStateAction<boolean>>;
-  setShowSettings: Dispatch<SetStateAction<boolean>>;
-  setShowUserSettings: Dispatch<SetStateAction<boolean>>;
-  setShowHotkeyHelp: Dispatch<SetStateAction<boolean>>;
+  /** Open/closed state and setters for the room's panels and dropdowns. */
+  overlays: OverlayVisibility;
+  /** Opens the shortcut sheet (and retires the one-time hint toast). */
+  onOpenHotkeyHelp: () => void;
 }
 
 /**
@@ -150,39 +129,31 @@ export function RoomTopBar({
   setRoomNameDraft,
   setEditingRoomName,
   onSaveRoomName,
-  showCharacter,
-  setShowCharacter,
   characterHint = false,
-  showInventory,
   unreadItems,
   onToggleInventory,
-  showNotebook,
-  setShowNotebook,
-  showEvents,
-  setShowEvents,
   unreadEvents,
   checkMode,
   setCheckMode,
   showCheckMenu,
   setShowCheckMenu,
-  showItemManager,
-  setShowItemManager,
-  setShowEventManage,
-  showTimeline,
-  setShowTimeline,
-  showAiMenu,
-  setShowAiMenu,
-  setShowAiImport,
-  setShowBotManager,
-  showSystemMenu,
-  setShowSystemMenu,
-  setShowMembers,
-  setShowRoomInfo,
-  setShowExport,
-  setShowSettings,
-  setShowUserSettings,
-  setShowHotkeyHelp,
+  overlays,
+  onOpenHotkeyHelp,
 }: RoomTopBarProps) {
+  const {
+    shown: {
+      character: showCharacter, inventory: showInventory, notebook: showNotebook,
+      events: showEvents, itemManager: showItemManager, timeline: showTimeline, aiMenu: showAiMenu,
+      systemMenu: showSystemMenu,
+    },
+    setters: {
+      character: setShowCharacter, notebook: setShowNotebook, events: setShowEvents,
+      itemManager: setShowItemManager, eventManage: setShowEventManage, timeline: setShowTimeline,
+      aiMenu: setShowAiMenu, aiImport: setShowAiImport, botManager: setShowBotManager,
+      systemMenu: setShowSystemMenu, members: setShowMembers, roomInfo: setShowRoomInfo,
+      export: setShowExport, settings: setShowSettings, userSettings: setShowUserSettings,
+    },
+  } = overlays;
   const t = useTranslations("room");
   const tn = useTranslations("nav");
   const ts = useTranslations("userSettings");
@@ -387,7 +358,7 @@ export function RoomTopBar({
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                     <Icons.User className="w-4 h-4" /> {ts("title")}
                   </button>
-                  <button onClick={() => { setShowHotkeyHelp(true); }}
+                  <button onClick={() => { onOpenHotkeyHelp(); }}
                     className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                     <Icons.Keyboard className="w-4 h-4" /> {t("menuHotkeys")} <span className="ml-auto text-xs text-text-muted font-mono">{formatHotkey("Slash")}</span>
                   </button>

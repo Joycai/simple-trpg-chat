@@ -11,9 +11,9 @@ interface RoomThemeSetterProps {
 
 /**
  * Sets data-theme on <html> for room-specific theming. The color mode (data-mode)
- * is owned by RoomClient — it may follow the room's timeline dividers — so it is
- * intentionally not set here to keep a single writer of the theme context's
- * roomMode.
+ * is owned by RoomClient's useRoomThemeMode — it may follow the room's timeline
+ * dividers — so it is intentionally not set here to keep a single writer of the
+ * theme context's roomMode.
  */
 export function RoomThemeSetter({ roomId, theme }: RoomThemeSetterProps) {
   const { setRoomTheme } = useTheme();

@@ -355,7 +355,7 @@ body[data-room-bg] .bg-bg .bg-bg {
 /* Scroll-to-bottom FAB — show/hide without mounting.
    ------------------------------------------------------------
    The button stays in the DOM and toggles `data-visible`, because the 150px
-   threshold that drives it (RoomClient's `handleScroll`) has no hysteresis:
+   threshold that drives it (useChatScroll's `handleScroll`) has no hysteresis:
    scrolling along the boundary flips the flag repeatedly, and a transition
    damps that where a mount/unmount amplifies it into a flicker.
 
