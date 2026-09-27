@@ -18,6 +18,7 @@ import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
 import type { SaveStatus } from "@/components/room/character/SaveButton";
 import { PaneTransition } from "@/components/shared/PaneTransition";
+import { NICKNAME_MAX_LENGTH } from "@/lib/room/limits";
 import {
   getRule, DEFAULT_RULE_ID, type ResourcePatch,
   type CocAttributes, type D20Attributes, type D20Sheet,
@@ -597,6 +598,7 @@ export function CharacterPanel({
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <span className="text-text-muted text-lg font-bold shrink-0">{t("title")} ·</span>
               <input value={nickname} onChange={e => setNickname(e.target.value)}
+                maxLength={NICKNAME_MAX_LENGTH}
                 onBlur={saveNickname}
                 onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { setNickname(currentNickname); setEditingNick(false); } }}
                 autoFocus

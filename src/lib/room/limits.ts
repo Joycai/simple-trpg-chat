@@ -6,7 +6,8 @@
  *  createRoomAction and updateRoomNameAction. */
 export const ROOM_NAME_MAX_LENGTH = 100;
 
-/** Max per-room nickname length — enforced by updateNicknameAction. */
+/** Max per-room nickname length — CharacterPanel's nickname input and
+ *  updateNicknameAction. */
 export const NICKNAME_MAX_LENGTH = 50;
 
 /** Max chat message length — enforced by sendMessageAction. */
