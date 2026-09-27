@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-/** Shown when the room page calls `notFound()` for an id with no room. */
+/** Shown when `/rooms/[id]` names no room (its layout, or the page, calls `notFound()`). */
 export default async function RoomNotFound() {
   const t = await getTranslations("room");
   return (

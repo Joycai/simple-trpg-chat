@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
+import { roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import { messageVisibilityWhere } from "@/lib/messaging/router";
 import { redirect, notFound } from "next/navigation";
@@ -16,12 +16,14 @@ import { getRuleForRoom } from "@/lib/rules";
 import { sanitizeBotConfigForClient } from "@/lib/ai/bot-status";
 import { roomAvatarUrl } from "@/lib/media/avatars";
 import { loadMemberSnapshot } from "@/lib/room/initial-snapshot";
+import { findRoom, parseRoomId } from "@/lib/room/room-lookup";
 import { isRoomHostOrAdmin } from "@/lib/auth/room-access";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
   const { id } = await params;
-  const roomId = parseInt(id);
+  const roomId = parseRoomId(id);
+  if (roomId === null) notFound();
 
   const session = await auth();
   if (!session) redirect("/login");
@@ -29,10 +31,8 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const user = session.user;
   const userId = parseInt(user.id);
 
-  // Get room. An id that isn't a positive int4 can't name one, and would make
-  // Postgres throw (NaN, out of range) instead of returning no row.
-  if (!Number.isInteger(roomId) || roomId <= 0 || roomId > 2_147_483_647) notFound();
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+  // Already checked by the layout (same cached row); kept so the page stands on its own.
+  const room = await findRoom(roomId);
   if (!room) notFound();
 
   const isHost = room.hostId === userId;
