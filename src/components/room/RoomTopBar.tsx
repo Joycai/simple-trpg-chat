@@ -65,19 +65,17 @@ interface RoomTopBarProps {
   setRoomNameDraft: Dispatch<SetStateAction<string>>;
   setEditingRoomName: Dispatch<SetStateAction<boolean>>;
   onSaveRoomName: () => void;
-  // Panel toggles
   // Gentle nudge dot when the current user's character sheet isn't set up yet
-  // (structured-sheet rules only; see RoomClient).
+  // (structured-sheet rules only; see useCharacterHint).
   characterHint?: boolean;
   unreadItems: number;
   onToggleInventory: () => void;
-  // Events (事件) — player-facing panel toggle + unread badge.
+  // Events (事件) — unread badge on the player-facing panel toggle.
   unreadEvents: number;
   checkMode: CheckMode;
   setCheckMode: Dispatch<SetStateAction<CheckMode>>;
   showCheckMenu: boolean;
   setShowCheckMenu: Dispatch<SetStateAction<boolean>>;
-  // Host event management panel (opened from the 道具/事件 dropdown).
   /** Open/closed state and setters for the room's panels and dropdowns. */
   overlays: OverlayVisibility;
   /** Opens the shortcut sheet (and retires the one-time hint toast). */

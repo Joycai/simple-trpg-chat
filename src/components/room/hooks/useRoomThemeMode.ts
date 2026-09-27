@@ -44,7 +44,7 @@ export function useRoomThemeMode({
     return resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
   }, [followsTimeline, messages]);
   // Last divider-resolved mode ever seen this session (render-time derived
-  // state, same pattern as RoomClient's `seededPlayers`). Needed because the
+  // state, same pattern as useLivePlayers' re-seed). Needed because the
   // message-window cap can trim the divider row itself out of `messages` —
   // without this, the mode would silently snap back to the page-load initial.
   const [lastDividerMode, setLastDividerMode] = useState<ThemeMode | null>(null);
