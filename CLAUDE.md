@@ -258,7 +258,7 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   Read actions may still throw — their callers render a retry state.
 
   On the client, wrap a write in `useAsyncAction` (`lib/ui/useAsyncAction.ts`) instead of
-  a hand-written `saving` / `error` pair: it returns `{ pending, error, message, run }`,
+  a hand-written `saving` / `error` pair: it returns `{ pending, error, run }`,
   treats a throw as `fallbackError` (never the thrown text), and takes `onError` /
   `onSuccess` when the message slot is shared with other checks, and
   `keepPendingOnSuccess` for a dialog that closes on success.

@@ -2,20 +2,16 @@ import { describe, it, expect } from "vitest";
 import { IDLE, reduceOutcome, settle, type AsyncActionState } from "@/lib/ui/useAsyncAction";
 
 describe("reduceOutcome", () => {
-  const failed: AsyncActionState = { pending: false, error: "boom", message: null };
-  const succeeded: AsyncActionState = { pending: false, error: null, message: "saved" };
+  const failed: AsyncActionState = { pending: false, error: "boom" };
 
-  it("start sets pending and clears the previous error and message", () => {
-    expect(reduceOutcome(failed, { type: "start" })).toEqual({ pending: true, error: null, message: null });
-    expect(reduceOutcome(succeeded, { type: "start" })).toEqual({ pending: true, error: null, message: null });
+  it("start sets pending and clears the previous error", () => {
+    expect(reduceOutcome(failed, { type: "start" })).toEqual({ pending: true, error: null });
   });
 
-  it("a success releases pending and keeps its message", () => {
+  it("a success releases pending", () => {
     const running = reduceOutcome(IDLE, { type: "start" });
-    expect(reduceOutcome(running, { type: "settle", outcome: { success: true, message: "ok" } }))
-      .toEqual({ pending: false, error: null, message: "ok" });
     expect(reduceOutcome(running, { type: "settle", outcome: { success: true } }))
-      .toEqual({ pending: false, error: null, message: null });
+      .toEqual({ pending: false, error: null });
   });
 
   it("keepPendingOnSuccess leaves pending set after a success only", () => {
@@ -23,18 +19,13 @@ describe("reduceOutcome", () => {
     expect(reduceOutcome(running, { type: "settle", outcome: { success: true }, keepPendingOnSuccess: true }).pending)
       .toBe(true);
     expect(reduceOutcome(running, { type: "settle", outcome: { success: false, error: "no" }, keepPendingOnSuccess: true }))
-      .toEqual({ pending: false, error: "no", message: null });
+      .toEqual({ pending: false, error: "no" });
   });
 
   it("a failure releases pending and records the error", () => {
     const running = reduceOutcome(IDLE, { type: "start" });
     expect(reduceOutcome(running, { type: "settle", outcome: { success: false, error: "denied" } }))
-      .toEqual({ pending: false, error: "denied", message: null });
-  });
-
-  it("clear drops the error and message but not pending", () => {
-    expect(reduceOutcome({ pending: true, error: "x", message: "y" }, { type: "clear" }))
-      .toEqual({ pending: true, error: null, message: null });
+      .toEqual({ pending: false, error: "denied" });
   });
 });
 
@@ -42,8 +33,8 @@ describe("settle", () => {
   it("passes a returned result through", async () => {
     expect(await settle(async () => ({ success: false as const, error: "localized" }), [], "fallback"))
       .toEqual({ success: false, error: "localized" });
-    expect(await settle(async () => ({ success: true as const, message: "done" }), [], "fallback"))
-      .toEqual({ success: true, message: "done" });
+    expect(await settle(async () => ({ success: true as const }), [], "fallback"))
+      .toEqual({ success: true });
   });
 
   it("treats a void return as success", async () => {

@@ -4,33 +4,28 @@ import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "rea
 import type { Fail } from "@/lib/actions/result";
 
 /** How a run ended. A write action's `{ success, ... }` result already fits. */
-export type Outcome = { success: true; message?: string } | Fail;
+export type Outcome = { success: true } | Fail;
 
 export interface AsyncActionState {
   pending: boolean;
   error: string | null;
-  /** Success text from the last run's `{ success: true, message }`, if any. */
-  message: string | null;
 }
 
 export type AsyncActionEvent =
   | { type: "start" }
-  | { type: "settle"; outcome: Outcome; keepPendingOnSuccess?: boolean }
-  | { type: "clear" };
+  | { type: "settle"; outcome: Outcome; keepPendingOnSuccess?: boolean };
 
-export const IDLE: AsyncActionState = { pending: false, error: null, message: null };
+export const IDLE: AsyncActionState = { pending: false, error: null };
 
 /** The hook's state machine, kept pure so it can be tested without a DOM. */
-export function reduceOutcome(prev: AsyncActionState, event: AsyncActionEvent): AsyncActionState {
+export function reduceOutcome(_prev: AsyncActionState, event: AsyncActionEvent): AsyncActionState {
   switch (event.type) {
     case "start":
-      return { pending: true, error: null, message: null };
+      return { pending: true, error: null };
     case "settle":
       return event.outcome.success
-        ? { pending: !!event.keepPendingOnSuccess, error: null, message: event.outcome.message ?? null }
-        : { pending: false, error: event.outcome.error, message: null };
-    case "clear":
-      return { ...prev, error: null, message: null };
+        ? { pending: !!event.keepPendingOnSuccess, error: null }
+        : { pending: false, error: event.outcome.error };
   }
 }
 
@@ -55,7 +50,7 @@ export interface AsyncActionOptions {
   /** Error text when `fn` throws (network drop, REST failure, a parent callback).
    *  Omitted, a throw fails with "" — for callers that show no error. */
   fallbackError?: string;
-  onSuccess?: (message?: string) => void;
+  onSuccess?: () => void;
   /** For a caller whose error slot is shared with other sources: write it there. */
   onError?: (error: string) => void;
   /** Leave `pending` set after a success — for a dialog that closes on success,
@@ -64,7 +59,7 @@ export interface AsyncActionOptions {
 }
 
 /**
- * The pending / error / success-message boilerplate around one async write.
+ * The pending / error boilerplate around one async write.
  * No debouncing and no race handling: a second run while one is in flight
  * behaves as it would with hand-written state (callers disable the button).
  * `run` is stable and always calls the latest `fn` and options. Only the
@@ -95,12 +90,10 @@ export function useAsyncAction<Args extends unknown[]>(
     if (mountedRef.current) {
       dispatch({ type: "settle", outcome, keepPendingOnSuccess: opts.keepPendingOnSuccess });
     }
-    if (outcome.success) opts.onSuccess?.(outcome.message);
+    if (outcome.success) opts.onSuccess?.();
     else opts.onError?.(outcome.error);
     return outcome.success;
   }, []);
 
-  const clear = useCallback(() => dispatch({ type: "clear" }), []);
-
-  return { ...state, run, clear };
+  return { ...state, run };
 }
