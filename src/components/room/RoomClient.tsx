@@ -15,6 +15,7 @@ import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useChatScroll } from "@/components/room/hooks/useChatScroll";
 import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
 import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
+import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
@@ -24,9 +25,7 @@ import { updateRoomNameAction } from "@/app/actions/room";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
-import { getMyEventsAction, getUnreadEventCountAction, type EventView } from "@/app/actions/event";
-import { EventDataProvider, type EventData } from "@/components/room/event/EventDataContext";
-import { useBackpackEntities } from "@/components/room/hooks/useBackpackEntities";
+import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
@@ -75,14 +74,6 @@ import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
 import type { ThemeMode } from "@/themes/types";
-
-/** The two lookups the event list feeds (detail modal by id, chat-card lock state). */
-function indexEvents(rows: EventView[]) {
-  return {
-    byId: new Map(rows.map((e) => [e.id, e])),
-    visibleIds: new Set(rows.map((e) => e.id)),
-  };
-}
 
 export function RoomClient({
   room,
@@ -145,17 +136,6 @@ export function RoomClient({
   const [showItemManager, setShowItemManager] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
   const [showEventManage, setShowEventManage] = useState(false);
-  const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
-  const [visibleEventIds, setVisibleEventIds] = useState(() => indexEvents(initialSnapshot.events).visibleIds);
-  const [eventsById, setEventsById] = useState(() => indexEvents(initialSnapshot.events).byId);
-  const [eventsOrdered, setEventsOrdered] = useState<EventView[]>(initialSnapshot.events);
-  const [eventsError, setEventsError] = useState(false);
-  const [unreadEvents, setUnreadEvents] = useState(initialSnapshot.unreadEvents);
-  const [unreadEventsKey, setUnreadEventsKey] = useState(0);
-  const [eventDetailId, setEventDetailId] = useState<number | null>(null);
-  // Passed into every ChatMessage — must stay referentially stable (see
-  // handleToggleInventory below).
-  const handleOpenEvent = useCallback((id: number) => setEventDetailId(id), []);
   const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
@@ -286,50 +266,19 @@ export function RoomClient({
     initialSkillsEmpty: initialSnapshot.skillsEmpty,
   });
 
-  // Events: one fetch for the whole room, shared through EventDataContext with
-  // the chat cards, the events panel and the detail modal — see that file for
-  // why this is centralized. The same response drives the readable-id set that
-  // gates each chat card's lock state, plus the top-bar unread badge.
-  // Re-fetched on the shared eventsRefreshKey, which the `events_updated` SSE
-  // bumps, so publish/retract/promote/edit all reflect live. The first list
-  // comes with the server render (initialSnapshot), so key 0 skips the fetch.
-  useEffect(() => {
-    if (eventsRefreshKey === 0) return;
-    let alive = true;
-    void (async () => {
-      try {
-        const rows = await getMyEventsAction(room.id);
-        if (!alive) return;
-        const { byId, visibleIds } = indexEvents(rows);
-        setEventsOrdered(rows);
-        setEventsById(byId);
-        setVisibleEventIds(visibleIds);
-        setEventsError(false);
-      } catch {
-        // A failed refresh keeps the current list on screen (and its "updated"
-        // highlights); consumers only show the error when there is no list.
-        if (alive) setEventsError(true);
-      }
-    })();
-    return () => { alive = false; };
-  }, [room.id, eventsRefreshKey]);
-
-  useEffect(() => {
-    if (eventsRefreshKey === 0 && unreadEventsKey === 0) return;
-    getUnreadEventCountAction(room.id).then(setUnreadEvents).catch(() => {});
-  }, [room.id, eventsRefreshKey, unreadEventsKey]);
-
-  const bumpEvents = useCallback(() => setEventsRefreshKey((k) => k + 1), []);
-  /** Refresh only the top-bar badge. Marking events read must NOT re-fetch the
-   *  list — that is what used to erase the "已更新" highlights ~300ms after the
-   *  player opened the panel to look at them. */
-  const refreshEventBadge = useCallback(() => setUnreadEventsKey((k) => k + 1), []);
-
-  const eventEntities = useBackpackEntities(room.id, inventoryRefreshKey);
-  const eventData = useMemo<EventData>(() => ({
-    eventsById, eventsOrdered, entities: eventEntities,
-    error: eventsError, retry: bumpEvents,
-  }), [eventsById, eventsOrdered, eventEntities, eventsError, bumpEvents]);
+  // Events for this viewer: the EventDataContext list, the chat-card unlock
+  // set, the top-bar badge and the open detail modal.
+  const {
+    eventsRefreshKey, setEventsRefreshKey,
+    visibleEventIds, unreadEvents,
+    eventDetailId, setEventDetailId, handleOpenEvent,
+    bumpEvents, refreshEventBadge, eventData,
+  } = useRoomEventsData({
+    roomId: room.id,
+    initialEvents: initialSnapshot.events,
+    initialUnreadEvents: initialSnapshot.unreadEvents,
+    inventoryRefreshKey,
+  });
 
   const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 
