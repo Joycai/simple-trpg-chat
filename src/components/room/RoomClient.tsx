@@ -14,6 +14,7 @@ import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useChatScroll } from "@/components/room/hooks/useChatScroll";
 import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
+import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
@@ -23,7 +24,6 @@ import { updateRoomNameAction } from "@/app/actions/room";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
-import { getMySkillsAction } from "@/app/actions/skills";
 import { getMyEventsAction, getUnreadEventCountAction, type EventView } from "@/app/actions/event";
 import { EventDataProvider, type EventData } from "@/components/room/event/EventDataContext";
 import { useBackpackEntities } from "@/components/room/hooks/useBackpackEntities";
@@ -70,8 +70,7 @@ const hotkeyHintStore = {
   },
 };
 import { channelOf } from "@/lib/messaging/audience";
-import { getRuleForRoom, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
-import type { CharacterData } from "@/lib/character/types";
+import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
@@ -279,21 +278,13 @@ export function RoomClient({
   // stay stable.
   const ruleCapabilities = getRuleForRoom(room).capabilities;
 
-  // "Set up your character" nudge on the 角色档案 top-bar icon. Only for rules
-  // with a structured sheet (coc7th/TA/DnD/狩魂; basic/通用 d100 never hints),
-  // and only for the current user. Roll-up: lights up when attributes are still
-  // at their rule defaults OR the user has no skills yet. Skills are counted
-  // here (the top bar has no sheet/skill data of its own), keyed on the shared
-  // skillRefreshKey so .st commands and in-panel skill edits keep it live.
-  // The first value comes with the server render (initialSnapshot); only a
-  // bump re-reads it.
-  const [skillsEmpty, setSkillsEmpty] = useState(initialSnapshot.skillsEmpty);
-  useEffect(() => {
-    if (skillRefreshKey === 0) return;
-    getMySkillsAction(room.id)
-      .then(s => setSkillsEmpty(s.length === 0))
-      .catch(() => {});
-  }, [room.id, skillRefreshKey]);
+  // "Set up your character" nudge on the 角色档案 top-bar icon.
+  const characterHint = useCharacterHint({
+    room,
+    characterData,
+    skillRefreshKey,
+    initialSkillsEmpty: initialSnapshot.skillsEmpty,
+  });
 
   // Events: one fetch for the whole room, shared through EventDataContext with
   // the chat cards, the events panel and the detail modal — see that file for
@@ -339,16 +330,6 @@ export function RoomClient({
     eventsById, eventsOrdered, entities: eventEntities,
     error: eventsError, retry: bumpEvents,
   }), [eventsById, eventsOrdered, eventEntities, eventsError, bumpEvents]);
-
-  const characterHint = useMemo(() => {
-    const rule = getRuleForRoom(room);
-    if (!ruleUsesStructuredSheet(rule)) return false;
-    let sheet: CharacterData | null = null;
-    if (characterData) {
-      try { sheet = JSON.parse(characterData) as CharacterData; } catch {}
-    }
-    return attributesUnset(sheet, rule) || skillsEmpty;
-  }, [room, characterData, skillsEmpty]);
 
   const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 
