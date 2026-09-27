@@ -7,6 +7,7 @@ import { Globe, ShieldAlert, Monitor, Sun, Moon, X, RotateCcw, Save, Upload, Ima
 import { updateSystemConfigBatch } from "@/app/actions/ai";
 import { setSiteTheme, setSiteThemeMode } from "@/app/actions/theme";
 import { AdminFaviconConfig } from "./AdminFaviconConfig";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { DEFAULT_SENSITIVE_WORD_GROUPS } from "@/lib/security/sensitive-words-constants";
 import { THEME_LIST, getThemeName, THEME_MODES, type ThemeId, type ThemeMode } from "@/themes/types";
 
@@ -64,7 +65,6 @@ export function AdminConfigClient({
   const [registrationEnabled, setRegistrationEnabled] = useState(initialRegistrationEnabled);
   const [inviteQuota, setInviteQuota] = useState(initialInviteDefaultQuota);
 
-  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"success" | "error">("success");
 
@@ -140,34 +140,40 @@ export function AdminConfigClient({
     router.refresh();
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMsg("");
-    try {
-      // Clamp the default invite quota to a sane 0–99 integer before saving.
-      const quotaNum = Math.min(99, Math.max(0, Math.floor(Number(inviteQuota)) || 0));
-      await updateSystemConfigBatch({
-        site_title: title.trim(),
-        site_icp: icp.trim(),
-        site_icp_url: icpUrl.trim(),
-        site_police_icon: policeIcon,
-        site_police_html: policeHtml.trim(),
-        sensitive_words: customList.join("\n"),
-        sensitive_words_enabled: enabled ? "1" : "0",
-        invite_registration_enabled: registrationEnabled ? "1" : "0",
-        invite_default_quota: String(quotaNum),
-      });
-      setInviteQuota(String(quotaNum));
+  // `msg` is shared with the theme / mode pickers and the police-icon check,
+  // so the result is written there rather than read from the hook.
+  const save = useAsyncAction(async () => {
+    // Clamp the default invite quota to a sane 0–99 integer before saving.
+    const quotaNum = Math.min(99, Math.max(0, Math.floor(Number(inviteQuota)) || 0));
+    await updateSystemConfigBatch({
+      site_title: title.trim(),
+      site_icp: icp.trim(),
+      site_icp_url: icpUrl.trim(),
+      site_police_icon: policeIcon,
+      site_police_html: policeHtml.trim(),
+      sensitive_words: customList.join("\n"),
+      sensitive_words_enabled: enabled ? "1" : "0",
+      invite_registration_enabled: registrationEnabled ? "1" : "0",
+      invite_default_quota: String(quotaNum),
+    });
+    setInviteQuota(String(quotaNum));
+    router.refresh();
+  }, {
+    fallbackError: t("saveFailed"),
+    onSuccess: () => {
       setMsg(t("saveSuccess"));
       setMsgType("success");
-      router.refresh();
-    } catch (e) {
-      console.error(e);
-      setMsg(t("saveFailed"));
+    },
+    onError: (error) => {
+      setMsg(error);
       setMsgType("error");
-    } finally {
-      setSaving(false);
-    }
+    },
+  });
+  const saving = save.pending;
+
+  const handleSave = () => {
+    setMsg("");
+    void save.run();
   };
 
   const handleReset = () => {

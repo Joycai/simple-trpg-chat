@@ -8,6 +8,7 @@ import { updateUser, resetPassword } from "@/app/actions/admin";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 import type { User } from "./types";
 
@@ -26,9 +27,6 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
 
   const [editName, setEditName] = useState(user.displayName);
   const [editRole, setEditRole] = useState(user.role);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [editMsg, setEditMsg] = useState("");
-  const [editStatus, setEditStatus] = useState<"" | "success" | "error">("");
   const [newPassword, setNewPassword] = useState("");
   const [resetMsg, setResetMsg] = useState("");
   const [resetStatus, setResetStatus] = useState<"" | "success" | "error">("");
@@ -41,37 +39,38 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
     return known[role] ?? role;
   };
 
-  const handleSaveProfile = async (close: () => void) => {
-    if (!editName.trim()) return;
-    setSavingEdit(true);
-    setEditMsg("");
-    setEditStatus("");
-    const res = await updateUser(user.id, editName.trim(), editRole)
-      .catch(() => ({ success: false as const, error: t("operationFailed") }));
-    setSavingEdit(false);
-    if (!res.success) {
-      setEditMsg(res.error);
-      setEditStatus("error");
-      return;
-    }
+  const saveProfile = useAsyncAction(async (close: () => void) => {
+    const res = await updateUser(user.id, editName.trim(), editRole);
+    if (!res.success) return res;
     router.refresh();
     close();
+  }, { fallbackError: t("operationFailed") });
+  const savingEdit = saveProfile.pending;
+
+  const handleSaveProfile = (close: () => void) => {
+    if (!editName.trim()) return;
+    void saveProfile.run(close);
   };
 
-  const handleResetPassword = async () => {
-    if (!newPassword.trim()) return;
-    if (newPassword.length < 3) { setResetMsg(t("passwordTooShort")); setResetStatus("error"); return; }
-    const res = await resetPassword(user.id, newPassword.trim())
-      .catch(() => ({ success: false as const, error: t("passwordResetFail") }));
-    if (!res.success) {
-      setResetMsg(res.error);
+  // `resetMsg` also carries the length check, so the result is written there.
+  const reset = useAsyncAction((password: string) => resetPassword(user.id, password), {
+    fallbackError: t("passwordResetFail"),
+    onError: (error) => {
+      setResetMsg(error);
       setResetStatus("error");
-      return;
-    }
-    setResetMsg(t("passwordResetOk"));
-    setResetStatus("success");
-    setNewPassword("");
-    router.refresh();
+    },
+    onSuccess: () => {
+      setResetMsg(t("passwordResetOk"));
+      setResetStatus("success");
+      setNewPassword("");
+      router.refresh();
+    },
+  });
+
+  const handleResetPassword = () => {
+    if (!newPassword.trim() || reset.pending) return;
+    if (newPassword.length < 3) { setResetMsg(t("passwordTooShort")); setResetStatus("error"); return; }
+    void reset.run(newPassword.trim());
   };
 
   return (
@@ -150,7 +149,7 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
               </div>
             </div>
 
-            {editMsg && <Notice variant={editStatus === "error" ? "error" : "success"}>{editMsg}</Notice>}
+            {saveProfile.error && <Notice variant="error">{saveProfile.error}</Notice>}
 
             {/* Account actions — reset password / ban / delete */}
             <div className="flex flex-col gap-3 pt-4 border-t border-border">
@@ -167,7 +166,7 @@ export function EditUserModal({ user, onClose, onToggleBan, onDelete }: EditUser
                   onKeyDown={e => e.key === "Enter" && handleResetPassword()}
                   className="flex-1 min-w-0 px-3 py-2.5 bg-input-bg border border-input-border rounded-theme text-text text-sm placeholder:text-text-dim outline-none transition focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent"
                 />
-                <button onClick={handleResetPassword} disabled={!newPassword.trim()}
+                <button onClick={handleResetPassword} disabled={!newPassword.trim() || reset.pending}
                   className="px-3.5 py-2.5 bg-gradient-to-b from-accent to-accent/80 text-accent-foreground rounded-theme font-bold text-xs transition cursor-pointer disabled:opacity-50 shadow-[0_0_18px_rgb(var(--theme-accent)/0.4)] shrink-0">
                   {t("reset")}
                 </button>

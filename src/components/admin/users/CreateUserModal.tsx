@@ -6,6 +6,7 @@ import { UserPlus, X, Eye, EyeOff, Minus, Plus } from "lucide-react";
 import { createUser } from "@/app/actions/admin";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 
 const AI_POINTS_STEP = 100;
@@ -26,22 +27,19 @@ export function CreateUserModal({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [aiPoints, setAiPoints] = useState(DEFAULT_AI_POINTS);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, close: () => void) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError("");
-    // An unexpected throw (network drop) has no localized reason — fall back to a generic one.
-    const res = await createUser(new FormData(e.currentTarget))
-      .catch(() => ({ success: false as const, error: t("operationFailed") }));
-    if (!res.success) {
-      setError(res.error);
-      setSubmitting(false);
-      return;
-    }
+  // Success closes the modal, so the button stays disabled through the exit.
+  // An unexpected throw (network drop) has no localized reason — fall back to a generic one.
+  const create = useAsyncAction(async (formData: FormData, close: () => void) => {
+    const res = await createUser(formData);
+    if (!res.success) return res;
     close();
+  }, { fallbackError: t("operationFailed"), keepPendingOnSuccess: true });
+  const { pending: submitting, error } = create;
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>, close: () => void) => {
+    e.preventDefault();
+    void create.run(new FormData(e.currentTarget), close);
   };
 
   const roleLabel = (r: string): string =>

@@ -4,6 +4,7 @@ import { useState, useRef, type ChangeEvent } from "react";
 import { useTranslations } from "next-intl";
 import { ImageIcon, Upload, Save, RotateCcw } from "lucide-react";
 import { updateSiteFavicon } from "@/app/actions/theme";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 
 interface AdminFaviconConfigProps {
   initialFavicon: string;
@@ -13,7 +14,6 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
   const t = useTranslations("admin");
   const [previewUrl, setPreviewUrl] = useState(initialFavicon);
   const [pendingDataUrl, setPendingDataUrl] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"success" | "error">("success");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,36 +38,35 @@ export function AdminFaviconConfig({ initialFavicon }: AdminFaviconConfigProps) 
     reader.readAsDataURL(file);
   };
 
-  const handleSave = async () => {
-    if (!pendingDataUrl) return;
-    setSaving(true);
-    setMsg("");
-    const result = await updateSiteFavicon(pendingDataUrl);
-    if (result.success) {
+  // Save and reset are the same write ("" clears the icon); `msg` also carries
+  // the file-size check, so the result is written there.
+  const write = useAsyncAction(async (dataUrl: string) => {
+    const result = await updateSiteFavicon(dataUrl);
+    if (!result.success) return { success: false, error: t("saveFailed") };
+    if (dataUrl === "") setPreviewUrl("");
+    setPendingDataUrl(null);
+  }, {
+    fallbackError: t("saveFailed"),
+    onSuccess: () => {
       setMsg(t("saveSuccess"));
       setMsgType("success");
-      setPendingDataUrl(null);
-    } else {
-      setMsg(t("saveFailed"));
+    },
+    onError: (error) => {
+      setMsg(error);
       setMsgType("error");
-    }
-    setSaving(false);
+    },
+  });
+  const saving = write.pending;
+
+  const handleSave = () => {
+    if (!pendingDataUrl) return;
+    setMsg("");
+    void write.run(pendingDataUrl);
   };
 
-  const handleReset = async () => {
-    setSaving(true);
+  const handleReset = () => {
     setMsg("");
-    const result = await updateSiteFavicon("");
-    if (result.success) {
-      setPreviewUrl("");
-      setPendingDataUrl(null);
-      setMsg(t("saveSuccess"));
-      setMsgType("success");
-    } else {
-      setMsg(t("saveFailed"));
-      setMsgType("error");
-    }
-    setSaving(false);
+    void write.run("");
   };
 
   return (
