@@ -35,7 +35,7 @@ import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryLis
 import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
 import { NotebookShareModal } from "./NotebookShareModal";
-import { DetailModal } from "@/components/room/inventory/InventoryModals";
+import { DetailModal } from "@/components/room/inventory/modals";
 import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-types";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 
