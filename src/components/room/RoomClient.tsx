@@ -18,6 +18,7 @@ import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
 import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
 import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInventoryCount";
 import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
+import { usePlayerCardViewer } from "@/components/room/hooks/usePlayerCardViewer";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
@@ -25,7 +26,6 @@ import { Icons } from "@/components/shared/icons";
 import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { updateRoomNameAction } from "@/app/actions/room";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
-import { getCharacterDataAction } from "@/app/actions/character";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -174,10 +174,6 @@ export function RoomClient({
   // Live overrides pushed by SSE, keyed by userId — one entry per member,
   // holding the rule's primary vital (HP where the rule has one).
   const [characterResources, setCharacterResources] = useState<Map<number, StatusEntry>>(new Map());
-  const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
-  const [viewingPlayerNickname, setViewingPlayerNickname] = useState<string>("");
-  const [viewingPlayerCharData, setViewingPlayerCharData] = useState<string | null>(null);
-  const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
   const [typingBots, setTypingBots] = useState<TypingBots>({});
 
   // Conversation sidebar (width / collapsed / mobile + drag-to-resize).
@@ -445,20 +441,12 @@ export function RoomClient({
     }
   }, [room.id, userId, activeTab, tra, tCommon, refreshSelfSheet, pushLocalError]);
 
-  const handleViewPlayerCard = useCallback(async (targetUserId: number, targetNickname: string) => {
-    setShowMembers(false);
-    setViewingPlayerId(targetUserId);
-    setViewingPlayerNickname(targetNickname);
-    setLoadingPlayerCard(true);
-    try {
-      const data = await getCharacterDataAction(room.id, targetUserId);
-      setViewingPlayerCharData(data ? JSON.stringify(data) : null);
-    } catch (e) {
-      console.error("Failed to load player character card", e);
-    } finally {
-      setLoadingPlayerCard(false);
-    }
-  }, [room.id]);
+  // Another member's card, read-only; opening one closes the members panel.
+  const closeMembers = useCallback(() => setShowMembers(false), []);
+  const {
+    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard,
+    handleViewPlayerCard, closeViewingPlayer,
+  } = usePlayerCardViewer(room.id, closeMembers);
 
   // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
   // (so the caller can open the prompt); otherwise surfaces any error inline.
@@ -772,11 +760,7 @@ export function RoomClient({
         viewingPlayerNickname={viewingPlayerNickname}
         viewingPlayerCharData={viewingPlayerCharData}
         loadingPlayerCard={loadingPlayerCard}
-        onCloseViewingPlayer={() => {
-          setViewingPlayerId(null);
-          setViewingPlayerCharData(null);
-          setViewingPlayerNickname("");
-        }}
+        onCloseViewingPlayer={closeViewingPlayer}
         showCharacter={showCharacter}
         setShowCharacter={setShowCharacter}
         showBotManager={showBotManager}
