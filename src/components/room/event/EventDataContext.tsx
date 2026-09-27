@@ -29,8 +29,6 @@ export interface EventData {
   eventsOrdered: EventView[];
   /** The viewer's backpack as `@`-mention targets, fetched once for the room. */
   entities: NotebookLinkEntity[];
-  /** True only until the first fetch settles — refreshes keep the old list visible. */
-  loading: boolean;
   /** The last fetch failed; consumers show an error state instead of "no events". */
   error: boolean;
   /** Re-run the fetch (also the panels' retry button). */
@@ -38,12 +36,11 @@ export interface EventData {
 }
 
 /** Inert default so a consumer rendered outside the provider degrades to
- *  metadata-only instead of throwing (mirrors `EventCard`'s no-roomId path). */
+ *  metadata-only instead of throwing. */
 const EMPTY: EventData = {
   eventsById: new Map(),
   eventsOrdered: [],
   entities: [],
-  loading: false,
   error: false,
   retry: () => {},
 };

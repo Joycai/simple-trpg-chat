@@ -151,7 +151,6 @@ export function RoomClient({
   const [visibleEventIds, setVisibleEventIds] = useState(() => indexEvents(initialSnapshot.events).visibleIds);
   const [eventsById, setEventsById] = useState(() => indexEvents(initialSnapshot.events).byId);
   const [eventsOrdered, setEventsOrdered] = useState<EventView[]>(initialSnapshot.events);
-  const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState(false);
   const [unreadEvents, setUnreadEvents] = useState(initialSnapshot.unreadEvents);
   const [unreadEventsKey, setUnreadEventsKey] = useState(0);
@@ -328,11 +327,10 @@ export function RoomClient({
   // The first value comes with the server render (initialSnapshot); only a
   // bump re-reads it.
   const [skillsEmpty, setSkillsEmpty] = useState(initialSnapshot.skillsEmpty);
-  const [skillsLoaded, setSkillsLoaded] = useState(true);
   useEffect(() => {
     if (skillRefreshKey === 0) return;
     getMySkillsAction(room.id)
-      .then(s => { setSkillsEmpty(s.length === 0); setSkillsLoaded(true); })
+      .then(s => setSkillsEmpty(s.length === 0))
       .catch(() => {});
   }, [room.id, skillRefreshKey]);
 
@@ -356,11 +354,9 @@ export function RoomClient({
         setVisibleEventIds(visibleIds);
         setEventsError(false);
       } catch {
+        // A failed refresh keeps the current list on screen (and its "updated"
+        // highlights); consumers only show the error when there is no list.
         if (alive) setEventsError(true);
-      } finally {
-        // Never flips back to true: a refresh keeps the current list on screen
-        // instead of flashing a spinner (and wiping the "updated" highlights).
-        if (alive) setEventsLoading(false);
       }
     })();
     return () => { alive = false; };
@@ -380,8 +376,8 @@ export function RoomClient({
   const eventEntities = useBackpackEntities(room.id, inventoryRefreshKey);
   const eventData = useMemo<EventData>(() => ({
     eventsById, eventsOrdered, entities: eventEntities,
-    loading: eventsLoading, error: eventsError, retry: bumpEvents,
-  }), [eventsById, eventsOrdered, eventEntities, eventsLoading, eventsError, bumpEvents]);
+    error: eventsError, retry: bumpEvents,
+  }), [eventsById, eventsOrdered, eventEntities, eventsError, bumpEvents]);
 
   const characterHint = useMemo(() => {
     const rule = getRuleForRoom(room);
@@ -390,8 +386,8 @@ export function RoomClient({
     if (characterData) {
       try { sheet = JSON.parse(characterData) as CharacterData; } catch {}
     }
-    return attributesUnset(sheet, rule) || (skillsLoaded && skillsEmpty);
-  }, [room, characterData, skillsLoaded, skillsEmpty]);
+    return attributesUnset(sheet, rule) || skillsEmpty;
+  }, [room, characterData, skillsEmpty]);
 
   const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 

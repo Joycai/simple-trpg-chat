@@ -33,12 +33,10 @@ const DAYPART_PILL: Record<TimelineSegment, string> = {
 export function EventCard({
   payload,
   unlocked,
-  roomId,
   onOpen,
 }: {
   payload: EventCardPayload;
   unlocked: boolean;
-  roomId?: number;
   onOpen: () => void;
 }) {
   const t = useTranslations("event");
@@ -87,7 +85,7 @@ export function EventCard({
     );
   }
 
-  return <UnlockedCard payload={payload} roomId={roomId} timeLabel={timeLabel} onOpen={onOpen} />;
+  return <UnlockedCard payload={payload} timeLabel={timeLabel} onOpen={onOpen} />;
 }
 
 /** Unlocked card: reads the viewable body/images from the room-wide event data
@@ -96,20 +94,18 @@ export function EventCard({
  *  what lets a host's later edit reach a card already in the log. */
 function UnlockedCard({
   payload,
-  roomId,
   timeLabel,
   onOpen,
 }: {
   payload: EventCardPayload;
-  roomId?: number;
   timeLabel: string;
   onOpen: () => void;
 }) {
   const t = useTranslations("event");
-  const { eventsById, entities, loading } = useEventData();
-  // undefined = still loading; null = unavailable (render metadata only).
-  const found = eventsById.get(payload.eventId);
-  const detail = found ?? (roomId && loading ? undefined : null);
+  const { eventsById, entities } = useEventData();
+  // The list arrives with the room (initialSnapshot), so a missing id means
+  // unavailable to this viewer: render metadata only.
+  const detail = eventsById.get(payload.eventId) ?? null;
 
   const isFull = payload.mode === "full";
   // Day-part tints the time pill (bright morning → warm afternoon → cool night),
@@ -153,15 +149,7 @@ function UnlockedCard({
               min-w-0 lets its ellipsis truncate before it can reach the image. */}
           <div className="flex gap-3 mt-1.5 h-[4.5rem]">
             <div className="flex-1 min-w-0">
-              {detail === undefined ? (
-                <div className="space-y-2 pt-1" aria-hidden="true">
-                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-11/12" />
-                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-4/5" />
-                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-3/5" />
-                </div>
-              ) : detail ? (
-                <EventBodyPreview content={detail.description} lines={3} entities={entities} />
-              ) : null}
+              {detail && <EventBodyPreview content={detail.description} lines={3} entities={entities} />}
             </div>
             {cover && (
               <button

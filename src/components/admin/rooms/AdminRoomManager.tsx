@@ -189,7 +189,7 @@ export function AdminRoomManager({ rooms }: AdminRoomManagerProps) {
                       {/* Room */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
-                          <Link href={`/rooms/${room.id}`} target="_blank" className="text-sm font-bold text-text hover:text-primary transition truncate">
+                          <Link href={`/rooms/${room.id}`} target="_blank" prefetch={false} className="text-sm font-bold text-text hover:text-primary transition truncate">
                             {room.name}
                           </Link>
                           <span className="text-xs text-text-dim font-theme-mono shrink-0">#{room.id}</span>

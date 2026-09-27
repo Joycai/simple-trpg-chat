@@ -24,7 +24,7 @@ export function EventPanel({ roomId, onClose, onChanged, onOpenEvent }: EventPan
   // Content comes from the room-wide fetch (EventDataContext), so opening the
   // log costs no request and the rows keep whatever `updated` flags the last
   // refresh saw.
-  const { eventsOrdered: events, loading, error, retry } = useEventData();
+  const { eventsOrdered: events, error, retry } = useEventData();
 
   // Mark read once per open; refresh the badge only. Re-fetching here would
   // immediately clear every `updated` flag we just rendered the highlight for.
@@ -48,9 +48,7 @@ export function EventPanel({ roomId, onClose, onChanged, onOpenEvent }: EventPan
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5">
-            {loading ? (
-              <div className="flex items-center justify-center py-10 text-text-muted"><Icons.Loader2 className="w-6 h-6 animate-spin" /></div>
-            ) : error && events.length === 0 ? (
+            {error && events.length === 0 ? (
               <LoadFailed onRetry={retry} />
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-2 text-text-dim">
@@ -74,7 +72,7 @@ export function EventPanel({ roomId, onClose, onChanged, onOpenEvent }: EventPan
             )}
           </div>
 
-          {!loading && events.length > 0 && (
+          {events.length > 0 && (
             <div className="px-5 py-3 border-t border-border/60 shrink-0 text-center text-xs text-text-dim">
               {t("logFooter", { count: events.length })}
             </div>
