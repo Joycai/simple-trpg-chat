@@ -302,7 +302,7 @@ UI 侧不用改。
 
 ### #176 引入的一处可见行为变更
 
-COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名(`力量: 70`),与 triangle/狩魂者 统一(`handleExport` 现用 `t(labelKey)`)。要恢复旧形式,给 `attributeKeys` 加导出专用 label 或新增 `exportLabel` 能力位。
+COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名(`力量: 70`),与 triangle/狩魂者 统一(导出文本由 `lib/character/panel-status.ts` 的 `buildCharacterExportText` 生成,用 `t(labelKey)`)。要恢复旧形式,给 `attributeKeys` 加导出专用 label 或新增 `exportLabel` 能力位。
 
 ---
 

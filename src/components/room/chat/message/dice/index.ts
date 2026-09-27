@@ -1,5 +1,5 @@
 /**
- * Dice-message rendering for ChatMessage: the diceDetail payload shapes, the
+ * Dice-message rendering for the chat (MessageBubble, dice-view): the diceDetail payload shapes, the
  * theme-facing metadata (kind / grade / insanity), and the per-rule result
  * cards (plain, pool, 狩魂者 breakdown, COC bonus/penalty, d20 check).
  */
