@@ -140,7 +140,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     const res = await createBotAction(roomId, {
       name: botName,
       nickname: botNickname,
-      systemPrompt: systemPrompt || "你是一个TRPG跑团助手，熟悉COC规则。你需要帮助玩家和主持人推进剧情。",
+      systemPrompt: systemPrompt.trim() || t("defaultSystemPrompt"),
       model,
       activation,
       enableTools,
@@ -164,7 +164,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     const res = await updateBotAction(roomId, editingBot.id, {
       name: botName,
       nickname: botNickname,
-      systemPrompt: systemPrompt || "你是一个TRPG跑团助手。",
+      systemPrompt: systemPrompt.trim() || t("defaultSystemPrompt"),
       model,
       activation,
       enableTools,
