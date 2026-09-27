@@ -5,8 +5,9 @@ const delay = (i: number, step = 80) => ({ animationDelay: `${i * step}ms` });
 
 /**
  * Room skeleton, shown while the room page renders. It draws the three shells
- * RoomClient lays out — top bar, conversation sidebar (md and up; on mobile
- * the real sidebar starts collapsed), message area with its input — plus a few
+ * RoomClient lays out — top bar (two rows below md, like RoomTopBar),
+ * conversation sidebar (lg and up; below 1024px the real one starts as a
+ * collapsed drawer), message area with its input — plus a few
  * placeholders, but no fake messages, so nothing jumps when the room arrives.
  * The sidebar uses the default width: the user's dragged width lives in
  * localStorage, out of the server's reach.
@@ -18,7 +19,7 @@ export default async function RoomLoading() {
       <span className="sr-only">{t("loading")}</span>
 
       <header aria-hidden className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-stretch md:items-center">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className={`h-6 w-40 rounded bg-border/70 ${pulse}`} />
             <div className={`h-3 w-12 rounded bg-border/60 ${pulse}`} />
@@ -32,7 +33,7 @@ export default async function RoomLoading() {
       </header>
 
       <div aria-hidden className="flex-1 flex overflow-hidden">
-        <aside className="hidden md:flex flex-col gap-5 w-64 shrink-0 bg-surface-alt room-shell-frost border-r border-border p-3">
+        <aside className="hidden lg:flex flex-col gap-5 w-64 shrink-0 bg-surface-alt room-shell-frost border-r border-border p-3">
           <div className="flex flex-col gap-1.5">
             <div className={`h-2.5 w-10 rounded bg-border/60 ${pulse}`} />
             {Array.from({ length: 3 }).map((_, i) => (
@@ -54,7 +55,7 @@ export default async function RoomLoading() {
           <div className="flex-1 flex flex-col justify-end gap-5 px-4 py-4 overflow-hidden">
             {["w-2/3", "w-1/2", "w-3/4"].map((width, i) => (
               <div key={i} className={`flex gap-3 ${pulse}`} style={delay(i, 90)}>
-                <div className="w-9 h-9 rounded-full bg-border/70 shrink-0" />
+                <div className="w-8 h-8 rounded-theme bg-border/70 shrink-0" />
                 <div className="flex-1 min-w-0 flex flex-col gap-2 pt-1">
                   <div className="h-3 w-16 rounded bg-border/60" />
                   <div className={`h-3.5 ${width} rounded bg-border/70`} />
@@ -62,7 +63,7 @@ export default async function RoomLoading() {
               </div>
             ))}
           </div>
-          <div className="border-t border-border bg-surface px-3 py-3 flex items-center gap-2 shrink-0">
+          <div className="bg-surface-alt room-shell-frost border-t border-border px-4 py-3 flex items-center gap-2 shrink-0">
             <div className={`w-9 h-9 rounded-theme bg-border/70 shrink-0 ${pulse}`} />
             <div className="flex-1 h-10 rounded-theme bg-input-bg border border-input-border" />
             <div className={`w-16 h-10 rounded-theme bg-border/70 shrink-0 ${pulse}`} />
