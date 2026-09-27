@@ -189,7 +189,7 @@ dice 气泡解析 `diceDetail` 处（~L1629 附近已解析 `proxiedByNickname`�
 
 新增 `setDiceAnnouncerAction(roomId: number, botUserId: number | null)`：
 
-- 权限：房主。按 CLAUDE.md 错误约定：**不要裸 throw**，包一层（照抄 `background.ts` 的 `requireRoomHost` 模式），返回 `{ success: true } | { success: false, error }`，error 用服务端 `getTranslations` 本地化。
+- 权限：房主。按 CLAUDE.md 错误约定：**不要裸 throw**，用 `tryRoomAccess(roomId, true)`，返回 null 时报「非房主」，返回 `{ success: true } | { success: false, error }`，error 用服务端 `getTranslations` 本地化。
 - 校验（zod 或手写均可，按约定放 action 边界）：`botUserId !== null` 时——目标 users 行存在且 `isBot === true`，且是本房 `roomMembers` 成员；否则拒绝。
 - 写 `rooms.diceAnnouncerBotId`，广播 `room_settings_updated`（现有事件，客户端已处理刷新），`revalidatePath`。
 

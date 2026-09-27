@@ -61,6 +61,7 @@ src/
 ├── db/                        # Drizzle client + 21-table schema
 │   └── scripts/               #   tsx entry points: seed, doctor, one-off backfills
 ├── lib/                       # Framework-light logic, grouped by domain:
+│   ├── actions/               #   write-action result types (Fail / Done), noRoomAccess()
 │   ├── ai/                    #   bot agent loop, tool definitions/handlers, usage, presets
 │   ├── auth/                  #   room access checks, invites, rate limit, login history
 │   ├── character/             #   rule-agnostic CharacterData shell + sheet rebuild
@@ -72,7 +73,7 @@ src/
 │   ├── rules/                 #   pluggable rule modules (see simple-trpg-chat-rules skill)
 │   ├── security/              #   encryption, SSRF guard, sensitive-word filter
 │   ├── server/                #   SSE event hub, site config, stats
-│   └── ui/                    #   client hooks & helpers (overlay transitions, hotkeys)
+│   └── ui/                    #   client hooks & helpers (overlay transitions, hotkeys, useAsyncAction)
 ├── i18n/                      # next-intl server config (default: zh)
 ├── themes/                    # 6 themes; each has themes/<name>/theme.css
 ├── types/                     # next-auth.d.ts type augmentation
@@ -239,8 +240,10 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   server-action errors in production, so `err.message` renders as "An error occurred in
   the Server Components render…". `checkRoomAccess` and `requireAdmin` still throw (they
   are shared, and read actions rely on it). In a write action use `tryRoomAccess` (same
-  module, returns `null` instead of throwing — map it to `roomActions.errorNoAccess`),
-  or wrap `requireAdmin` as `admin.ts`'s `adminGuard` does. Write-action status by module:
+  module, returns `null` instead of throwing — return `noRoomAccess()` from
+  `lib/actions/no-room-access.ts`), or wrap `requireAdmin` as `admin.ts`'s `adminGuard`
+  does; don't write another try/catch wrapper. Type results with `Fail` / `Done` from
+  `lib/actions/result.ts` rather than a local copy. Write-action status by module:
   - Converted: `admin` · `ai-import` · `background` · `bot` · `bot-presets` ·
     `character` · `checks` · `dice-announcer` · `event` · `image-cache` · `inventory` ·
     `invite` · `messages` · `notebook` · `room` · `theme` (setters;
@@ -252,6 +255,12 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
     (`{ success, error?, isCommand }`), so its failures render like any command error.
 
   Read actions may still throw — their callers render a retry state.
+
+  On the client, wrap a write in `useAsyncAction` (`lib/ui/useAsyncAction.ts`) instead of
+  a hand-written `saving` / `error` pair: it returns `{ pending, error, message, run }`,
+  treats a throw as `fallbackError` (never the thrown text), and takes `onError` /
+  `onSuccess` when the message slot is shared with other checks, and
+  `keepPendingOnSuccess` for a dialog that closes on success.
 - **Validation**: Validate at the action boundary — `zod` where a schema fits
   (`background.ts`, `invite.ts`), an explicit hand-written sanitizer where the rules are
   shared with another caller (`sanitizeTimelineDivider` in `lib/messaging/timeline-payload.ts`,
