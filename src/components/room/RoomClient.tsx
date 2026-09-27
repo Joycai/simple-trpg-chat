@@ -20,12 +20,12 @@ import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInvent
 import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
 import { usePlayerCardViewer } from "@/components/room/hooks/usePlayerCardViewer";
 import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
+import { useRoomNameEditor } from "@/components/room/hooks/useRoomNameEditor";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { Icons } from "@/components/shared/icons";
 import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
-import { updateRoomNameAction } from "@/app/actions/room";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -161,9 +161,8 @@ export function RoomClient({
     setShowHotkeyHelp(true);
   }, []);
   // Inline room-name editing (host only, top bar)
-  const [editingRoomName, setEditingRoomName] = useState(false);
-  const [roomNameDraft, setRoomNameDraft] = useState(room.name);
-  const [savingRoomName, setSavingRoomName] = useState(false);
+  const { editingRoomName, setEditingRoomName, roomNameDraft, setRoomNameDraft, savingRoomName, handleSaveRoomName } =
+    useRoomNameEditor(room);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const { unreadCounts, setUnreadCounts, markTabRead } = useUnreadDmCounts(room.id, initialSnapshot.unreadDms);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
@@ -189,24 +188,6 @@ export function RoomClient({
   // Admin observers (viewing a room they haven't joined) are always read-only.
   const readOnly = (!!room.frozen && !isHost) || isObserver;
 
-  const handleSaveRoomName = async () => {
-    const trimmed = roomNameDraft.trim();
-    if (!trimmed || trimmed === room.name) {
-      setEditingRoomName(false);
-      return;
-    }
-    setSavingRoomName(true);
-    const res = await updateRoomNameAction(room.id, trimmed)
-      .catch(() => ({ success: false as const }));
-    setSavingRoomName(false);
-    if (!res.success) {
-      // Revert draft on failure; keep editor open so the host can retry
-      setRoomNameDraft(room.name);
-      return;
-    }
-    setEditingRoomName(false);
-    router.refresh();
-  };
 
   const activeTabRef = useRef(activeTab);
   useEffect(() => {
