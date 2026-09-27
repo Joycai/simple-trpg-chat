@@ -184,7 +184,7 @@ export function AiImportPanel({ roomId, onClose }: AiImportPanelProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex" onClick={close}>
-      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
       <div ref={panelRef} className={`relative ml-auto w-full sm:w-[440px] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         {/* Header */}

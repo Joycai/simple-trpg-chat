@@ -42,6 +42,12 @@
   --color-danger: rgb(var(--theme-danger));
   --color-success: rgb(var(--theme-success));
   --color-warning: rgb(var(--theme-warning, 245 158 11));
+  /* Modal/drawer backdrops and the chrome drawn over images (preview toolbar,
+     thumbnail badges). Deliberately separate from the room-background scrim
+     (--theme-bg-scrim*): different job, so a theme can tint one without the
+     other. Fallbacks keep plain black / white. */
+  --color-scrim: rgb(var(--theme-overlay-scrim, 0 0 0));
+  --color-on-scrim: rgb(var(--theme-on-scrim, 255 255 255));
   --color-header-bg: rgb(var(--theme-header-bg));
   --color-header-border: rgb(var(--theme-header-border));
   --color-input-bg: rgb(var(--theme-input-bg));

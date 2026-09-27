@@ -327,7 +327,7 @@ export function ImageCropper({
 
   return createPortal(
     <div
-      ref={backdropRef} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+      ref={backdropRef} className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim/50 p-4"
       onClick={close}
     >
       <div
@@ -344,7 +344,7 @@ export function ImageCropper({
 
         <p className="text-xs text-text-muted mb-3">{t("dragHint")}</p>
 
-        <div className="relative bg-black/40 rounded-theme overflow-hidden border border-border">
+        <div className="relative bg-scrim/40 rounded-theme overflow-hidden border border-border">
           <canvas
             ref={canvasRef}
             width={DISPLAY_W}

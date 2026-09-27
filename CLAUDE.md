@@ -110,7 +110,7 @@ if (process.env.NODE_ENV !== "production") {
 
 ### Theming
 
-6 themes: `default`, `parchment`, `cthulhu`, `shrine`, `rainglass`, `aether`. Each has `src/themes/<name>/theme.css`. Always use semantic Tailwind classes (`bg-surface`, `text-text`, `border-border`) — never hardcode colors. Variables mapped via `@theme inline` in `globals.css`.
+6 themes: `default`, `parchment`, `cthulhu`, `shrine`, `rainglass`, `aether`. Each has `src/themes/<name>/theme.css`. Always use semantic Tailwind classes (`bg-surface`, `text-text`, `border-border`) — never hardcode colors. Variables mapped via `@theme inline` in `globals.css`. Modal/drawer backdrops use `bg-scrim/N`, and chrome drawn over an image (preview toolbar, thumbnail badges) uses `text-on-scrim` / `bg-on-scrim/N` — never `bg-black` / `text-white`; a theme may tint them via the optional `--theme-overlay-scrim` / `--theme-on-scrim`. Status colors come from `danger` / `warning` / `success` / `ai`, not palette classes like `red-500`.
 
 ### Chat Commands
 
@@ -246,8 +246,18 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   (built on `OverlayShell`; always portals, so it centers correctly when opened
   from inside a drawer). Notifications use `components/shared/Notice.tsx` as an
   inline strip — pass `onDismiss` for a close button. No native dialog is left
-  in `src/components` or `src/app`. A confirm that must stack above an inventory
-  modal (`z-[60]` / `z-[70]`) passes `layerClassName`. A panel with unsaved
+  in `src/components` or `src/app`. New modals are built on `OverlayShell` (pass
+  `portal` when opened from inside a drawer), not a hand-rolled fixed div. The
+  inventory and notebook modals have moved over. Older ones still build their
+  own layer: `BonusDicePrompt`, `HostCheckDialog`, `TimelineDivider`'s withdraw
+  confirm, `TimelineDividerDialog`, `SkillSetPrompt` and `ImageCropper` sit on
+  `useOverlayTransition` directly (motion and Escape work); the login license
+  modal and the full-screen `ImagePreview` have no enter/exit motion at all. `layerClassName` sets the
+  stacking layer (the inventory modals sit at `z-[60]` / `z-[70]`; a confirm
+  above them uses `z-[80]`) and `scrimClassName` the backdrop tint. Close from
+  inside through the render-prop `close()`, including after a successful
+  submit: have the parent's handler resolve to success and call `close()` in
+  the modal, so the exit plays before the parent resets its state. A panel with unsaved
   work guards its close paths with `OverlayShell`'s `onDismiss`, which runs
   before the exit animation — `onClose` runs after it, too late to ask (see
   `EventEditor`).

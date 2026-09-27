@@ -321,7 +321,7 @@ export function LobbyClient({ rooms, joinedRoomIds, memberCounts, isHost, userId
                       const rt = (room as { ruleTemplate?: string | null }).ruleTemplate;
                       if (!rt || rt === DEFAULT_RULE_ID) return null;
                       return (
-                        <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-flex items-center gap-0.5"><Icons.Dices className="w-3 h-3" /> {ruleLabelOf(rt)}</span>
+                        <span className="text-[10px] text-ai bg-ai/10 px-2 py-0.5 rounded border border-ai/20 inline-flex items-center gap-0.5"><Icons.Dices className="w-3 h-3" /> {ruleLabelOf(rt)}</span>
                       );
                     })()}
                     <span className="text-[10px] text-text-muted bg-surface-alt px-2 py-0.5 rounded">

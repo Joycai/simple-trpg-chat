@@ -17,6 +17,9 @@ interface OverlayShellProps {
   /** Stacking class for the root layer. Raise it (`z-[80]`) for a dialog that
    *  must sit above one of the inventory modals (`z-[60]`/`z-[70]`). */
   layerClassName?: string;
+  /** Backdrop tint for the centered modal (default `bg-scrim/40`). The
+   *  inventory and notebook modals keep their heavier `bg-scrim/50`. */
+  scrimClassName?: string;
   /** Whether clicking the backdrop closes the overlay (default true). */
   closeOnBackdrop?: boolean;
   /** Whether Escape closes the overlay (defaults to `closeOnBackdrop`, so a
@@ -63,6 +66,7 @@ export function OverlayShell({
   panelClassName,
   rootClassName = "",
   layerClassName = "z-50",
+  scrimClassName = "bg-scrim/40",
   closeOnBackdrop = true,
   closeOnEscape = closeOnBackdrop,
   portal = false,
@@ -94,7 +98,7 @@ export function OverlayShell({
   const tree =
     variant === "drawer" ? (
       <div className={`fixed inset-0 ${layerClassName} flex`} onClick={closeOnBackdrop ? dismiss : undefined}>
-        <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+        <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
         <div
           ref={panelRef}
           className={`relative ml-auto ${panelClassName} ${panelClass}`}
@@ -108,7 +112,7 @@ export function OverlayShell({
       // the backdrop ref; the card inside is what springs.
       <div
         ref={backdropRef}
-        className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-black/40 ${rootClassName}`}
+        className={`fixed inset-0 ${layerClassName} flex items-center justify-center ${scrimClassName} ${rootClassName}`}
         onClick={closeOnBackdrop ? dismiss : undefined}
       >
         <div

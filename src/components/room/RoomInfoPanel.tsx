@@ -98,7 +98,7 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex" onClick={close}>
-      <div ref={backdropRef} className="absolute inset-0 bg-black/30" />
+      <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
       <div ref={panelRef} className={`relative ml-auto w-full sm:w-[26rem] bg-surface border-l border-border shadow-2xl h-full overflow-y-auto ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-surface border-b border-border px-6 py-5 flex justify-between items-center z-10">

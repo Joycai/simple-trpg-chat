@@ -178,6 +178,13 @@ import { <Id>LoginHero } from "@/themes/<id>/<Id>LoginHero";
      主持人区的暖色语义色（accent/primary/ai）拉开——所以主题若要覆盖，
      请选一个和自身 primary/accent 都不同的冷调。可选。 */
   --theme-nav: R G B;
+
+  /* 弹窗/抽屉遮罩（bg-scrim/N）与盖在图片上的控件（text-on-scrim，如图片
+     预览工具条、缩略图角标）。消费端带回退：不写就是纯黑 / 纯白，与旧的
+     bg-black/N、text-white 像素一致。和房间背景的 --theme-bg-scrim* 是两回事，
+     可以分别调。可选。 */
+  --theme-overlay-scrim: R G B;
+  --theme-on-scrim: R G B;
 }
 ```
 
