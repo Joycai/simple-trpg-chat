@@ -5,8 +5,9 @@ import type { EventView } from "@/app/actions/event";
 import type { NotebookLinkEntity } from "@/lib/room/notebook";
 
 /**
- * Room-wide event data, held by `RoomClient` and shared with every consumer:
- * the chat cards, the events panel, and the detail modal.
+ * Room-wide event data, held by `useRoomEventsData` (provided by RoomClient)
+ * and shared with every consumer: the chat cards, the events panel, and the
+ * detail modal.
  *
  * Before this existed each `event-card` message in the chat log fetched its own
  * copy of the event *and* the whole backpack, so a room with 20 published

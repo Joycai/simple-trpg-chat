@@ -3,8 +3,9 @@ import { primaryVital, type StatusEntry } from "@/lib/rules";
 
 /**
  * Pure derivations over the room roster for the chat UI: who can be mentioned
- * or DMed, the DM list with its badges, and the badge total. RoomClient memoizes
- * each; they live here so they can be tested without React.
+ * or DMed, the DM list with its badges, the badge total, and the top bar's
+ * member / bot / online counts. RoomClient calls them during render (memoizing
+ * the costlier ones); they live here so they can be tested without React.
  */
 
 type RosterUser = { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string };
