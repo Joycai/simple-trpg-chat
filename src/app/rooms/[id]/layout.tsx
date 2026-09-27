@@ -10,6 +10,16 @@ import { findRoom, parseRoomId } from "@/lib/room/room-lookup";
  */
 export default async function RoomLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const roomId = parseRoomId((await params).id);
-  if (roomId === null || !(await findRoom(roomId))) notFound();
+  if (roomId === null) notFound();
+  let room;
+  try {
+    room = await findRoom(roomId);
+  } catch {
+    // A failed lookup is not a missing room. Leave it to the page: `findRoom`
+    // is cached, so the page gets the same rejection, inside this segment's
+    // error.tsx (which can't wrap this layout) instead of global-error.
+    return children;
+  }
+  if (!room) notFound();
   return children;
 }
