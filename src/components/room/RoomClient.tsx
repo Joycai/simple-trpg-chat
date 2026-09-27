@@ -4,7 +4,7 @@
 // Negative IDs guarantee no collision with real DB auto-increment IDs.
 let localEphemeralId = -1;
 
-import { useState, useRef, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
 import { RoomTopBar } from "@/components/room/RoomTopBar";
 import { RoomBackground } from "@/components/room/RoomBackground";
@@ -23,52 +23,15 @@ import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
 import { useRoomNameEditor } from "@/components/room/hooks/useRoomNameEditor";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
-import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
-import { Icons } from "@/components/shared/icons";
+import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintToast";
+import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
+import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
-
-/**
- * External store for the one-time hotkey-discoverability toast. Persisted in
- * localStorage per browser (not per room). `getSnapshot` also gates on a fine
- * pointer, so touch-only devices — where the shortcuts don't exist — never see
- * the toast. `markSeen` notifies same-tab subscribers directly, since the
- * native `storage` event only fires cross-tab.
- */
-const hotkeyHintStore = {
-  listeners: new Set<() => void>(),
-  subscribe(cb: () => void) {
-    hotkeyHintStore.listeners.add(cb);
-    return () => {
-      hotkeyHintStore.listeners.delete(cb);
-    };
-  },
-  getSnapshot(): boolean {
-    try {
-      return (
-        !window.localStorage.getItem(HOTKEY_HINT_SEEN_KEY) &&
-        window.matchMedia("(pointer: fine)").matches
-      );
-    } catch {
-      return false;
-    }
-  },
-  getServerSnapshot(): boolean {
-    return false;
-  },
-  markSeen() {
-    try {
-      window.localStorage.setItem(HOTKEY_HINT_SEEN_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    hotkeyHintStore.listeners.forEach((l) => l());
-  },
-};
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
@@ -95,7 +58,6 @@ export function RoomClient({
   const t = useTranslations("room");
   const tra = useTranslations("roomActions");
   const tCommon = useTranslations("common");
-  const tHotkeys = useTranslations("hotkeys");
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
@@ -146,16 +108,6 @@ export function RoomClient({
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
-  // One-time discoverability toast for the hotkey system. Read via
-  // useSyncExternalStore (same pattern as RoomTopBar's event badge): no
-  // setState-in-effect, no hydration flash — the server snapshot is always
-  // "seen" (toast hidden). Desktop only; retired for good once the user closes
-  // it or opens the help sheet by any path (Alt+/, gear menu, the toast).
-  const showHotkeyHint = useSyncExternalStore(
-    hotkeyHintStore.subscribe,
-    hotkeyHintStore.getSnapshot,
-    hotkeyHintStore.getServerSnapshot,
-  );
   const openHotkeyHelp = useCallback(() => {
     hotkeyHintStore.markSeen();
     setShowHotkeyHelp(true);
@@ -582,38 +534,13 @@ export function RoomClient({
           resizing={sidebarResizing || !sidebarHydrated}
         />
 
-        {/* Backdrop for mobile sidebar — stays mounted so it can fade in/out
-            in step with the drawer slide. */}
-        {isMobile && (
-          <div
-            aria-hidden={sidebarCollapsed}
-            className={`fixed inset-0 bg-scrim/40 z-20 transition-opacity duration-300 ${
-              sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 cursor-pointer"
-            }`}
-            onClick={() => setSidebarCollapsed(true)}
-          />
-        )}
-
-        {/* Resize Handle */}
+        {isMobile && <SidebarBackdrop collapsed={sidebarCollapsed} onCollapse={() => setSidebarCollapsed(true)} />}
         {!sidebarCollapsed && !isMobile && (
-          <div
-            onMouseDown={handleResizeStart}
-            className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-colors duration-150 shrink-0 relative z-10 group"
-            title={t("tooltipResize")}
-            onDoubleClick={resetSidebarWidth}
-          >
-            {/* Collapse toggle button on the handle (like VS Code or Notion) */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-4 h-8 bg-surface border border-border hover:border-primary/50 rounded flex items-center justify-center shadow-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-20"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSidebarCollapsed(true);
-              }}
-              title={t("tooltipCollapseSidebar")}
-            >
-              <span className="text-[9px] text-text-muted hover:text-primary select-none">◀</span>
-            </div>
-          </div>
+          <SidebarResizeHandle
+            onResizeStart={handleResizeStart}
+            onResetWidth={resetSidebarWidth}
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
         )}
 
         {/* Main Content: Chat Area */}
@@ -723,26 +650,8 @@ export function RoomClient({
         onStartDM={handleTabChange}
       />
 
-      {showHotkeyHint && (
-        <div className="fixed bottom-24 right-4 z-30 flex items-center gap-2.5 bg-surface theme-border rounded-theme shadow-xl pl-3.5 pr-2 py-2.5 overlay-pop"
-          style={{ transformOrigin: "bottom right", "--overlay-pop-y": "6px" } as React.CSSProperties} role="status">
-          <Icons.Keyboard className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-sm text-text">{tHotkeys("hintText")}</span>
-          <button
-            onClick={openHotkeyHelp}
-            className="text-sm font-bold text-primary hover:text-primary-hover transition cursor-pointer whitespace-nowrap"
-          >
-            {tHotkeys("hintAction", { key: formatHotkey("Slash") })}
-          </button>
-          <button
-            onClick={() => hotkeyHintStore.markSeen()}
-            className="text-text-muted hover:text-text p-1 rounded-theme hover:bg-surface-alt transition cursor-pointer"
-            aria-label={tHotkeys("hintDismiss")}
-          >
-            <Icons.X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <HotkeyHintToast onOpenHelp={openHotkeyHelp} />
+
 
       {showHotkeyHelp && (
         <RoomHotkeyHelp isHost={isHost} onClose={() => setShowHotkeyHelp(false)} />
