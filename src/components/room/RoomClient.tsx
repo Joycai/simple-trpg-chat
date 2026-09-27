@@ -61,7 +61,8 @@ export function RoomClient({
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
-  // Open/closed state for every panel, dialog and top-bar dropdown.
+  // Open/closed state for the room's panels, dialogs and top-bar menus (see
+  // useOverlayVisibility for the ones that keep their own state).
   const overlays = useOverlayVisibility();
   const { setters: overlaySetters } = overlays;
   const openHotkeyHelp = useCallback(() => {
