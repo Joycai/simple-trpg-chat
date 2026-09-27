@@ -17,6 +17,7 @@ import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
 import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
 import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
 import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInventoryCount";
+import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
@@ -71,9 +72,6 @@ const hotkeyHintStore = {
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
-import { useTheme } from "@/components/theme/ThemeProvider";
-import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
-import type { ThemeMode } from "@/themes/types";
 
 export function RoomClient({
   room,
@@ -351,47 +349,8 @@ export function RoomClient({
     setCharacterResources,
   });
 
-  // Room display mode — RoomClient is the single owner of the theme context's
-  // roomMode (RoomThemeSetter owns only the theme). Normally this is the room's
-  // configured auto/light/dark. When themeMode is "timeline", light/dark instead
-  // follows the most recent timeline divider (night → dark, morning/afternoon →
-  // light). The latest divider is the max-id one in the loaded window; if none is
-  // loaded we fall back to the server-resolved initial (the true latest may
-  // predate the window).
-  const { setRoomMode } = useTheme();
-  const followsTimeline = room.themeMode === "timeline";
-  // Mode resolved from the newest divider inside the loaded window; null when
-  // the window holds no divider (never loaded, or trimmed out by the
-  // message-window cap).
-  const scannedDividerMode = useMemo<ThemeMode | null>(() => {
-    if (!followsTimeline) return null;
-    let latest: Message | null = null;
-    for (const m of messages) {
-      if (m.type === "system" && m.systemKind === "timeline-divider" && (!latest || m.id > latest.id)) {
-        latest = m;
-      }
-    }
-    if (!latest) return null;
-    return resolvedModeFromDivider(parseTimelinePayload(latest.diceDetail)) ?? "light";
-  }, [followsTimeline, messages]);
-  // Last divider-resolved mode ever seen this session (render-time derived
-  // state, same pattern as `seededPlayers` above). Needed because the
-  // message-window cap can trim the divider row itself out of `messages` —
-  // without this, the mode would silently snap back to the page-load initial.
-  const [lastDividerMode, setLastDividerMode] = useState<ThemeMode | null>(null);
-  if (scannedDividerMode !== null && scannedDividerMode !== lastDividerMode) {
-    setLastDividerMode(scannedDividerMode);
-  }
-  const effectiveRoomMode: ThemeMode = !followsTimeline
-    ? (room.themeMode as ThemeMode) || "auto"
-    : scannedDividerMode ?? lastDividerMode ?? initialTimelineMode ?? "light";
-
-  useEffect(() => {
-    setRoomMode(effectiveRoomMode);
-    // Cache for the pre-paint FOUC script (src/app/layout.tsx) on next navigation.
-    try { window.sessionStorage.setItem("room-mode-" + room.id, effectiveRoomMode); } catch {}
-    return () => setRoomMode(null);
-  }, [effectiveRoomMode, room.id, setRoomMode]);
+  // Light/dark for the room (configured, or following the timeline).
+  useRoomThemeMode({ room, messages, initialTimelineMode });
 
   // Re-fetch the current user's sheet so an open 角色卡 reflects command-driven
   // changes (.st / .sc) without a full page reload. router.refresh() updates the
