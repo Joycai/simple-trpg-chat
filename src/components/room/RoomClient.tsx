@@ -19,18 +19,18 @@ import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
 import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInventoryCount";
 import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
 import { usePlayerCardViewer } from "@/components/room/hooks/usePlayerCardViewer";
+import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { Icons } from "@/components/shared/icons";
 import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { updateRoomNameAction } from "@/app/actions/room";
-import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
-import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
+import type { Message, RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 
 /**
  * External store for the one-time hotkey-discoverability toast. Persisted in
@@ -141,10 +141,6 @@ export function RoomClient({
   const [showAiImport, setShowAiImport] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [checkMode, setCheckMode] = useState<CheckMode | null>(null);
-  const [showCheckMenu, setShowCheckMenu] = useState(false);
-  const [pendingSkillCheck, setPendingSkillCheck] = useState<PendingSkillCheck | null>(null);
-  const [pendingBonusDice, setPendingBonusDice] = useState<{ messageId: number } | null>(null);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
@@ -448,74 +444,13 @@ export function RoomClient({
     handleViewPlayerCard, closeViewingPlayer,
   } = usePlayerCardViewer(room.id, closeMembers);
 
-  // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
-  // (so the caller can open the prompt); otherwise surfaces any error inline.
-  const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number, bonusDice?: number): Promise<{ needsSkill?: boolean }> => {
-    const result = await respondToCheckRequestAction(
-      room.id, messageId,
-      onBehalfOfUserId !== undefined || bonusDice !== undefined ? { onBehalfOfUserId, bonusDice } : undefined
-    );
-    if (result.needsSkill) return { needsSkill: true };
-    if (!result.success && result.error) {
-      pushLocalError(tra("commandError", { error: result.error }));
-    } else if (result.success && !onBehalfOfUserId) {
-      // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
-      // (Proxy rolls deduct the proxied player's sanity, not the host's — no self refresh.)
-      refreshSelfSheet();
-    }
-    return {};
-  }, [room.id, tra, refreshSelfSheet, pushLocalError]);
-
-  const handleCheckRequest = useCallback((messageId: number, skillName: string, opts?: { bonusDicePrompt?: boolean }) => {
-    // Rule-specialized request (狩魂者): ask the player for their 加骰 count
-    // first; the roll fires from the prompt's confirm.
-    if (opts?.bonusDicePrompt) {
-      setPendingBonusDice({ messageId });
-      return;
-    }
-    // Let the server roll the check. If the stat isn't set, it reports needsSkill and we
-    // open a themed in-page prompt. The server (lookupCheckTarget) is the source of truth,
-    // so COC attributes/resources already on the character sheet won't trigger the prompt.
-    respondCheck(messageId).then(r => {
-      if (r.needsSkill) setPendingSkillCheck({ messageId, skillName });
-    });
-  }, [respondCheck]);
-
-  // Player confirmed their 加骰 count for a rule-specialized check request.
-  const handleConfirmBonusDice = useCallback((bonusDice: number) => {
-    if (!pendingBonusDice) return;
-    const { messageId } = pendingBonusDice;
-    setPendingBonusDice(null);
-    respondCheck(messageId, undefined, bonusDice);
-  }, [pendingBonusDice, respondCheck]);
-
-  /** Host proxy: roll on behalf of an absent target. Skill prompt never triggers
-   *  (the host can't set another player's skill — the server returns a plain error). */
-  const handleProxyCheckRequest = useCallback((messageId: number, onBehalfOfUserId: number) => {
-    respondCheck(messageId, onBehalfOfUserId);
-  }, [respondCheck]);
-
-  /** Fetch pending targets + each player's resolved skill value for the popover preview. */
-  const loadProxyTargets = useCallback((messageId: number) => {
-    return getProxyCheckTargetsAction(room.id, messageId);
-  }, [room.id]);
-
-  // Player confirmed a skill value in the prompt: set it via the .st command (which applies
-  // the COC 7th rule adaptation — attributes/resources go to the character sheet, not skills),
-  // then roll the check.
-  const handleConfirmSkillSet = useCallback(async (value: number) => {
-    if (!pendingSkillCheck) return;
-    const { messageId, skillName } = pendingSkillCheck;
-    setPendingSkillCheck(null);
-    const res = await executeCommandAction(room.id, userId, `.st ${skillName}${value}`)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    // Without the stat the check would only ask for it again — stop here.
-    if (!res.success) {
-      pushLocalError(tra("commandError", { error: res.error || tCommon("error") }));
-      return;
-    }
-    await respondCheck(messageId);
-  }, [pendingSkillCheck, room.id, userId, respondCheck, pushLocalError, tra, tCommon]);
+  // Check requests, the 加骰 / set-skill prompts, host proxy rolls, and the
+  // top-bar check dialog/menu.
+  const {
+    checkMode, setCheckMode, showCheckMenu, setShowCheckMenu,
+    pendingSkillCheck, setPendingSkillCheck, pendingBonusDice, setPendingBonusDice,
+    handleCheckRequest, handleConfirmBonusDice, handleProxyCheckRequest, loadProxyTargets, handleConfirmSkillSet,
+  } = useCheckFlow({ roomId: room.id, userId, pushLocalError, refreshSelfSheet });
 
   // Host withdraws a timeline divider. The row is removed for everyone via the
   // `message_deleted` SSE event (handled in useRoomEvents), including this client.
