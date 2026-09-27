@@ -15,6 +15,7 @@ import {
   type RoomImageUsage,
   type RoomBackgroundUsage,
 } from "@/lib/media/image-cache";
+import type { Fail } from "@/lib/actions/result";
 
 /** Per-room usage row enriched with the room's display name. */
 export interface RoomImageUsageView extends RoomImageUsage {
@@ -98,7 +99,7 @@ export async function cleanupImageCacheAction(
   includeBackgrounds = false
 ): Promise<
   | { success: true; freedBytes: number; deletedCount: number; stats: ImageCacheStatsView }
-  | { success: false; error: string }
+  | Fail
 > {
   const t = await getTranslations("admin");
   // requireAdmin throws (it is shared); a write action returns a localized

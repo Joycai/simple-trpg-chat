@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { getTranslations } from "next-intl/server";
 import { auth, signOut } from "@/auth";
 import { invalidateSessionCache } from "@/auth.config";
+import type { Done } from "@/lib/actions/result";
 
 export async function logoutAction() {
   // Clear the rotated single-session token so a leaked/retained JWT can't be reused
@@ -34,7 +35,7 @@ export async function logoutAction() {
 export async function changeOwnPassword(
   oldPassword: string,
   newPassword: string,
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<Done> {
   const t = await getTranslations("admin");
   const session = await auth();
   if (!session) return { success: false, error: t("passwordResetFail") };

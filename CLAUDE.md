@@ -48,7 +48,7 @@ src/
 ├── app/
 │   ├── actions/               # Server Actions ("use server"), one module per concern
 │   │                          #   room / messages / checks / skills / character / inventory …
-│   ├── admin/                 # Admin panel (ai/, config/, usage/, users/) + loading/error
+│   ├── admin/                 # Admin panel (ai/, config/, images/, rooms/, usage/, users/) + loading/error
 │   ├── api/rooms/[id]/events/ # SSE endpoint — GET /api/rooms/[id]/events
 │   ├── login/
 │   ├── rooms/[id]/            # layout (existence check), page, loading, error
@@ -58,7 +58,7 @@ src/
 │   ├── room/                  #   room UI, grouped by panel (chat/, character/, notebook/ …)
 │   ├── admin/ lobby/ user/ theme/
 │   └── shared/                #   cross-feature primitives (OverlayShell, ConfirmDialog …)
-├── db/                        # Drizzle client + 21-table schema
+├── db/                        # Drizzle client + 23-table schema
 │   └── scripts/               #   tsx entry points: seed, doctor, one-off backfills
 ├── lib/                       # Framework-light logic, grouped by domain:
 │   ├── actions/               #   write-action result types (Fail / Done), noRoomAccess()
@@ -90,7 +90,7 @@ For deep dives into specific systems, see `docs/`:
 
 | Topic | File |
 | ----- | ---- |
-| Database — 21 tables, schema, relations | `docs/arch/database.md` |
+| Database — 23 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
 | Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
@@ -241,7 +241,8 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   the Server Components render…". `checkRoomAccess` and `requireAdmin` still throw (they
   are shared, and read actions rely on it). In a write action use `tryRoomAccess` (same
   module, returns `null` instead of throwing — return `noRoomAccess()` from
-  `lib/actions/no-room-access.ts`), or wrap `requireAdmin` as `admin.ts`'s `adminGuard`
+  `lib/actions/no-room-access.ts`, unless the module has its own key such as
+  `errorNotHost`), or wrap `requireAdmin` as `admin.ts`'s `adminGuard`
   does; don't write another try/catch wrapper. Type results with `Fail` / `Done` from
   `lib/actions/result.ts` rather than a local copy. Write-action status by module:
   - Converted: `admin` · `ai-import` · `background` · `bot` · `bot-presets` ·

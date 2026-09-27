@@ -10,6 +10,7 @@ import { normalizeVendorId } from "@/lib/ai/provider-presets";
 import { buildModelsRequest, parseModelsResponse } from "@/lib/ai/model-fetch";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
+import type { Done } from "@/lib/actions/result";
 
 export interface ProviderData {
   name: string;
@@ -114,7 +115,7 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
  * localized error — unlike create/update above, which keep their older
  * `{ error } | data` shape because their callers already consume it.
  */
-export async function deleteProvider(providerId: number): Promise<{ success: true } | { success: false; error: string }> {
+export async function deleteProvider(providerId: number): Promise<Done> {
   const t = await getTranslations("adminProviders");
   const session = await auth();
   if (!session) return { success: false, error: t("errorNotAuthenticated") };
