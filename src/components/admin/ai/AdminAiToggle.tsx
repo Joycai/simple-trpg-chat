@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Bot } from "lucide-react";
 import { updateSystemConfig } from "@/app/actions/ai";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 
 interface AdminAiToggleProps {
   initialEnabled: boolean;
@@ -12,19 +13,15 @@ interface AdminAiToggleProps {
 export function AdminAiToggle({ initialEnabled }: AdminAiToggleProps) {
   const t = useTranslations("admin");
   const [enabled, setEnabled] = useState(initialEnabled);
-  const [saving, setSaving] = useState(false);
+  // A failure shows nothing and leaves the switch where it was.
+  const toggle = useAsyncAction(async (next: boolean) => {
+    await updateSystemConfig("ai_enabled", next ? "true" : "false");
+    setEnabled(next);
+  });
+  const saving = toggle.pending;
 
-  const handleToggle = async () => {
-    const newState = !enabled;
-    setSaving(true);
-    try {
-      await updateSystemConfig("ai_enabled", newState ? "true" : "false");
-      setEnabled(newState);
-    } catch (e) {
-      console.error("Failed to toggle AI:", e);
-    } finally {
-      setSaving(false);
-    }
+  const handleToggle = () => {
+    void toggle.run(!enabled);
   };
 
   return (

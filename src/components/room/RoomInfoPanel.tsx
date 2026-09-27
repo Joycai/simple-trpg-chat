@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateRoomNameAction, regenerateRoomPasswordAction, setRoomFrozenAction } from "@/app/actions/room";
 import { getThemeName, type ThemeId } from "@/themes/types";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { Icons } from "@/components/shared/icons";
 import { Notice } from "@/components/shared/Notice";
 import { listRules } from "@/lib/rules";
@@ -39,11 +40,7 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
   const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onClose, "drawer");
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(room.name);
-  const [savingName, setSavingName] = useState(false);
-  const [regeneratingPassword, setRegeneratingPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
-  const [togglingFreeze, setTogglingFreeze] = useState(false);
-  const [error, setError] = useState("");
   // Freeze / password failures — the name form's `error` strip only renders
   // while that form is open, so these get their own notice.
   const [opError, setOpError] = useState("");
@@ -55,45 +52,39 @@ export function RoomInfoPanel({ room, isHost, onClose }: RoomInfoPanelProps) {
     return rule ? ts(rule.labelKey) : val;
   };
 
-  const handleSaveName = async () => {
-    setSavingName(true);
-    setError("");
-    const res = await updateRoomNameAction(room.id, newName)
-      .catch(() => ({ success: false as const, error: t("saveFailed") }));
-    setSavingName(false);
-    if (!res.success) {
-      setError(res.error);
-      return;
-    }
-    setEditingName(false);
-    router.refresh();
+  const saveName = useAsyncAction(() => updateRoomNameAction(room.id, newName), {
+    fallbackError: t("saveFailed"),
+    onSuccess: () => {
+      setEditingName(false);
+      router.refresh();
+    },
+  });
+  const { pending: savingName, error } = saveName;
+  const handleSaveName = () => { void saveName.run(); };
+
+  const toggleFreeze = useAsyncAction(() => setRoomFrozenAction(room.id, !room.frozen), {
+    fallbackError: t("saveFailed"),
+    onError: setOpError,
+    onSuccess: () => router.refresh(),
+  });
+  const togglingFreeze = toggleFreeze.pending;
+  const handleToggleFreeze = () => {
+    setOpError("");
+    void toggleFreeze.run();
   };
 
-  const handleToggleFreeze = async () => {
-    setTogglingFreeze(true);
+  const regeneratePassword = useAsyncAction(() => regenerateRoomPasswordAction(room.id), {
+    fallbackError: t("saveFailed"),
+    onError: setOpError,
+    onSuccess: () => {
+      setShowPasswordConfirm(false);
+      router.refresh();
+    },
+  });
+  const regeneratingPassword = regeneratePassword.pending;
+  const handleRegeneratePassword = () => {
     setOpError("");
-    const res = await setRoomFrozenAction(room.id, !room.frozen)
-      .catch(() => ({ success: false as const, error: t("saveFailed") }));
-    setTogglingFreeze(false);
-    if (!res.success) {
-      setOpError(res.error);
-      return;
-    }
-    router.refresh();
-  };
-
-  const handleRegeneratePassword = async () => {
-    setRegeneratingPassword(true);
-    setOpError("");
-    const res = await regenerateRoomPasswordAction(room.id)
-      .catch(() => ({ success: false as const, error: t("saveFailed") }));
-    setRegeneratingPassword(false);
-    if (!res.success) {
-      setOpError(res.error);
-      return;
-    }
-    setShowPasswordConfirm(false);
-    router.refresh();
+    void regeneratePassword.run();
   };
 
   return (

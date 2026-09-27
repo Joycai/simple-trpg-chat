@@ -2,7 +2,7 @@
 
 ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push changes with `pnpm db:push`.
 
-## Tables (21)
+## Tables (23)
 
 | Table | Key Columns | Notes |
 | ----- | ----------- | ----- |
@@ -20,6 +20,9 @@ ORM: Drizzle ORM with `postgres` driver. Schema: `src/db/schema.ts`. Push change
 | `clueVisibility` | id, clueId, userId, revealedAt | Controls which players can see each clue |
 | `notebookCategories` | id, roomId, userId, name, color, createdAt | User-editable notebook categories; `color` is one of 7 `NOTEBOOK_COLORS` theme-token keys. 4 localized defaults lazily seeded on first open. Unique on `(roomId, userId, name)` |
 | `notebookNotes` | id, roomId, userId, categoryId (FK `set null` → uncategorized), title, content, sourceName, createdAt, updatedAt | Per-user-per-room private notebook (记事本); `content` is markdown with `@标题` backpack links resolved at render time (see `src/lib/room/notebook.ts`). `sourceName` is a sender-name snapshot on a shared copy (null = own note). Indexed on `(roomId, userId)` |
+| `storyEvents` | id, roomId, creatorId, title, description, timePayload, imagesJson, status, sortOrder, cardMessageId | Host-authored story events (事件志); `cardMessageId` (FK `set null` → messages) is the public event card, updated in place on promote/retract |
+| `storyEventVisibility` | id, eventId, userId, viewed, updated | Who may read a `partial` event (`full` events are gated by membership); `viewed` / `updated` drive the unread badge. Unique on `(eventId, userId)` |
+| `inviteCodes` | id, code, creatorId, status, usedByUserId, expiresAt, usedAt | Single-use host invite codes, 48h expiry swept lazily — see `docs/design/invite-registration.md` |
 | `loginHistory` | id, userId, ipAddress, userAgent, deviceType, loginAt | Auto-cleaned per user |
 | `aiProviders` | id, ownerId, name, apiEndpoint, apiKeyEncrypted, apiKeyHint, model, isShared, tokenRateInput, tokenRateCached, tokenRateOutput | Keys encrypted with AES-256-GCM |
 | `aiTokenUsages` | id, userId, providerId, day, inputTokens, cachedInputTokens, outputTokens | Aggregated daily |

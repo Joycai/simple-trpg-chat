@@ -10,8 +10,8 @@ import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { broadcastToRoom } from "@/lib/server/events";
 import { getRuleForRoom } from "@/lib/rules";
-
-type Fail = { success: false; error: string };
+import type { Fail } from "@/lib/actions/result";
+import { noRoomAccess } from "@/lib/actions/no-room-access";
 
 /**
  * createBotAction
@@ -32,7 +32,7 @@ export async function createBotAction(
 ): Promise<{ success: true } | Fail> {
   // Only room hosts can create bots in the room
   if (!(await tryRoomAccess(roomId, true))) {
-    return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+    return noRoomAccess();
   }
 
   // 1. Create a "Shadow User" for the bot (atomic transaction)
@@ -112,7 +112,7 @@ export async function updateBotAction(
 ): Promise<{ success: true } | Fail> {
   // Only room hosts can edit bots
   if (!(await tryRoomAccess(roomId, true))) {
-    return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+    return noRoomAccess();
   }
   const t = await getTranslations("bots");
 
@@ -151,7 +151,7 @@ export async function updateBotAction(
 export async function triggerBotAction(roomId: number, botUserId: number): Promise<{ success: true } | Fail> {
   // Only room hosts can manually trigger bots
   const access = await tryRoomAccess(roomId, true);
-  if (!access) return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   // Async trigger — bot responds in the background

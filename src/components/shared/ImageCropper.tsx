@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 
 interface ImageCropperProps {
   /** Source image to crop. */
@@ -57,7 +58,6 @@ export function ImageCropper({
   const [src, setSrc] = useState<string | null>(null);
   const [geom, setGeom] = useState<ImgGeom | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -306,7 +306,21 @@ export function ImageCropper({
     return out.toDataURL("image/jpeg", 0.4);
   };
 
-  const handleConfirm = async () => {
+  // Success leaves `submitting` set, expecting the parent to unmount us. A
+  // parent that reports failure without throwing (EventEditor, the inventory
+  // CreateEditModal) leaves the button spinning — as before. The character
+  // avatar upload throws an already-localized error, so this site shows the
+  // thrown message on purpose.
+  const confirmCrop = useAsyncAction(async (url: string) => {
+    try {
+      await onConfirm(url);
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : t("errorEncode") };
+    }
+  }, { onError: setError, keepPendingOnSuccess: true });
+  const submitting = confirmCrop.pending;
+
+  const handleConfirm = () => {
     if (submitting) return;
     setError(null);
     const url = exportCropped();
@@ -314,13 +328,7 @@ export function ImageCropper({
       setError(t("errorEncode"));
       return;
     }
-    setSubmitting(true);
-    try {
-      await onConfirm(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("errorEncode"));
-      setSubmitting(false);
-    }
+    void confirmCrop.run(url);
   };
 
   if (typeof document === "undefined") return null;

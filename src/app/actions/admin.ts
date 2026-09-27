@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
+import type { Done, Fail } from "@/lib/actions/result";
 
 /*
  * Write actions return `{ success: true, ... } | { success: false, error }`,
@@ -18,9 +19,6 @@ import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-li
  * redacts in production — the admin then saw "An error occurred in the Server
  * Components render…" instead of, say, "this user still hosts 2 rooms".
  */
-
-type Fail = { success: false; error: string };
-type Done = { success: true } | Fail;
 
 /** requireAdmin throws (it is shared); the write actions need a boolean. */
 async function adminGuard(): Promise<boolean> {

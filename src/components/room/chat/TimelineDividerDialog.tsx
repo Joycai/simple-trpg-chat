@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { insertTimelineDividerAction } from "@/app/actions/messages";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { Icons } from "@/components/shared/icons";
 import { Notice } from "@/components/shared/Notice";
 import {
@@ -44,8 +45,6 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
   const [timeMode, setTimeMode] = useState<TimelineTimeMode>("segment");
   const [segment, setSegment] = useState<TimelineSegment>("afternoon");
   const [clock, setClock] = useState("12:00");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const isCustom = mode === "custom";
 
@@ -61,6 +60,14 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
     clock: timeMode === "clock" ? clock : null,
   };
 
+  // Success closes the dialog, so the button stays disabled through the exit.
+  const submit = useAsyncAction(async () => {
+    const res = await insertTimelineDividerAction(roomId, data);
+    if (res.success) close();
+    return res;
+  }, { fallbackError: tCommon("error"), keepPendingOnSuccess: true });
+  const { pending: submitting, error } = submit;
+
   const previewLabel = composeTimelineLabel(data, t, locale);
   const canSubmit =
     !submitting &&
@@ -68,15 +75,9 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
     (mode === "day" ? day >= 1 : mode === "date" ? !!date : !!custom.trim()) &&
     (timeMode === "segment" ? !!segment : !!clock);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!canSubmit) return;
-    setSubmitting(true);
-    setError(null);
-    const res = await insertTimelineDividerAction(roomId, data)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (res.success) { close(); return; }
-    setError(res.error);
-    setSubmitting(false);
+    void submit.run();
   };
 
   // Segmented tab (第几日 / 具体日期 and 时段/时间 toggle share this look).

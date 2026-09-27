@@ -12,13 +12,8 @@ import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
 import { buildDispatchPayload, buildReceiptPayload } from "@/lib/messaging/dispatch-payload";
 import { shareItemCore } from "@/lib/room/inventory-share";
-
-type Fail = { success: false; error: string };
-type Done = { success: true } | Fail;
-
-async function noAccess(): Promise<Fail> {
-  return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
-}
+import type { Done, Fail } from "@/lib/actions/result";
+import { noRoomAccess } from "@/lib/actions/no-room-access";
 
 async function itemNotFound(): Promise<Fail> {
   return { success: false, error: (await getTranslations("inventoryActions"))("errorItemNotFound") };
@@ -42,7 +37,7 @@ export async function createInventoryItemAction(
   }
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, true);
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   await db.insert(inventoryItems).values({
@@ -90,7 +85,7 @@ export async function updateInventoryItemAction(
   }
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, true);
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId: hostId } = access;
 
   // Verify item belongs to room
@@ -198,7 +193,7 @@ export async function distributeItemAction(
   toUserId: number | "all"
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, true);
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId: fromUserId } = access;
 
   // Verify that the item exists and belongs to the room
@@ -358,7 +353,7 @@ export async function shareItemAction(
 ): Promise<Done> {
   const t = await getTranslations("inventoryActions");
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId: fromUserId } = access;
   const session = await auth();
   const senderName = session?.user?.name || t("defaultPlayer");
@@ -450,7 +445,7 @@ export async function getDistributionHistory(roomId: number) {
  */
 export async function markInventoryViewedAction(roomId: number): Promise<Done> {
   const access = await tryRoomAccess(roomId, false);
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   // Opening the panel acknowledges both freshly-received ("new") and edited
@@ -482,7 +477,7 @@ export async function getUnreadInventoryCountAction(roomId: number) {
  * Cascades to delete all distribution records.
  */
 export async function deleteInventoryItemAction(roomId: number, itemId: number): Promise<Done> {
-  if (!(await tryRoomAccess(roomId, true))) return noAccess();
+  if (!(await tryRoomAccess(roomId, true))) return noRoomAccess();
 
   // Verify item belongs to room
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
