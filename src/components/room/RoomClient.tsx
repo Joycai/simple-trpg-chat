@@ -16,6 +16,7 @@ import { useChatScroll } from "@/components/room/hooks/useChatScroll";
 import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
 import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
 import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
+import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInventoryCount";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
@@ -23,7 +24,6 @@ import { Icons } from "@/components/shared/icons";
 import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { updateRoomNameAction } from "@/app/actions/room";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
-import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
 import { getCharacterDataAction } from "@/app/actions/character";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
@@ -171,7 +171,6 @@ export function RoomClient({
   const [roomNameDraft, setRoomNameDraft] = useState(room.name);
   const [savingRoomName, setSavingRoomName] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
-  const [unreadItems, setUnreadItems] = useState(initialSnapshot.unreadItems);
   const { unreadCounts, setUnreadCounts, markTabRead } = useUnreadDmCounts(room.id, initialSnapshot.unreadDms);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   // Live overrides pushed by SSE, keyed by userId — one entry per member,
@@ -311,16 +310,13 @@ export function RoomClient({
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
-  // The badge's first value comes with the page (initialSnapshot), so the
-  // message the room opened on doesn't trigger a recount — only later ones do.
-  const firstPaintLastMsgIdRef = useRef(initialMessages[initialMessages.length - 1]?.id);
-  useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg && lastMsg.id === firstPaintLastMsgIdRef.current) return;
-    if (lastMsg?.type === "system" && (lastMsg.content.includes("道具") || lastMsg.content.toLowerCase().includes("item"))) {
-      getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
-    }
-  }, [messages, room.id]);
+  // Backpack badge: seeded from the page, recounted on later item messages.
+  const { unreadItems, setUnreadItems } = useUnreadInventoryCount({
+    roomId: room.id,
+    initialUnread: initialSnapshot.unreadItems,
+    initialMessages,
+    messages,
+  });
 
   // Stick-to-bottom, the back-to-bottom button, older-page loading and the
   // in-memory window cap.
@@ -590,7 +586,7 @@ export function RoomClient({
     // acknowledged by the InventoryPanel *after* it loads, so the new/updated
     // highlights still render this session instead of being cleared mid-open.
     setUnreadItems(0);
-  }, []);
+  }, [setUnreadItems]); // a state setter: stable, so this callback still is
 
   // Alt+↑/↓: cycle through the conversation tabs (public first, then the DM
   // list in sidebar order). Wraps around at both ends.
