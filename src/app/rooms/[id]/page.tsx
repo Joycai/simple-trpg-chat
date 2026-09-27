@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { rooms, roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import { messageVisibilityWhere } from "@/lib/messaging/router";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { RoomClient } from "@/components/room/RoomClient";
 import { RoomThemeSetter } from "@/components/theme/RoomThemeSetter";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
@@ -29,18 +29,11 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const user = session.user;
   const userId = parseInt(user.id);
 
-  // Get room
+  // Get room. An id that isn't a positive int4 can't name one, and would make
+  // Postgres throw (NaN, out of range) instead of returning no row.
+  if (!Number.isInteger(roomId) || roomId <= 0 || roomId > 2_147_483_647) notFound();
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
-        <h1 className="text-2xl font-bold text-text-muted">{t("notFound")}</h1>
-        <Link href="/" className="text-primary hover:underline">
-          {t("backToLobby")}
-        </Link>
-      </div>
-    );
-  }
+  if (!room) notFound();
 
   const isHost = room.hostId === userId;
   const isAdmin = user.role === "admin";

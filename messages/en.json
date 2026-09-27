@@ -782,7 +782,9 @@
     "close": "Close",
     "loading": "Loading...",
     "loadFailed": "Failed to load",
-    "retry": "Retry"
+    "retry": "Retry",
+    "pageNotFound": "Page not found",
+    "backToLobby": "Back to Lobby"
   },
   "userSettings": {
     "title": "Settings",

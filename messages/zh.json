@@ -782,7 +782,9 @@
     "close": "关闭",
     "loading": "加载中...",
     "loadFailed": "加载失败",
-    "retry": "重试"
+    "retry": "重试",
+    "pageNotFound": "页面不存在",
+    "backToLobby": "返回大厅"
   },
   "userSettings": {
     "title": "个人设置",
