@@ -1,40 +1,29 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { LoadFailed } from "@/components/shared/LoadFailed";
 import { Notice } from "@/components/shared/Notice";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 import {
-  getMyNotebookAction,
-  createNoteAction,
-  updateNoteAction,
-  deleteNoteAction,
-  shareNoteAction,
-  createCategoryAction,
-  updateCategoryAction,
-  deleteCategoryAction,
+  createNoteAction, updateNoteAction, deleteNoteAction, createCategoryAction, updateCategoryAction, deleteCategoryAction,
 } from "@/app/actions/notebook";
-import { getMyInventory } from "@/app/actions/inventory";
-import { getMyEventsAction } from "@/app/actions/event";
 import {
-  extractMentions,
-  highlightSegments,
-  searchNotes,
-  stripMarkdown,
-  type NotebookColor,
-  type NotebookLinkEntity,
+  extractMentions, searchNotes, stripMarkdown, type NotebookColor, type NotebookLinkEntity,
 } from "@/lib/room/notebook";
-import { CategoryChip } from "./NotebookChips";
-import type { Category, Note } from "./notebook-types";
-import { formatMonthDay } from "@/lib/format/time";
+import type { Note } from "./notebook-types";
 import { NotebookCategoryList, type CategoryFilter } from "./NotebookCategoryList";
 import { NotebookViewer } from "./NotebookViewer";
 import { NotebookEditor } from "./NotebookEditor";
 import { NotebookShareModal } from "./NotebookShareModal";
+import { NotebookSearchInput, NotebookSearchResults } from "./NotebookSearch";
+import { NotebookNoteList } from "./NotebookNoteList";
+import { useNotebookData } from "./useNotebookData";
+import { useNoteShare } from "./useNoteShare";
+import { useNotebookBanner } from "./useNotebookBanner";
+import { buildConfirmDialogProps, type NotebookConfirm } from "./notebook-confirm";
 import { DetailModal } from "@/components/room/inventory/modals";
 import type { Distribution, InventoryPlayer } from "@/components/room/inventory/inventory-types";
 import { PaneTransition } from "@/components/shared/PaneTransition";
@@ -52,32 +41,6 @@ interface NotebookPanelProps {
   readOnly?: boolean;
 }
 
-/** Themed stand-in for `alert()` — rendered as a strip under the panel header. */
-type Banner = { kind: "success" | "error"; text: string };
-
-/** Themed stand-in for `confirm()`. `discard` carries the action it guards, so
- *  the drawer-close and the editor-back paths share one dialog. */
-type Confirm =
-  | { kind: "discard"; proceed: () => void }
-  | { kind: "deleteNote"; note: Note }
-  | { kind: "deleteCategory"; category: Category };
-
-/** How long a success banner stays up before fading itself out. */
-const BANNER_TTL = 3200;
-
-/** Highlight helper for search results. */
-function Highlighted({ text, query }: { text: string; query: string }) {
-  return (
-    <>
-      {highlightSegments(text, query).map((seg, i) =>
-        seg.hl
-          ? <mark key={i} className="bg-accent/25 text-accent rounded-[3px] px-0.5">{seg.text}</mark>
-          : <span key={i}>{seg.text}</span>
-      )}
-    </>
-  );
-}
-
 /**
  * 记事本 — per-user-per-room private notebook drawer. Notes load on open (no
  * SSE: nothing here is visible to anyone else). Left pane = search + editable
@@ -93,107 +56,21 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   // below with `guardedClose` (declared after the guard's dependencies).
   const { close, panelRef, backdropRef, panelClass, afterEnter } = useOverlayTransition(onClose, "drawer", { closeOnEscape: false });
 
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [entities, setEntities] = useState<NotebookLinkEntity[]>([]);
-  // Full backpack rows behind the link entities, so a clicked chip can open
-  // the same detail view the backpack shows (keyed by inventory item id).
-  // The distribution rides along: DetailModal derives the 持有 line from it.
-  const [distsById, setDistsById] = useState<Map<number, Distribution>>(new Map());
   const [detail, setDetail] = useState<Distribution | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ note: Note | null } | null>(null);
   /** Installed by NotebookEditor so the drawer can ask before discarding. */
   const isEditorDirty = useRef<() => boolean>(() => false);
-  const [sharing, setSharing] = useState<Note | null>(null);
-  const [sendingShare, setSendingShare] = useState(false);
-  const [shareError, setShareError] = useState<string | null>(null);
-  // Bumped when the picker closes, so a send that outlives its picker can't
-  // annotate the next one.
-  const shareSeq = useRef(0);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
-  const [banner, setBanner] = useState<Banner | null>(null);
-  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [confirm, setConfirm] = useState<NotebookConfirm | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
 
-  // A success banner is an acknowledgement, not a message to act on — it clears
-  // itself. Errors stay until dismissed or replaced.
-  useEffect(() => {
-    if (banner?.kind !== "success") return;
-    const id = setTimeout(() => setBanner(null), BANNER_TTL);
-    return () => clearTimeout(id);
-  }, [banner]);
+  // Success / failure strip under the header (success clears itself).
+  const { banner, setBanner, fail } = useNotebookBanner();
 
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      // allSettled, not all: the notes are the panel's reason to exist, while
-      // the backpack and event lists only enrich `@` mentions. Failing them
-      // together meant one blip on either extra showed "no notes yet" to
-      // someone whose notes were fine — and invited them to rewrite one.
-      const [notebook, inventory, myEvents] = await Promise.allSettled([
-        getMyNotebookAction(roomId),
-        getMyInventory(roomId),
-        getMyEventsAction(roomId),
-      ]);
-      if (!alive) return;
-
-      // Every state commit below goes through `afterEnter`: rendering the note
-      // list mid-slide is exactly the main-thread work that used to show up as
-      // a stuttering drawer. The fetch itself already ran, and the queue keeps
-      // these in the order they were handed over.
-      //
-      // Each closure re-checks `alive`. The guard above only covers the instant
-      // the fetch resolved — `afterEnter` can hold a commit past a later re-run
-      // of this effect, and a stale run must not clobber the live one.
-      if (notebook.status === "fulfilled") {
-        afterEnter(() => {
-          if (!alive) return;
-          setNotes(notebook.value.notes as Note[]);
-          setCategories(notebook.value.categories as Category[]);
-          setError(false);
-        });
-      } else {
-        afterEnter(() => {
-          if (alive) setError(true);
-        });
-      }
-
-      // Mentions degrade gracefully: with no entities `segmentMentions` returns
-      // the text unchanged, so an `@Title` just reads as plain text.
-      const byId = new Map<number, Distribution>();
-      const linkable: NotebookLinkEntity[] = [];
-      if (inventory.status === "fulfilled") {
-        // Backpack entries → linkable entities (dedupe by item id: shared
-        // copies of the same item may produce several distributions).
-        for (const dist of inventory.value as Distribution[]) {
-          const item = dist.item;
-          if (item && !byId.has(item.id)) {
-            byId.set(item.id, dist);
-            linkable.push({ id: item.id, type: item.type, title: item.title });
-          }
-        }
-      }
-      if (myEvents.status === "fulfilled") {
-        // Events the viewer may read are also linkable (#7). Negate the id so it
-        // never collides with a backpack item id in the shared entity list.
-        for (const ev of myEvents.value) {
-          linkable.push({ id: -ev.id, type: "event", title: ev.title });
-        }
-      }
-      afterEnter(() => {
-        if (!alive) return;
-        setEntities(linkable);
-        setDistsById(byId);
-        setLoading(false);
-      });
-    })();
-    return () => { alive = false; };
-  }, [roomId, retryKey, afterEnter]);
+  // Notes, categories and the `@` link targets, loaded on open.
+  const { notes, categories, entities, distsById, loading, error, retry, reload } = useNotebookData(roomId, afterEnter);
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
   const categoryOf = (id: number | null) => categories.find((c) => c.id === id) ?? null;
@@ -229,14 +106,6 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
     () => searchNotes(notes, deferredQuery, plainByNoteId),
     [notes, deferredQuery, plainByNoteId],
   );
-
-  const reload = async () => {
-    const notebook = await getMyNotebookAction(roomId);
-    setNotes(notebook.notes as Note[]);
-    setCategories(notebook.categories as Category[]);
-  };
-
-  const fail = (text?: string) => setBanner({ kind: "error", text: text ?? tCommon("error") });
 
   // Actions return `{ success, error }` with the message already localized on
   // the server; the old `err.message` path surfaced Next's production redaction
@@ -275,42 +144,11 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
   const handleCategoryUpdate = (id: number, input: { name: string; color: NotebookColor }) =>
     wrapCategoryError(() => updateCategoryAction(roomId, id, input));
 
-  /** True once sent — the picker then animates out and `closeShare` runs. */
-  const handleShare = async (targetIds: number[]): Promise<boolean> => {
-    if (!sharing || targetIds.length === 0) return false;
-    const seq = shareSeq.current;
-    setSendingShare(true);
-    setShareError(null);
-    try {
-      const res = await shareNoteAction(roomId, sharing.id, targetIds);
-      // The copies went out even if the picker was closed meanwhile, so the
-      // banner stays accurate; only the picker's own state is off-limits.
-      if (res.success) setBanner({ kind: "success", text: t("shareSuccess", { count: res.count }) });
-      if (seq !== shareSeq.current) return false;
-      // Reported inside the picker, which stays open: the selection is still
-      // there to retry with, and a banner behind the modal would be unreadable.
-      if (!res.success) {
-        setSendingShare(false);
-        setShareError(res.error);
-        return false;
-      }
-      // Sending stays set through the exit (closeShare clears it), so the
-      // button can't send a second copy while the picker fades out.
-      return true;
-    } catch {
-      if (seq !== shareSeq.current) return false;
-      setSendingShare(false);
-      setShareError(tCommon("error"));
-      return false;
-    }
-  };
-
-  const closeShare = () => {
-    shareSeq.current++;
-    setSendingShare(false);
-    setSharing(null);
-    setShareError(null);
-  };
+  // Sending a copy of a note to other members; success lands in the banner.
+  const { sharing, sendingShare, shareError, openShare, handleShare, closeShare } = useNoteShare(
+    roomId,
+    (count) => setBanner({ kind: "success", text: t("shareSuccess", { count }) }),
+  );
 
   /** Runs the pending confirm. Destructive branches always dismiss the dialog
    *  when they settle, so a failure banner isn't left behind the backdrop. */
@@ -437,44 +275,11 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
            locale's highest-traffic control. Same node in both states now. */
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="px-4 sm:px-6 pt-4 pb-1 shrink-0">
-            <SearchInput query={query} setQuery={setQuery} />
+            <NotebookSearchInput query={query} setQuery={setQuery} />
           </div>
 
           {query.trim() ? (
-          /* Full-width search results */
-          <div className="flex-1 min-h-0 flex flex-col">
-            <div className="px-4 sm:px-6 pt-1 shrink-0">
-              <div className="flex items-center justify-between mt-1 mb-2 text-xs text-text-muted select-none">
-                <span>{t("matches", { count: results.length })}</span>
-                <span>{t("byRelevance")}</span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 space-y-2.5">
-              {results.length === 0 && (
-                <p className="text-sm text-text-dim text-center py-10">{t("noResults")}</p>
-              )}
-              {results.map(({ note, snippet }) => (
-                <button
-                  key={note.id}
-                  onClick={() => openResult(note.id)}
-                  className="notebook-search-card w-full text-left border border-border rounded-theme px-4 py-3 hover:border-accent/50 hover:bg-surface-alt transition cursor-pointer"
-                >
-                  <div className="text-base font-bold text-text font-theme-display">
-                    <Highlighted text={note.title} query={query} />
-                  </div>
-                  {snippet && (
-                    <div className="text-sm text-text-muted mt-1 leading-relaxed">
-                      <Highlighted text={snippet} query={query} />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mt-2 text-xs">
-                    <CategoryChip category={categoryOf(note.categoryId)} uncategorizedLabel={t("uncategorized")} />
-                    <span className="text-text-dim font-theme-mono">{formatMonthDay(note.updatedAt)}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <NotebookSearchResults results={results} query={query} categoryOf={categoryOf} onOpen={openResult} />
         ) : (
           /* Two panes: sidebar (search/categories/list) + note viewer */
           <div className="flex-1 min-h-0 flex">
@@ -492,57 +297,19 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                   onDelete={(category) => setConfirm({ kind: "deleteCategory", category })}
                 />
               </div>
-              <div className="px-3 pt-2.5 pb-1 text-[11px] text-text-dim select-none shrink-0">
-                {filterLabel} · {listNotes.length}
-              </div>
-              {/* The pane sits inside the scroll container, not around it, so
-                  the scrollbar isn't recreated on every category switch.
-                  `space-y` moves onto the pane because it styles direct
-                  children, and the pane is now the notes' parent. */}
-              <div className="flex-1 overflow-y-auto px-3 pb-2">
-                <PaneTransition paneKey={String(filter)} className="space-y-1.5">
-                {loading && <p className="text-xs text-text-dim px-1 py-4">{tCommon("loading")}</p>}
-                {!loading && error && notes.length === 0 && (
-                  <LoadFailed onRetry={() => setRetryKey((k) => k + 1)} className="py-8" />
-                )}
-                {!loading && !error && listNotes.length === 0 && (
-                  <p className="text-xs text-text-dim px-1 py-4">{t("emptyList")}</p>
-                )}
-                {listNotes.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => setSelectedId(n.id)}
-                    className={`notebook-note-item w-full text-left px-3 py-2.5 rounded-theme border transition cursor-pointer ${
-                      n.id === selectedId
-                        ? "border-accent/60 bg-accent/[0.07]"
-                        : "border-transparent hover:bg-surface-alt"
-                    }`}
-                  >
-                    <div className="text-sm font-bold text-text truncate">{n.title}</div>
-                    <div className="text-[11px] text-text-dim font-theme-mono mt-0.5">
-                      {formatMonthDay(n.updatedAt)}
-                      {(linkCounts.get(n.id) ?? 0) > 0 && <> · {t("linksCount", { count: linkCounts.get(n.id)! })}</>}
-                    </div>
-                    {n.sourceName && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-ai border border-ai/40 bg-ai/10 rounded-full px-1.5 py-px max-w-full">
-                        <Icons.Send className="w-2.5 h-2.5 shrink-0" />
-                        <span className="truncate">{t("receivedFrom", { name: n.sourceName })}</span>
-                      </div>
-                    )}
-                  </button>
-                ))}
-                </PaneTransition>
-              </div>
-              {!readOnly && (
-                <div className="p-3 shrink-0">
-                  <button
-                    onClick={() => setEditing({ note: null })}
-                    className="notebook-new-btn w-full flex items-center justify-center gap-1.5 border border-dashed border-accent/50 text-accent rounded-theme py-2.5 text-sm font-bold hover:bg-accent/10 transition cursor-pointer"
-                  >
-                    <Icons.Plus className="w-4 h-4" /> {t("newNote")}
-                  </button>
-                </div>
-              )}
+              <NotebookNoteList
+                notes={listNotes}
+                hasAnyNotes={notes.length > 0}
+                filterKey={String(filter)}
+                filterLabel={filterLabel}
+                loading={loading}
+                error={error}
+                onRetry={retry}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                linkCounts={linkCounts}
+                onNew={readOnly ? undefined : () => setEditing({ note: null })}
+              />
             </div>
 
             <div className={`${selected ? "flex" : "hidden sm:flex"} flex-1 min-w-0 flex-col min-h-0`}>
@@ -554,7 +321,7 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
                   readOnly={readOnly}
                   onEdit={() => setEditing({ note: selected })}
                   onDelete={() => setConfirm({ kind: "deleteNote", note: selected })}
-                  onShare={() => { setShareError(null); setSharing(selected); }}
+                  onShare={() => openShare(selected)}
                   onBack={() => setSelectedId(null)}
                   onOpenEntity={handleOpenEntity}
                 />
@@ -607,58 +374,13 @@ export function NotebookPanel({ roomId, userId, players, onOpenEvent, onClose, r
             panel's stopPropagation, so a click inside cannot close the drawer. */}
         {confirm && (
           <ConfirmDialog
-            title={
-              confirm.kind === "discard" ? t("discardConfirmTitle")
-              : confirm.kind === "deleteNote" ? t("deleteConfirmTitle")
-              : t("deleteCategoryConfirmTitle")
-            }
-            description={
-              confirm.kind === "discard" ? t("discardConfirm")
-              : confirm.kind === "deleteNote" ? t("deleteConfirm", { title: confirm.note.title })
-              : t("deleteCategoryConfirm", {
-                  name: confirm.category.name,
-                  count: categoryCounts.get(confirm.category.id) ?? 0,
-                })
-            }
-            confirmLabel={
-              confirm.kind === "discard" ? t("discardConfirmAction")
-              : confirm.kind === "deleteNote" ? t("delete")
-              : t("deleteCategory")
-            }
-            icon={confirm.kind === "discard" ? undefined : <Icons.Trash2 className="w-5 h-5" />}
+            {...buildConfirmDialogProps(confirm, t, categoryCounts)}
             busy={confirmBusy}
             onConfirm={runConfirm}
             onCancel={() => setConfirm(null)}
           />
         )}
       </div>
-    </div>
-  );
-}
-
-/** Single instance, rendered above the view switch — see the comment there for
- *  why it must not live inside either branch. No autoFocus: it is never
- *  remounted now, so there is nothing to restore focus from. */
-function SearchInput({ query, setQuery }: { query: string; setQuery: (q: string) => void }) {
-  const t = useTranslations("notebook");
-  return (
-    <div className="relative">
-      <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim pointer-events-none" />
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={t("searchPlaceholder")}
-        className="w-full bg-input-bg border border-input-border rounded-theme pl-9 pr-8 py-2 text-sm text-text outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent/50"
-      />
-      {query && (
-        <button
-          onClick={() => setQuery("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-dim hover:text-text transition cursor-pointer"
-          aria-label={t("clearSearch")}
-        >
-          <Icons.X className="w-3.5 h-3.5" />
-        </button>
-      )}
     </div>
   );
 }
