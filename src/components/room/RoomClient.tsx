@@ -13,11 +13,12 @@ import { RoomOverlays } from "@/components/room/RoomOverlays";
 import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useChatScroll } from "@/components/room/hooks/useChatScroll";
+import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { Icons } from "@/components/shared/icons";
-import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
+import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { updateRoomNameAction } from "@/app/actions/room";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
@@ -192,7 +193,7 @@ export function RoomClient({
   const [savingRoomName, setSavingRoomName] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
   const [unreadItems, setUnreadItems] = useState(initialSnapshot.unreadItems);
-  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>(initialSnapshot.unreadDms);
+  const { unreadCounts, setUnreadCounts, markTabRead } = useUnreadDmCounts(room.id, initialSnapshot.unreadDms);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   // Live overrides pushed by SSE, keyed by userId — one entry per member,
   // holding the rule's primary vital (HP where the rule has one).
@@ -255,17 +256,11 @@ export function RoomClient({
 
   const handleTabChange = useCallback((tab: "public" | number) => {
     setActiveTab(tab);
-    if (tab !== "public") {
-      setUnreadCounts((prev) => ({
-        ...prev,
-        [tab]: 0,
-      }));
-      markDMReadAction(room.id, tab).catch(() => {});
-    }
+    if (tab !== "public") markTabRead(tab);
     if (isMobile) {
       setSidebarCollapsed(true);
     }
-  }, [room.id, isMobile, setSidebarCollapsed]);
+  }, [markTabRead, isMobile, setSidebarCollapsed]);
 
   // Mention targets (players + bots, excluding self), the DM list and its
   // badge total — pure derivations in lib/room/mention-targets.
