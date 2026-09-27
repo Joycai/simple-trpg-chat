@@ -26,7 +26,7 @@ import {
   type DiceDetailJson,
   type DiceMetaSource,
   type RollKind,
-} from "@/components/room/chat/message/DiceResult";
+} from "@/components/room/chat/message/dice";
 import {
   HelpCard,
   SYSTEM_PILL_META,
