@@ -1,29 +1,24 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Check } from "lucide-react";
-import { updateNicknameAction, updateRoomMemberColorAction, uploadAvatarAction } from "@/app/actions/room";
-import { initCharacterAction, saveCharacterDataAction, addCustomAttributeAction, removeCustomAttributeAction, updateResourcesAction } from "@/app/actions/character";
-import { getRoomSkills, getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { CharacterData } from "@/lib/character/types";
-import { getRandomColorForUser, getContrastColor, PRESET_AVATAR_COLORS } from "@/lib/ui/avatar-colors";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { Icons } from "@/components/shared/icons";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { Notice } from "@/components/shared/Notice";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
-import { SkillsTab, type SkillItem } from "@/components/room/character/SkillsTab";
+import { SkillsTab } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
-import type { SaveStatus } from "@/components/room/character/SaveButton";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 import { NICKNAME_MAX_LENGTH } from "@/lib/room/limits";
-import {
-  getRule, DEFAULT_RULE_ID, type ResourcePatch,
-  type CocAttributes, type D20Attributes, type D20Sheet,
-  type ShAttributes, type ShSheet, type TaQualities, type TaSheet,
-} from "@/lib/rules";
+import { buildCharacterExportText } from "@/lib/character/panel-status";
+import { useCharacterSheetState } from "./useCharacterSheetState";
+import { useCharacterSkills } from "./useCharacterSkills";
+import { useMemberProfile } from "./useMemberProfile";
+import { useCharacterSave } from "./useCharacterSave";
+import { useCharacterAvatarUpload } from "./useCharacterAvatarUpload";
+import { AvatarColorBand } from "./AvatarColorBand";
 
 interface CharacterPanelProps {
   roomId: number;
@@ -69,16 +64,10 @@ export function CharacterPanel({
 }: CharacterPanelProps) {
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
-  const router = useRouter();
   const { close, panelRef, backdropRef, panelClass, afterEnter } = useOverlayTransition(onClose, "drawer");
 
-  // Avatar photo: shows the uploaded image when present, falling back to a
-  // colored initial. `avatarOverride` reflects a just-cropped image instantly,
-  // before router.refresh propagates the new value down through props.
-  const [cropFile, setCropFile] = useState<File | null>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
-  const avatarSrc = avatarOverride ?? avatar ?? null;
+  // Avatar photo: the uploaded image, or a colored initial; crop → upload.
+  const { cropFile, setCropFile, avatarSrc, confirmCrop } = useCharacterAvatarUpload(roomId, avatar);
 
   // Determine if resources can be edited (owner or GM)
   const canEditResources = !readOnly || isGM;
@@ -86,145 +75,28 @@ export function CharacterPanel({
   // Tab
   const [activeTab, setActiveTab] = useState<TabId>("attributes");
 
-  // Nickname & Color
-  const [nickname, setNickname] = useState(currentNickname);
-  const [editingNick, setEditingNick] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<string>(avatarColor || getRandomColorForUser(userId));
-  // Last colour the server accepted — a failed pick reverts the swatch to it.
-  // Follows the live prop too, so a change made elsewhere is the new baseline.
-  const savedColor = useRef(selectedColor);
-  useEffect(() => { if (avatarColor) savedColor.current = avatarColor; }, [avatarColor]);
-  // Only the latest pick may revert the swatch or report an error; the colour
-  // input fires on every drag step, so older picks resolve behind newer ones.
-  const colorSeq = useRef(0);
-  // A failed nickname save keeps the editor open, so Enter and the following
-  // blur can both fire saveNickname; this stops the second one while the
-  // first is in flight.
-  const savingNick = useRef(false);
   // The panel's single error strip (above the footer) — any failed write.
   const [panelError, setPanelError] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // Nickname (click to edit in the header) and avatar colour.
+  const { nickname, setNickname, editingNick, setEditingNick, selectedColor, saveNickname, handleColorChange } =
+    useMemberProfile({ roomId, userId, currentNickname, avatarColor, readOnly, onNicknameChange, setPanelError });
 
-  // Character data — parsed once, then individual fields are pulled into local
-  // state below so edits can be optimistic before save.
-  const charData = parseCharData(characterData) as {
-    ruleTemplate?: string;
-    cocAttributes?: CocAttributes;
-    cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number; hp?: number; san?: number; mp?: number; hpMax?: number; sanMax?: number; mpMax?: number };
-    d20Attributes?: D20Attributes;
-    d20Sheet?: D20Sheet;
-    taQualities?: TaQualities;
-    taSheet?: TaSheet;
-    shAttributes?: ShAttributes;
-    shSheet?: ShSheet;
-    bio?: string;
-    occupation?: string;
-    age?: number;
-    customAttributes?: { name: string; value: number; max?: number }[];
-  };
-  const hasExistingData = !!characterData && !!charData.ruleTemplate;
-  const ruleTemplate = charData.ruleTemplate || roomRuleTemplate || "basic";
-  const ruleCap = getRule(ruleTemplate).capabilities;
-  const [initDone, setInitDone] = useState(hasExistingData);
+  // The sheet being edited — seeded from characterData, re-synced when it changes.
+  const {
+    hasExistingData, ruleTemplate, ruleCap,
+    attributeValues, updateAttr,
+    d20Role, setD20Role, d20Level, setD20Level,
+    bio, setBio, occupation, setOccupation, age, setAge,
+    customAttrs, addCustom, updateCustom, removeCustomAttr,
+    draftStatus, derivedValues, resourceMaxes, effectiveResourceMaxes,
+    currentResources, handleResourceChange, handleResourceMaxChange, loadedResourcesRef,
+  } = useCharacterSheetState({ roomId, characterData, roomRuleTemplate, readOnly, afterEnter, setPanelError });
 
-  // Attributes — generic Record keyed by capability `attributeKeys[*].key`.
-  // For COC: pulled from cocAttributes; for d20: from d20Attributes.
-  const [attributeValues, setAttributeValues] = useState<Record<string, number>>(() =>
-    buildAttributeValues(ruleTemplate, charData.cocAttributes, charData.d20Attributes, charData.taQualities, charData.shAttributes)
-  );
-
-  // d20-specific role / level (gated by `cap.hasRoleLevel`).
-  const [d20Role, setD20Role] = useState<string>(charData.d20Sheet?.role ?? "");
-  const [d20Level, setD20Level] = useState<number | "">(charData.d20Sheet?.level ?? "");
-
-  // Auto-init character on first open (rule-driven; was COC-only before).
-  useEffect(() => {
-    if (readOnly) return;
-    if (initDone) return;
-    // The default rule (basic) has no structured sheet to initialize.
-    if (roomRuleTemplate === DEFAULT_RULE_ID || !roomRuleTemplate) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setInitDone(true);
-      return;
-    }
-    // Deferred to `afterEnter`: the action revalidates `/rooms/:id` and this
-    // then calls `router.refresh()`, so the response re-renders the entire room
-    // tree. Landing that inside the drawer's slide is the difference between a
-    // smooth open and a visible hitch.
-    initCharacterAction(roomId).then((res) => {
-      if (!res.success) { setPanelError(res.error); return; }
-      const { data } = res;
-      afterEnter(() => {
-        setAttributeValues(buildAttributeValues(ruleTemplate, data.cocAttributes, data.d20Attributes, data.taQualities, data.shAttributes));
-        if (data.d20Sheet) {
-          setD20Role(data.d20Sheet.role ?? "");
-          setD20Level(data.d20Sheet.level ?? "");
-        }
-        setInitDone(true);
-        router.refresh();
-      });
-    }).catch(() => setPanelError(tCommon("error")));
-    // intentionally omits `router` and `ruleTemplate` from deps — initial-mount-only effect
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomRuleTemplate, roomId, initDone, readOnly]);
-  const [bio, setBio] = useState(charData.bio || "");
-  const [occupation, setOccupation] = useState(charData.occupation || "");
-  const [age, setAge] = useState<number | "">(charData.age ?? "");
-
-  // Custom attributes / resources (a custom item with `max` set renders as a resource bar)
-  const [customAttrs, setCustomAttrs] = useState<{name: string; value: number; max?: number}[]>(charData.customAttributes || []);
-  // Per-name value the server last accepted, so a failed in-place edit rolls
-  // back to it — not to a newer optimistic value that also never landed.
-  // Cleared whenever the sheet re-syncs from props.
-  const confirmedCustom = useRef(new Map<string, { name: string; value: number; max?: number }>());
-
-  // Draft the rule's live status from the currently-edited attributes so the
-  // bar denominators + derived footer move as the player edits, without the
-  // panel knowing whether a max is derived (COC/狩魂者) or free-set (d20).
-  // Rebuilt each render (was per-rule computeCocDerived / computeShDerived).
-  const draftStatus = draftStatusFor(ruleTemplate, charData, attributeValues);
-  // Rule-provided derived stats (狩魂者 术法强度 / 灵识); undefined for others.
-  const derivedValues = draftStatus.derived;
-  const resourceMaxes: Record<string, number> = {};
-  for (const bar of ruleCap.resourceBars) {
-    const r = draftStatus.resources[bar.key];
-    if (r && (bar.style ?? "bar") !== "counter" && r.max !== undefined) {
-      resourceMaxes[bar.key] = r.max;
-    }
-  }
-
-  // Resource current values — generic Record keyed by resource key. Seeded from
-  // the rule's own status snapshot (current = stored value, defaulting to max),
-  // which subsumes the old per-rule current-value branches.
-  const [currentResources, setCurrentResources] = useState<Record<string, number>>(() =>
-    currentsFromStatus(ruleTemplate, draftStatusFor(ruleTemplate, charData, attributeValues))
-  );
-  // Resource values as last loaded or saved. A host editing another member's
-  // card sends only what differs from this, so a snapshot that went stale
-  // while the panel was open can't roll back the member's other values, and
-  // resources the member doesn't have are never written as 0.
-  const loadedResources = useRef(currentResources);
-
-  // Skills
-  const [skills, setSkills] = useState<SkillItem[]>([]);
-  const [skillsLoaded, setSkillsLoaded] = useState(false);
-  const [newSkillName, setNewSkillName] = useState("");
-  const [newSkillValue, setNewSkillValue] = useState(50);
-
-  useEffect(() => {
-    if (readOnly && targetUserId) {
-      getRoomSkills(roomId, targetUserId).then((data) => {
-        afterEnter(() => {
-          setSkills(data.map(s => ({ id: s.id, skillName: s.skillName, skillValue: s.skillValue })));
-          setSkillsLoaded(true);
-        });
-      }).catch(() => {});
-    } else {
-      getMySkillsAction(roomId).then((data) => {
-        afterEnter(() => { setSkills(data); setSkillsLoaded(true); });
-      }).catch(() => {});
-    }
-  }, [roomId, readOnly, targetUserId, refreshKey, afterEnter]);
+  // Skills tab: list, reload on refreshKey, add / remove / edit.
+  const {
+    skills, skillsLoaded, newSkillName, setNewSkillName, newSkillValue, setNewSkillValue,
+    addSkill, removeSkill, updateSkill,
+  } = useCharacterSkills({ roomId, readOnly, targetUserId, refreshKey, afterEnter, onSkillsChanged });
 
   // "No skills yet" nudge on the 技能 tab: only for the owner, only when this
   // rule uses a structured sheet (basic/通用 d100 never hints), and only once
@@ -232,314 +104,27 @@ export function CharacterPanel({
   const skillsUnset =
     !readOnly && ruleCap.attributeKeys.length > 0 && skillsLoaded && skills.length === 0;
 
-  // Re-sync attributes/resources when the characterData prop changes (e.g. after a
-  // .st / .sc command triggers router.refresh upstream). Keeps an open panel current
-  // without a full reload, and without remounting (so the active tab is preserved).
-  useEffect(() => {
-    if (!characterData) return;
-    const cd = parseCharData(characterData) as {
-      ruleTemplate?: string;
-      cocAttributes?: CocAttributes;
-      d20Attributes?: D20Attributes;
-      d20Sheet?: D20Sheet;
-      taQualities?: TaQualities;
-      taSheet?: TaSheet;
-      shAttributes?: ShAttributes;
-      shSheet?: ShSheet;
-      bio?: string;
-      occupation?: string;
-      age?: number;
-      customAttributes?: { name: string; value: number; max?: number }[];
-      cocDerived?: { hp_current?: number; san_current?: number; mp_current?: number; hp?: number; san?: number; mp?: number };
-    };
-    if (!cd) return;
-    const rt = cd.ruleTemplate || ruleTemplate;
-    const attrs = buildAttributeValues(rt, cd.cocAttributes, cd.d20Attributes, cd.taQualities, cd.shAttributes);
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setAttributeValues(attrs);
-    setBio(cd.bio || "");
-    setOccupation(cd.occupation || "");
-    setAge(cd.age ?? "");
-    setCustomAttrs(cd.customAttributes || []);
-    confirmedCustom.current.clear();
-    // Resource currents come from the rule's own status snapshot; role/level
-    // only for rules that expose them. (Was a dnd5e/triangle/shouhun/coc chain.)
-    const loaded = currentsFromStatus(rt, draftStatusFor(rt, cd, attrs));
-    setCurrentResources(loaded);
-    loadedResources.current = loaded;
-    if (getRule(rt).capabilities.hasRoleLevel) {
-      setD20Role(cd.d20Sheet?.role ?? "");
-      setD20Level(cd.d20Sheet?.level ?? "");
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [characterData, ruleTemplate]);
-
-  const saveNickname = async () => {
-    if (savingNick.current) return;
-    const next = nickname.trim();
-    if (next && nickname !== currentNickname) {
-      savingNick.current = true;
-      setPanelError(null);
-      const res = await updateNicknameAction(roomId, next)
-        .catch(() => ({ success: false as const, error: tCommon("error") }));
-      savingNick.current = false;
-      // Stay in the editor with the typed name so the player can retry.
-      if (!res.success) { setPanelError(res.error); return; }
-      // Escape during the request reset the draft; show what the server kept.
-      setNickname(next);
-      onNicknameChange(next);
-    }
-    setEditingNick(false);
-  };
-
-  const handleColorChange = async (color: string) => {
-    if (readOnly) return;
-    const seq = ++colorSeq.current;
-    setSelectedColor(color);
-    setPanelError(null);
-    const res = await updateRoomMemberColorAction(roomId, userId, color)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (res.success) {
-      savedColor.current = color;
-      return;
-    }
-    if (seq !== colorSeq.current) return; // a newer pick owns the swatch now
-    setSelectedColor(savedColor.current);
-    setPanelError(res.error);
-  };
-
-  // Footer "保存" — persists attributes + bio + per-rule sheet in one go.
-  const handleSaveAll = async () => {
-    // Failure: the button flashes its error state and the strip says why.
-    const failSave = (error: string) => {
-      setPanelError(error);
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
-    };
-    setSaveStatus("saving");
-    setPanelError(null);
-    try {
-      const basePayload = {
-        ruleTemplate, bio,
-        occupation: occupation.trim() || undefined,
-        age: age === "" ? undefined : Number(age),
-      };
-      const rule = getRule(ruleTemplate);
-      const cap = rule.capabilities;
-
-      // Attribute bag → sheet patch (rule owns which bag), plus role/level for
-      // rules that expose them. (Was a coc7th/dnd5e/triangle/shouhun if-chain.)
-      let sheetPatch = rule.writeAttributes({ ruleTemplate }, attributeValues);
-      if (cap.hasRoleLevel) {
-        sheetPatch = {
-          ...sheetPatch,
-          d20Sheet: {
-            ...(sheetPatch.d20Sheet ?? {}),
-            role: d20Role.trim() || undefined,
-            level: d20Level === "" ? undefined : Number(d20Level),
-          },
-        };
-      }
-
-      // Standard resource currents (+ editable HP max for d20).
-      const resPatch: ResourcePatch = {
-        hp_current: currentResources.hp ?? 0,
-        san_current: currentResources.san ?? 0,
-        mp_current: currentResources.mp ?? 0,
-        mana_current: currentResources.mana ?? 0,
-        hpMax: cap.resourceMaxEditable ? resourceMaxes.hp : undefined,
-      };
-
-      if (readOnly && targetUserId) {
-        // Host viewing another member's card: only the resource bars are
-        // editable here, and they belong to the target. The own-sheet writes
-        // below would land on the host's row (saveCharacterDataAction writes
-        // the caller's sheet), so send everything through the target-scoped
-        // action — counters included, which it writes via the rule.
-        const base = loadedResources.current;
-        const changed = (key: string) =>
-          currentResources[key] !== undefined && currentResources[key] !== base[key];
-        const patch: ResourcePatch & { counters?: Record<string, number> } = {};
-        if (changed("hp")) patch.hp_current = currentResources.hp;
-        if (changed("san")) patch.san_current = currentResources.san;
-        if (changed("mp")) patch.mp_current = currentResources.mp;
-        if (changed("mana")) patch.mana_current = currentResources.mana;
-        for (const bar of cap.resourceBars) {
-          if (bar.style === "counter" && changed(bar.key)) {
-            patch.counters = { ...patch.counters, [bar.key]: currentResources[bar.key] };
-          }
-        }
-        const res = await updateResourcesAction(roomId, targetUserId, patch);
-        if (!res.success) return failSave(res.error);
-        loadedResources.current = { ...currentResources };
-      } else if (cap.resourceCurrentsViaAction) {
-        // COC / 狩魂者: attributes on the caller's own sheet, currents via
-        // updateResourcesAction so a host can adjust another player's bars.
-        const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...sheetPatch });
-        if (!saved.success) return failSave(saved.error);
-        // A failure here leaves the attributes saved; retrying is idempotent,
-        // so reporting the whole save as failed is acceptable.
-        const res = await updateResourcesAction(roomId, userId, resPatch);
-        if (!res.success) return failSave(res.error);
-      } else {
-        // d20 / triangle / basic: currents bundle into the player's own sheet —
-        // standard resources via applyResourcePatch, counters via applyStatWrite.
-        let full = rule.applyResourcePatch({ ...sheetPatch, ruleTemplate }, resPatch);
-        for (const bar of cap.resourceBars) {
-          if ((bar.style ?? "bar") !== "counter") continue;
-          const v = currentResources[bar.key];
-          if (v !== undefined) {
-            full = rule.applyStatWrite(full, { kind: "resource", key: bar.key, canonical: bar.key }, v).sheet;
-          }
-        }
-        const saved = await saveCharacterDataAction(roomId, { ...basePayload, ...full });
-        if (!saved.success) return failSave(saved.error);
-      }
-      setSaveStatus("success");
-      setTimeout(() => setSaveStatus("idle"), 2000);
-      router.refresh();
-    } catch (e) {
-      console.error("Failed to save character", e);
-      failSave(tCommon("error"));
-    }
-  };
+  // Footer "保存" — attributes, background and resources in one go.
+  const { saveStatus, handleSaveAll } = useCharacterSave({
+    roomId, userId, readOnly, targetUserId, ruleTemplate,
+    bio, occupation, age, attributeValues, d20Role, d20Level,
+    currentResources, resourceMaxes, loadedResourcesRef, setPanelError,
+  });
 
   // Footer "导出" — downloads a readable text summary of the sheet (client-side).
-  // Driven entirely by capabilities + the rule's status snapshot, so a new rule
-  // exports with no edit here (was a coc7th/dnd5e/triangle/shouhun if-chain).
   const handleExport = () => {
-    const lines = [`${t("title")} · ${nickname}`, ""];
-
-    // Role / level (only rules that expose them).
-    if (ruleCap.hasRoleLevel) {
-      if (d20Role) lines.push(`${t("role")}: ${d20Role}`);
-      if (d20Level !== "") lines.push(`${t("level")}: ${d20Level}`);
-    }
-
-    // Resource bars: `current/max` for bars, bare value for counters.
-    for (const bar of ruleCap.resourceBars) {
-      const cur = currentResources[bar.key] ?? 0;
-      lines.push((bar.style ?? "bar") === "counter"
-        ? `${t(bar.labelKey)}: ${cur}`
-        : `${t(bar.labelKey)}: ${cur}/${resourceMaxes[bar.key] ?? 0}`);
-    }
-
-    // Derived stats (e.g. 狩魂者 术法强度) + 灵识 footer value, if the rule has them.
-    for (const d of ruleCap.derivedStats ?? []) {
-      lines.push(`${t(d.labelKey)}: ${derivedValues?.[d.key] ?? 0}`);
-    }
-    if (derivedValues?.spiritSense !== undefined) {
-      lines.push(`${t("shSpiritSense")}: ${derivedValues.spiritSense}`);
-    }
-
-    // Attributes, with the rule's grade badge appended when it has one.
-    if (ruleCap.attributeKeys.length) {
-      lines.push("", t("baseAttributes") + ":");
-      const grades = draftStatus.attributeGrades;
-      ruleCap.attributeKeys.forEach(({ key, labelKey }) => {
-        const g = grades?.[key];
-        lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0}${g ? ` (${g})` : ""}`);
-      });
-    }
-
-    if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
-    if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const text = buildCharacterExportText({
+      t, nickname, cap: ruleCap, role: d20Role, level: d20Level,
+      currentResources, resourceMaxes, derivedValues,
+      attributeGrades: draftStatus.attributeGrades, attributeValues, skills, bio,
+    });
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${nickname || "character"}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const updateAttr = (key: string, value: number) => {
-    setAttributeValues(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleResourceChange = (key: string, value: number) => {
-    setCurrentResources(prev => ({ ...prev, [key]: value }));
-  };
-
-  // d20: max is editable on the HP bar (no auto-derivation). Wire it into
-  // resourceMaxes via a local override state so the AttributesTab can refresh
-  // immediately without a server round-trip.
-  const [resourceMaxOverrides, setResourceMaxOverrides] = useState<Record<string, number>>({});
-  const effectiveResourceMaxes = { ...resourceMaxes, ...resourceMaxOverrides };
-  const handleResourceMaxChange = (key: string, value: number) => {
-    setResourceMaxOverrides(prev => ({ ...prev, [key]: value }));
-  };
-
-  const addSkill = async () => {
-    if (!newSkillName.trim()) return;
-    await upsertSkillAction(roomId, newSkillName.trim(), newSkillValue);
-    setNewSkillName("");
-    router.refresh();
-    getMySkillsAction(roomId).then(setSkills).catch(() => {});
-    onSkillsChanged?.();
-  };
-
-  const removeSkill = async (skillId: number) => {
-    await deleteSkillAction(roomId, skillId);
-    router.refresh();
-    getMySkillsAction(roomId).then(setSkills).catch(() => {});
-    onSkillsChanged?.();
-  };
-
-  // Inline value edit — upsert overwrites by (room, user, name), same as .st.
-  const updateSkill = async (skillName: string, value: number) => {
-    await upsertSkillAction(roomId, skillName, value);
-    router.refresh();
-    getMySkillsAction(roomId).then(setSkills).catch(() => {});
-    onSkillsChanged?.();
-  };
-
-  // Add or overwrite a custom item. `max` present ⇒ rendered as a resource bar.
-  const addCustom = async (attr: { name: string; value: number; max?: number }) => {
-    const name = attr.name.trim();
-    if (!name) return;
-    const item = { ...attr, name };
-    setPanelError(null);
-    const res = await addCustomAttributeAction(roomId, item)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (!res.success) { setPanelError(res.error); return; }
-    setCustomAttrs(prev => {
-      const idx = prev.findIndex(a => a.name === name);
-      if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
-      return [...prev, item];
-    });
-    router.refresh();
-  };
-
-  // Edit a custom item's current value / max in place (optimistic + persist).
-  const updateCustom = async (name: string, patch: { value?: number; max?: number }) => {
-    const existing = customAttrs.find(a => a.name === name);
-    if (!existing) return;
-    const confirmed = confirmedCustom.current;
-    if (!confirmed.has(name)) confirmed.set(name, existing);
-    const item = { ...existing, ...patch };
-    setCustomAttrs(prev => prev.map(a => (a.name === name ? item : a)));
-    setPanelError(null);
-    const res = await addCustomAttributeAction(roomId, item)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (!res.success) {
-      // Roll back the optimistic edit unless a newer edit has replaced it.
-      const base = confirmed.get(name) ?? existing;
-      setCustomAttrs(prev => prev.map(a => (a === item ? base : a)));
-      setPanelError(res.error);
-      return;
-    }
-    confirmed.set(name, item);
-    router.refresh();
-  };
-
-  const removeCustomAttr = async (name: string) => {
-    setPanelError(null);
-    const res = await removeCustomAttributeAction(roomId, name)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (!res.success) { setPanelError(res.error); return; }
-    setCustomAttrs(prev => prev.filter(a => a.name !== name));
-    router.refresh();
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -625,56 +210,13 @@ export function CharacterPanel({
             on every switch to 技能 / 背景. Keeping it mounted costs ~96px of
             vertical room on those tabs and buys a stable layout. */}
         {!readOnly && (
-          <div className="shrink-0 border-b border-border px-6 py-4 flex items-center gap-4">
-            <div className="relative shrink-0">
-              <div className="w-16 h-16 rounded-theme overflow-hidden flex items-center justify-center border-2"
-                style={{ borderColor: selectedColor, boxShadow: `0 0 12px ${selectedColor}55` }}>
-                {avatarSrc
-                  // Avatar is a base64 data URL — next/image can't optimize these.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={avatarSrc} alt={nickname} className="w-full h-full object-cover" />
-                  : <span className="w-full h-full flex items-center justify-center text-2xl font-bold"
-                      style={{ backgroundColor: selectedColor, color: getContrastColor(selectedColor) }}>{nickname.charAt(0).toUpperCase()}</span>}
-              </div>
-              <button onClick={() => avatarInputRef.current?.click()} title={t("changeAvatar")}
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground border-2 border-surface flex items-center justify-center cursor-pointer">
-                <Icons.Pencil className="w-3 h-3" />
-              </button>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  // Reset value so re-selecting the same file re-fires onChange.
-                  e.target.value = "";
-                  if (file) setCropFile(file);
-                }}
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs text-text-muted mb-2">{t("avatarColor")}</div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {PRESET_AVATAR_COLORS.map(p => (
-                  <button key={p.hex} onClick={() => handleColorChange(p.hex)} title={p.name}
-                    className={`w-7 h-7 rounded-full transition cursor-pointer ${
-                      selectedColor.toLowerCase() === p.hex.toLowerCase()
-                        ? "ring-2 ring-offset-2 ring-offset-surface ring-primary scale-105" : "hover:scale-110"
-                    }`}
-                    style={{ backgroundColor: p.hex }} />
-                ))}
-                <label title={t("customColor")}
-                  className="w-7 h-7 rounded-full border border-dashed border-border flex items-center justify-center cursor-pointer text-text-muted hover:text-text hover:border-primary/50 transition">
-                  <Icons.Plus className="w-3.5 h-3.5" />
-                  <input type="color"
-                    value={selectedColor.startsWith("#") && selectedColor.length === 7 ? selectedColor : "#6366f1"}
-                    onChange={e => handleColorChange(e.target.value)}
-                    className="absolute w-0 h-0 opacity-0" />
-                </label>
-              </div>
-            </div>
-          </div>
+          <AvatarColorBand
+            nickname={nickname}
+            selectedColor={selectedColor}
+            avatarSrc={avatarSrc}
+            onPickFile={setCropFile}
+            onColorChange={handleColorChange}
+          />
         )}
 
         {/* Tab Bar — underline */}
@@ -794,72 +336,9 @@ export function CharacterPanel({
         maxOutputBytes={280_000}
         title={t("changeAvatar")}
         onCancel={() => setCropFile(null)}
-        onConfirm={async (dataUrl) => {
-          const res = await uploadAvatarAction(roomId, dataUrl)
-            .catch(() => ({ success: false as const, error: tCommon("error") }));
-          // ImageCropper shows a thrown Error's message in its own error strip
-          // and stays open — a local signal, not a server error crossing the wire.
-          if (!res.success) throw new Error(res.error);
-          setAvatarOverride(dataUrl);
-          setCropFile(null);
-          router.refresh();
-        }}
+        onConfirm={confirmCrop}
       />
     )}
     </>
   );
 }
-
-function parseCharData(json?: string | null): Record<string, unknown> {
-  try { return json ? JSON.parse(json) : {}; } catch { return {}; }
-}
-
-/**
- * Draft the active rule's live status from the currently-edited attribute
- * values: writeAttributes → computeDerived → readStatus. Gives the panel a
- * generic `{ resources: { current, max }, derived }` snapshot so the resource
- * bars, their denominators, and the derived footer stop calling
- * computeCocDerived / computeShDerived by name (was a per-rule if-chain).
- */
-function draftStatusFor(ruleTemplate: string, sheet: unknown, attributeValues: Record<string, number>) {
-  const rule = getRule(ruleTemplate);
-  const base = { ...(sheet as CharacterData), ruleTemplate };
-  return rule.readStatus(rule.computeDerived(rule.writeAttributes(base, attributeValues)));
-}
-
-/** Pull the current value for each of a rule's resource bars from a status snapshot. */
-function currentsFromStatus(ruleTemplate: string, status: { resources: Record<string, { current: number; max?: number }> }): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const bar of getRule(ruleTemplate).capabilities.resourceBars) {
-    const r = status.resources[bar.key];
-    if (r) out[bar.key] = r.current;
-  }
-  return out;
-}
-
-/**
- * Build the generic `attributeValues: Record<string, number>` record fed to
- * AttributesTab from rule-specific attribute bags. COC → cocAttributes;
- * d20 → d20Attributes; basic → empty.
- */
-function buildAttributeValues(
-  ruleTemplate: string,
-  coc: CocAttributes | undefined,
-  d20: D20Attributes | undefined,
-  ta?: TaQualities,
-  sh?: ShAttributes,
-): Record<string, number> {
-  // The rule owns which bag its attributes live in; the panel just asks for a
-  // flat record. (Was a coc7th/dnd5e/triangle/shouhun if-chain.)
-  return getRule(ruleTemplate).readAttributes({
-    ruleTemplate,
-    cocAttributes: coc,
-    d20Attributes: d20,
-    taQualities: ta,
-    shAttributes: sh,
-  });
-}
-
-// Attribute record ↔ each rule's bag now lives in the rule modules
-// (readAttributes / writeAttributes); the panel no longer owns per-rule
-// conversion helpers.
