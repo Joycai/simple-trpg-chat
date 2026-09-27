@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Megaphone, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getDiceAnnouncerSettingsAction, setDiceAnnouncerAction } from "@/app/actions/dice-announcer";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 
 interface BotOption {
   id: number;
@@ -21,7 +22,6 @@ export function DiceAnnouncerSettings({ roomId }: { roomId: number }) {
   const [bots, setBots] = useState<BotOption[]>([]);
   const [botId, setBotId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -44,20 +44,16 @@ export function DiceAnnouncerSettings({ roomId }: { roomId: number }) {
   const enabled = botId !== null;
   const noBots = bots.length === 0;
 
-  const applyBotId = useCallback(
-    async (next: number | null) => {
-      setSaving(true);
-      setError("");
-      const res = await setDiceAnnouncerAction(roomId, next);
-      if (!res.success) {
-        setError(res.error);
-      } else {
-        setBotId(next);
-      }
-      setSaving(false);
-    },
-    [roomId]
-  );
+  const apply = useAsyncAction(async (next: number | null) => {
+    const res = await setDiceAnnouncerAction(roomId, next);
+    if (res.success) setBotId(next);
+    return res;
+  }, { onError: setError });
+  const saving = apply.pending;
+  const applyBotId = (next: number | null) => {
+    setError("");
+    void apply.run(next);
+  };
 
   const handleToggle = () => {
     if (enabled) {

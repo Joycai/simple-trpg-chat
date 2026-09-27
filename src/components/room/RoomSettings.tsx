@@ -12,6 +12,7 @@ import { RuleTemplateSelect } from "@/components/shared/RuleTemplateSelect";
 import { RoomBackgroundManager } from "@/components/room/RoomBackgroundManager";
 import { DiceAnnouncerSettings } from "@/components/room/DiceAnnouncerSettings";
 import { PaneTransition } from "@/components/shared/PaneTransition";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 
 const MODE_ICONS: Record<ThemeMode, LucideIcon> = { auto: Monitor, light: Sun, dark: Moon };
 
@@ -36,8 +37,6 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   const locale = useLocale();
   const tCommon = useTranslations("common");
   const [tab, setTab] = useState<SettingsTab>("theme");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(currentTheme);
   // "timeline" is stored as its own mode; split it into a toggle + the fallback
   // light/dark/auto the room reverts to when the toggle is switched off.
@@ -48,30 +47,23 @@ export function RoomSettings({ roomId, roomName, currentTheme, currentThemeMode,
   const [selectedRuleTemplate, setSelectedRuleTemplate] = useState<string>(currentRuleTemplate || "basic");
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, close: () => void) => {
+  const save = useAsyncAction(async (close: () => void) => {
+    const formData = new FormData();
+    formData.set("theme", selectedTheme);
+    formData.set("themeMode", followTimeline ? "timeline" : selectedMode);
+    formData.set("ruleTemplate", selectedRuleTemplate);
+
+    const res = await updateRoomSettingsAction(roomId, formData);
+    if (!res.success) return res;
+
+    close();
+    router.refresh();
+  }, { fallbackError: t("saveFailed") });
+  const { pending: saving, error } = save;
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>, close: () => void) => {
     e.preventDefault();
-    setSaving(true);
-    setError("");
-
-    try {
-      const formData = new FormData();
-      formData.set("theme", selectedTheme);
-      formData.set("themeMode", followTimeline ? "timeline" : selectedMode);
-      formData.set("ruleTemplate", selectedRuleTemplate);
-
-      const res = await updateRoomSettingsAction(roomId, formData);
-      if (!res.success) {
-        setError(res.error);
-        return;
-      }
-
-      close();
-      router.refresh();
-    } catch {
-      setError(t("saveFailed"));
-    } finally {
-      setSaving(false);
-    }
+    void save.run(close);
   };
 
   const tabs = [
