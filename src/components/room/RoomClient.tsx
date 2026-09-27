@@ -422,8 +422,12 @@ export function RoomClient({
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
+  // The badge's first value comes with the page (initialSnapshot), so the
+  // message the room opened on doesn't trigger a recount — only later ones do.
+  const firstPaintLastMsgIdRef = useRef(initialMessages[initialMessages.length - 1]?.id);
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.id === firstPaintLastMsgIdRef.current) return;
     if (lastMsg?.type === "system" && (lastMsg.content.includes("道具") || lastMsg.content.toLowerCase().includes("item"))) {
       getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
     }

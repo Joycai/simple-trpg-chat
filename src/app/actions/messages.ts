@@ -10,7 +10,6 @@ import type { Audience } from "@/lib/messaging/audience";
 import { executeCommand } from "@/lib/commands/engine";
 import type { CommandResult } from "@/lib/commands/command-types";
 import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
-import { countUnreadDms } from "@/lib/room/initial-snapshot";
 import { checkSensitiveWords } from "@/lib/security/sensitive-words";
 import { isValidStickerRef } from "@/lib/media/stickers";
 import { getTranslations, getLocale } from "next-intl/server";
@@ -302,11 +301,6 @@ export async function executeCommandAction(
 }
 
 // --- DM/Conversation Actions ---
-
-export async function getUnreadDMCountAction(roomId: number) {
-  const { userId } = await checkRoomAccess(roomId, false);
-  return countUnreadDms(roomId, userId);
-}
 
 export async function markDMReadAction(roomId: number, senderUserId: number): Promise<Done> {
   const access = await tryRoomAccess(roomId, false);
