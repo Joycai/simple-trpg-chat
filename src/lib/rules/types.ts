@@ -18,7 +18,8 @@
  *    source without importing rule-specific code.
  *  - `VisualGrade` is the closed vocabulary the chat renderer understands.
  *    Future systems with extra tiers (PbtA strong/weak hit) will extend
- *    this vocabulary in lockstep with `ChatMessage.tsx`.
+ *    this vocabulary in lockstep with the chat's dice rendering
+ *    (`components/room/chat/message/dice/`).
  */
 
 import type { CharacterData } from "@/lib/character/types";

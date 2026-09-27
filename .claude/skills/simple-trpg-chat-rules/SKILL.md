@@ -45,7 +45,7 @@ description: >
 | `src/lib/rules/{coc7th,dnd5e,triangle,shouhun}/sheet.ts` | 各规则的角色卡数据模型:属性/资源接口 + 默认值 + `compute*Derived`。**`refactor/rule-sheet-types` 从 `character-types.ts` 迁来**,自包含(不 import `character-types`);经 barrel 再导出。见 §5 |
 | `src/lib/character/types.ts` | **只剩通用骨架**:`CharacterData` / `CustomAttribute` / `ResourceBar`;对各规则 sheet 接口只 `import type`(无运行时耦合) |
 | `src/components/shared/host-label.tsx` | `useHostLabel()` / `useHostLabelResolver()` / `usePlayerLabel()` / `useRuleLabelResolver()` —— 解析 `hostLabelKey` / `playerLabelKey` / 规则 `labelKey` 的唯一入口(大厅房间徽标经 `useRuleLabelResolver` 渲染,不再硬编码 coc7th) |
-| `src/components/room/character/CharacterPanel.tsx` | 可编辑角色卡面板。**PR #176 后完全能力位驱动、零 rule-id 分支**:属性宫格走 `read/writeAttributes`,资源上限/当前值/衍生页脚走 `draftStatusFor()`(见 §5) |
+| `src/components/room/character/CharacterPanel.tsx` | 可编辑角色卡面板(状态在同目录的 `useCharacterSheetState` / `useCharacterSave` 等 hook 里)。**PR #176 后完全能力位驱动、零 rule-id 分支**:属性宫格走 `read/writeAttributes`,资源上限/当前值/衍生页脚走 `draftStatusFor()`(`src/lib/character/panel-status.ts`,见 §5) |
 | `src/components/room/character/resource-visuals.ts` | `RESOURCE_ICON` / `DERIVED_ICON`:client-only 的 key→图标/颜色映射。未命中的 key 用主色兜底,所以新规则**不必**改这里 |
 | `src/components/room/character/CharacterRuleGate.tsx` | 房间规则与成员角色卡不匹配时的重建引导(主持人切规则会触发) |
 | `src/components/room/chat/QuickCheckPanel.tsx` | 玩家快速检定面板(输入框 ◎ / Alt+Q)。完全由 `capabilities.quickCheckPanel` 驱动、经 `rule.buildCheckCommand` 产出命令,零 rule-id 分支——新规则不用改它 |
@@ -154,7 +154,7 @@ interface CheckResult {
 | `requiresStoredTarget` | `boolean` | `.rc` 查不到值时是否报 STAT_NOT_SET(coc7th/basic=true, 其余=false) |
 | `hasRoleLevel` | `boolean` | 角色卡是否显示 role/level 字段(仅 dnd5e) |
 | `resourceMaxEditable?` | `boolean` | 角色卡资源条上限是否可手动编辑(HP 无自动派生的规则=dnd5e)。派生上限的规则(coc7th/shouhun)不设,上限随属性动。PR #176 新增 |
-| `resourceCurrentsViaAction?` | `boolean` | 保存资源当前值时走 `updateResourcesAction`(可改他人,coc7th/shouhun)还是并进本人整卡保存(dnd5e HP 内联、triangle 计数器)。`CharacterPanel.handleSaveAll` 据此选路径,取代原本的 rule-id 分支。PR #176 新增 |
+| `resourceCurrentsViaAction?` | `boolean` | 保存资源当前值时走 `updateResourcesAction`(可改他人,coc7th/shouhun)还是并进本人整卡保存(dnd5e HP 内联、triangle 计数器)。`useCharacterSave` 的 `handleSaveAll` 据此选路径,取代原本的 rule-id 分支。PR #176 新增 |
 | `quickRolls` | `string[]` | 聊天输入框上方的快捷命令 chips |
 | `highlightDieFace?` | `number` | 写入 `diceDetail.highlightFace`,渲染器逐骰标亮该面(triangle=3) |
 | `checkRequestOptions?` | 见下 | **主持人发起检定的整个交互流程** |
@@ -266,7 +266,7 @@ UI 侧不用改。
 
 ### 不需要改的地方(验证抽象成立)
 
-`commands/engine.ts`(命令引擎)、`actions/checks.ts`(主持人检定请求 + 响应)、`actions/room.ts`(房间设置)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai/agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、**`QuickCheckPanel.tsx`(快速检定面板,能力位 + `buildCheckCommand` 驱动)**、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
+`commands/engine.ts`(命令引擎)、`actions/checks.ts`(主持人检定请求 + 响应)、`actions/room.ts`(房间设置)、`actions/export.ts`、`actions/bot.ts`、`actions/character.ts`(`updateResourcesAction` 走 `applyResourcePatch`)、`ai/agent.ts`(系统提示 + sheet 工具 + `naturalGrade`)、**`CharacterPanel.tsx` 及其 `useCharacterSheetState` / `useCharacterSave` 与 `lib/character/panel-status.ts`(可编辑角色卡,PR #176 后完全能力位驱动)**、`RoomTopBar.tsx`、`AttributesTab.tsx`、`ResourceStatusTooltip.tsx`、`ConversationPanel.tsx`、`ChatInput.tsx`、**`QuickCheckPanel.tsx`(快速检定面板,能力位 + `buildCheckCommand` 驱动)**、`HostCheckDialog.tsx`、`RoomInfoPanel.tsx`、`RuleTemplateSelect.tsx`、`LobbyClient.tsx`(下拉 + 房间徽标)、`resource-visuals.ts`。
 
 **只要模块把 22 个成员实现全、capabilities 填对,以上文件一律零改动**——这是本次(PR #176)把 CharacterPanel 的 24 处分支全部收敛后达成的验收状态。如果你发现必须改上面某个文件才能让新规则工作,先回头检查模块定义:大概率是某个 capability 没填、`readStatus`/`readAttributes` 没摊平对、或某个新方法(`writeAttributes`/`applyResourcePatch`)没实现。**确实**表达不了再扩 `RuleCapabilities`(纯数据),而不是加 id 分支。
 
@@ -279,7 +279,7 @@ UI 侧不用改。
 | 旧分支点 | 现在靠什么 |
 | --- | --- |
 | `CharacterPanel` 属性宫格读写(`buildAttributeValues` / `attributeValuesAsXxx`) | `rule.readAttributes(sheet)` / `writeAttributes(sheet, record)` —— 通用 `Record<string,number>` ↔ 各规则属性袋 |
-| `CharacterPanel` 资源上限 / 当前值 / 衍生页脚(`computeCocDerived`/`computeShDerived` 直调) | 面板本地 `draftStatusFor()` = `writeAttributes → computeDerived → readStatus`,一次产出 `{resources:{current,max}, derived}`;`spiritSense` 也经 `shouhun.readStatus().derived` 暴露 |
+| `CharacterPanel` 资源上限 / 当前值 / 衍生页脚(`computeCocDerived`/`computeShDerived` 直调) | `draftStatusFor()`(`lib/character/panel-status.ts`)= `writeAttributes → computeDerived → readStatus`,一次产出 `{resources:{current,max}, derived}`;`spiritSense` 也经 `shouhun.readStatus().derived` 暴露 |
 | `CharacterPanel` `handleSaveAll` 四分支 | `writeAttributes` 建袋 + `capabilities.hasRoleLevel`(role/level)+ `applyResourcePatch`/`applyStatWrite`(资源);落库路径由 `capabilities.resourceCurrentsViaAction` 决定(coc/狩魂→`updateResourcesAction` 可改他人;d20/triangle→并进本人整卡) |
 | `CharacterPanel` `handleExport` 四分支 | `capabilities.{resourceBars,derivedStats,attributeKeys}` + `readStatus().attributeGrades` 全驱动 |
 | `CharacterPanel` `resourceMaxEditable` / init 守卫 | `capabilities.resourceMaxEditable`;init 守卫用 `DEFAULT_RULE_ID` 常量比较 |
@@ -302,7 +302,7 @@ UI 侧不用改。
 
 ### #176 引入的一处可见行为变更
 
-COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名(`力量: 70`),与 triangle/狩魂者 统一(`handleExport` 现用 `t(labelKey)`)。要恢复旧形式,给 `attributeKeys` 加导出专用 label 或新增 `exportLabel` 能力位。
+COC / d20 的**导出 .txt** 属性标签从大写 key(`STR: 70`)改为翻译名(`力量: 70`),与 triangle/狩魂者 统一(导出文本由 `lib/character/panel-status.ts` 的 `buildCharacterExportText` 生成,用 `t(labelKey)`)。要恢复旧形式,给 `attributeKeys` 加导出专用 label 或新增 `exportLabel` 能力位。
 
 ---
 

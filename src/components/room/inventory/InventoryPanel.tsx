@@ -8,7 +8,7 @@ import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { BackpackSkeleton, ManageSkeleton } from "./InventorySkeletons";
 import { ManageView } from "./ManageView";
 import { BackpackView } from "./BackpackView";
-import { CreateEditModal, DistributeModal, DetailModal, ShareModal } from "./InventoryModals";
+import { CreateEditModal, DistributeModal, DetailModal, ShareModal } from "./modals";
 import { Icons } from "@/components/shared/icons";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Notice } from "@/components/shared/Notice";
