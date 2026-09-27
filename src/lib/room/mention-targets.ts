@@ -93,3 +93,24 @@ export function buildDmConversations(
 export function totalUnread(unreadCounts: Record<number, number>): number {
   return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 }
+
+/** Bots and non-bot members on the roster (the top bar's counts). Reads
+ *  `users.isBot` only, as the top bar always has. */
+export function countRoster(players: RosterEntry[]): { botCount: number; playerCount: number } {
+  const botCount = players.filter((p) => p.users?.isBot).length;
+  return { botCount, playerCount: players.length - botCount };
+}
+
+/**
+ * Live "online" count: non-bot members with an active SSE connection, plus
+ * the viewer (always online to themselves). Shared by the top bar and the
+ * roster panel so their "X 在线" labels agree — presence comes from SSE
+ * `presence_update`, not the roster.
+ */
+export function countOnline(players: RosterEntry[], userId: number, onlineUserIds: Set<number>): number {
+  return players.filter((p) => {
+    const u = p.users || p.user;
+    const id = u?.id ?? p.user_id;
+    return !u?.isBot && (id === userId || onlineUserIds.has(id ?? -1));
+  }).length;
+}

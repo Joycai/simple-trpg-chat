@@ -26,7 +26,7 @@ import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintTo
 import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
-import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
+import { buildMentionTargets, buildDmConversations, totalUnread, countRoster, countOnline } from "@/lib/room/mention-targets";
 import type { RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
@@ -109,7 +109,6 @@ export function RoomClient({
   // Admin observers (viewing a room they haven't joined) are always read-only.
   const readOnly = (!!room.frozen && !isHost) || isObserver;
 
-
   const activeTabRef = useRef(activeTab);
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -164,22 +163,10 @@ export function RoomClient({
 
   const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 
-  const botCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => p.users?.isBot).length;
-  const playerCount = (players || []).filter((p: { users?: { isBot?: boolean } }) => !p.users?.isBot).length;
-
-  // Live "online" count: non-bot members with an active SSE connection, plus
-  // self (always online as the viewer). Single source of truth shared by the
-  // top bar and the left roster panel so their "X 在线" labels stay in sync —
-  // presence lives in `onlineUserIds` (SSE presence_update), not the roster.
-  const onlineCount = useMemo(
-    () =>
-      (players || []).filter((p: { users?: { id?: number; isBot?: boolean }; user?: { id?: number; isBot?: boolean }; user_id?: number }) => {
-        const u = p.users || p.user;
-        const id = u?.id ?? p.user_id;
-        return !u?.isBot && (id === userId || onlineUserIds.has(id ?? -1));
-      }).length,
-    [players, onlineUserIds, userId]
-  );
+  // Roster counts for the top bar, and the live online count it shares with
+  // the roster panel (presence comes from SSE, not the roster).
+  const { botCount, playerCount } = countRoster(players || []);
+  const onlineCount = useMemo(() => countOnline(players || [], userId, onlineUserIds), [players, onlineUserIds, userId]);
 
   // Bucket each visible message into its channel/tab. `messages` already only
   // contains rows this viewer may see (filtered by the SSE route + initial query),
@@ -188,10 +175,6 @@ export function RoomClient({
   const tabMessages = useMemo(() => {
     return messages.filter(m => channelOf(m, userId) === activeTab);
   }, [messages, activeTab, userId]);
-
-  const statusRef = useRef(status);
-
-  useEffect(() => { statusRef.current = status; }, [status]);
 
   // Backpack badge: seeded from the page, recounted on later item messages.
   const { unreadItems, setUnreadItems } = useUnreadInventoryCount({

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { primaryVital } from "@/lib/rules";
-import { buildMentionTargets, buildDmConversations, totalUnread, type RosterEntry } from "../mention-targets";
+import { buildMentionTargets, buildDmConversations, totalUnread, countRoster, countOnline, type RosterEntry } from "../mention-targets";
 
 const human = (id: number, nickname?: string): RosterEntry => ({
   users: { id, isBot: false, displayName: `user${id}` },
@@ -48,5 +48,18 @@ describe("totalUnread", () => {
   it("sums every conversation", () => {
     expect(totalUnread({})).toBe(0);
     expect(totalUnread({ 2: 3, 5: 1 })).toBe(4);
+  });
+});
+
+describe("countRoster / countOnline", () => {
+  const roster = [human(1), human(2), human(3), bot(5)];
+  it("splits bots from members", () => {
+    expect(countRoster(roster)).toEqual({ botCount: 1, playerCount: 3 });
+    expect(countRoster([])).toEqual({ botCount: 0, playerCount: 0 });
+  });
+  it("counts the viewer plus connected members, never bots", () => {
+    expect(countOnline(roster, 1, new Set())).toBe(1);
+    expect(countOnline(roster, 1, new Set([2, 5]))).toBe(2);
+    expect(countOnline([{ user_id: 7 }], 1, new Set([7]))).toBe(1);
   });
 });
