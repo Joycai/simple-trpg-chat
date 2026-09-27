@@ -1,6 +1,6 @@
 import { diceCardType, getRollKind, parseDiceMeta, type DiceDetailJson, type DiceMetaSource, type RollKind } from "./dice";
 
-export type DiceAnnouncer = { userId: number; nickname: string; quip?: string; quipPending?: boolean };
+type DiceAnnouncer = { userId: number; nickname: string; quip?: string; quipPending?: boolean };
 
 /** What a dice bubble needs from its diceDetail: theme metadata, the command
  *  echo and roll kind lifted out of the bubble, which card layout (if any),

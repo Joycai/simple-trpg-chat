@@ -74,7 +74,7 @@ export type MessageType = (typeof MESSAGE_TYPES)[number];
  *
  * `inventory-dispatch` carries a structured payload in `diceDetail` (action +
  * item + recipient + optional count) so the chat UI can render an icon + chip
- * pill instead of the plain text fallback — see `DispatchPill` in ChatMessage.
+ * pill instead of the plain text fallback — see `DispatchPill` in chat/message/InventoryPills.
  */
 export const SYSTEM_KINDS = ['st', 'error', 'room-event', 'scene-marker', 'help', 'inventory-dispatch', 'inventory-receipt', 'timeline-divider', 'event-card', 'event-receipt'] as const;
 export type SystemKind = (typeof SYSTEM_KINDS)[number];

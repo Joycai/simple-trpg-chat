@@ -59,7 +59,7 @@ export async function handleSanityCheck(
   await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
 
   // The insanity warning is now rendered client-side as a separate banner
-  // attached to the sanity card (see ChatMessage.tsx). The `deduction >= 5`
+  // attached to the sanity card (see chat/message/dice/DiceResultDisplay). The `deduction >= 5`
   // signal travels via diceDetail.sanityCheck.deduction, so no trailing text.
   const content = t("scCheckMessage", {
     roll,

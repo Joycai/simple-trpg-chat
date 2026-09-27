@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 /** Themed stand-in for `alert()` — rendered as a strip under the panel header. */
-export type Banner = { kind: "success" | "error"; text: string };
+type Banner = { kind: "success" | "error"; text: string };
 
 /** How long a success banner stays up before fading itself out. */
 const BANNER_TTL = 3200;

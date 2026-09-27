@@ -6,7 +6,7 @@
  * and an `insanity` flag onto `data-*` attributes so themes can style each
  * variant without re-parsing the JSON.
  */
-export type DiceKind = "roll" | "check" | "sanity";
+type DiceKind = "roll" | "check" | "sanity";
 export type DiceGrade = "none" | "success" | "failure" | "critical" | "fumble";
 /** Source shape parseDiceMeta reads off the (pre-parsed) diceDetail object. */
 export type DiceMetaSource = {
@@ -44,7 +44,7 @@ export type DiceTerm =
   | { sign: "+" | "-"; count: number; faces: number; keep?: number; rolls: number[]; keptRolls: number[] };
 
 /** 狩魂者 structured breakdown for the card renderer. */
-export type ShBreakdown = {
+type ShBreakdown = {
   base: number;
   bonus: { count: number; rolls: number[]; sum: number } | null;
   style: { count: number; rolls: number[]; sum: number } | null;
@@ -53,7 +53,7 @@ export type ShBreakdown = {
 /** COC 奖励/惩罚骰 structured payload (shape mirrors `CocBpRoll` in
  *  rules/coc7th) — extra tens dice replace the original d100's tens digit;
  *  bonus keeps the lowest candidate, penalty the highest. */
-export type CocBp = {
+type CocBp = {
   type: "bonus" | "penalty";
   count: number;
   units: number;
@@ -65,7 +65,7 @@ export type CocBp = {
 
 /** DnD 5e d20 check payload (shape mirrors `D20CheckRoll` in rules/dnd5e) —
  *  die faces (2 with 优势/劣势, the kept one marked), flat modifier, total. */
-export type D20Check = {
+type D20Check = {
   rolls: number[];
   kept: number;
   advantage: number;

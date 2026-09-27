@@ -13,13 +13,16 @@ describe("parseCharData", () => {
 });
 
 describe("status drafting", () => {
-  it("reads one current per non-counter resource bar the rule reports", () => {
+  it("reads the current value of each resource bar the status snapshot has", () => {
     const attrs = buildAttributeValues("coc7th", undefined, undefined);
     const status = draftStatusFor("coc7th", {}, attrs);
     const currents = currentsFromStatus("coc7th", status);
-    const barKeys = getRule("coc7th").capabilities.resourceBars.map((b) => b.key);
-    expect(Object.keys(currents).every((k) => barKeys.includes(k))).toBe(true);
-    for (const [k, v] of Object.entries(currents)) expect(v).toBe(status.resources[k].current);
+    const expected = getRule("coc7th").capabilities.resourceBars
+      .map((b) => b.key)
+      .filter((k) => status.resources[k]);
+    expect(expected.length).toBeGreaterThan(0);
+    expect(Object.keys(currents).sort()).toEqual([...expected].sort());
+    for (const k of expected) expect(currents[k]).toBe(status.resources[k].current);
   });
 
   it("gives the basic rule no attributes", () => {

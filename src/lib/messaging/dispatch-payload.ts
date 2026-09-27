@@ -3,7 +3,7 @@
  * `inventory-dispatch` (host-side log) or `inventory-receipt` (player-side
  * notification). Both shapes let the chat UI render an icon + sentence +
  * type-colored chip without parsing message text — see DispatchPill and
- * ReceiptPill in ChatMessage.
+ * ReceiptPill in components/room/chat/message/InventoryPills.
  *
  * The plain-text `content` is still set on each message for fallback rendering
  * (themes without pill styling and accessibility/search).
