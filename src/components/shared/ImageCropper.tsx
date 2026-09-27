@@ -306,9 +306,11 @@ export function ImageCropper({
     return out.toDataURL("image/jpeg", 0.4);
   };
 
-  // Success leaves `submitting` set: the parent unmounts us once it has the
-  // image. Parents throw already-localized errors (ChatInput, the character
-  // avatar upload), so this site shows the thrown message on purpose.
+  // Success leaves `submitting` set, expecting the parent to unmount us. A
+  // parent that reports failure without throwing (EventEditor) leaves the
+  // button spinning — as before. Parents throw already-localized errors
+  // (ChatInput, the character avatar upload), so this site shows the thrown
+  // message on purpose.
   const confirmCrop = useAsyncAction(async (url: string) => {
     try {
       await onConfirm(url);
