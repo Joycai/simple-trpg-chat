@@ -3,7 +3,7 @@
 ## Integration & Rendering
 
 ### 1. Component not rendered (recurring!)
-New panels (SkillPanel, ClueManager, ConversationPanel, AiImportPanel) were repeatedly created with import + state but **missing JSX render**. Always verify `<NewPanel />` exists in both the import AND the return block of RoomClient. Two people adding the same component = duplicate buttons.
+New panels (SkillPanel, ClueManager, ConversationPanel, AiImportPanel) were repeatedly created with import + state but **missing JSX render**. Always verify `<NewPanel />` is rendered (overlays render in `RoomOverlays`, opened through a `useOverlayVisibility` key in `ROOM_OVERLAYS`). Two people adding the same component = duplicate buttons.
 
 ### 2. Drizzle innerJoin data shape
 `.select().from(A).innerJoin(B, ...)` returns `{ a: {...}, b: {...} }`, NOT flat fields. Access `p.room_members?.nickname` not `p.nickname`, or fallback `p.users?.displayName`. Otherwise displays show "?".
@@ -12,7 +12,7 @@ New panels (SkillPanel, ClueManager, ConversationPanel, AiImportPanel) were repe
 
 ### 3. Duplicate messages
 Caused by: (a) optimistic update with `Date.now()` temp ID + SSE broadcast with real DB ID, or (b) HMR listener accumulation in dev mode.
-Fix: per-stream `sentIds` Set on server (`route.ts`) + `seenIdsRef` Set on client (`RoomClient.tsx`) for absolute dedup.
+Fix: per-stream `sentIds` Set on server (`route.ts`) + `seenIdsRef` Set on client (`hooks/useMessageLog.ts`) for absolute dedup.
 
 ### 4. Message visibility — use the `audience` router, never raw flags
 Visibility is owned by `messages.audience` (`everyone`/`self`/`recipient`/`directed`/`dm`/`gm`) via `src/lib/messaging/`. Always create messages with `dispatchMessage({ audience, … })` and decide visibility with `canSee`/`channelOf`/`countsAsDmUnread`/`messageVisibilityWhere`. **Never** insert into `messages` directly or hand-set `isPrivate`/`targetUserId` — that bypasses the router (the row defaults to `everyone` and leaks). Pick the audience: only-me → `self`; a notice to ONE player the actor must NOT see (e.g. psychology notify, item receipt) → `recipient`; a notice both actor and target see inline (pushed clue card) → `directed`; a real 1:1 whisper → `dm`; host-only log → `gm`.

@@ -49,6 +49,7 @@
 - **时间表达**:`src/lib/messaging/timeline-payload.ts` 就是需求 2 要复用的时间模型 —— 两条正交轴:日期轴 `mode`(第 N 日 / 日历日期 / 自由文本)+ 时段轴 `timeMode`(上午/下午/夜晚 段落,或 `HH:MM` 时钟)。可直接复用 `TimelineDividerData` 类型、`buildTimelinePayload/parseTimelinePayload`、`composeTimelineLabel(data,t,locale)`。选择器 UI 照 `TimelineDividerDialog.tsx`。
 - **主题化下拉**:顶栏已有两处**内联主题下拉**(齿轮系统菜单、AI/Bot 菜单,`RoomTopBar.tsx:283/432`),用 `relative` 容器 + 图标按钮 + 条件渲染 `absolute ... bg-surface border border-border rounded-lg shadow-xl py-1.5 overlay-pop` 菜单 + `useClickOutside`。需求 1 的「道具/事件」菜单**照此内联范式**做(比全宽表单控件 `BadgeDropdown` 更贴合小图标菜单)。
 - **顶栏按钮 & 状态接线**:玩家面板开关是 `showX/setShowX` 对,声明在 `RoomClient`,同时下发给 `RoomTopBar`(按钮)与 `RoomOverlays`(渲染面板)。新事件面板照抄这条接线。(`RoomTopBar.tsx:231-279`、`RoomClient.tsx:67-86`)
+  > 注(P8a 之后):面板开关已收拢到 `hooks/useOverlayVisibility.ts`,`RoomTopBar` / `RoomOverlays` 接收 `overlays`;新面板是 `ROOM_OVERLAYS` 里的一个 key,不再在 `RoomClient` 声明 `showX/setShowX`。
 - **SSE 广播**:`broadcastToRoom(roomId, { type, ... })`(`src/lib/server/events.ts`),客户端在 `useRoomEvents.ts` 按 `data.type` 加分支。`inventory_updated`(bump 一个 refreshKey 触发面板重取)是最贴切的先例。新增 type 定为 `events_updated`。
 
 ## 2. 数据模型

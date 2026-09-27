@@ -54,7 +54,7 @@ description: >-
 
 - **Server Actions**: `"use server"` in `src/app/actions/` — called from client components
 - **Messaging**: never insert into `messages` directly — call `dispatchMessage()` with a semantic `audience`. Never hand-set `isPrivate`/`targetUserId` for visibility
-- **Component integration**: Must import AND render in `RoomClient` — common omission when adding panels
+- **Component integration**: a new panel needs a key in `ROOM_OVERLAYS` (`hooks/useOverlayVisibility.ts`), a trigger (usually `RoomTopBar`), AND a render in `RoomOverlays` — the render is the common omission
 - **DB changes**: `pnpm db:push` + restart dev server after `schema.ts` edits
 - **i18n**: `useTranslations()` client-side, `getTranslations()` server-side
 

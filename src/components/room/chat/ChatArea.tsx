@@ -153,7 +153,7 @@ export function ChatArea({
       </div>
 
       {/* Always mounted, visibility driven by data-visible rather than a
-          conditional render. The 150px threshold in RoomClient has no
+          conditional render. The 150px threshold in useChatScroll has no
           hysteresis, so scrolling along the boundary toggles this repeatedly —
           a transition damps that flicker where mount/unmount amplifies it.
           Deliberately fast (140ms in / 120ms out): this fires tens of times a

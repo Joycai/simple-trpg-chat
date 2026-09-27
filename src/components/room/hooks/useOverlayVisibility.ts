@@ -2,7 +2,9 @@
 
 import { useState, type Dispatch, type SetStateAction } from "react";
 
-/** Every panel, dialog and top-bar dropdown the room can open, by name. */
+/** The room's open/closed panels, dialogs and top-bar menus, by name. Overlays
+ *  that carry data (check mode, event detail id, viewed player card, prompts)
+ *  keep their own state; see CLAUDE.md "Room Client". */
 export const ROOM_OVERLAYS = [
   "settings", "character", "inventory", "notebook", "itemManager", "events", "eventManage",
   "timeline", "botManager", "aiImport", "roomInfo", "members", "systemMenu", "aiMenu",
