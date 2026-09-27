@@ -6,6 +6,7 @@ import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ImageCropper } from "@/components/shared/ImageCropper";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { useMentionTextarea } from "@/components/room/hooks/useMentionTextarea";
 import { MentionPicker } from "@/components/room/MentionPicker";
 import { type NotebookLinkEntity } from "@/lib/room/notebook";
@@ -42,9 +43,7 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   const [description, setDescription] = useState(event?.description ?? "");
   const [timePayload, setTimePayload] = useState<string | null>(event?.timePayload ?? null);
   const [images, setImages] = useState<string[]>(event?.images ?? []);
-  const [saving, setSaving] = useState(false);
   const [cropSource, setCropSource] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** When true, the description editor takes over the whole modal body — the
    *  title / time / images sections collapse away, giving the textarea room. */
@@ -54,6 +53,36 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
   /** URLs uploaded during this session — reclaimed if the editor is abandoned.
    *  The cropper writes to disk immediately, so cancelling used to orphan them. */
   const uploadedThisSession = useRef<string[]>([]);
+
+  // Upload and save share the editor's one error line with the file-type check
+  // in pickFile, so both write it through onError.
+  const upload = useAsyncAction(async (dataUrl: string) => {
+    const file = dataUrlToFile(dataUrl, `event-${Date.now()}.jpg`);
+    if (file.size > CHAT_IMAGE_MAX_BYTES) return { success: false, error: t("errImageTooLarge") };
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/rooms/${roomId}/images`, { method: "POST", body: fd });
+    if (!res.ok) return { success: false, error: res.status === 413 ? t("errImageTooLarge") : tCommon("error") };
+    const { url } = await res.json();
+    uploadedThisSession.current.push(url);
+    setImages((prev) => [...prev, url].slice(0, MAX_EVENT_IMAGES));
+    setCropSource(null);
+  }, { fallbackError: tCommon("error"), onError: setError });
+  const uploading = upload.pending;
+
+  // A successful save closes the editor, so `saving` stays set through the exit.
+  const save = useAsyncAction(async () => {
+    const payload = { title: title.trim(), description, timePayload, images };
+    const res = event
+      ? await updateEventAction(roomId, event.id, payload)
+      : await createEventAction(roomId, payload);
+    // Already localized server-side; `err.message` used to show Next's
+    // production redaction notice here instead.
+    if (!res.success) return res;
+    onSaved();
+    onClose();
+  }, { fallbackError: tCommon("error"), onError: setError, keepPendingOnSuccess: true });
+  const saving = save.pending;
 
   const {
     textareaRef, textareaProps, mention, activeIdx, setActiveIdx,
@@ -101,47 +130,13 @@ export function EventEditor({ roomId, event, entities, onClose, onSaved }: Event
     setCropSource(f);
   };
   const handleCropped = async (dataUrl: string) => {
-    setUploading(true);
     setError(null);
-    try {
-      const file = dataUrlToFile(dataUrl, `event-${Date.now()}.jpg`);
-      if (file.size > CHAT_IMAGE_MAX_BYTES) { setError(t("errImageTooLarge")); return; }
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/rooms/${roomId}/images`, { method: "POST", body: fd });
-      if (!res.ok) { setError(res.status === 413 ? t("errImageTooLarge") : tCommon("error")); return; }
-      const { url } = await res.json();
-      uploadedThisSession.current.push(url);
-      setImages((prev) => [...prev, url].slice(0, MAX_EVENT_IMAGES));
-      setCropSource(null);
-    } catch {
-      setError(tCommon("error"));
-    } finally {
-      setUploading(false);
-    }
+    await upload.run(dataUrl);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!title.trim() || saving) return;
-    setSaving(true);
-    try {
-      const payload = { title: title.trim(), description, timePayload, images };
-      const res = event
-        ? await updateEventAction(roomId, event.id, payload)
-        : await createEventAction(roomId, payload);
-      if (!res.success) {
-        // Already localized server-side; `err.message` used to show Next's
-        // production redaction notice here instead.
-        setError(res.error);
-        setSaving(false);
-        return;
-      }
-      onSaved();
-      onClose();
-    } catch {
-      setError(tCommon("error"));
-      setSaving(false);
-    }
+    void save.run();
   };
 
   const toolBtn = "flex items-center justify-center w-8 h-8 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer";

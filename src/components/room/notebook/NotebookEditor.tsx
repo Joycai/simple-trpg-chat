@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
+import { useAsyncAction } from "@/lib/ui/useAsyncAction";
 import { useMentionTextarea } from "@/components/room/hooks/useMentionTextarea";
 import { MentionPicker } from "@/components/room/MentionPicker";
 import {
@@ -40,7 +41,10 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
     note && categories.some((c) => c.id === note.categoryId) ? note.categoryId : null
   );
   const [content, setContent] = useState(note?.content ?? "");
-  const [saving, setSaving] = useState(false);
+  // Failures — expected and unexpected alike — are reported by the caller as a
+  // localized banner; the hook only holds the button while the save runs.
+  const save = useAsyncAction(onSave);
+  const saving = save.pending;
 
   const {
     textareaRef, textareaProps, mention, activeIdx, setActiveIdx,
@@ -61,16 +65,9 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
 
   // No guard here: the drawer owns the discard dialog for both teardown paths
   // (its own close and this back arrow), reading `dirtyRef` above.
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!title.trim() || saving) return;
-    setSaving(true);
-    try {
-      // Failures — expected and unexpected alike — are reported by the caller
-      // as a localized banner; we only need to release the button.
-      await onSave({ title: title.trim(), content, categoryId });
-    } finally {
-      setSaving(false);
-    }
+    void save.run({ title: title.trim(), content, categoryId });
   };
 
   const toolBtn = "flex items-center justify-center w-8 h-8 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer";
