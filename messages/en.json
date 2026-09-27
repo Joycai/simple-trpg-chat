@@ -1183,6 +1183,7 @@
     "nicknameHint": "Players can mention @{name} to activate",
     "prompt": "System prompt",
     "promptPlaceholder": "You are a TRPG assistant...",
+    "defaultSystemPrompt": "You are a TRPG assistant. Help the players and the game master move the story forward.",
     "providerHint": "Select AI Provider, model will auto-fill",
     "modelHint": "Model: {model} (determined by selected Provider)",
     "activation": "Trigger mode",

@@ -84,10 +84,14 @@ export function AiProvidersTab() {
       return;
     }
     try {
-      if (editProviderId) {
-        await updateProvider(editProviderId, { name: provName, apiEndpoint: provEndpoint, apiKey: provKey, vendor, model: provModel });
-      } else {
-        await createProvider({ name: provName, apiEndpoint: provEndpoint, apiKey: provKey, vendor, model: provModel });
+      const data = { name: provName, apiEndpoint: provEndpoint, apiKey: provKey, vendor, model: provModel };
+      // Both actions report failure as `{ error }` rather than throwing (a
+      // thrown message would be redacted in production anyway).
+      const res = editProviderId ? await updateProvider(editProviderId, data) : await createProvider(data);
+      if (res && "error" in res) {
+        setProvMsg(res.error);
+        setProvSuccess(false);
+        return;
       }
       setProvMsg(tp("msgSaved"));
       setProvSuccess(true);
@@ -95,8 +99,8 @@ export function AiProvidersTab() {
       setProvName(""); setProvEndpoint(""); setProvKey(""); setProvModel("gpt-4o");
       const list = await getMyProviders();
       setProviders(list);
-    } catch (e: unknown) {
-      setProvMsg(e instanceof Error ? e.message : t("saveFailed"));
+    } catch {
+      setProvMsg(t("saveFailed"));
       setProvSuccess(false);
     }
   };
