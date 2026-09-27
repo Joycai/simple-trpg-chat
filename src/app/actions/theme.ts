@@ -7,13 +7,13 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import type { ThemeId, ThemeMode } from "@/themes/types";
+import type { Fail } from "@/lib/actions/result";
 
 /*
  * The setters return `{ success: true } | { success: false, error }` with a
  * localized error instead of throwing — Next.js redacts thrown messages in
  * production. The getters never throw (they fall back to defaults).
  */
-type Fail = { success: false; error: string };
 
 /** Safe userId extraction — guards against NaN */
 function getUserId(session: { user?: { id?: string } }): number | null {

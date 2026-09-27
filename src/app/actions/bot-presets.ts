@@ -7,8 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
-
-type Fail = { success: false; error: string };
+import type { Fail } from "@/lib/actions/result";
 
 /** requireAdmin throws (it is shared); the write actions return a localized
  *  error instead, since Next.js redacts thrown messages in production. */

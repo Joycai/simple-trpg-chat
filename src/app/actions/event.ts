@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { storyEvents, storyEventVisibility, roomMembers, users, messages } from "@/db/schema";
 import { eq, and, asc, inArray, sql } from "drizzle-orm";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
 import { listVisibleEvents, countUnreadEvents } from "@/lib/room/initial-snapshot";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/server/events";
@@ -22,6 +22,7 @@ import {
   type EventCardPayload,
   type EventView,
 } from "@/lib/room/story-events";
+import type { Fail } from "@/lib/actions/result";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -81,21 +82,10 @@ function cleanTimePayload(raw: string | null | undefined): string | null {
   return data ? JSON.stringify({ timelineDivider: data }) : null;
 }
 
-type Fail = { success: false; error: string };
 type EventMessages = Awaited<ReturnType<typeof getEventMessages>>;
 
 function getEventMessages() {
   return getTranslations("event");
-}
-
-/** Wraps checkRoomAccess (which throws, and is shared) into a result value. */
-async function requireHost(roomId: number): Promise<{ userId: number } | null> {
-  try {
-    const { userId } = await checkRoomAccess(roomId, true);
-    return { userId };
-  } catch {
-    return null;
-  }
 }
 
 /** Validate the host-editable fields shared by create and update. */
@@ -191,7 +181,7 @@ export interface EventInput {
 /** Create a new (unpublished) event. Host only. */
 export async function createEventAction(roomId: number, data: EventInput) {
   const t = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
 
   const valid = validateEventInput(data, t);
@@ -224,7 +214,7 @@ export async function createEventAction(roomId: number, data: EventInput) {
  *  re-flagged "updated" and pinged so the change is noticed (Q4). */
 export async function updateEventAction(roomId: number, eventId: number, data: EventInput) {
   const t = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
   const userId = auth.userId;
   const ev = await findEvent(roomId, eventId);
@@ -275,7 +265,7 @@ export async function updateEventAction(roomId: number, eventId: number, data: E
 /** Delete an event (visibility rows cascade) and its card + image files. Host only. */
 export async function deleteEventAction(roomId: number, eventId: number) {
   const t = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
   const ev = await findEvent(roomId, eventId);
   if (!ev) return { success: false as const, error: t("errorEventNotFound") } satisfies Fail;
@@ -303,7 +293,7 @@ export async function deleteEventAction(roomId: number, eventId: number) {
  */
 export async function discardEventImagesAction(roomId: number, urls: string[]) {
   const t = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
   if (urls.length === 0) return { success: true as const };
 
@@ -321,7 +311,7 @@ export type ReorderOp = "up" | "down" | "top" | "bottom" | { index: number };
 /** Move an event within the host-controlled order. Host only. */
 export async function reorderEventAction(roomId: number, eventId: number, op: ReorderOp) {
   const t = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: t("errorNotHost") } satisfies Fail;
 
   const list = await db
@@ -360,7 +350,7 @@ export async function reorderEventAction(roomId: number, eventId: number, op: Re
 /** Publish an unpublished event. `target` = "all" (or []) → full; a user-id list → partial. */
 export async function publishEventAction(roomId: number, eventId: number, target: "all" | number[]) {
   const te = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
   const userId = auth.userId;
   const ev = await findEvent(roomId, eventId);
@@ -417,7 +407,7 @@ export async function publishEventAction(roomId: number, eventId: number, target
 /** Add more knowers to a partial event. Host only. */
 export async function addEventViewersAction(roomId: number, eventId: number, userIds: number[]) {
   const te = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
   const userId = auth.userId;
   const ev = await findEvent(roomId, eventId);
@@ -449,7 +439,7 @@ export async function addEventViewersAction(roomId: number, eventId: number, use
 /** Retract a published event back to unpublished. Host only (client double-confirms). */
 export async function retractEventAction(roomId: number, eventId: number) {
   const te = await getEventMessages();
-  const auth = await requireHost(roomId);
+  const auth = await tryRoomAccess(roomId, true);
   if (!auth) return { success: false as const, error: te("errorNotHost") } satisfies Fail;
   const userId = auth.userId;
   const ev = await findEvent(roomId, eventId);

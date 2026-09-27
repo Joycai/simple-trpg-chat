@@ -17,9 +17,8 @@ import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, ty
 import { botActivationMode } from "@/lib/ai/bot-status";
 import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
 import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
-
-type Fail = { success: false; error: string };
-type Done = { success: true } | Fail;
+import type { Done, Fail } from "@/lib/actions/result";
+import { noRoomAccess } from "@/lib/actions/no-room-access";
 
 async function roomActionsError(key: string, params?: Record<string, number>): Promise<Fail> {
   return { success: false, error: (await getTranslations("roomActions"))(key, params) };
@@ -47,7 +46,7 @@ export async function sendMessageAction(
   targetUserId?: number // V3.14: Added targetUserId
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
-  if (!access) return roomActionsError("errorNoAccess");
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   // Server Actions accept whatever JSON the client sends — TypeScript's union
@@ -137,7 +136,7 @@ export async function sendMessageAction(
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
 
-  if (!sender) return roomActionsError("errorNoAccess");
+  if (!sender) return noRoomAccess();
 
   // Text/image/sticker never carry diceDetail — only the internal dice paths
   // (rollDiceAction, commands/engine.ts) attach one. Hard-null it so a client can't
@@ -205,7 +204,7 @@ export async function rollDiceAction(
   channelPartnerId?: number
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
-  if (!access) return roomActionsError("errorNoAccess");
+  if (!access) return noRoomAccess();
   await dispatchDiceRoll(roomId, access.userId, faces, count, hidden, channelPartnerId);
   return { success: true };
 }
@@ -222,7 +221,7 @@ export async function insertTimelineDividerAction(
   data: TimelineDividerData,
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, true);
-  if (!access) return roomActionsError("errorNoAccess");
+  if (!access) return noRoomAccess();
   const { userId: hostId } = access;
 
   // Reject anything the modal shouldn't have produced. These rules now live in
@@ -264,7 +263,7 @@ export async function withdrawTimelineDividerAction(
   roomId: number,
   messageId: number,
 ): Promise<Done> {
-  if (!(await tryRoomAccess(roomId, true))) return roomActionsError("errorNoAccess");
+  if (!(await tryRoomAccess(roomId, true))) return noRoomAccess();
 
   const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
   if (!row || row.roomId !== roomId || row.type !== "system" || row.systemKind !== "timeline-divider") {
@@ -293,7 +292,7 @@ export async function executeCommandAction(
   // `{ success, error }` shape the engine returns, so the caller's existing
   // "指令错误" rendering covers these too.
   if (callerId !== userId || !(await tryRoomAccess(roomId, false, { requireWritable: true }))) {
-    const denied = await roomActionsError("errorNoAccess");
+    const denied = await noRoomAccess();
     return { ...denied, isCommand: true };
   }
 
@@ -304,7 +303,7 @@ export async function executeCommandAction(
 
 export async function markDMReadAction(roomId: number, senderUserId: number): Promise<Done> {
   const access = await tryRoomAccess(roomId, false);
-  if (!access) return roomActionsError("errorNoAccess");
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   await db
@@ -331,7 +330,6 @@ export async function markDMReadAction(roomId: number, senderUserId: number): Pr
 // loadMoreMessagesAction / catchUpMessagesAction are all limit-bounded, and
 // every exported "use server" function is callable by any authenticated
 // member with a crafted POST.)
-
 
 export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);

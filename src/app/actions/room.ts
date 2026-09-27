@@ -13,13 +13,8 @@ import { parseAvatarDataUrl, roomAvatarUrl } from "@/lib/media/avatars";
 import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { NICKNAME_MAX_LENGTH, ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
-
-type Fail = { success: false; error: string };
-type Done = { success: true } | Fail;
-
-async function noAccess(): Promise<Fail> {
-  return { success: false, error: (await getTranslations("roomActions"))("errorNoAccess") };
-}
+import type { Done, Fail } from "@/lib/actions/result";
+import { noRoomAccess } from "@/lib/actions/no-room-access";
 
 // --- Room Actions ---
 
@@ -126,7 +121,7 @@ export async function joinRoomAction(formData: FormData) {
 
 export async function updateNicknameAction(roomId: number, nickname: string): Promise<Done> {
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   const trimmed = nickname.trim();
@@ -147,17 +142,17 @@ export async function updateNicknameAction(roomId: number, nickname: string): Pr
 
 export async function updateRoomMemberColorAction(roomId: number, targetUserId: number, color: string): Promise<Done> {
   const session = await auth();
-  if (!session) return noAccess();
+  if (!session) return noRoomAccess();
 
   const userId = parseInt(session.user.id);
 
   // 1. Get the room to check if the caller is the host
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) return noAccess();
+  if (!room) return noRoomAccess();
   const isHost = room.hostId === userId;
 
   // Frozen rooms are read-only for non-hosts
-  if (room.frozen && !isHost) return noAccess();
+  if (room.frozen && !isHost) return noRoomAccess();
 
   // 2. Determine if allowed
   let allowed = false;
@@ -189,7 +184,7 @@ export async function updateRoomMemberColorAction(roomId: number, targetUserId: 
 // --- Room Settings ---
 
 export async function updateRoomSettingsAction(roomId: number, formData: FormData): Promise<Done> {
-  if (!(await tryRoomAccess(roomId, true))) return noAccess();
+  if (!(await tryRoomAccess(roomId, true))) return noRoomAccess();
 
   const themeRaw = ((formData.get("theme") as string) || "default");
   const themeModeRaw = ((formData.get("themeMode") as string) || "auto");
@@ -223,7 +218,7 @@ export async function updateRoomSettingsAction(roomId: number, formData: FormDat
 }
 
 export async function updateRoomNameAction(roomId: number, newName: string): Promise<Done> {
-  if (!(await tryRoomAccess(roomId, true))) return noAccess();
+  if (!(await tryRoomAccess(roomId, true))) return noRoomAccess();
 
   const trimmed = newName.trim();
   if (!trimmed || trimmed.length > ROOM_NAME_MAX_LENGTH) {
@@ -242,7 +237,7 @@ export async function updateRoomNameAction(roomId: number, newName: string): Pro
 
 /** Host-only: toggle a room between active and frozen (read-only for players). */
 export async function setRoomFrozenAction(roomId: number, frozen: boolean): Promise<Done> {
-  if (!(await tryRoomAccess(roomId, true))) return noAccess();
+  if (!(await tryRoomAccess(roomId, true))) return noRoomAccess();
 
   await db.update(rooms).set({ frozen }).where(eq(rooms.id, roomId));
 
@@ -255,7 +250,7 @@ export async function setRoomFrozenAction(roomId: number, frozen: boolean): Prom
 }
 
 export async function regenerateRoomPasswordAction(roomId: number): Promise<{ success: true; secretKey: string } | Fail> {
-  if (!(await tryRoomAccess(roomId, true))) return noAccess();
+  if (!(await tryRoomAccess(roomId, true))) return noRoomAccess();
 
   const newPassword = crypto.randomBytes(4).toString("hex");
   await db.update(rooms).set({ secretKey: newPassword }).where(eq(rooms.id, roomId));
@@ -276,7 +271,7 @@ export async function uploadAvatarAction(
 ): Promise<Done> {
   // Validate membership + reject when the room is frozen (read-only for non-hosts)
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
-  if (!access) return noAccess();
+  if (!access) return noRoomAccess();
   const { userId } = access;
 
   // Strict whitelist: only JPEG data URLs, capped size, real JPEG magic + dims ≤ 512.

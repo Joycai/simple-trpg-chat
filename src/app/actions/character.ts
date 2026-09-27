@@ -14,8 +14,7 @@ import {
 import { rebuildSheetForRule } from "@/lib/character/sheet";
 import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
 import { getTranslations } from "next-intl/server";
-
-type Fail = { success: false; error: string };
+import type { Fail } from "@/lib/actions/result";
 
 async function fail(key: string): Promise<Fail> {
   return { success: false, error: (await getTranslations("character"))(key) };

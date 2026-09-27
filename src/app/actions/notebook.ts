@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { notebookCategories, notebookNotes, roomMembers, users } from "@/db/schema";
 import { eq, and, desc, asc, inArray, sql } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
 import {
   NOTEBOOK_COLORS,
   NOTE_TITLE_MAX,
@@ -13,6 +13,7 @@ import {
   CATEGORY_MAX_COUNT,
   type NotebookColor,
 } from "@/lib/room/notebook";
+import type { Fail } from "@/lib/actions/result";
 
 /**
  * Notebook (记事本) actions. Notes AND categories are strictly private: every
@@ -29,7 +30,6 @@ import {
  * Reads still throw; their callers render a retry state.
  */
 
-type Fail = { success: false; error: string };
 type NotebookMessages = Awaited<ReturnType<typeof getNotebookMessages>>;
 
 function getNotebookMessages() {
@@ -46,16 +46,6 @@ interface NoteInput {
 interface CategoryInput {
   name: string;
   color: NotebookColor;
-}
-
-/** Wraps checkRoomAccess (which throws, and is shared) into a result value. */
-async function requireWritableMember(roomId: number): Promise<{ userId: number } | null> {
-  try {
-    const { userId } = await checkRoomAccess(roomId, false, { requireWritable: true });
-    return { userId };
-  } catch {
-    return null;
-  }
 }
 
 function validateNoteInput({ title, content }: NoteInput, t: NotebookMessages) {
@@ -125,7 +115,7 @@ export async function getMyNotebookAction(roomId: number) {
 
 export async function createCategoryAction(roomId: number, input: CategoryInput) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const valid = validateCategoryInput(input, t);
@@ -155,7 +145,7 @@ export async function createCategoryAction(roomId: number, input: CategoryInput)
 
 export async function updateCategoryAction(roomId: number, categoryId: number, input: CategoryInput) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const valid = validateCategoryInput(input, t);
@@ -177,7 +167,7 @@ export async function updateCategoryAction(roomId: number, categoryId: number, i
 /** Deleting a category drops its notes into "uncategorized" (FK set null). */
 export async function deleteCategoryAction(roomId: number, categoryId: number) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const [deleted] = await db
@@ -194,7 +184,7 @@ export async function deleteCategoryAction(roomId: number, categoryId: number) {
 
 export async function createNoteAction(roomId: number, input: NoteInput) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const valid = validateNoteInput(input, t);
@@ -212,7 +202,7 @@ export async function createNoteAction(roomId: number, input: NoteInput) {
 
 export async function updateNoteAction(roomId: number, noteId: number, input: NoteInput) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const valid = validateNoteInput(input, t);
@@ -250,7 +240,7 @@ export async function updateNoteAction(roomId: number, noteId: number, input: No
  */
 export async function shareNoteAction(roomId: number, noteId: number, targetUserIds: number[]) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const targets = Array.from(new Set(targetUserIds)).filter((id) => id !== auth.userId);
@@ -299,7 +289,7 @@ export async function shareNoteAction(roomId: number, noteId: number, targetUser
 
 export async function deleteNoteAction(roomId: number, noteId: number) {
   const t = await getNotebookMessages();
-  const auth = await requireWritableMember(roomId);
+  const auth = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!auth) return { success: false as const, error: t("errorUnauthorized") } satisfies Fail;
 
   const [deleted] = await db

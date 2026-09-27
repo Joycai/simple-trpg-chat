@@ -16,7 +16,7 @@ import { z } from "zod";
 import { getTranslations } from "next-intl/server";
 import { db } from "@/db";
 import { roomBackgrounds, rooms } from "@/db/schema";
-import { checkRoomAccess } from "@/lib/auth/room-access";
+import { tryRoomAccess } from "@/lib/auth/room-access";
 import { broadcastToRoom } from "@/lib/server/events";
 import { resolveRoomBackgroundPath, roomBackgroundUrl } from "@/lib/media/backgrounds";
 
@@ -29,15 +29,6 @@ export interface RoomBackgroundView {
   active: boolean;
 }
 
-async function requireRoomHost(roomId: number): Promise<boolean> {
-  try {
-    await checkRoomAccess(roomId, true);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function notifyRoom(roomId: number) {
   broadcastToRoom(roomId, { type: "room_settings_updated" });
   revalidatePath(`/rooms/${roomId}`);
@@ -46,7 +37,7 @@ function notifyRoom(roomId: number) {
 /** List this room's backgrounds with the active one flagged (host only). */
 export async function listRoomBackgroundsAction(roomId: number) {
   const t = await getTranslations("roomBackground");
-  if (!Number.isInteger(roomId) || !(await requireRoomHost(roomId))) {
+  if (!Number.isInteger(roomId) || !(await tryRoomAccess(roomId, true))) {
     return { success: false as const, error: t("errorNotHost") };
   }
 
@@ -83,7 +74,7 @@ export async function setRoomBackgroundAction(
   backgroundId: number | null
 ) {
   const t = await getTranslations("roomBackground");
-  if (!Number.isInteger(roomId) || !(await requireRoomHost(roomId))) {
+  if (!Number.isInteger(roomId) || !(await tryRoomAccess(roomId, true))) {
     return { success: false as const, error: t("errorNotHost") };
   }
 
@@ -112,7 +103,7 @@ export async function renameRoomBackgroundAction(
   title: string
 ) {
   const t = await getTranslations("roomBackground");
-  if (!Number.isInteger(roomId) || !(await requireRoomHost(roomId))) {
+  if (!Number.isInteger(roomId) || !(await tryRoomAccess(roomId, true))) {
     return { success: false as const, error: t("errorNotHost") };
   }
 
@@ -138,7 +129,7 @@ export async function renameRoomBackgroundAction(
  */
 export async function deleteRoomBackgroundAction(roomId: number, backgroundId: number) {
   const t = await getTranslations("roomBackground");
-  if (!Number.isInteger(roomId) || !(await requireRoomHost(roomId))) {
+  if (!Number.isInteger(roomId) || !(await tryRoomAccess(roomId, true))) {
     return { success: false as const, error: t("errorNotHost") };
   }
 
