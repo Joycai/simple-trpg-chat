@@ -52,7 +52,8 @@ export async function settle<Args extends unknown[]>(
 }
 
 export interface AsyncActionOptions {
-  /** Error text when `fn` throws (network drop, REST failure, a parent callback). */
+  /** Error text when `fn` throws (network drop, REST failure, a parent callback).
+   *  Omitted, a throw fails with "" — for callers that show no error. */
   fallbackError?: string;
   onSuccess?: (message?: string) => void;
   /** For a caller whose error slot is shared with other sources: write it there. */
@@ -66,7 +67,11 @@ export interface AsyncActionOptions {
  * The pending / error / success-message boilerplate around one async write.
  * No debouncing and no race handling: a second run while one is in flight
  * behaves as it would with hand-written state (callers disable the button).
- * `run` is stable and always calls the latest `fn` and options.
+ * `run` is stable and always calls the latest `fn` and options. Only the
+ * hook's own state is skipped after unmount; `onSuccess` / `onError` still run,
+ * as the caller's code did before (they close, refresh, or write parent state).
+ * Not for an action that calls `redirect()` / `notFound()`: `settle` would
+ * catch that control-flow throw as a failure.
  */
 export function useAsyncAction<Args extends unknown[]>(
   fn: (...args: Args) => Promise<Outcome | void>,
