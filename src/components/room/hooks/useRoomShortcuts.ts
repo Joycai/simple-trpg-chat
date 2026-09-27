@@ -5,6 +5,7 @@ import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { hotkeyHintStore } from "@/components/room/HotkeyHintToast";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import type { CheckMenuMode } from "@/lib/rules";
+import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import type { CheckMode } from "@/components/room/types";
 
 type Toggle = Dispatch<SetStateAction<boolean>>;
@@ -19,16 +20,9 @@ export function useRoomShortcuts({
   onTabChange,
   toggleInventory,
   toggleSidebar,
-  setShowCharacter,
-  setShowNotebook,
-  setShowEvents,
-  setShowItemManager,
-  setShowTimeline,
-  setShowHotkeyHelp,
+  overlaySetters,
   setShowCheckMenu,
   setCheckMode,
-  setShowSystemMenu,
-  setShowAiMenu,
 }: {
   isHost: boolean;
   readOnly: boolean;
@@ -40,17 +34,15 @@ export function useRoomShortcuts({
   onTabChange: (tab: "public" | number) => void;
   toggleInventory: () => void;
   toggleSidebar: () => void;
-  setShowCharacter: Toggle;
-  setShowNotebook: Toggle;
-  setShowEvents: Toggle;
-  setShowItemManager: Toggle;
-  setShowTimeline: Toggle;
-  setShowHotkeyHelp: Toggle;
+  overlaySetters: OverlayVisibility["setters"];
   setShowCheckMenu: Toggle;
   setCheckMode: Dispatch<SetStateAction<CheckMode | null>>;
-  setShowSystemMenu: Toggle;
-  setShowAiMenu: Toggle;
 }) {
+  const {
+    character: setShowCharacter, notebook: setShowNotebook, events: setShowEvents,
+    itemManager: setShowItemManager, timeline: setShowTimeline, hotkeyHelp: setShowHotkeyHelp,
+    systemMenu: setShowSystemMenu, aiMenu: setShowAiMenu,
+  } = overlaySetters;
   // Alt+↑/↓: cycle through the conversation tabs (public first, then the DM
   // list in sidebar order). Wraps around at both ends.
   const cycleTab = useCallback((dir: 1 | -1) => {

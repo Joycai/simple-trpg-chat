@@ -21,6 +21,7 @@ import { useChatSend } from "@/components/room/hooks/useChatSend";
 import { useRoomShortcuts } from "@/components/room/hooks/useRoomShortcuts";
 import { useMessageLog } from "@/components/room/hooks/useMessageLog";
 import { useLivePlayers } from "@/components/room/hooks/useLivePlayers";
+import { useOverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintToast";
 import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
@@ -58,29 +59,15 @@ export function RoomClient({
   // Members, patched by SSE and re-seeded on each server render.
   const { players, setPlayers } = useLivePlayers(initialPlayers);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const [showSettings, setShowSettings] = useState(false);
-  const [showCharacter, setShowCharacter] = useState(false);
-  const [showInventory, setShowInventory] = useState(false);
-  const [showNotebook, setShowNotebook] = useState(false);
-  const [showItemManager, setShowItemManager] = useState(false);
-  const [showEvents, setShowEvents] = useState(false);
-  const [showEventManage, setShowEventManage] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false);
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [skillRefreshKey, setSkillRefreshKey] = useState(0);
-  const [showBotManager, setShowBotManager] = useState(false);
-  const [showAiImport, setShowAiImport] = useState(false);
-  const [showRoomInfo, setShowRoomInfo] = useState(false);
-  const [showMembers, setShowMembers] = useState(false);
-  const [showSystemMenu, setShowSystemMenu] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
-  const [showUserSettings, setShowUserSettings] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [showHotkeyHelp, setShowHotkeyHelp] = useState(false);
+  // Open/closed state for every panel, dialog and top-bar dropdown.
+  const overlays = useOverlayVisibility();
+  const { setters: overlaySetters } = overlays;
   const openHotkeyHelp = useCallback(() => {
     hotkeyHintStore.markSeen();
-    setShowHotkeyHelp(true);
-  }, []);
+    overlaySetters.hotkeyHelp(true);
+  }, [overlaySetters]);
   // Inline room-name editing (host only, top bar)
   const { editingRoomName, setEditingRoomName, roomNameDraft, setRoomNameDraft, savingRoomName, handleSaveRoomName } =
     useRoomNameEditor(room);
@@ -233,7 +220,7 @@ export function RoomClient({
   });
 
   // Another member's card, read-only; opening one closes the members panel.
-  const closeMembers = useCallback(() => setShowMembers(false), []);
+  const closeMembers = useCallback(() => overlaySetters.members(false), [overlaySetters]);
   const {
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard,
     handleViewPlayerCard, closeViewingPlayer,
@@ -250,20 +237,19 @@ export function RoomClient({
   // Stable identity matters: this reaches every ChatMessage via ChatArea, and
   // one unstable prop defeats the whole list's memo() bail-out.
   const handleToggleInventory = useCallback(() => {
-    setShowInventory((v) => !v);
+    overlaySetters.inventory((v) => !v);
     // Clear only the local unread dot here. The server-side "viewed" flags are
     // acknowledged by the InventoryPanel *after* it loads, so the new/updated
     // highlights still render this session instead of being cleared mid-open.
     setUnreadItems(0);
-  }, [setUnreadItems]); // a state setter: stable, so this callback still is
+  }, [overlaySetters, setUnreadItems]); // both stable, so this callback still is
 
   // Room-wide keyboard shortcuts (bindings in src/lib/ui/hotkeys.ts).
   useRoomShortcuts({
     isHost, readOnly, checkMenuModes: ruleCapabilities.checkMenuModes,
     activeTab, tabPartners: dmConversations, onTabChange: handleTabChange,
     toggleInventory: handleToggleInventory, toggleSidebar,
-    setShowCharacter, setShowNotebook, setShowEvents, setShowItemManager, setShowTimeline,
-    setShowHotkeyHelp, setShowCheckMenu, setCheckMode, setShowSystemMenu, setShowAiMenu,
+    overlaySetters, setShowCheckMenu, setCheckMode,
   });
 
   return (
@@ -292,41 +278,16 @@ export function RoomClient({
         setRoomNameDraft={setRoomNameDraft}
         setEditingRoomName={setEditingRoomName}
         onSaveRoomName={handleSaveRoomName}
-        showCharacter={showCharacter}
-        setShowCharacter={setShowCharacter}
         characterHint={characterHint}
-        showInventory={showInventory}
         unreadItems={unreadItems}
         onToggleInventory={handleToggleInventory}
-        showNotebook={showNotebook}
-        setShowNotebook={setShowNotebook}
-        showEvents={showEvents}
-        setShowEvents={setShowEvents}
         unreadEvents={unreadEvents}
         checkMode={checkMode}
         setCheckMode={setCheckMode}
         showCheckMenu={showCheckMenu}
         setShowCheckMenu={setShowCheckMenu}
-        showItemManager={showItemManager}
-        setShowItemManager={setShowItemManager}
-        setShowEventManage={setShowEventManage}
-        showTimeline={showTimeline}
-        setShowTimeline={setShowTimeline}
-        showAiMenu={showAiMenu}
-        setShowAiMenu={setShowAiMenu}
-        setShowAiImport={setShowAiImport}
-        setShowBotManager={setShowBotManager}
-        showSystemMenu={showSystemMenu}
-        setShowSystemMenu={setShowSystemMenu}
-        setShowMembers={setShowMembers}
-        setShowRoomInfo={setShowRoomInfo}
-        setShowExport={setShowExport}
-        setShowSettings={setShowSettings}
-        setShowUserSettings={setShowUserSettings}
-        setShowHotkeyHelp={(v) => {
-          hotkeyHintStore.markSeen();
-          setShowHotkeyHelp(v);
-        }}
+        overlays={overlays}
+        onOpenHotkeyHelp={openHotkeyHelp}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -417,39 +378,11 @@ export function RoomClient({
         viewingPlayerCharData={viewingPlayerCharData}
         loadingPlayerCard={loadingPlayerCard}
         onCloseViewingPlayer={closeViewingPlayer}
-        showCharacter={showCharacter}
-        setShowCharacter={setShowCharacter}
-        showBotManager={showBotManager}
-        setShowBotManager={setShowBotManager}
-        showAiImport={showAiImport}
-        setShowAiImport={setShowAiImport}
-        showMembers={showMembers}
-        setShowMembers={setShowMembers}
-        showInventory={showInventory}
-        setShowInventory={setShowInventory}
-        showNotebook={showNotebook}
-        setShowNotebook={setShowNotebook}
-        showItemManager={showItemManager}
-        setShowItemManager={setShowItemManager}
-        showEvents={showEvents}
-        setShowEvents={setShowEvents}
-        showEventManage={showEventManage}
-        setShowEventManage={setShowEventManage}
         eventsRefreshKey={eventsRefreshKey}
         onEventsChanged={bumpEvents}
         onEventBadgeChanged={refreshEventBadge}
         eventDetailId={eventDetailId}
         setEventDetailId={setEventDetailId}
-        showTimeline={showTimeline}
-        setShowTimeline={setShowTimeline}
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
-        showRoomInfo={showRoomInfo}
-        setShowRoomInfo={setShowRoomInfo}
-        showExport={showExport}
-        setShowExport={setShowExport}
-        showUserSettings={showUserSettings}
-        setShowUserSettings={setShowUserSettings}
         checkMode={checkMode}
         setCheckMode={setCheckMode}
         pendingSkillCheck={pendingSkillCheck}
@@ -461,13 +394,14 @@ export function RoomClient({
         onNicknameChange={(newNick) => setNickname(newNick)}
         onViewPlayerCard={handleViewPlayerCard}
         onStartDM={handleTabChange}
+        overlays={overlays}
       />
 
       <HotkeyHintToast onOpenHelp={openHotkeyHelp} />
 
 
-      {showHotkeyHelp && (
-        <RoomHotkeyHelp isHost={isHost} onClose={() => setShowHotkeyHelp(false)} />
+      {overlays.shown.hotkeyHelp && (
+        <RoomHotkeyHelp isHost={isHost} onClose={() => overlaySetters.hotkeyHelp(false)} />
       )}
     </div>
     </EventDataProvider>
