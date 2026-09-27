@@ -19,13 +19,15 @@ import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
 import { useRoomNameEditor } from "@/components/room/hooks/useRoomNameEditor";
 import { useChatSend } from "@/components/room/hooks/useChatSend";
 import { useRoomShortcuts } from "@/components/room/hooks/useRoomShortcuts";
+import { useMessageLog } from "@/components/room/hooks/useMessageLog";
+import { useLivePlayers } from "@/components/room/hooks/useLivePlayers";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintToast";
 import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
-import type { Message, RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
+import type { RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
@@ -50,35 +52,11 @@ export function RoomClient({
   initialSnapshot,
 }: RoomClientProps) {
   const t = useTranslations("room");
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
-  const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
-  // Message id → arrival timestamp for messages that arrived live (SSE, reconnect
-  // catch-up, or local error pills). ChatArea consults it so only genuinely new
-  // messages play the entrance animation — history loads / pagination / tab
-  // switches mount silently. Entries are never deleted (the 3s window simply
-  // lapses), which keeps it safe under StrictMode double-mounting.
-  const liveEnterRef = useRef(new Map<string, number>());
-  // Latest messages snapshot for event handlers (e.g. infinite-scroll) that must read the
-  // current oldest id without being re-created on every message change. Synced in an effect
-  // (see below) rather than during render, per react-hooks/refs.
-  const messagesRef = useRef(messages);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  // Loaded messages + the seen-id / live-arrival / latest-list refs.
+  const { messages, setMessages, seenIdsRef, liveEnterRef, messagesRef } = useMessageLog(initialMessages);
   const [nickname, setNickname] = useState(currentNickname);
-  // Live member list: seeded from the server, patched in place by
-  // `member_updated` SSE deltas (nickname / color / avatar changes) so those
-  // no longer cost every client a full router.refresh(). A real server
-  // re-render (navigation, or the remaining refresh events) re-seeds it via
-  // the render-time reset below (React's derive-state-from-props pattern —
-  // re-renders immediately without committing the stale tree).
-  const [players, setPlayers] = useState(initialPlayers);
-  const [seededPlayers, setSeededPlayers] = useState(initialPlayers);
-  if (seededPlayers !== initialPlayers) {
-    setSeededPlayers(initialPlayers);
-    setPlayers(initialPlayers);
-  }
+  // Members, patched by SSE and re-seeded on each server render.
+  const { players, setPlayers } = useLivePlayers(initialPlayers);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [showSettings, setShowSettings] = useState(false);
   const [showCharacter, setShowCharacter] = useState(false);
@@ -136,15 +114,6 @@ export function RoomClient({
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
-  // Incremental pruning: when seenIdsRef exceeds 500, drop the oldest half
-  // instead of rebuilding from messages (avoids O(n) rebuild on every batch).
-  useEffect(() => {
-    if (seenIdsRef.current.size > 500) {
-      const toDelete = Array.from(seenIdsRef.current).slice(0, 250);
-      for (const id of toDelete) seenIdsRef.current.delete(id);
-    }
-  }, [messages.length]);
 
   const handleTabChange = useCallback((tab: "public" | number) => {
     setActiveTab(tab);
