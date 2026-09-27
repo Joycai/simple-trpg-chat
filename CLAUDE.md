@@ -48,10 +48,12 @@ src/
 ├── app/
 │   ├── actions/               # Server Actions ("use server"), one module per concern
 │   │                          #   room / messages / checks / skills / character / inventory …
-│   ├── admin/                 # Admin panel (ai/, config/, usage/, users/)
+│   ├── admin/                 # Admin panel (ai/, config/, usage/, users/) + loading/error
 │   ├── api/rooms/[id]/events/ # SSE endpoint — GET /api/rooms/[id]/events
 │   ├── login/
-│   └── rooms/[id]/
+│   ├── rooms/[id]/            # layout (existence check), page, loading, error
+│   ├── rooms/not-found.tsx    #   room 404
+│   └── not-found.tsx, global-error.tsx   # site 404 / root-layout failure
 ├── components/                # React client components ("use client")
 │   ├── room/                  #   room UI, grouped by panel (chat/, character/, notebook/ …)
 │   ├── admin/ lobby/ user/ theme/
@@ -175,6 +177,16 @@ pnpm db:push  # Interactive mode — answer "No" to ai_token_usages truncate pro
 
 Hosts pre-upload up to 12 background images per room (RoomSettings → 背景图 tab) and switch between them live; players get a local intensity slider (TopBar gear menu → personal section, localStorage, 0 = off). Uploads (≤5MB, JPEG/PNG/WebP — GIF rejected) are re-encoded server-side via `sharp` to bounded WebP (2560px / q80) under `cache/room-backgrounds/` (`ROOM_BACKGROUND_DIR`) — a **separate** directory from chat images because backgrounds are host prep material, not disposable cache; admin cleanup only touches them via an explicit opt-in checkbox. The image renders behind a per-theme scrim (`--theme-bg-scrim*` vars in each `theme.css`); `data-room-bg` on `<body>` softens opaque shells (globals.css). Switching broadcasts the existing `room_settings_updated` SSE event. Core: `src/lib/media/backgrounds.ts`, `src/app/api/rooms/[id]/backgrounds/`, `src/app/actions/background.ts`, `RoomBackground.tsx` (paints), `hooks/useRoomBgIntensity.ts` (intensity store shared with `RoomTopBar`), `RoomBackgroundManager.tsx`. Reverse-proxy note: nginx needs `client_max_body_size 6m`. Design doc: `docs/design/room-background.md`.
 
+### Route Boundaries and First Paint
+
+Special files per segment (Next 16.3 — `error.tsx` gets `{ error, retry }`; `retry` re-fetches, prefer it over `reset`):
+
+- **404**: `app/not-found.tsx` (unmatched URLs) and `app/rooms/not-found.tsx` (missing room). The room check lives in `rooms/[id]/layout.tsx`, **not** the page: `rooms/[id]/loading.tsx` starts streaming before the page runs, and once it has, a `notFound()` can only produce a 200 soft 404. A segment's own `not-found.tsx` sits inside its layout, hence the room 404 one level up. The layout only turns a *missing* room into `notFound()`; a failed lookup falls through to the page, because the segment's `error.tsx` can't wrap its own layout (a throw there would reach `global-error`). `findRoom` (`lib/room/room-lookup.ts`, `React.cache`) hands the page the same row — or the same rejection; `parseRoomId` sends non-int4 ids to 404 instead of Postgres.
+- **Loading**: `rooms/[id]/loading.tsx` mirrors RoomClient's shells (RoomTopBar rows, the sidebar from `lg` at useSidebar's default 200px, ChatArea's input shell) so nothing jumps on arrival; admin pages share `admin/AdminSkeleton.tsx`, and a page with a different outer container passes it from its own `loading.tsx` (config, usage). Change a page's shell → update its skeleton.
+- **Errors**: `rooms/[id]/error.tsx` and `admin/error.tsx` render `components/shared/RouteError.tsx` — retry, a way back, and the digest only (never `error.message`). `app/global-error.tsx` replaces the root layout, so no theme, fonts or next-intl reach it: it is the one UI file that hardcodes its colors (OS light/dark, no tokens available) and writes its copy in both languages.
+
+First paint: the room page reads `loadMemberSnapshot` (`lib/room/initial-snapshot.ts` — unread DMs per sender, whether I have any skills yet, visible events, unread events, unread items) in its `Promise.all` and passes `initialSnapshot` to RoomClient, which seeds that state from it (the character-sheet hint included) — there is no "loading" state for these any more. The matching read actions are thin `checkRoomAccess` wrappers over the same functions, and RoomClient's refresh-key effects skip their key-0 run, re-reading only when bumped. The page decides host-level reads with `isRoomHostOrAdmin` — the same rule `checkRoomAccess` uses.
+
 ### Notebook (记事本)
 
 Per-user-per-room private markdown notes, opened from the TopBar icon right of the backpack. Notes are strictly private (host included) — every query is scoped by `(roomId, userId)`, and there is no SSE for it (the panel fetches on open). Categories are user-editable (rename / recolor / add / delete, max 12) with one of 7 predefined label colors — theme-token keys (`NOTEBOOK_COLORS`), so labels recolor with the theme; 4 localized defaults are lazily seeded on first open, and deleting a category drops its notes into an "uncategorized" bucket (FK `set null`). Notes support markdown (rendered by the shared `MarkdownRenderer`), local relevance-ranked search, and `@标题` links to backpack entries (inventory items/clues/characters). Mentions store the plain title and resolve by longest-title prefix match at render time, so a deleted backpack item silently degrades to plain text. A note can be **sent to other members** (`shareNoteAction`) as an independent copy — the recipient gets a new row in their own scope (uncategorized, `sourceName` = sender snapshot, badged "来自 X"); later edits never sync, and the copy's `@` links re-resolve against the *recipient's* backpack, so anything they don't hold degrades to plain text. Bots are excluded as recipients on the server (`users.isBot` join), not just in the picker; no SSE, so copies surface on the recipient's next open. The note body's typography (section headings, list markers, quote chrome) is a shared structural layer scoped to `.notebook-note-body` in `globals.css` — values read `var(--theme-nb-*, <fallback to --theme-*>)`, so every theme auto-tints and a theme may override any `--theme-nb-*` at its root (see the `simple-trpg-chat-theme` skill). Core: `src/lib/room/notebook.ts` (pure helpers + tests), `src/app/actions/notebook.ts`, `src/components/room/notebook/`. Tables: `notebook_categories` + `notebook_notes`.
@@ -200,8 +212,8 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   `pnpm lint` enforces R2–R5 (`eslint.config.mjs`: `import/no-restricted-paths` for
   R2–R4, which resolves real paths so relative imports can't bypass it;
   `no-restricted-imports` for R5); the build enforces R1.
-  - R1 — `src/db/index.ts`, `src/lib/server/*` and `src/lib/security/{encryption,url-guard,sensitive-words}`
-    start with `import "server-only"`, so a client component that reaches them fails
+  - R1 — `src/db/index.ts`, `src/lib/server/*`, `src/lib/security/{encryption,url-guard,sensitive-words}`
+    and `src/lib/room/{initial-snapshot,room-lookup}` start with `import "server-only"`, so a client component that reaches them fails
     the build. `schema.ts` is exempt because `drizzle-kit` loads it directly. tsx
     scripts that import these must run with `--conditions=react-server` (the
     `db:*` scripts already do); vitest aliases `server-only` to `tests/stubs/`.

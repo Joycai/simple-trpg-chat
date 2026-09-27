@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { rooms, roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
+import { roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import { messageVisibilityWhere } from "@/lib/messaging/router";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { RoomClient } from "@/components/room/RoomClient";
 import { RoomThemeSetter } from "@/components/theme/RoomThemeSetter";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
@@ -15,11 +15,15 @@ import { roomBackgroundUrl } from "@/lib/media/backgrounds";
 import { getRuleForRoom } from "@/lib/rules";
 import { sanitizeBotConfigForClient } from "@/lib/ai/bot-status";
 import { roomAvatarUrl } from "@/lib/media/avatars";
+import { loadMemberSnapshot } from "@/lib/room/initial-snapshot";
+import { findRoom, parseRoomId } from "@/lib/room/room-lookup";
+import { isRoomHostOrAdmin } from "@/lib/auth/room-access";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
   const { id } = await params;
-  const roomId = parseInt(id);
+  const roomId = parseRoomId(id);
+  if (roomId === null) notFound();
 
   const session = await auth();
   if (!session) redirect("/login");
@@ -27,18 +31,9 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const user = session.user;
   const userId = parseInt(user.id);
 
-  // Get room
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-bg">
-        <h1 className="text-2xl font-bold text-text-muted">{t("notFound")}</h1>
-        <Link href="/" className="text-primary hover:underline">
-          {t("backToLobby")}
-        </Link>
-      </div>
-    );
-  }
+  // Already checked by the layout (same cached row); kept so the page stands on its own.
+  const room = await findRoom(roomId);
+  if (!room) notFound();
 
   const isHost = room.hostId === userId;
   const isAdmin = user.role === "admin";
@@ -142,7 +137,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const visibilityCondition = messageVisibilityWhere(roomId, userId, isHost || isAdmin);
 
   // 3. Parallelized queries (P9)
-  const [roomMessages, [aiConfig], [hostUser], roomProviders] = await Promise.all([
+  const [roomMessages, [aiConfig], [hostUser], roomProviders, initialSnapshot] = await Promise.all([
     db
       .select()
       .from(messages)
@@ -166,7 +161,10 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
           eq(aiProviders.ownerId, room.hostId),
           eq(aiProviders.isShared, true)
         )
-      )
+      ),
+    // Badges and the event log, read with the same host-or-admin rule the read
+    // actions get from checkRoomAccess.
+    loadMemberSnapshot(roomId, userId, isRoomHostOrAdmin(room, { id: userId, role: user.role })),
   ]);
 
   // Active room background (null = off). The filename lookup is skipped
@@ -229,6 +227,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         userRole={user.role}
         backgroundUrl={backgroundUrl}
         isObserver={isObserver}
+        initialSnapshot={initialSnapshot}
       />
     </>
   );

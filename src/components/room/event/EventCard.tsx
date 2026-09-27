@@ -21,8 +21,8 @@ const DAYPART_PILL: Record<TimelineSegment, string> = {
 
 /**
  * Public-channel announcement card. The payload carries metadata only; the body
- * of an *unlocked* card is fetched per-viewer via the access-gated
- * `getEventForViewerAction`, so a locked card never receives content the viewer
+ * of an *unlocked* card comes from the room's shared, access-filtered event list
+ * (`EventDataContext`), so a locked card never receives content the viewer
  * isn't cleared for. Three faces: unlocked / locked / retracted.
  *
  * Layout follows the shrine design: a left icon gutter + a「事件志 EVENT」header
@@ -33,12 +33,10 @@ const DAYPART_PILL: Record<TimelineSegment, string> = {
 export function EventCard({
   payload,
   unlocked,
-  roomId,
   onOpen,
 }: {
   payload: EventCardPayload;
   unlocked: boolean;
-  roomId?: number;
   onOpen: () => void;
 }) {
   const t = useTranslations("event");
@@ -87,7 +85,7 @@ export function EventCard({
     );
   }
 
-  return <UnlockedCard payload={payload} roomId={roomId} timeLabel={timeLabel} onOpen={onOpen} />;
+  return <UnlockedCard payload={payload} timeLabel={timeLabel} onOpen={onOpen} />;
 }
 
 /** Unlocked card: reads the viewable body/images from the room-wide event data
@@ -96,20 +94,19 @@ export function EventCard({
  *  what lets a host's later edit reach a card already in the log. */
 function UnlockedCard({
   payload,
-  roomId,
   timeLabel,
   onOpen,
 }: {
   payload: EventCardPayload;
-  roomId?: number;
   timeLabel: string;
   onOpen: () => void;
 }) {
   const t = useTranslations("event");
-  const { eventsById, entities, loading } = useEventData();
-  // undefined = still loading; null = unavailable (render metadata only).
-  const found = eventsById.get(payload.eventId);
-  const detail = found ?? (roomId && loading ? undefined : null);
+  const { eventsById, entities } = useEventData();
+  // Not in the list: unavailable to this viewer, or published after the list
+  // was read and the events_updated refetch hasn't landed yet. Either way,
+  // render metadata only; the body fills in when the list catches up.
+  const detail = eventsById.get(payload.eventId) ?? null;
 
   const isFull = payload.mode === "full";
   // Day-part tints the time pill (bright morning → warm afternoon → cool night),
@@ -153,15 +150,7 @@ function UnlockedCard({
               min-w-0 lets its ellipsis truncate before it can reach the image. */}
           <div className="flex gap-3 mt-1.5 h-[4.5rem]">
             <div className="flex-1 min-w-0">
-              {detail === undefined ? (
-                <div className="space-y-2 pt-1" aria-hidden="true">
-                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-11/12" />
-                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-4/5" />
-                  <div className="h-2.5 rounded bg-text-dim/15 animate-pulse w-3/5" />
-                </div>
-              ) : detail ? (
-                <EventBodyPreview content={detail.description} lines={3} entities={entities} />
-              ) : null}
+              {detail && <EventBodyPreview content={detail.description} lines={3} entities={entities} />}
             </div>
             {cover && (
               <button

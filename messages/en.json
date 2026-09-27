@@ -782,7 +782,12 @@
     "close": "Close",
     "loading": "Loading...",
     "loadFailed": "Failed to load",
-    "retry": "Retry"
+    "retry": "Retry",
+    "pageNotFound": "Page not found",
+    "backToLobby": "Back to Lobby",
+    "errorPageHint": "Something went wrong loading this page. Try again, or head back to the lobby.",
+    "errorPageHintAdmin": "Something went wrong loading this page. Try again, or go back to the dashboard.",
+    "errorDigest": "Error ID: {digest}"
   },
   "userSettings": {
     "title": "Settings",

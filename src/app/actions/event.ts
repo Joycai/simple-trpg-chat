@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { storyEvents, storyEventVisibility, roomMembers, users, messages } from "@/db/schema";
 import { eq, and, asc, inArray, sql } from "drizzle-orm";
 import { checkRoomAccess } from "@/lib/auth/room-access";
+import { listVisibleEvents, countUnreadEvents } from "@/lib/room/initial-snapshot";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
@@ -19,6 +20,7 @@ import {
   EVENT_TITLE_MAX,
   EVENT_DESC_MAX,
   type EventCardPayload,
+  type EventView,
 } from "@/lib/room/story-events";
 
 /* ------------------------------------------------------------------ helpers */
@@ -504,23 +506,7 @@ export async function markEventsViewedAction(roomId: number) {
 
 /* ------------------------------------------------------------------ reads */
 
-export interface EventView {
-  id: number;
-  title: string;
-  description: string;
-  timePayload: string | null;
-  images: string[];
-  status: "unpublished" | "partial" | "full";
-  sortOrder: number;
-  updated: boolean;
-  /** When this viewer gained access (partial → grant time; full → publish time).
-   *  Drives the player log's "by acquisition time" ordering. */
-  acquiredAt?: string | null;
-  /** Host-only: last publish/update time, shown as the detail modal's "公开时间". */
-  updatedAt?: string;
-  /** Host-only: who currently knows a partial event (empty for full/unpublished). */
-  knowers?: { userId: number; nickname: string }[];
-}
+export type { EventView };
 
 /** Host management list — every event (incl. unpublished) + who knows each. */
 export async function getRoomEventsAction(roomId: number) {
@@ -562,47 +548,7 @@ export async function getRoomEventsAction(roomId: number) {
 /** Player-facing list — events this viewer may read, with full content. */
 export async function getMyEventsAction(roomId: number): Promise<EventView[]> {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
-
-  const evs = await db
-    .select()
-    .from(storyEvents)
-    .where(eq(storyEvents.roomId, roomId))
-    .orderBy(asc(storyEvents.sortOrder), asc(storyEvents.id));
-
-  // Joined to storyEvents and scoped to this room: without it the query pulls
-  // the caller's visibility rows across every room they have ever played in.
-  const myVis = await db
-    .select({ eventId: storyEventVisibility.eventId, viewed: storyEventVisibility.viewed, updated: storyEventVisibility.updated, createdAt: storyEventVisibility.createdAt })
-    .from(storyEventVisibility)
-    .innerJoin(storyEvents, eq(storyEvents.id, storyEventVisibility.eventId))
-    .where(and(eq(storyEventVisibility.userId, userId), eq(storyEvents.roomId, roomId)));
-  const visMap = new Map(myVis.map((v) => [v.eventId, v]));
-
-  const out: EventView[] = [];
-  for (const e of evs) {
-    const canView = isHost || e.status === "full" || (e.status === "partial" && visMap.has(e.id));
-    if (!canView) continue;
-    // Acquisition time: a partial grant carries its own row timestamp; a full
-    // event has none, so fall back to its publish/update time.
-    const acquiredAt = visMap.get(e.id)?.createdAt ?? e.updatedAt;
-    out.push({
-      id: e.id,
-      title: e.title,
-      description: e.description,
-      timePayload: e.timePayload,
-      images: parseEventImages(e.imagesJson),
-      status: e.status,
-      sortOrder: e.sortOrder,
-      updated: visMap.get(e.id)?.updated ?? false,
-      acquiredAt,
-    });
-  }
-  // Player log orders by acquisition time (most recent first); host keeps the
-  // authored order so it mirrors the management panel.
-  if (!isHost) {
-    out.sort((a, b) => String(b.acquiredAt ?? "").localeCompare(String(a.acquiredAt ?? "")));
-  }
-  return out;
+  return listVisibleEvents(roomId, userId, isHost);
 }
 
 /** Fetch a single event's full content if the caller may read it, else null.
@@ -668,17 +614,5 @@ export async function markEventViewedAction(roomId: number, eventId: number) {
 /** Unread event count for the top-bar badge (non-host, from visibility rows). */
 export async function getUnreadEventCountAction(roomId: number): Promise<number> {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
-  if (isHost) return 0;
-  const [row] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(storyEventVisibility)
-    .innerJoin(storyEvents, eq(storyEvents.id, storyEventVisibility.eventId))
-    .where(
-      and(
-        eq(storyEvents.roomId, roomId),
-        eq(storyEventVisibility.userId, userId),
-        eq(storyEventVisibility.viewed, false),
-      ),
-    );
-  return Number(row?.n ?? 0);
+  return countUnreadEvents(roomId, userId, isHost);
 }

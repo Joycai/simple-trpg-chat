@@ -2,10 +2,11 @@
 
 import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
-import { eq, and, not, desc, inArray, count, sql } from "drizzle-orm";
+import { eq, and, not, desc, inArray, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
+import { countUnreadInventory } from "@/lib/room/initial-snapshot";
 import { getTranslations } from "next-intl/server";
 import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage } from "@/lib/messaging/router";
@@ -473,18 +474,7 @@ export async function markInventoryViewedAction(roomId: number): Promise<Done> {
  */
 export async function getUnreadInventoryCountAction(roomId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
-
-  const result = await db.select({ count: count() })
-    .from(inventoryDistributions)
-    .where(
-      and(
-        eq(inventoryDistributions.roomId, roomId),
-        eq(inventoryDistributions.toUserId, userId),
-        sql`${inventoryDistributions.viewed} = ${false}`
-      )
-    );
-
-  return (result[0]?.count as number) || 0;
+  return countUnreadInventory(roomId, userId);
 }
 
 /**

@@ -71,8 +71,10 @@ construction.
 
 - A DM is a message with `audience === 'dm'`; `channelOf` routes it to the partner's tab.
 - `roomDmReads` tracks the last-read timestamp per `(roomId, userId, partnerUserId)` pair.
-- DM unread counts (`getUnreadDMCountAction` + the client) use `countsAsDmUnread`, so
-  inline notices (`self`/`directed`/`gm`) never inflate a DM badge.
+- DM unread counts start from `countUnreadDms` (`lib/room/initial-snapshot.ts`, read
+  with the room page's server render) and the client keeps them live; both count only
+  `audience === 'dm'` turns (the client via `countsAsDmUnread`), so inline notices
+  (`self`/`directed`/`gm`) never inflate a DM badge.
 - `ConversationPanel.tsx` renders public chat + DM tabs with unread indicators.
 
 ## Message Types

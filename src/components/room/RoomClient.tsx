@@ -16,7 +16,7 @@ import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, HOTKEY_HINT_SEEN_KEY, formatHotkey, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { Icons } from "@/components/shared/icons";
-import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, getUnreadDMCountAction, loadMoreMessagesAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
+import { sendMessageAction, rollDiceAction, executeCommandAction, markDMReadAction, loadMoreMessagesAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { updateRoomNameAction } from "@/app/actions/room";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import { getUnreadInventoryCountAction } from "@/app/actions/inventory";
@@ -75,6 +75,14 @@ import { useTheme } from "@/components/theme/ThemeProvider";
 import { parseTimelinePayload, resolvedModeFromDivider } from "@/lib/messaging/timeline-payload";
 import type { ThemeMode } from "@/themes/types";
 
+/** The two lookups the event list feeds (detail modal by id, chat-card lock state). */
+function indexEvents(rows: EventView[]) {
+  return {
+    byId: new Map(rows.map((e) => [e.id, e])),
+    visibleIds: new Set(rows.map((e) => e.id)),
+  };
+}
+
 export function RoomClient({
   room,
   messages: initialMessages,
@@ -92,6 +100,7 @@ export function RoomClient({
   userRole,
   backgroundUrl = null,
   isObserver = false,
+  initialSnapshot,
 }: RoomClientProps) {
   const t = useTranslations("room");
   const tra = useTranslations("roomActions");
@@ -139,12 +148,11 @@ export function RoomClient({
   const [showEvents, setShowEvents] = useState(false);
   const [showEventManage, setShowEventManage] = useState(false);
   const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
-  const [visibleEventIds, setVisibleEventIds] = useState<Set<number>>(new Set());
-  const [eventsById, setEventsById] = useState<Map<number, EventView>>(new Map());
-  const [eventsOrdered, setEventsOrdered] = useState<EventView[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
+  const [visibleEventIds, setVisibleEventIds] = useState(() => indexEvents(initialSnapshot.events).visibleIds);
+  const [eventsById, setEventsById] = useState(() => indexEvents(initialSnapshot.events).byId);
+  const [eventsOrdered, setEventsOrdered] = useState<EventView[]>(initialSnapshot.events);
   const [eventsError, setEventsError] = useState(false);
-  const [unreadEvents, setUnreadEvents] = useState(0);
+  const [unreadEvents, setUnreadEvents] = useState(initialSnapshot.unreadEvents);
   const [unreadEventsKey, setUnreadEventsKey] = useState(0);
   const [eventDetailId, setEventDetailId] = useState<number | null>(null);
   // Passed into every ChatMessage — must stay referentially stable (see
@@ -185,8 +193,8 @@ export function RoomClient({
   const [roomNameDraft, setRoomNameDraft] = useState(room.name);
   const [savingRoomName, setSavingRoomName] = useState(false);
   const [activeTab, setActiveTab] = useState<"public" | number>("public");
-  const [unreadItems, setUnreadItems] = useState(0);
-  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
+  const [unreadItems, setUnreadItems] = useState(initialSnapshot.unreadItems);
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>(initialSnapshot.unreadDms);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   // Live overrides pushed by SSE, keyed by userId — one entry per member,
   // holding the rule's primary vital (HP where the rule has one).
@@ -237,16 +245,6 @@ export function RoomClient({
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
-  useEffect(() => {
-    getUnreadDMCountAction(room.id).then((serverCounts) => {
-      const merged: Record<number, number> = {};
-      for (const [uid, count] of Object.entries(serverCounts)) {
-        merged[Number(uid)] = count as number;
-      }
-      setUnreadCounts(merged);
-    }).catch(() => {});
-  }, [room.id]);
 
   // Incremental pruning: when seenIdsRef exceeds 500, drop the oldest half
   // instead of rebuilding from messages (avoids O(n) rebuild on every batch).
@@ -326,11 +324,13 @@ export function RoomClient({
   // at their rule defaults OR the user has no skills yet. Skills are counted
   // here (the top bar has no sheet/skill data of its own), keyed on the shared
   // skillRefreshKey so .st commands and in-panel skill edits keep it live.
-  const [skillsEmpty, setSkillsEmpty] = useState(false);
-  const [skillsLoaded, setSkillsLoaded] = useState(false);
+  // The first value comes with the server render (initialSnapshot); only a
+  // bump re-reads it.
+  const [skillsEmpty, setSkillsEmpty] = useState(initialSnapshot.skillsEmpty);
   useEffect(() => {
+    if (skillRefreshKey === 0) return;
     getMySkillsAction(room.id)
-      .then(s => { setSkillsEmpty(s.length === 0); setSkillsLoaded(true); })
+      .then(s => setSkillsEmpty(s.length === 0))
       .catch(() => {});
   }, [room.id, skillRefreshKey]);
 
@@ -339,29 +339,31 @@ export function RoomClient({
   // why this is centralized. The same response drives the readable-id set that
   // gates each chat card's lock state, plus the top-bar unread badge.
   // Re-fetched on the shared eventsRefreshKey, which the `events_updated` SSE
-  // bumps, so publish/retract/promote/edit all reflect live.
+  // bumps, so publish/retract/promote/edit all reflect live. The first list
+  // comes with the server render (initialSnapshot), so key 0 skips the fetch.
   useEffect(() => {
+    if (eventsRefreshKey === 0) return;
     let alive = true;
     void (async () => {
       try {
         const rows = await getMyEventsAction(room.id);
         if (!alive) return;
+        const { byId, visibleIds } = indexEvents(rows);
         setEventsOrdered(rows);
-        setEventsById(new Map(rows.map((e) => [e.id, e])));
-        setVisibleEventIds(new Set(rows.map((e) => e.id)));
+        setEventsById(byId);
+        setVisibleEventIds(visibleIds);
         setEventsError(false);
       } catch {
+        // A failed refresh keeps the current list on screen (and its "updated"
+        // highlights); consumers only show the error when there is no list.
         if (alive) setEventsError(true);
-      } finally {
-        // Never flips back to true: a refresh keeps the current list on screen
-        // instead of flashing a spinner (and wiping the "updated" highlights).
-        if (alive) setEventsLoading(false);
       }
     })();
     return () => { alive = false; };
   }, [room.id, eventsRefreshKey]);
 
   useEffect(() => {
+    if (eventsRefreshKey === 0 && unreadEventsKey === 0) return;
     getUnreadEventCountAction(room.id).then(setUnreadEvents).catch(() => {});
   }, [room.id, eventsRefreshKey, unreadEventsKey]);
 
@@ -374,8 +376,8 @@ export function RoomClient({
   const eventEntities = useBackpackEntities(room.id, inventoryRefreshKey);
   const eventData = useMemo<EventData>(() => ({
     eventsById, eventsOrdered, entities: eventEntities,
-    loading: eventsLoading, error: eventsError, retry: bumpEvents,
-  }), [eventsById, eventsOrdered, eventEntities, eventsLoading, eventsError, bumpEvents]);
+    error: eventsError, retry: bumpEvents,
+  }), [eventsById, eventsOrdered, eventEntities, eventsError, bumpEvents]);
 
   const characterHint = useMemo(() => {
     const rule = getRuleForRoom(room);
@@ -384,8 +386,8 @@ export function RoomClient({
     if (characterData) {
       try { sheet = JSON.parse(characterData) as CharacterData; } catch {}
     }
-    return attributesUnset(sheet, rule) || (skillsLoaded && skillsEmpty);
-  }, [room, characterData, skillsLoaded, skillsEmpty]);
+    return attributesUnset(sheet, rule) || skillsEmpty;
+  }, [room, characterData, skillsEmpty]);
 
   const bumpSkills = useCallback(() => setSkillRefreshKey(k => k + 1), []);
 
@@ -420,12 +422,12 @@ export function RoomClient({
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
-  useEffect(() => {
-    getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
-  }, [room.id]);
-
+  // The badge's first value comes with the page (initialSnapshot), so the
+  // message the room opened on doesn't trigger a recount — only later ones do.
+  const firstPaintLastMsgIdRef = useRef(initialMessages[initialMessages.length - 1]?.id);
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.id === firstPaintLastMsgIdRef.current) return;
     if (lastMsg?.type === "system" && (lastMsg.content.includes("道具") || lastMsg.content.toLowerCase().includes("item"))) {
       getUnreadInventoryCountAction(room.id).then(setUnreadItems).catch(() => {});
     }
