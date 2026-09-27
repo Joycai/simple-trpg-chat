@@ -18,11 +18,10 @@ import { usePlayerCardViewer } from "@/components/room/hooks/usePlayerCardViewer
 import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
 import { useRoomNameEditor } from "@/components/room/hooks/useRoomNameEditor";
 import { useChatSend } from "@/components/room/hooks/useChatSend";
-import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
+import { useRoomShortcuts } from "@/components/room/hooks/useRoomShortcuts";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintToast";
 import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
-import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
@@ -306,54 +305,13 @@ export function RoomClient({
     setUnreadItems(0);
   }, [setUnreadItems]); // a state setter: stable, so this callback still is
 
-  // Alt+↑/↓: cycle through the conversation tabs (public first, then the DM
-  // list in sidebar order). Wraps around at both ends.
-  const cycleTab = useCallback((dir: 1 | -1) => {
-    const order: ("public" | number)[] = ["public", ...dmConversations.map((c) => c.userId)];
-    const i = order.indexOf(activeTab);
-    handleTabChange(order[(Math.max(i, 0) + dir + order.length) % order.length]);
-  }, [dmConversations, activeTab, handleTabChange]);
-
-  // Room-wide keyboard shortcuts (bindings defined in src/lib/ui/hotkeys.ts).
-  useRoomHotkeys({
-    isHost,
-    readOnly,
-    onAction: (action: RoomHotkeyAction) => {
-      switch (action) {
-        case "toggle-character": setShowCharacter((v) => !v); break;
-        case "toggle-inventory": handleToggleInventory(); break;
-        case "toggle-notebook": setShowNotebook((v) => !v); break;
-        case "toggle-events": setShowEvents((v) => !v); break;
-        case "toggle-sidebar": toggleSidebar(); break;
-        case "toggle-dice":
-          if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_DICE_EVENT));
-          break;
-        case "toggle-quick-check":
-          // The ChatInput no-ops this when the rule declares no quickCheckPanel.
-          if (!readOnly) window.dispatchEvent(new CustomEvent(TOGGLE_QUICK_CHECK_EVENT));
-          break;
-        case "toggle-check":
-          // Mirrors the top-bar button: multi-mode rules get the dropdown,
-          // single-mode rules toggle the direct check dialog, no-check rules no-op.
-          if (ruleCapabilities.checkMenuModes.length > 1) setShowCheckMenu((v) => !v);
-          else if (ruleCapabilities.checkMenuModes.length === 1) setCheckMode((m) => (m === "check" ? null : "check"));
-          break;
-        case "toggle-item-manager": setShowItemManager((v) => !v); break;
-        case "toggle-timeline": setShowTimeline((v) => !v); break;
-        case "prev-tab": cycleTab(-1); break;
-        case "next-tab": cycleTab(1); break;
-        case "help":
-          hotkeyHintStore.markSeen();
-          setShowHotkeyHelp((v) => !v);
-          break;
-      }
-    },
-    // Escape with no overlay mounted: close whichever top-bar dropdown is open.
-    onEscape: () => {
-      setShowSystemMenu(false);
-      setShowAiMenu(false);
-      setShowCheckMenu(false);
-    },
+  // Room-wide keyboard shortcuts (bindings in src/lib/ui/hotkeys.ts).
+  useRoomShortcuts({
+    isHost, readOnly, checkMenuModes: ruleCapabilities.checkMenuModes,
+    activeTab, tabPartners: dmConversations, onTabChange: handleTabChange,
+    toggleInventory: handleToggleInventory, toggleSidebar,
+    setShowCharacter, setShowNotebook, setShowEvents, setShowItemManager, setShowTimeline,
+    setShowHotkeyHelp, setShowCheckMenu, setCheckMode, setShowSystemMenu, setShowAiMenu,
   });
 
   return (
