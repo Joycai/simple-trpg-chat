@@ -9,8 +9,8 @@ const delay = (i: number, step = 80) => ({ animationDelay: `${i * step}ms` });
  * conversation sidebar (lg and up; below 1024px the real one starts as a
  * collapsed drawer), message area with its input — plus a few
  * placeholders, but no fake messages, so nothing jumps when the room arrives.
- * The sidebar uses the default width: the user's dragged width lives in
- * localStorage, out of the server's reach.
+ * The sidebar uses useSidebar's default 200px plus the 4px resize handle: the
+ * user's dragged width lives in localStorage, out of the server's reach.
  */
 export default async function RoomLoading() {
   const t = await getTranslations("common");
@@ -33,7 +33,7 @@ export default async function RoomLoading() {
       </header>
 
       <div aria-hidden className="flex-1 flex overflow-hidden">
-        <aside className="hidden lg:flex flex-col gap-5 w-64 shrink-0 bg-surface-alt room-shell-frost border-r border-border p-3">
+        <aside className="hidden lg:flex flex-col gap-5 w-[200px] shrink-0 bg-surface-alt room-shell-frost border-r border-border p-3">
           <div className="flex flex-col gap-1.5">
             <div className={`h-2.5 w-10 rounded bg-border/60 ${pulse}`} />
             {Array.from({ length: 3 }).map((_, i) => (
@@ -50,6 +50,7 @@ export default async function RoomLoading() {
             ))}
           </div>
         </aside>
+        <div className="hidden lg:block w-1 shrink-0 bg-border" />
 
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 flex flex-col justify-end gap-5 px-4 py-4 overflow-hidden">
