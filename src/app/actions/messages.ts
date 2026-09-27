@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { roomMembers, messages, users, roomDmReads } from "@/db/schema";
-import { eq, and, sql, or, desc, lt, gt, isNull, not } from "drizzle-orm";
+import { eq, and, desc, lt, gt } from "drizzle-orm";
 import { auth } from "@/auth";
 import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
@@ -10,6 +10,7 @@ import type { Audience } from "@/lib/messaging/audience";
 import { executeCommand } from "@/lib/commands/engine";
 import type { CommandResult } from "@/lib/commands/command-types";
 import { checkRoomAccess, tryRoomAccess } from "@/lib/auth/room-access";
+import { countUnreadDms } from "@/lib/room/initial-snapshot";
 import { checkSensitiveWords } from "@/lib/security/sensitive-words";
 import { isValidStickerRef } from "@/lib/media/stickers";
 import { getTranslations, getLocale } from "next-intl/server";
@@ -304,43 +305,7 @@ export async function executeCommandAction(
 
 export async function getUnreadDMCountAction(roomId: number) {
   const { userId } = await checkRoomAccess(roomId, false);
-
-  // Single SQL query: count unread DMs per sender using a LEFT JOIN against read timestamps
-  const rows = await db
-    .select({
-      senderId: messages.userId,
-      count: sql<number>`cast(count(*) as int)`,
-    })
-    .from(messages)
-    .leftJoin(
-      roomDmReads,
-      and(
-        eq(roomDmReads.roomId, roomId),
-        eq(roomDmReads.userId, userId),
-        eq(roomDmReads.partnerUserId, messages.userId)
-      )
-    )
-    .where(
-      and(
-        eq(messages.roomId, roomId),
-        // Only genuine 1:1 DM turns count as unread — inline notices (system/clue
-        // directed messages, GM rolls) carry their own indicators, not a DM badge.
-        eq(messages.audience, "dm"),
-        eq(messages.targetUserId, userId),
-        not(eq(messages.userId, userId)),
-        or(
-          isNull(roomDmReads.lastReadAt),
-          sql`${messages.createdAt} > ${roomDmReads.lastReadAt}`
-        )
-      )
-    )
-    .groupBy(messages.userId);
-
-  const counts: Record<number, number> = {};
-  for (const row of rows) {
-    counts[row.senderId] = row.count;
-  }
-  return counts;
+  return countUnreadDms(roomId, userId);
 }
 
 export async function markDMReadAction(roomId: number, senderUserId: number): Promise<Done> {

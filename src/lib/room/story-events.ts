@@ -37,6 +37,25 @@ export interface EventCardPayload {
   retracted?: boolean;
 }
 
+/** An event as one viewer sees it (player log, detail modal, first-paint snapshot). */
+export interface EventView {
+  id: number;
+  title: string;
+  description: string;
+  timePayload: string | null;
+  images: string[];
+  status: "unpublished" | "partial" | "full";
+  sortOrder: number;
+  updated: boolean;
+  /** When this viewer gained access (partial → grant time; full → publish time).
+   *  Drives the player log's "by acquisition time" ordering. */
+  acquiredAt?: string | null;
+  /** Host-only: last publish/update time, shown as the detail modal's "公开时间". */
+  updatedAt?: string;
+  /** Host-only: who currently knows a partial event (empty for full/unpublished). */
+  knowers?: { userId: number; nickname: string }[];
+}
+
 /** Payload for a `systemKind: 'event-receipt'` pill (a personal "new event" ping). */
 export interface EventReceiptPayload {
   eventId: number;
