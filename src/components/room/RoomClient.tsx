@@ -27,7 +27,7 @@ import { EventDataProvider, type EventData } from "@/components/room/event/Event
 import { useBackpackEntities } from "@/components/room/hooks/useBackpackEntities";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { getBotStatus } from "@/lib/ai/bot-status";
+import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots, CheckMode, PendingSkillCheck } from "@/components/room/types";
 
 /**
@@ -68,7 +68,7 @@ const hotkeyHintStore = {
   },
 };
 import { channelOf } from "@/lib/messaging/audience";
-import { getRuleForRoom, primaryVital, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
+import { getRuleForRoom, ruleUsesStructuredSheet, attributesUnset, type StatusEntry } from "@/lib/rules";
 import type { CharacterData } from "@/lib/character/types";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
 import { useTheme } from "@/components/theme/ThemeProvider";
@@ -269,49 +269,17 @@ export function RoomClient({
     }
   }, [room.id, isMobile, setSidebarCollapsed]);
 
-  // Build mention targets (players + bots, excluding self)
-  const mentionTargets = useMemo(() => {
-    return (players || [])
-      .filter((p: { users?: { id?: number }; user_id?: number }) => (p.users?.id || p.user_id) !== userId)
-      .map((p: { users?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user?: { id?: number; isBot?: boolean; botConfigJson?: string | null; displayName?: string }; user_id?: number; room_members?: { nickname?: string; characterData?: string | null; avatar?: string | null; avatarColor?: string | null } }) => {
-        const u = p.users || p.user;
-        const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
-        const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
-        return {
-          id: (u?.id || p.user_id) ?? 0,
-          nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
-          isBot: !!u?.isBot,
-          isBotDisabled,
-          isProviderError,
-          vital: primaryVital(charData),
-          avatar: p.room_members?.avatar ?? null,
-          avatarColor: p.room_members?.avatarColor ?? null,
-        };
-      });
-  }, [players, userId, aiEnabled, validProviderIds]);
-
-  // Build DM conversations
-  const dmConversations = useMemo(() => {
-    return mentionTargets.map(p => {
-      const liveRes = characterResources.get(p.id);
-      return {
-        userId: p.id,
-        nickname: p.nickname,
-        isBot: p.isBot,
-        unread: unreadCounts[p.id] || 0,
-        isBotDisabled: p.isBotDisabled,
-        isProviderError: p.isProviderError,
-        isOnline: onlineUserIds.has(p.id),
-        vital: liveRes ?? p.vital,
-        avatar: p.avatar,
-        avatarColor: p.avatarColor,
-      };
-    });
-  }, [mentionTargets, unreadCounts, onlineUserIds, characterResources]);
-
-  const totalUnread = useMemo(() => {
-    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
-  }, [unreadCounts]);
+  // Mention targets (players + bots, excluding self), the DM list and its
+  // badge total — pure derivations in lib/room/mention-targets.
+  const mentionTargets = useMemo(
+    () => buildMentionTargets(players || [], userId, aiEnabled, validProviderIds),
+    [players, userId, aiEnabled, validProviderIds],
+  );
+  const dmConversations = useMemo(
+    () => buildDmConversations(mentionTargets, unreadCounts, onlineUserIds, characterResources),
+    [mentionTargets, unreadCounts, onlineUserIds, characterResources],
+  );
+  const totalUnreadCount = useMemo(() => totalUnread(unreadCounts), [unreadCounts]);
 
   // Capabilities drive every rule-specific UI gate (TopBar check menu,
   // tooltips, host-only buttons). Looked up once per render so child props
@@ -848,7 +816,7 @@ export function RoomClient({
         onlineCount={onlineCount}
         botCount={botCount}
         sidebarCollapsed={sidebarCollapsed}
-        totalUnread={totalUnread}
+        totalUnread={totalUnreadCount}
         onToggleSidebar={toggleSidebar}
         editingRoomName={editingRoomName}
         roomNameDraft={roomNameDraft}
