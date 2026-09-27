@@ -3,7 +3,7 @@
 ## 创建道具 / 查看道具 Modals — type-specific fields
 
 The unified create/edit modal (`CreateEditModal`) and the view modal (`DetailModal`),
-both in `src/components/room/inventory/InventoryModals.tsx`, were aligned to the
+(now `src/components/room/inventory/modals/CreateEditModal.tsx` and `DetailModal.tsx`), were aligned to the
 "远古神社" design (per-type accent tabs, per-type titles/badges, character avatar +
 identity subtitle, wood-grain action buttons).
 
@@ -36,7 +36,7 @@ fall back to the create defaults in the detail view.
 ## 分发道具 Modal (player-side `ShareModal`) — unified multi-select
 
 When a player taps 分发 / 使用·分发 in `DetailModal`, the wood button now opens a dedicated
-`ShareModal` (in `InventoryModals.tsx`), unified across all four item types:
+`ShareModal` (`inventory/modals/ShareModal.tsx`), unified across all four item types:
 
 - **Item summary card** — type-tinted icon + title + meta line (`类型 [· 来源/关系] [· 类别 · ×数量]`)
   + "来自 {giver}".

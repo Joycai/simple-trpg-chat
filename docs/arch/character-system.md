@@ -35,7 +35,7 @@ Actions: `src/app/actions/skills.ts`
 
 ## UI
 
-`src/components/CharacterPanel.tsx` — full sheet editor with attribute inputs, derived stat display, HP/SAN/MP trackers, and custom attribute management.
+`src/components/room/character/CharacterPanel.tsx` — full sheet editor with attribute inputs, derived stat display, resource trackers, and custom attribute management. Its state lives in hooks beside it (`useCharacterSheetState`, `useCharacterSkills`, `useMemberProfile`, `useCharacterSave`, `useCharacterAvatarUpload`); the rule-agnostic pure helpers (`draftStatusFor`, `buildAttributeValues`, the export text) are in `src/lib/character/panel-status.ts`.
 
 ## Export Integration
 
