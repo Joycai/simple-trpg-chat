@@ -1,9 +1,5 @@
 "use client";
 
-// Decrementing counter for local-only ephemeral message IDs (never persisted to DB).
-// Negative IDs guarantee no collision with real DB auto-increment IDs.
-let localEphemeralId = -1;
-
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ConversationPanel } from "@/components/room/chat/ConversationPanel";
 import { RoomTopBar } from "@/components/room/RoomTopBar";
@@ -21,15 +17,14 @@ import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
 import { usePlayerCardViewer } from "@/components/room/hooks/usePlayerCardViewer";
 import { useCheckFlow } from "@/components/room/hooks/useCheckFlow";
 import { useRoomNameEditor } from "@/components/room/hooks/useRoomNameEditor";
+import { useChatSend } from "@/components/room/hooks/useChatSend";
 import { useRoomHotkeys } from "@/components/room/hooks/useRoomHotkeys";
 import { RoomHotkeyHelp } from "@/components/room/RoomHotkeyHelp";
 import { HotkeyHintToast, hotkeyHintStore } from "@/components/room/HotkeyHintToast";
 import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarControls";
 import { TOGGLE_DICE_EVENT, TOGGLE_QUICK_CHECK_EVENT, type RoomHotkeyAction } from "@/lib/ui/hotkeys";
-import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { buildMentionTargets, buildDmConversations, totalUnread } from "@/lib/room/mention-targets";
 import type { Message, RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
@@ -56,9 +51,6 @@ export function RoomClient({
   initialSnapshot,
 }: RoomClientProps) {
   const t = useTranslations("room");
-  const tra = useTranslations("roomActions");
-  const tCommon = useTranslations("common");
-  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   // Track all seen message IDs to prevent duplicates from SSE listener accumulation or race conditions
   const seenIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => String(m.id))));
@@ -277,98 +269,17 @@ export function RoomClient({
   // Light/dark for the room (configured, or following the timeline).
   useRoomThemeMode({ room, messages, initialTimelineMode });
 
-  // Re-fetch the current user's sheet so an open 角色卡 reflects command-driven
-  // changes (.st / .sc) without a full page reload. router.refresh() updates the
-  // characterData prop; the key bump reloads the CharacterPanel's 技能 tab.
-  const refreshSelfSheet = useCallback(() => {
-    router.refresh();
-    setSkillRefreshKey(k => k + 1);
-  }, [router]);
-
-  // A self-only SYSTEM error row that never reached the server — how command,
-  // send and withdraw failures surface in the feed. Gone on reload.
-  const pushLocalError = useCallback((content: string, channelUserId: number | null = null) => {
-    const errorMsg = {
-      id: localEphemeralId--, roomId: room.id, userId, nickname: "SYSTEM",
-      content,
-      type: "system" as const, audience: "self" as const,
-      systemKind: "error" as const,
-      targetUserId: null, channelUserId,
-      isPrivate: true, diceDetail: null,
-      createdAt: new Date().toISOString()
-    };
-    seenIdsRef.current.add(String(errorMsg.id));
-    liveEnterRef.current.set(String(errorMsg.id), Date.now());
-    setMessages(prev => [...prev, errorMsg]);
-  }, [room.id, userId]);
-
-  const handleSendMessage = useCallback(async (
-    content: string,
-    type: "text" | "dice" | "image" | "sticker",
-    diceDetail?: string,
-    isPrivate?: boolean,
-    targetUserId?: number
-  ) => {
-    // The channel we're posting in: public, or a DM with this partner.
-    const channelPartner = activeTab !== "public" ? activeTab : undefined;
-
-    // Text/image inherit the channel's privacy (a DM tab → a `dm` whisper). The
-    // dice panel's 🔒 "secret" toggle is handled separately below (hidden roll),
-    // so it is NOT folded into the channel here.
-    let finalIsPrivate = isPrivate;
-    let finalTargetId = targetUserId;
-    if (channelPartner !== undefined) {
-      finalIsPrivate = true;
-      finalTargetId = channelPartner;
-    }
-
-    // .st / .sc mutate the character sheet — refresh the open panels afterwards (both
-    // command prefixes, and whether intercepted on the client or inside sendMessageAction).
-    // No \b after st/sc: the compact form (.stsan60) has no boundary, and no other
-    // command token starts with "st"/"sc", so a bare prefix match is correct.
-    const isSheetMutationCmd = type === "text" && /^[.。]\s*(st|sc)/i.test(content.trim());
-
-    // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
-    // Pass the channel context so command feedback stays inside a DM instead of broadcasting publicly.
-    if (content.startsWith(".") && type === "text") {
-      try {
-        const result = await executeCommandAction(room.id, userId, content, finalIsPrivate, finalTargetId);
-        if (!result.success && result.error) {
-          pushLocalError(tra("commandError", { error: result.error }), channelPartner ?? null);
-        }
-      } catch (e) {
-        console.error(e);
-        pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
-      }
-      if (isSheetMutationCmd) refreshSelfSheet();
-      return;
-    }
-    try {
-      let res: { success: true } | { success: false; error: string };
-      if (type === "dice") {
-        // Dice always go through rollDiceAction so the server is the source of
-        // truth for the result. Skip silently if the caller didn't include the
-        // detail we need — that's a programming bug, not a chat message.
-        if (!diceDetail) return;
-        const detail = JSON.parse(diceDetail);
-        const faces = parseInt(detail.dice.replace("d", ""));
-        // `isPrivate` here is the dice panel's 🔒 secret toggle → a hidden (self-only)
-        // roll. `channelPartner` decides where it lands (current DM, or public).
-        const hidden = !!isPrivate;
-        res = await rollDiceAction(room.id, faces, detail.count, hidden, channelPartner);
-      } else {
-        res = await sendMessageAction(room.id, content, type, finalIsPrivate, finalTargetId);
-      }
-      if (!res.success) {
-        pushLocalError(tra("sendFailed", { error: res.error }), channelPartner ?? null);
-        return;
-      }
-      if (isSheetMutationCmd) refreshSelfSheet();
-    } catch (e) {
-      console.error(e);
-      pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
-    }
-  }, [room.id, userId, activeTab, tra, tCommon, refreshSelfSheet, pushLocalError]);
+  // Sending (messages, dice, commands, divider withdrawal) and the two helpers
+  // the check flow shares: local error rows and the self-sheet refresh.
+  const { pushLocalError, refreshSelfSheet, handleSendMessage, handleWithdrawTimeline } = useChatSend({
+    roomId: room.id,
+    userId,
+    activeTab,
+    seenIdsRef,
+    liveEnterRef,
+    setMessages,
+    setSkillRefreshKey,
+  });
 
   // Another member's card, read-only; opening one closes the members panel.
   const closeMembers = useCallback(() => setShowMembers(false), []);
@@ -384,14 +295,6 @@ export function RoomClient({
     pendingSkillCheck, setPendingSkillCheck, pendingBonusDice, setPendingBonusDice,
     handleCheckRequest, handleConfirmBonusDice, handleProxyCheckRequest, loadProxyTargets, handleConfirmSkillSet,
   } = useCheckFlow({ roomId: room.id, userId, pushLocalError, refreshSelfSheet });
-
-  // Host withdraws a timeline divider. The row is removed for everyone via the
-  // `message_deleted` SSE event (handled in useRoomEvents), including this client.
-  const handleWithdrawTimeline = useCallback(async (messageId: number) => {
-    const res = await withdrawTimelineDividerAction(room.id, messageId)
-      .catch(() => ({ success: false as const, error: tCommon("error") }));
-    if (!res.success) pushLocalError(tra("withdrawFailed", { error: res.error }));
-  }, [room.id, pushLocalError, tra, tCommon]);
 
   // Stable identity matters: this reaches every ChatMessage via ChatArea, and
   // one unstable prop defeats the whole list's memo() bail-out.
