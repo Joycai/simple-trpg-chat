@@ -21,8 +21,8 @@ const DAYPART_PILL: Record<TimelineSegment, string> = {
 
 /**
  * Public-channel announcement card. The payload carries metadata only; the body
- * of an *unlocked* card is fetched per-viewer via the access-gated
- * `getEventForViewerAction`, so a locked card never receives content the viewer
+ * of an *unlocked* card comes from the room's shared, access-filtered event list
+ * (`EventDataContext`), so a locked card never receives content the viewer
  * isn't cleared for. Three faces: unlocked / locked / retracted.
  *
  * Layout follows the shrine design: a left icon gutter + a「事件志 EVENT」header
@@ -103,8 +103,9 @@ function UnlockedCard({
 }) {
   const t = useTranslations("event");
   const { eventsById, entities } = useEventData();
-  // The list arrives with the room (initialSnapshot), so a missing id means
-  // unavailable to this viewer: render metadata only.
+  // Not in the list: unavailable to this viewer, or published after the list
+  // was read and the events_updated refetch hasn't landed yet. Either way,
+  // render metadata only; the body fills in when the list catches up.
   const detail = eventsById.get(payload.eventId) ?? null;
 
   const isFull = payload.mode === "full";

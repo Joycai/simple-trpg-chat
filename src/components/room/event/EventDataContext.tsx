@@ -5,18 +5,20 @@ import type { EventView } from "@/app/actions/event";
 import type { NotebookLinkEntity } from "@/lib/room/notebook";
 
 /**
- * Room-wide event data, fetched once by `RoomClient` and shared with every
- * consumer: the chat cards, the events panel, and the detail modal.
+ * Room-wide event data, held by `RoomClient` and shared with every consumer:
+ * the chat cards, the events panel, and the detail modal.
  *
  * Before this existed each `event-card` message in the chat log fetched its own
  * copy of the event *and* the whole backpack, so a room with 20 published
  * events issued 40 server actions on load — and, because those fetches keyed on
  * the event id alone, a card never picked up a host's later edits.
  *
- * `getMyEventsAction` already returns exactly what a card needs (title, body,
- * images, status) and is already access-filtered server-side, so one call
- * serves everyone. It re-runs on the shared `eventsRefreshKey`, which the
- * `events_updated` SSE bumps — that is what makes edits show up live.
+ * The first list comes with the room's server render (`initialSnapshot`, via
+ * `listVisibleEvents` — the same query `getMyEventsAction` runs): exactly what
+ * a card needs (title, body, images, status), access-filtered server-side, one
+ * read for everyone. `getMyEventsAction` re-runs on the shared
+ * `eventsRefreshKey`, which the `events_updated` SSE bumps — that is what makes
+ * publishes and edits show up live.
  *
  * Note this carries *content*, never the lock decision: whether a chat card is
  * unlocked stays with `visibleEventIds` on the message row, keeping "may I see
@@ -29,7 +31,9 @@ export interface EventData {
   eventsOrdered: EventView[];
   /** The viewer's backpack as `@`-mention targets, fetched once for the room. */
   entities: NotebookLinkEntity[];
-  /** The last fetch failed; consumers show an error state instead of "no events". */
+  /** The last refresh failed (the first list comes with the page, so this only
+   *  follows an SSE-driven refetch); consumers show an error state instead of
+   *  "no events" when they have no list to keep showing. */
   error: boolean;
   /** Re-run the fetch (also the panels' retry button). */
   retry: () => void;
