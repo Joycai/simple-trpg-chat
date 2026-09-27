@@ -1,5 +1,6 @@
 import type { ThemeId, StoredThemeMode, ResolvedMode } from "@/themes/types";
 import type { Audience } from "@/lib/messaging/audience";
+import type { RoomMemberSnapshot } from "@/lib/room/initial-snapshot";
 
 export interface Room {
   id: number;
@@ -83,4 +84,8 @@ export interface RoomClientProps {
   backgroundUrl?: string | null;
   /** Admin viewing a room they haven't joined: read-only, not in member list. */
   isObserver?: boolean;
+  /** Per-viewer badges and event log read during the server render, so they
+   *  are on screen at first paint. Refreshes after mount still go through the
+   *  read actions. */
+  initialSnapshot: RoomMemberSnapshot;
 }

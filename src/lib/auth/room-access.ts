@@ -10,6 +10,15 @@ export interface UserAccess {
 }
 
 /**
+ * Whether `user` gets host-level access to `room`: its host, or any admin.
+ * `checkRoomAccess` reports this as `isHost`; the room page uses it to read the
+ * same per-viewer data the read actions would return.
+ */
+export function isRoomHostOrAdmin(room: { hostId: number }, user: { id: number; role: string }): boolean {
+  return user.role === "admin" || room.hostId === user.id;
+}
+
+/**
  * Checks if the current authenticated user has access to the specified room.
  *
  * @param roomId - The room ID to check
@@ -40,7 +49,7 @@ export async function checkRoomAccess(
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   if (!room) throw new Error("Room not found");
 
-  const isHost = room.hostId === userId;
+  const isHost = isRoomHostOrAdmin(room, { id: userId, role: userRole });
 
   // Frozen rooms are read-only for everyone except the host (and admins, who returned above)
   if (opts?.requireWritable && room.frozen && !isHost) {

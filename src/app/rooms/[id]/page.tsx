@@ -15,6 +15,8 @@ import { roomBackgroundUrl } from "@/lib/media/backgrounds";
 import { getRuleForRoom } from "@/lib/rules";
 import { sanitizeBotConfigForClient } from "@/lib/ai/bot-status";
 import { roomAvatarUrl } from "@/lib/media/avatars";
+import { loadMemberSnapshot } from "@/lib/room/initial-snapshot";
+import { isRoomHostOrAdmin } from "@/lib/auth/room-access";
 
 export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("room");
@@ -142,7 +144,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const visibilityCondition = messageVisibilityWhere(roomId, userId, isHost || isAdmin);
 
   // 3. Parallelized queries (P9)
-  const [roomMessages, [aiConfig], [hostUser], roomProviders] = await Promise.all([
+  const [roomMessages, [aiConfig], [hostUser], roomProviders, initialSnapshot] = await Promise.all([
     db
       .select()
       .from(messages)
@@ -166,7 +168,10 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
           eq(aiProviders.ownerId, room.hostId),
           eq(aiProviders.isShared, true)
         )
-      )
+      ),
+    // Badges and the event log, read with the same host-or-admin rule the read
+    // actions get from checkRoomAccess.
+    loadMemberSnapshot(roomId, userId, isRoomHostOrAdmin(room, { id: userId, role: user.role })),
   ]);
 
   // Active room background (null = off). The filename lookup is skipped
@@ -229,6 +234,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
         userRole={user.role}
         backgroundUrl={backgroundUrl}
         isObserver={isObserver}
+        initialSnapshot={initialSnapshot}
       />
     </>
   );
