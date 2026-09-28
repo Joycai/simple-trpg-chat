@@ -54,7 +54,10 @@ describe("characterUpdatePayload", () => {
       type: "character_updated",
       userId: 3,
       vital: { key: "hp", labelKey: "hp", current: 4, max: 10, style: "bar" },
-      completion: { requiredTotal: 10, requiredSet: 2 },
+      completion: {
+        requiredTotal: 10, requiredSet: 2,
+        missing: ["dex", "con", "int", "pow", "edu", "siz", "app", "luck"].map((key) => ({ kind: "attribute", key })),
+      },
       origin: "tab-1",
     });
   });

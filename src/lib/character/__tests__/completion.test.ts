@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  matchStandardSkills, missingFields, sheetCompletion, standardSkillBase,
+  matchStandardSkills, missingFields, sheetCompletion, standardSkillBase, summarize,
 } from "../completion";
 import { applySheetEdit, attributeValues } from "../sheet-model";
 import { emptySheet, type CharacterSheetV2, type SheetEdit } from "../sheet-v2";
@@ -73,5 +73,23 @@ describe("sheetCompletion", () => {
       expect(c.fields.filter((f) => f.state === "missing").every((f) => f.required)).toBe(true);
       expect(c.fields.filter((f) => f.state === "default").every((f) => !f.required)).toBe(true);
     }
+  });
+});
+
+describe("summarize", () => {
+  it("keeps the counts and names each missing required field, in schema order", () => {
+    const s = edit(emptySheet("fixture"), { attributes: { dex: 40 } });
+    const c = sheetCompletion(testRule, s, ["侦查"]);
+    const summary = summarize(c);
+    expect(summary).toEqual({
+      requiredTotal: c.requiredTotal,
+      requiredSet: c.requiredSet,
+      missing: [
+        { kind: "attribute", key: "str" },
+        { kind: "resource", key: "ep" },
+        { kind: "skill", key: "信用评级" },
+      ],
+    });
+    expect(summary.missing).toHaveLength(summary.requiredTotal - summary.requiredSet);
   });
 });

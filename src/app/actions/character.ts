@@ -14,8 +14,8 @@ import { updateSheetRow } from "@/lib/character/sheet-row";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { resolveSheetWriter } from "@/lib/auth/sheet-access";
 import { checkRoomAccess } from "@/lib/auth/room-access";
-import { memberCompletion } from "@/lib/character/member-completion";
-import { missingFields, summarize, type CompletionSummary, type FieldStatus } from "@/lib/character/completion";
+import { memberCompletionSummary } from "@/lib/character/member-completion";
+import type { CompletionSummary } from "@/lib/character/completion";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { getTranslations } from "next-intl/server";
 import type { Fail } from "@/lib/actions/result";
@@ -215,9 +215,8 @@ export interface HostSheetRow {
   avatarColor: string | null;
   /** The member's sheet (v2), or null when none is stored. */
   sheet: CharacterData | null;
+  /** Required set / total, and the fields still missing. */
   completion: CompletionSummary;
-  /** Required fields still unset, in schema order. */
-  missing: Array<{ kind: FieldStatus["kind"]; key: string }>;
 }
 
 /**
@@ -241,15 +240,13 @@ export async function loadHostSheetsAction(roomId: number): Promise<{ ruleId: st
     .filter((m) => m.userId !== room.hostId)
     .map((m) => {
       const sheet = parseSheetOrNull(m.characterData, ruleId);
-      const completion = memberCompletion(sheet, skills.filter((s) => s.userId === m.userId).map((s) => s.skillName), ruleId);
       return {
         userId: m.userId,
         nickname: m.nickname,
         isBot: !!m.isBot,
         avatarColor: m.avatarColor,
         sheet,
-        completion: summarize(completion),
-        missing: missingFields(completion).map((f) => ({ kind: f.kind, key: f.key })),
+        completion: memberCompletionSummary(sheet, skills.filter((s) => s.userId === m.userId).map((s) => s.skillName), ruleId),
       };
     });
   return { ruleId, rows };

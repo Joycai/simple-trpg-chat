@@ -14,6 +14,7 @@ import { emptySheet, type ResourceValue } from "@/lib/character/sheet-v2";
 import { getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { tabId } from "@/lib/ui/tab-id";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
+import { useFieldLabel } from "./useFieldLabel";
 
 /**
  * The host's character overview (UI spec ④): every member (players and bots)
@@ -92,11 +93,7 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
   const incompleteCount = (data?.rows ?? []).filter(incomplete).length;
   const columns = `minmax(160px,1.4fr) minmax(120px,1fr) repeat(${rule.sheet.resources.length}, minmax(96px,1fr)) auto`;
 
-  const labelOf = (kind: string, key: string) => {
-    const field = kind === "attribute" ? rule.sheet.attributes.find((f) => f.key === key)
-      : kind === "resource" ? rule.sheet.resources.find((f) => f.key === key) : undefined;
-    return field ? t(field.labelKey) : key;
-  };
+  const labelOf = useFieldLabel(rule);
 
   // Resource ±1: optimistic, saved at once. Each click steps from the latest
   // value locally; only the newest reply for that resource is applied, and a failure
@@ -231,7 +228,8 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                 </div>
                 {rows.map((row) => {
                   const resolved = resolveSheet(rule, row.sheet ?? emptySheet(rule.id));
-                  const { requiredSet, requiredTotal } = row.completion;
+                  const { requiredSet, requiredTotal, missing } = row.completion;
+                  const missingText = missing.map((m) => labelOf(m.kind, m.key)).join(t("listSeparator"));
                   const done = requiredSet === requiredTotal;
                   const untouched = !row.sheet || (requiredTotal > 0 && requiredSet === 0);
                   // A sheet still built for another rule: the room rule's
@@ -264,8 +262,8 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                               <div className={`h-full ${done ? "bg-success" : "bg-warning"}`} style={{ width: `${Math.round((requiredSet / requiredTotal) * 100)}%` }} />
                             </div>
                             {!done && (
-                              <span className="text-[11px] text-danger truncate" title={row.missing.map((m) => labelOf(m.kind, m.key)).join("、")}>
-                                {untouched ? t("overviewNoSheet") : t("overviewMissing", { fields: row.missing.map((m) => labelOf(m.kind, m.key)).join("、") })}
+                              <span className="text-[11px] text-danger truncate" title={missingText}>
+                                {untouched ? t("overviewNoSheet") : t("overviewMissing", { fields: missingText })}
                               </span>
                             )}
                           </>

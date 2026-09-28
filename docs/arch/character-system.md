@@ -104,8 +104,10 @@ SAN resource.
   changes.
 - `HostSheetOverview` — the host's overview (top-bar IdCard button): every
   member's completion and resource steppers that save at once.
-- Top bar: missing-required badge on the character button; incomplete-member
-  badge on the overview button. Member list: completion mark for the host.
+- Top bar: missing-required badge on the character button, whose tooltip
+  names the missing fields (`CompletionSummary.missing`, labelled by
+  `useFieldLabel`); incomplete-member badge on the overview button. Member
+  list: completion mark for the host.
 - Read-only status: `readStatusView` / `primaryVital` (`lib/rules/status-view.ts`)
   for the avatar hover card and the member list.
 

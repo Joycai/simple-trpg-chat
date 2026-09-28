@@ -21,6 +21,7 @@ import { buildSkillRows } from "@/lib/character/skill-list";
 import { resolveSheet } from "@/lib/character/sheet-model";
 import { sheetCompletion, type FieldState, type FieldStatus } from "@/lib/character/completion";
 import { useSheetDraft } from "./useSheetDraft";
+import { useFieldLabel } from "./useFieldLabel";
 import { useCharacterSkills } from "./useCharacterSkills";
 import { useMemberProfile } from "./useMemberProfile";
 import { useCharacterAvatarUpload } from "./useCharacterAvatarUpload";
@@ -159,17 +160,8 @@ export function CharacterPanel({
   const showCompletion = editable && completion.requiredTotal > 0;
   const completionPending = !skillsLoaded && (rule.sheet.standardSkills?.length ?? 0) > 0;
 
-  const labelOf = (f: FieldStatus) => {
-    if (f.kind === "attribute") {
-      const field = rule.sheet.attributes.find((a) => a.key === f.key);
-      return field ? t(field.labelKey) : f.key;
-    }
-    if (f.kind === "resource") {
-      const field = rule.sheet.resources.find((r) => r.key === f.key);
-      return field ? t(field.labelKey) : f.key;
-    }
-    return f.key;
-  };
+  const fieldLabel = useFieldLabel(rule);
+  const labelOf = (f: FieldStatus) => fieldLabel(f.kind, f.key);
   // Completion chip → the field: switch tab, then scroll to it and focus it
   // once the pane has mounted.
   const [skillsTabKey, setSkillsTabKey] = useState(0);

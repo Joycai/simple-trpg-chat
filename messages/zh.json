@@ -1023,6 +1023,8 @@
     "overviewTooltip": "角色卡总览",
     "overviewIncompleteBadge": "{count} 张未完成",
     "missingBadge": "{count} 项必填未设置",
+    "missingList": "{count} 项必填未设置：{fields}",
+    "listSeparator": "、",
     "noSkillsView": "暂无技能",
     "skillSearchClear": "清空搜索",
     "skillFilterLabel": "技能筛选",

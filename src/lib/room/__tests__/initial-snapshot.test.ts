@@ -83,11 +83,15 @@ describe("loadCompletions", () => {
       { userId: 4, characterData: JSON.stringify({ ...coc, ruleTemplate: "dnd5e" }) },
     ]]);
     byTable.set(roomSkills, [[{ userId: 2, skillName: "信用" }]]);
-    expect(await loadCompletions(5, 1, true)).toEqual({
+    const out = await loadCompletions(5, 1, true);
+    expect(out).toMatchObject({
       2: { requiredTotal: 10, requiredSet: 2 }, // str + 信用评级 (via 信用)
       3: { requiredTotal: 10, requiredSet: 0 },
       4: { requiredTotal: 10, requiredSet: 0 }, // built for another rule
     });
+    // The top-bar tooltip's names: everything but str and 信用评级.
+    expect(out[2].missing.map((m) => m.key)).toEqual(["dex", "con", "int", "pow", "edu", "siz", "app", "luck"]);
+    expect(out[3].missing).toHaveLength(10);
   });
 });
 

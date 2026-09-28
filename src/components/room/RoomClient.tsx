@@ -149,7 +149,7 @@ export function RoomClient({
   // room's rule requires is still unset.
   const ownCompletion = completions.get(userId);
   // The host usually plays without a card (the overview leaves it out too).
-  const characterMissing = !isHost && ownCompletion ? ownCompletion.requiredTotal - ownCompletion.requiredSet : 0;
+  const characterMissing = !isHost && ownCompletion ? ownCompletion.missing : undefined;
   // Host overview badge: members (not the host) whose required fields aren't all set.
   const incompleteMembers = isHost ? countIncomplete(completions, [room.hostId]) : 0;
   // Reloads the host overview when a sheet changes elsewhere.
