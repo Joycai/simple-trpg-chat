@@ -181,6 +181,21 @@ describe("splitBlocks — nested lists", () => {
     expect(shape(onlyList("  - a\n    - b\n- c"))).toEqual([["a", ["b"]], "c"]);
   });
 
+  it("resets the base level when a line backs out past the first line's indent", () => {
+    expect(shape(onlyList("   - a\n- b\n  - c"))).toEqual(["a", ["b", ["c"]]]);
+  });
+
+  it("parses CRLF content like LF content", () => {
+    expect(splitBlocks("# 标题\r\n- a\r\n  - b\r\n段落")).toEqual(splitBlocks("# 标题\n- a\n  - b\n段落"));
+  });
+
+  it("stays linear on a long run of spaces that ends in a line separator", () => {
+    const line = `- ${" ".repeat(20000)}\u2028`;
+    const t0 = performance.now();
+    expect(splitBlocks(line)[0].kind).toBe("list");
+    expect(performance.now() - t0).toBeLessThan(50);
+  });
+
   it("ends the list at a paragraph, blank line, heading or table", () => {
     for (const next of ["收尾", "", "# 标题", "| a | b |"]) {
       const blocks = splitBlocks(`- a\n  - b\n${next}`);

@@ -54,7 +54,9 @@ function isTableLine(line: string): boolean {
  * number, at least one space, then the item text. `**bold**` and `---` don't
  * match because the marker must be followed by whitespace.
  */
-const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])[ \t]+(.*)$/;
+// The text group is `[^\n]*`, not `.*`: `.` rejects `\r` / U+2028, and a
+// failed match would backtrack across every space run — quadratic on a long line.
+const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])[ \t]+([^\n]*)$/;
 
 interface ListLine {
   indent: number;
@@ -113,6 +115,9 @@ function parseListRun(lines: string[], start: number): { list: ListBlock; next: 
 
     while (stack.length > 1 && item.indent < stack[stack.length - 1].indent) stack.pop();
     const top = stack[stack.length - 1];
+    // Back out past the first line's indent: this line is the new top-level
+    // baseline, so its own sub-items can nest under it.
+    if (stack.length === 1 && item.indent < top.indent) top.indent = item.indent;
 
     if (item.indent > top.indent) {
       // One level deeper, under the last item at this level. Rejoin its
@@ -184,7 +189,8 @@ export function splitCodeFences(content: string): TopLevelPart[] {
  * swallowing itself and the line after it.
  */
 export function splitBlocks(text: string): Block[] {
-  const lines = text.split("\n");
+  // CRLF content (pasted, or from an API) would otherwise leave `\r` on every line.
+  const lines = text.split(/\r?\n/);
   const blocks: Block[] = [];
 
   let i = 0;
@@ -193,7 +199,7 @@ export function splitBlocks(text: string): Block[] {
     const line = lines[i];
 
     // Heading: # / ## / ###
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const headingMatch = line.match(/^(#{1,3})\s+([^\n]+)$/);
     if (headingMatch) {
       blocks.push({
         kind: "heading",
