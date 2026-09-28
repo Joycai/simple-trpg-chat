@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { getCharacterDataAction } from "@/app/actions/character";
 
 /**
@@ -17,8 +17,14 @@ export function usePlayerCardViewer(roomId: number, onOpen: () => void) {
   const [loadingPlayerCard, setLoadingPlayerCard] = useState<boolean>(false);
   const [viewedCardRefreshKey, setViewedCardRefreshKey] = useState(0);
 
+  // Reads can overlap (a burst of writes, or opening another card): only the
+  // latest one issued may set the card, so an older reply landing last can't
+  // replace newer data or show one member's card under another's name.
+  const readSeqRef = useRef(0);
   const load = useCallback(async (targetUserId: number) => {
+    const seq = ++readSeqRef.current;
     const data = await getCharacterDataAction(roomId, targetUserId);
+    if (seq !== readSeqRef.current) return;
     setViewingPlayerCharData(data ? JSON.stringify(data) : null);
   }, [roomId]);
 
@@ -44,6 +50,7 @@ export function usePlayerCardViewer(roomId: number, onOpen: () => void) {
   }, [viewingPlayerId, load]);
 
   const closeViewingPlayer = useCallback(() => {
+    readSeqRef.current += 1;
     setViewingPlayerId(null);
     setViewingPlayerCharData(null);
     setViewingPlayerNickname("");
