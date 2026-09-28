@@ -139,6 +139,17 @@ describe("applySheetEdit", () => {
   });
 });
 
+describe("profile.roleLevel", () => {
+  const withRole = { ...testRule, sheet: { ...testRule.sheet, profile: { roleLevel: true } } };
+
+  it("keeps and bounds role and level when the rule has them", () => {
+    const s = applySheetEdit(withRole, empty(), { profile: { role: " 法师 ", level: 250 } }).sheet;
+    expect(s).toMatchObject({ role: "法师", level: 99 });
+    expect(applySheetEdit(withRole, s, { attributes: { str: 60 } }).sheet).toMatchObject({ role: "法师", level: 99 });
+    expect(applySheetEdit(withRole, s, { profile: { level: null } }).sheet.level).toBeUndefined();
+  });
+});
+
 describe("sanitizeCustomAttributes", () => {
   it("rejects non-arrays and caps the count", () => {
     expect(sanitizeCustomAttributes("nope")).toEqual([]);

@@ -113,7 +113,16 @@ export function resourceBounds(
   return fallback === undefined ? { min } : { min, max: fallback };
 }
 
-function writeCeiling(field: ResourceField, max: number | undefined): number {
+/**
+ * The highest value a resource current may hold: its max, else its cap.
+ *
+ * Unlike attributes, resource currents are also bounded on read: a player's
+ * chosen attribute is kept even when out of range, but a current above its
+ * (possibly derived) max is never a meaningful state — it only arises when an
+ * attribute change lowered the max — so reads show it bounded and the next
+ * write (`normalizeSheet`) persists the bound.
+ */
+function upperBound(field: ResourceField, max: number | undefined): number {
   if (max !== undefined) return max;
   return field.cap ?? Number.POSITIVE_INFINITY;
 }
@@ -130,7 +139,7 @@ function resolveResource(field: ResourceField, stored: ResourceValue | undefined
   const currentSet = isFiniteNumber(stored?.current);
   const maxSet = isFiniteNumber(stored?.max);
   const raw = currentSet ? (stored!.current as number) : initialCurrent(field, bounds, derived);
-  const current = clamp(raw, bounds.min, writeCeiling(field, bounds.max));
+  const current = clamp(raw, bounds.min, upperBound(field, bounds.max));
   const editableMax = !!field.max && "editable" in field.max;
   return {
     field,
@@ -251,7 +260,7 @@ export function normalizeSheet(rule: SheetRule, sheet: CharacterSheetV2): Charac
     if (editableMax && isFiniteNumber(stored.max)) kept.max = stored.max;
     if (isFiniteNumber(stored.current)) {
       const b = resourceBounds(f, kept, derived);
-      kept.current = clamp(stored.current, b.min, writeCeiling(f, b.max));
+      kept.current = clamp(stored.current, b.min, upperBound(f, b.max));
     }
     if (kept.current !== undefined || kept.max !== undefined) resources[f.key] = kept;
   }

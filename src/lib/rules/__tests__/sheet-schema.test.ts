@@ -35,7 +35,8 @@ describe.each(listRules().map((r) => [r.id, r] as const))("sheet schema: %s", (_
 
   it("points resource maxes and initial values at values derive returns", () => {
     for (const f of sheet.resources) {
-      if (f.max && "derived" in f.max) expect(derived).toHaveProperty(f.max.derived);
+      // A text-valued derivation would silently read as 0 here.
+      if (f.max && "derived" in f.max) expect(typeof derived[f.max.derived], f.max.derived).toBe("number");
       if (f.max && "editable" in f.max) {
         const e = f.max.editable;
         expect(e.min).toBeLessThanOrEqual(e.max);
@@ -44,7 +45,7 @@ describe.each(listRules().map((r) => [r.id, r] as const))("sheet schema: %s", (_
           expect(e.default).toBeLessThanOrEqual(e.max);
         }
       }
-      if (typeof f.initial === "object") expect(derived).toHaveProperty(f.initial.derived);
+      if (typeof f.initial === "object") expect(typeof derived[f.initial.derived], f.initial.derived).toBe("number");
       if (f.style === "counter") expect(f.max).toBeUndefined();
     }
   });
