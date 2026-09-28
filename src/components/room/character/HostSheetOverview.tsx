@@ -87,7 +87,7 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
   };
 
   // Resource ±1: optimistic, saved at once. Each click steps from the latest
-  // value; only the newest reply for that resource is applied, and a failure
+  // value locally; only the newest reply for that resource is applied, and a failure
   // restores only that resource, to the last value the server confirmed.
   const step = async (userId: number, resKey: string, delta: number) => {
     const row = dataRef.current?.rows.find((r) => r.userId === userId);
@@ -96,7 +96,9 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     const current = resolveSheet(rule, row.sheet ?? emptySheet(rule.id)).resources.find((r) => r.field.key === resKey);
     if (!current) return;
     const before = row.sheet?.resources[resKey];
-    const edit = { resources: { [resKey]: { current: current.current + delta } } };
+    // Sent as a delta: the server steps from the value it holds under the row
+    // lock, so a concurrent `.sc` or player edit isn't overwritten.
+    const edit = { resources: { [resKey]: { delta } } };
     const optimistic = applySheetEdit(rule, row.sheet ?? emptySheet(rule.id), edit).sheet;
     const setResource = (value: ResourceValue | undefined) =>
       setData((d) => d && {

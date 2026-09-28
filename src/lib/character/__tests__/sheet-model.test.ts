@@ -139,6 +139,45 @@ describe("applySheetEdit", () => {
   });
 });
 
+describe("applySheetEdit — relative resource edits", () => {
+  const cur = (s: CharacterSheetV2, key: string) => findResource(resolveSheet(testRule, s), key)?.current;
+
+  it("steps from the value the sheet reads as, unset included", () => {
+    expect(cur(edit(empty(), { resources: { hp: { delta: -3 } } }), "hp")).toBe(7); // unset hp reads as max 10
+    const s = edit(empty(), { resources: { san: { current: 30 } } });
+    expect(edit(s, { resources: { san: { delta: -4 } } }).resources.san).toEqual({ current: 26 });
+  });
+
+  it("clamps into bounds, lets current win, and ignores a non-number", () => {
+    expect(cur(edit(empty(), { resources: { hp: { delta: 50 } } }), "hp")).toBe(10);
+    expect(cur(edit(empty(), { resources: { hp: { delta: -50 } } }), "hp")).toBe(0);
+    expect(cur(edit(empty(), { resources: { hp: { current: 4, delta: -1 } } }), "hp")).toBe(4);
+    expect(edit(empty(), { resources: { hp: { delta: Number.NaN } } }).resources).toEqual({});
+    expect(edit(empty(), { resources: { mov: { delta: 1 } } }).resources).toEqual({}); // derived: not writable
+  });
+
+  it("passes through sanitizeSheetEdit", () => {
+    expect(sanitizeSheetEdit({ resources: { hp: { delta: -2 } } })?.resources?.hp?.delta).toBe(-2);
+  });
+
+  // The concurrency property: writers serialized by the row lock in any order
+  // end at the same value — no relative change is lost to another.
+  for (const seed of [3, 11, 2024]) {
+    it(`serialized deltas commute and none is lost (seed ${seed})`, () => {
+      const rand = prng(seed);
+      for (let trial = 0; trial < 50; trial++) {
+        const start = edit(empty(), { resources: { san: { current: 40 + Math.floor(rand() * 20) } } });
+        const deltas = Array.from({ length: 2 + Math.floor(rand() * 6) }, () => Math.floor(rand() * 9) - 4);
+        const apply = (ds: number[]) => ds.reduce((s, d) => edit(s, { resources: { san: { delta: d } } }), start);
+        const shuffled = [...deltas].sort(() => rand() - 0.5);
+        // san stays well inside 0..99 here, so nothing clamps.
+        expect(cur(apply(deltas), "san")).toBe(cur(start, "san")! + deltas.reduce((a, b) => a + b, 0));
+        expect(apply(shuffled)).toEqual(apply(deltas));
+      }
+    });
+  }
+});
+
 describe("profile.roleLevel", () => {
   const withRole = { ...testRule, sheet: { ...testRule.sheet, profile: { roleLevel: true } } };
 

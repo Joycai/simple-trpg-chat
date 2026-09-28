@@ -8,7 +8,7 @@ import { updateSheetRow } from "@/lib/character/sheet-row";
 import { getRule } from "@/lib/rules";
 
 /**
- * Persist a single attribute or resource write (`.sc`'s SAN loss, the skills
+ * Persist a single absolute attribute or resource write (the skills
  * form's 理智值 row) into room_members.character_data through the generic
  * `applySheetEdit`, which owns clamping and derivation for every rule.
  *

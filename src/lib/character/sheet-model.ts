@@ -307,6 +307,8 @@ export function applySheetEdit(
   }
 
   const resFields = new Map(rule.sheet.resources.map((f) => [f.key, f]));
+  // A `delta` steps from the value the sheet reads as before this edit.
+  let before: ResolvedSheet | undefined;
   for (const [key, patch] of Object.entries(edit.resources ?? {})) {
     const f = resFields.get(key);
     if (!f || !patch || typeof patch !== "object") continue;
@@ -324,6 +326,11 @@ export function applySheetEdit(
         const n = toInt(patch.current);
         if (n !== null) value.current = n; // bounded by normalizeSheet
       }
+    } else if (patch.delta !== undefined) {
+      const d = toInt(patch.delta);
+      before ??= resolveSheet(rule, sheet);
+      const base = findResource(before, key)?.current;
+      if (d !== null && base !== undefined) value.current = base + d; // bounded by normalizeSheet
     }
     if (value.current === undefined && value.max === undefined) delete next.resources[key];
     else next.resources[key] = value;
@@ -363,7 +370,11 @@ export function sanitizeSheetEdit(input: unknown): SheetEdit | null {
     for (const [k, v] of Object.entries(res)) {
       const one = rec(v);
       if (!one) return null;
-      out.resources[k] = { current: one.current as number | null | undefined, max: one.max as number | null | undefined };
+      out.resources[k] = {
+        current: one.current as number | null | undefined,
+        delta: one.delta as number | undefined,
+        max: one.max as number | null | undefined,
+      };
     }
   }
   if (r.profile !== undefined) {

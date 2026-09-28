@@ -192,6 +192,35 @@ describe("Commands - executeCommand (.sc)", () => {
   });
 });
 
+describe("Commands - executeCommand (.sc under the row lock)", () => {
+  it("rolls against the locked SAN and stores old − loss, matching the card", async () => {
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    const set = vi.fn(() => ({ where: vi.fn() }));
+    vi.mocked(db.update).mockImplementationOnce((() => ({ set })) as never);
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+          if (table === roomMembers) {
+            return [{ id: 9, characterData: JSON.stringify({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { pow: 60 }, resources: { san: { current: 30 } } }) }];
+          }
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".sc 1/5");
+    expect(result.success).toBe(true);
+    const detail = JSON.parse(vi.mocked(dispatchMessage).mock.calls.at(-1)![0].diceDetail as string);
+    const { oldSanity, newSanity, isSuccess } = detail.sanityCheck;
+    expect(oldSanity).toBe(30);
+    expect(detail.check.target).toBe(30);
+    expect(newSanity).toBe(30 - (isSuccess ? 1 : 5));
+    const stored = JSON.parse((set.mock.calls.at(-1) as unknown as [{ characterData: string }])[0].characterData);
+    expect(stored.resources.san.current).toBe(newSanity);
+  });
+});
+
 describe("Commands - executeCommand (.rc / .ra are identical variants)", () => {
   it("should fail with rcUsageError when no skill is given", async () => {
     const result = await executeCommand(1, 1, ".ra");

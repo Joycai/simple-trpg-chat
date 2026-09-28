@@ -48,9 +48,16 @@ a `SELECT … FOR UPDATE` on the member row, the edit, the write — so two
 writers overlapping on one sheet (the host's overview ± and the player's `.st`)
 serialize instead of one reverting the other.
 
+A relative change is sent as one: `resources.<key>.delta` steps from the value
+the locked sheet reads as (unset included), clamped like any write, so two
+writers changing the same resource both land. The overview ± sends `delta: ±1`;
+`.sc` rolls against the locked SAN and applies `delta: -loss` in the same step,
+so its card's target and old → new are what was stored. An absolute
+`current` wins over a `delta` in the same patch.
+
 Writers: `editCharacterAction(roomId, targetUserId, edit)` (panel, host,
 overview), `rebuildCharacterForRoomRuleAction(roomId, targetUserId)`, `.st` (`lib/commands/set-skill-command.ts`), `.sc`
-(`character-stat-sync.ts`), the AI `set_character_card` tool
+(`sanity-check-command.ts`), the skills form's 理智值 row (`character-stat-sync.ts`), the AI `set_character_card` tool
 (`lib/character/sheet-ai.ts` maps its arguments to a `SheetEdit`), and the
 skills actions (`upsertSkillAction` / `deleteSkillAction`, optional target).
 Who may write is one rule, `resolveSheetWriter` (`lib/auth/sheet-access.ts`):

@@ -71,7 +71,13 @@ export type ProfileEdit = {
  */
 export interface SheetEdit {
   attributes?: Record<string, number | null>;
-  resources?: Record<string, { current?: number | null; max?: number | null }>;
+  /**
+   * `current` sets a resource; `delta` changes it relative to the value the
+   * sheet holds when the edit is applied — under the row lock, so a relative
+   * change (`.sc`, the overview ±) never overwrites a write it didn't see.
+   * `current` wins when both are given.
+   */
+  resources?: Record<string, { current?: number | null; delta?: number; max?: number | null }>;
   profile?: ProfileEdit;
   /** Replaces the whole list. */
   customAttributes?: CustomAttribute[];
