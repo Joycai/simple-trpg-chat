@@ -21,7 +21,7 @@ export function CompletionMark({ completion, className = "" }: {
     ? t("completionAllSet")
     : `${t("completionRequired")} ${completion.requiredSet}/${completion.requiredTotal}`;
   return (
-    <span title={label} aria-label={label}
+    <span role="img" title={label} aria-label={label}
       className={`inline-flex items-center font-mono text-[9px] font-bold leading-[13px] px-1 rounded-full border shrink-0 ${complete ? "text-success border-success/45" : "text-warning border-warning/50"} ${className}`}>
       {complete ? <Icons.Check className="w-2.5 h-2.5" aria-hidden /> : `${completion.requiredSet}/${completion.requiredTotal}`}
     </span>

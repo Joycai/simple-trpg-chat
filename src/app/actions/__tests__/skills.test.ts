@@ -28,7 +28,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   inserted.length = 0;
   session = { user: { id: "1", role: "player" } };
-  resolveSheetWriter.mockResolvedValue({ ok: true, callerId: 1, hostLevel: true, room: {}, targetSheet: null });
+  resolveSheetWriter.mockResolvedValue({ ok: true, callerId: 1, room: {} });
 });
 
 describe("upsertSkillAction", () => {

@@ -52,8 +52,8 @@ const member = (room: { frozen: boolean; hostId: number } = { frozen: false, hos
 /** Rows for resolveSheetWriter: the room, then the caller/target member rows. */
 const writer = (
   room: { hostId: number; frozen: boolean; ruleTemplate?: string } | null,
-  members: { userId: number; characterData?: string | null }[],
-) => [room ? [{ ruleTemplate: "basic", ...room }] : [], members.map((m) => ({ characterData: null, ...m }))];
+  members: { userId: number }[],
+) => [room ? [{ ruleTemplate: "basic", ...room }] : [], members];
 
 /** The row `updateSheetRow` locks and reads before a write. */
 const locked = (characterData: string | null = null) => [[{ id: 99, characterData }]];

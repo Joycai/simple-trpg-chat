@@ -49,15 +49,15 @@ export type SheetWriter =
   | {
       ok: true;
       callerId: number;
-      /** Whether the caller acts with host-level rights (host or admin). */
-      hostLevel: boolean;
       room: typeof rooms.$inferSelect;
-      /** The target's stored `character_data` (raw column value). */
-      targetSheet: string | null;
     }
   | { ok: false; key: SheetWriteDenial };
 
-/** Resolve the session caller's right to write `targetUserId`'s sheet in `roomId`. */
+/**
+ * Resolve the session caller's right to write `targetUserId`'s sheet in `roomId`.
+ * Permission only — the sheet itself is read and written under a row lock by
+ * `updateSheetRow` (`lib/character/sheet-row.ts`).
+ */
 export async function resolveSheetWriter(roomId: number, targetUserId: number): Promise<SheetWriter> {
   const session = await auth();
   if (!session) return { ok: false, key: "errorNotAuthenticated" };
@@ -67,7 +67,7 @@ export async function resolveSheetWriter(roomId: number, targetUserId: number): 
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
   const memberRows = await db
-    .select({ userId: roomMembers.userId, characterData: roomMembers.characterData })
+    .select({ userId: roomMembers.userId })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, [callerId, targetUserId])));
   const target = memberRows.find((m) => m.userId === targetUserId);
@@ -81,11 +81,5 @@ export async function resolveSheetWriter(roomId: number, targetUserId: number): 
     targetIsMember: !!target,
   });
   if (denial || !room || !target) return { ok: false, key: denial ?? "errorTargetNotMember" };
-  return {
-    ok: true,
-    callerId,
-    hostLevel: isRoomHostOrAdmin(room, { id: callerId, role: callerRole }),
-    room,
-    targetSheet: target.characterData,
-  };
+  return { ok: true, callerId, room };
 }

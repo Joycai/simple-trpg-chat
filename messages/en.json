@@ -1565,7 +1565,7 @@
     "unknownCommandGuess": "Unknown command. Did you mean {guess}? Type .help for available commands.",
     "stUsageError": "Format error. Correct usage: .st Spot 50",
     "stSuccess": "Skills updated: {summary}",
-    "stSheetRuleMismatch": "Your character sheet was built for another rule, so attributes and resources can't be set yet. Re-enter the room and rebuild the sheet when prompted.",
+    "stSheetRuleMismatch": "Your character sheet was built for another rule, so attributes and resources can't be set yet. Open your character sheet and use “Rebuild for room rule”.",
     "rcUsageError": "Usage: .rc Spot",
     "d20RcUsage": "Usage: .rc <name>[<+/-modifier>] [DC]. Examples: .rc str+3 15, .rc athletics+1+1d6 12. The space before DC is required.",
     "taRcNotSupported": "Triangle Agency has no .rc checks — roll .r 6d4 directly and count the dice showing 3.",
