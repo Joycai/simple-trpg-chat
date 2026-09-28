@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { useAsyncAction } from "@/lib/ui/useAsyncAction";
@@ -30,7 +30,9 @@ const MAX_SUGGESTIONS = 6;
 /**
  * Full-pane note editor: title, category chips, a markdown toolbar and a plain
  * textarea. Typing `@` opens a backpack picker (driven by `mentionQueryAt`);
- * picking an entry inserts its plain `@标题` token followed by a space.
+ * picking an entry inserts its plain `@标题` token followed by a space. On list
+ * lines Tab / Shift+Tab indent and Enter continues the list; Escape then Tab
+ * leaves the textarea (announced through `listKeysHint`).
  */
 export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel, onSave }: NotebookEditorProps) {
   const t = useTranslations("notebook");
@@ -49,7 +51,8 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
   const {
     textareaRef, textareaProps, mention, activeIdx, setActiveIdx,
     suggestions, pickerOpen, insertMention, startMention, applyWrap, applyLinePrefix,
-  } = useMentionTextarea({ value: content, setValue: setContent, entities, maxSuggestions: MAX_SUGGESTIONS });
+  } = useMentionTextarea({ value: content, setValue: setContent, entities, maxSuggestions: MAX_SUGGESTIONS, listKeys: true });
+  const hintId = useId();
 
   /** Unsaved-work guard: the drawer and the back button both unmount us. */
   const dirty =
@@ -164,6 +167,7 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
             {...textareaProps}
             maxLength={NOTE_CONTENT_MAX}
             placeholder={t("contentPlaceholder")}
+            aria-describedby={hintId}
             className="flex-1 w-full resize-none bg-input-bg border border-input-border rounded-theme px-3.5 py-3 text-sm text-text leading-relaxed font-theme outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent/50"
           />
 
@@ -178,6 +182,9 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
             />
           )}
         </div>
+        {/* Visible from sm up, where a hardware keyboard is likely; the
+            textarea's aria-describedby reads it at every width. */}
+        <p id={hintId} className="hidden sm:block text-xs text-text-dim">{t("listKeysHint")}</p>
       </div>
     </div>
   );

@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mentionQueryAt, type NotebookLinkEntity } from "@/lib/room/notebook";
-import { applyLinePrefixEdit, applyMentionEdit, applyWrapEdit, type TextEdit } from "@/lib/ui/textarea-edits";
+import {
+  applyLinePrefixEdit,
+  applyListEnterEdit,
+  applyListIndentEdit,
+  applyMentionEdit,
+  applyWrapEdit,
+  replacedRange,
+  type TextEdit,
+} from "@/lib/ui/textarea-edits";
 
 const DEFAULT_MAX_SUGGESTIONS = 6;
 
@@ -53,18 +61,35 @@ export interface MentionTextarea {
  * 4. Selection is restored through `src/lib/ui/textarea-edits.ts`, which shifts
  *    the anchor by the current line's prefix rather than every line's — and
  *    restores it at all, which the event editor had stopped doing.
+ *
+ * With `listKeys`, Tab / Shift+Tab indent and outdent Markdown list lines and
+ * Enter continues (or, on an empty item, ends) a list. Tab is only taken on list
+ * lines; Escape there hands the next Tab back to the browser, so keyboard users
+ * can always leave the textarea.
  */
 export function useMentionTextarea(opts: {
   value: string;
   setValue: (next: string) => void;
   entities: NotebookLinkEntity[];
   maxSuggestions?: number;
+  /** Tab / Shift+Tab / Enter edit Markdown lists (see above). */
+  listKeys?: boolean;
 }): MentionTextarea {
-  const { value, setValue, entities, maxSuggestions = DEFAULT_MAX_SUGGESTIONS } = opts;
+  const { value, setValue, entities, maxSuggestions = DEFAULT_MAX_SUGGESTIONS, listKeys = false } = opts;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
+  /**
+   * Where Escape on a list line handed Tab back to the browser. The next Tab
+   * leaves the textarea only while the text and selection are still exactly
+   * this — so typing (IME included), clicking or picking a mention ends the
+   * release without every one of those paths having to clear it. Moving away
+   * and back to the same spot (←→, x then Backspace) counts as unchanged and
+   * still leaves: nothing tells the two apart. Tab and Escape consume it;
+   * blur drops it, as it belongs to one focus session.
+   */
+  const tabRelease = useRef<{ value: string; start: number; end: number } | null>(null);
   const [commitSeq, setCommitSeq] = useState(0);
   const [mention, setMention] = useState<MentionDraft | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -162,8 +187,84 @@ export function useMentionTextarea(opts: {
     commit(applyLinePrefixEdit(value, start, el.selectionEnd ?? start, prefix));
   }, [value, commit]);
 
+  /**
+   * Apply a keystroke's list edit as a native insertion, so it lands in the
+   * browser's undo history like the typing around it. Setting `value` (what
+   * `commit` does) would leave Ctrl+Z unable to step back over every Enter in
+   * a list. `execCommand` is deprecated but still the only way to do that; if
+   * it is unavailable or refuses, fall back to `commit`.
+   *
+   * The resulting `input` event goes through `onChange`, which stores the new
+   * text — so the DOM already holds it and the selection can be set right away.
+   */
+  const applyKeyEdit = useCallback((el: HTMLTextAreaElement, edit: TextEdit) => {
+    const { start, end, text } = replacedRange(el.value, edit.next);
+    let applied = false;
+    try {
+      el.setSelectionRange(start, end);
+      applied = text
+        ? document.execCommand("insertText", false, text)
+        : start === end || document.execCommand("delete");
+    } catch {
+      applied = false;
+    }
+    // A mismatch also covers the browser trimming the insertion to `maxlength`.
+    if (applied && el.value === edit.next) el.setSelectionRange(edit.selStart, edit.selEnd);
+    else commit(edit);
+  }, [commit]);
+
+  /** Tab / Shift+Tab / Enter / Escape on Markdown list lines (`listKeys`). */
+  const onListKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Composition keys (Enter picks the IME candidate) belong to the IME.
+    // Safari reports that Enter with isComposing already false, but keyCode 229.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
+
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? start;
+    const release = tabRelease.current;
+    const released = release !== null && release.value === el.value && release.start === start && release.end === end;
+    const otherModifier = e.ctrlKey || e.altKey || e.metaKey;
+
+    if (e.key === "Escape") {
+      tabRelease.current = null;
+      // Only where Tab is being taken: elsewhere Escape keeps meaning "close".
+      // preventDefault keeps the enclosing drawer's Escape-to-close from firing;
+      // a second Escape in place falls through and closes it.
+      if (!released && !otherModifier && !e.shiftKey && applyListIndentEdit(el.value, start, end, "in")) {
+        tabRelease.current = { value: el.value, start, end };
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === "Tab") {
+      tabRelease.current = null;
+      if (released || otherModifier) return;
+      const edit = applyListIndentEdit(el.value, start, end, e.shiftKey ? "out" : "in");
+      if (!edit) return;
+      e.preventDefault();
+      // Past maxLength (which only binds user typing) the edit is dropped; Tab
+      // still stays in the textarea rather than jumping focus.
+      if (el.maxLength > 0 && edit.next.length > el.maxLength) return;
+      if (edit.next !== el.value) applyKeyEdit(el, edit);
+      return;
+    }
+
+    if (e.key === "Enter" && !otherModifier && !e.shiftKey) {
+      const edit = applyListEnterEdit(el.value, start, end);
+      if (!edit || (el.maxLength > 0 && edit.next.length > el.maxLength)) return;
+      e.preventDefault();
+      applyKeyEdit(el, edit);
+    }
+  }, [applyKeyEdit]);
+
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!pickerOpen) return;
+    if (!pickerOpen) {
+      if (listKeys) onListKey(e);
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActiveIdx((i) => (i + 1) % suggestions.length);
@@ -178,7 +279,7 @@ export function useMentionTextarea(opts: {
       setMention(null);
       setActiveIdx(0);
     }
-  }, [pickerOpen, suggestions, activeIdx, insertMention]);
+  }, [pickerOpen, listKeys, onListKey, suggestions, activeIdx, insertMention]);
 
   const textareaProps = useMemo(() => ({
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -190,6 +291,7 @@ export function useMentionTextarea(opts: {
     // including arrow keys and Home/End — `click` misses all of those.
     onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => syncMention(e.currentTarget),
     onBlur: () => {
+      tabRelease.current = null;
       cancelBlurDismiss();
       // Deferred so a click on a suggestion lands before the picker closes.
       blurTimer.current = setTimeout(() => {

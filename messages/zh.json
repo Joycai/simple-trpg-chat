@@ -995,6 +995,7 @@
     "emptyContent": "（空白手札）",
     "noResults": "没有匹配的手札",
     "contentPlaceholder": "支持 Markdown 语法，输入 @ 可链接背包中的线索 / 道具 / 人物…",
+    "listKeysHint": "列表行中：Tab / Shift+Tab 缩进，回车续写列表，先按 Esc 再按 Tab 可离开编辑框。",
     "mentionHeader": "链接背包内容",
     "mentionSelect": "选择",
     "mentionInsert": "插入",
