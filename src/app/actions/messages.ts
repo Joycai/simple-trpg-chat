@@ -43,7 +43,8 @@ export async function sendMessageAction(
   content: string,
   type: "text" | "image" | "sticker" = "text",
   isPrivate: boolean = false,
-  targetUserId?: number // V3.14: Added targetUserId
+  targetUserId?: number, // V3.14: Added targetUserId
+  origin?: string,
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!access) return noRoomAccess();
@@ -109,7 +110,7 @@ export async function sendMessageAction(
 
   // 1. Intercept for Bot Commands if it's a plain text message starting with '.' or '。'
   if (type === "text" && (content.startsWith(".") || content.startsWith("。"))) {
-    const result = await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
+    const result = await executeCommand(roomId, userId, content, { isPrivate, targetUserId, origin });
     if (result.isCommand) {
       if (!result.success) {
         await dispatchMessage({
@@ -283,7 +284,8 @@ export async function executeCommandAction(
   userId: number,
   content: string,
   isPrivate?: boolean,
-  targetUserId?: number
+  targetUserId?: number,
+  origin?: string,
 ): Promise<CommandResult> {
   const session = await auth();
   const callerId = session ? parseInt(session.user.id) : NaN;
@@ -296,7 +298,7 @@ export async function executeCommandAction(
     return { ...denied, isCommand: true };
   }
 
-  return await executeCommand(roomId, userId, content, { isPrivate, targetUserId });
+  return await executeCommand(roomId, userId, content, { isPrivate, targetUserId, origin });
 }
 
 // --- DM/Conversation Actions ---

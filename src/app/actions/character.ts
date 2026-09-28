@@ -77,7 +77,7 @@ export type SheetRuleStatus =
  * Never throws for non-members / observers / frozen rooms — those just get
  * `ok` so the client can stay silent.
  */
-export async function ensureCharacterSheetAction(roomId: number): Promise<SheetRuleStatus> {
+export async function ensureCharacterSheetAction(roomId: number, origin?: string): Promise<SheetRuleStatus> {
   const session = await auth();
   if (!session) return { status: "ok" };
   const userId = parseInt(session.user.id);
@@ -103,7 +103,7 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
     const out = await updateSheetRow(roomId, userId, (raw) =>
       parseSheetOrNull(raw, rule.id) ? { result: null } : { sheet: emptySheet(rule.id), result: null });
     if (out.status !== "ok" || !out.sheet) return { status: "ok" };
-    await broadcastCharacterUpdate(roomId, userId, { by: userId });
+    await broadcastCharacterUpdate(roomId, userId, { origin });
     revalidatePath(`/rooms/${roomId}`);
     return { status: "initialized", data: out.sheet };
   }
@@ -125,6 +125,7 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
 export async function rebuildCharacterForRoomRuleAction(
   roomId: number,
   targetUserId: number,
+  origin?: string,
 ): Promise<{ success: true; data: CharacterData } | Fail> {
   const w = await resolveSheetWriter(roomId, targetUserId);
   if (!w.ok) return fail(w.key);
@@ -141,7 +142,7 @@ export async function rebuildCharacterForRoomRuleAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
 
   if (out.sheet) {
-    await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
+    await broadcastCharacterUpdate(roomId, targetUserId, { origin });
     revalidatePath(`/rooms/${roomId}`);
   }
   // The stored copy carries the new `rev`; an untouched sheet is the stored one.
@@ -180,6 +181,8 @@ export async function editCharacterAction(
   roomId: number,
   targetUserId: number,
   edit: SheetEdit,
+  /** The calling tab (`tabId()`), so its own `character_updated` echo is skipped. */
+  origin?: string,
 ): Promise<{ success: true; data: CharacterData } | Fail> {
   const clean = sanitizeSheetEdit(edit);
   if (!clean) return fail("errorInvalidEdit");
@@ -198,7 +201,7 @@ export async function editCharacterAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
   const next = out.sheet ?? out.result;
 
-  await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
+  await broadcastCharacterUpdate(roomId, targetUserId, { origin });
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: next };

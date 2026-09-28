@@ -163,7 +163,7 @@ v2 sheet that stores **only the values someone set** (absent key = unset), so
 completion is exact. Read through `parseSheet` / `parseSheetOrNull` (upgrades pre-v2
 rows via `migrateLegacy`; pass the room rule), write **only** through `applySheetEdit` inside `updateSheetRow` (row lock)
 — via `editCharacterAction`, `.st`, `.sc`, the AI tool or the skills actions — and let
-`broadcastCharacterUpdate` send `character_updated { vital, completion, by }` (read and emitted under the member row lock, so events arrive in write order). Relative resource changes use `delta`, resolved under the lock.
+`broadcastCharacterUpdate` send `character_updated { vital, completion, origin }` (read and emitted under the member row lock, so events arrive in write order; `origin` = the writing tab's `tabId()`, the only tab that skips the reload). Every write bumps the sheet's `rev`, which orders a save reply against a racing refresh. Relative resource changes use `delta`, resolved under the lock.
 Permission is one rule, `resolveSheetWriter`: the member, the host, or an admin.
 UI: `CharacterPanel` (own / host-edit / view modes, `useSheetDraft` draft over a
 baseline, completion bar, close guard), `HostSheetOverview` (host top-bar button),

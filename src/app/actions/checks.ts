@@ -113,7 +113,7 @@ export async function requestSkillCheckAction(
 export async function respondToCheckRequestAction(
   roomId: number,
   checkRequestId: number,
-  opts?: { onBehalfOfUserId?: number; bonusDice?: number }
+  opts?: { onBehalfOfUserId?: number; bonusDice?: number; origin?: string }
 ): Promise<{ success: boolean; error?: string; needsSkill?: boolean }> {
   const session = await auth();
   if (!session) throw new Error("Not authenticated");
@@ -203,12 +203,12 @@ export async function respondToCheckRequestAction(
   const ctxTargetId = msg.isPrivate ? msg.userId : undefined;
   if (cr.sanCheck) {
     // Sanity check: run the .sc logic (uses 理智值 current value + deducts per result).
-    const result = await executeCommand(roomId, rollerId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+    const result = await executeCommand(roomId, rollerId, `.sc ${cr.sanCheck.successExpr}/${cr.sanCheck.failureExpr}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy, origin: opts?.origin });
     if (!result.success) {
       if (isProxy && result.code === "STAT_NOT_SET") {
         // Player has no 理智值 yet — fall through to a raw d100 attributed to them,
         // so the host gets a usable roll result instead of a hard error.
-        await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+        await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy, origin: opts?.origin });
       } else {
         // needsSkill prompts the *self* to set their stat — meaningless for a proxy roll,
         // so surface as plain error and let the host inform the player out-of-band.
@@ -237,7 +237,7 @@ export async function respondToCheckRequestAction(
       await unclaim();
       return { success: false, error: t("checkRequestNotFound") };
     }
-    const result = await executeCommand(roomId, rollerId, built.command, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+    const result = await executeCommand(roomId, rollerId, built.command, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy, origin: opts?.origin });
     if (!result.success) {
       await unclaim();
       return { success: false, error: result.error };
@@ -245,12 +245,12 @@ export async function respondToCheckRequestAction(
   } else {
     const diceType = cr.diceType || "d100";
     if (diceType === "d100") {
-      const result = await executeCommand(roomId, rollerId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+      const result = await executeCommand(roomId, rollerId, `.rc ${cr.skillName}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy, origin: opts?.origin });
       if (!result.success) {
         if (isProxy && result.code === "STAT_NOT_SET") {
           // Skill not set on this player — drop the success/failure grading and just
           // roll a raw d100, attributed to the player + carrying the proxy chip.
-          await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+          await executeCommand(roomId, rollerId, `.rd100`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy, origin: opts?.origin });
         } else {
           await unclaim();
           return { success: false, error: result.error, needsSkill: !isProxy && result.code === "STAT_NOT_SET" };
@@ -261,7 +261,7 @@ export async function respondToCheckRequestAction(
       if (isProxy) {
         // Route through executeCommand so the roll is attributed to the player and
         // carries the proxy chip; a plain dispatchDiceRoll would attribute it to the caller (host).
-        await executeCommand(roomId, rollerId, `.rd${faces}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy });
+        await executeCommand(roomId, rollerId, `.rd${faces}`, { isPrivate: ctxIsPrivate, targetUserId: ctxTargetId, proxiedBy, origin: opts?.origin });
       } else {
         // A check response is a normal roll in the request's channel (never hidden).
         // Access was checked above; rollerId is the caller here.

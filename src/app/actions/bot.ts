@@ -75,7 +75,7 @@ export async function createBotAction(
     return userRecord.id;
   });
   // The host's completion badges count the new bot right away.
-  await broadcastCharacterUpdate(roomId, botUserId, { by: null });
+  await broadcastCharacterUpdate(roomId, botUserId);
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };

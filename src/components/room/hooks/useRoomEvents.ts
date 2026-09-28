@@ -29,8 +29,8 @@ interface UseRoomEventsParams {
   setOnlineUserIds: React.Dispatch<React.SetStateAction<Set<number>>>;
   setCharacterResources: React.Dispatch<React.SetStateAction<Map<number, StatusEntry>>>;
   setCompletions: React.Dispatch<React.SetStateAction<Map<number, CompletionSummary>>>;
-  /** Called on every `character_updated` with the member and the writer. */
-  onCharacterUpdatedRef: React.RefObject<(userId: number, by: number | null) => void>;
+  /** Called on every `character_updated` with the member and the writing tab. */
+  onCharacterUpdatedRef: React.RefObject<(userId: number, origin: string | null) => void>;
 }
 
 /* Owns the room's single SSE connection: subscribes to /api/rooms/[id]/events,
@@ -241,7 +241,7 @@ export function useRoomEvents({
             invalidateCharacterCache(roomId, uid);
             const completion = data.completion as CompletionSummary | undefined;
             if (completion) setCompletions((prev) => new Map(prev).set(uid, completion));
-            onCharacterUpdatedRef.current(uid, (data.by as number | null) ?? null);
+            onCharacterUpdatedRef.current(uid, (data.origin as string | null) ?? null);
             return;
           }
           if (data.type === "typing") {

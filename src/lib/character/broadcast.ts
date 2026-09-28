@@ -14,18 +14,26 @@ import type { CharacterData } from "./types";
  * member list, the badges and any open panel stay current no matter who wrote
  * (the member, the host, `.st` / `.sc`, the AI):
  *
- *   { type, userId, vital, completion, by }
+ *   { type, userId, vital, completion, origin }
  *
  * `vital` is the member list's headline number, `completion` the required
- * set/total against the room's rule, `by` the writer (clients skip reloading
- * what they just saved themselves).
+ * set/total (and what's missing) against the room's rule, `origin` the id of
+ * the browser tab that wrote (`lib/ui/tab-id.ts`), or null for a write no
+ * tab made (the AI, a join). A tab skips reloading only for its own writes,
+ * which refresh themselves where they happen — the same user's other tabs
+ * and devices still reload.
  */
 export interface CharacterUpdateEvent {
   type: "character_updated";
   userId: number;
   vital: StatusEntry | null;
   completion: CompletionSummary;
-  by: number | null;
+  origin: string | null;
+}
+
+/** A client-supplied tab id, or null when it isn't one (the field is untrusted). */
+export function cleanOrigin(origin: unknown): string | null {
+  return typeof origin === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(origin) ? origin : null;
 }
 
 export function characterUpdatePayload(
@@ -33,14 +41,14 @@ export function characterUpdatePayload(
   sheet: CharacterData | null,
   skillNames: ReadonlyArray<string>,
   roomRuleId: string,
-  by: number | null,
+  origin: string | null,
 ): CharacterUpdateEvent {
   return {
     type: "character_updated",
     userId,
     vital: primaryVital(sheet),
     completion: memberCompletionSummary(sheet, skillNames, roomRuleId),
-    by,
+    origin,
   };
 }
 
@@ -61,7 +69,7 @@ export function characterUpdatePayload(
 export async function broadcastCharacterUpdate(
   roomId: number,
   userId: number,
-  opts: { by?: number | null } = {},
+  opts: { origin?: string | null } = {},
 ): Promise<void> {
   try {
     await db.transaction(async (tx) => {
@@ -80,7 +88,7 @@ export async function broadcastCharacterUpdate(
         parseSheetOrNull(member?.characterData, roomRuleId),
         skills.map((s) => s.skillName),
         roomRuleId,
-        opts.by ?? null,
+        cleanOrigin(opts.origin),
       ));
     });
   } catch (e) {

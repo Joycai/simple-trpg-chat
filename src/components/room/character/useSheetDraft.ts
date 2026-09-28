@@ -29,6 +29,7 @@ export function useSheetDraft({
   characterData,
   roomRuleTemplate,
   setPanelError,
+  origin,
 }: {
   roomId: number;
   /** Whose sheet this is (the caller's own id for their own card). */
@@ -37,6 +38,13 @@ export function useSheetDraft({
   characterData: string | CharacterData | null | undefined;
   roomRuleTemplate: string | undefined;
   setPanelError: Dispatch<SetStateAction<string | null>>;
+  /**
+   * Sent with saves (`tabId()`) when this tab refreshes everything the save
+   * changes itself — the own card, via router.refresh — so it skips its own
+   * `character_updated`. Omitted for a host editing someone else's card: the
+   * event then reloads the overview and the viewed card like any other write.
+   */
+  origin?: string;
 }) {
   const tCommon = useTranslations("common");
   const router = useRouter();
@@ -92,7 +100,7 @@ export function useSheetDraft({
     setSaveStatus("saving");
     setPanelError(null);
     const sent = draft;
-    const res = await editCharacterAction(roomId, targetUserId, sent)
+    const res = await editCharacterAction(roomId, targetUserId, sent, origin)
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) return failSave(res.error);
     setSaved({ userId: targetUserId, sheet: res.data });
@@ -114,7 +122,7 @@ export function useSheetDraft({
   const rebuild = async () => {
     setRebuilding(true);
     setPanelError(null);
-    const res = await rebuildCharacterForRoomRuleAction(roomId, targetUserId)
+    const res = await rebuildCharacterForRoomRuleAction(roomId, targetUserId, origin)
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     setRebuilding(false);
     if (!res.success) {

@@ -108,7 +108,7 @@ export async function joinRoomAction(formData: FormData) {
         characterData: JSON.stringify(emptySheet(getRuleForRoom(room).id)),
       });
       // The host's completion badges count the newcomer right away.
-      await broadcastCharacterUpdate(roomId, userId, { by: userId });
+      await broadcastCharacterUpdate(roomId, userId);
     }
 
     revalidatePath("/");

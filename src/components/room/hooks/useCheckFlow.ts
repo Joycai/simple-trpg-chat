@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { executeCommandAction } from "@/app/actions/messages";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import type { CheckMode, PendingSkillCheck } from "@/components/room/types";
+import { tabId } from "@/lib/ui/tab-id";
 
 /**
  * Skill checks in the room: the top-bar check dialog/menu state, answering a
@@ -34,9 +35,12 @@ export function useCheckFlow({
   // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
   // (so the caller can open the prompt); otherwise surfaces any error inline.
   const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number, bonusDice?: number): Promise<{ needsSkill?: boolean }> => {
+    // Only a self roll refreshes this tab afterwards (below), so only it skips
+    // its own `character_updated`; a proxy roll lets the event reload the
+    // host's overview and views of that player.
     const result = await respondToCheckRequestAction(
       roomId, messageId,
-      onBehalfOfUserId !== undefined || bonusDice !== undefined ? { onBehalfOfUserId, bonusDice } : undefined
+      onBehalfOfUserId !== undefined ? { onBehalfOfUserId, bonusDice } : { bonusDice, origin: tabId() }
     );
     if (result.needsSkill) return { needsSkill: true };
     if (!result.success && result.error) {
@@ -90,7 +94,7 @@ export function useCheckFlow({
     if (!pendingSkillCheck) return;
     const { messageId, skillName } = pendingSkillCheck;
     setPendingSkillCheck(null);
-    const res = await executeCommandAction(roomId, userId, `.st ${skillName}${value}`)
+    const res = await executeCommandAction(roomId, userId, `.st ${skillName}${value}`, undefined, undefined, tabId())
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     // Without the stat the check would only ask for it again — stop here.
     if (!res.success) {

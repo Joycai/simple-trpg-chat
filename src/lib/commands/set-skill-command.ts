@@ -99,7 +99,7 @@ export async function handleSetSkill(
   }
 
   // Skills and/or the sheet changed: members' lists, badges and open panels follow.
-  await broadcastCharacterUpdate(roomId, userId, { by: ctx?.proxiedBy?.userId ?? userId });
+  await broadcastCharacterUpdate(roomId, userId, { origin: ctx?.origin });
 
   const summary = summaryParts.join(" · ");
   const vis = visibilityFor(ctx, userId, "self");

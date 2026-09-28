@@ -11,6 +11,7 @@ import {
   rebuildCharacterForRoomRuleAction,
 } from "@/app/actions/character";
 import { getRule } from "@/lib/rules";
+import { tabId } from "@/lib/ui/tab-id";
 
 /** localStorage key holding the rule id the player already declined for this room. */
 const dismissKey = (roomId: number) => `trpg:sheetRuleDismiss:${roomId}`;
@@ -51,7 +52,7 @@ export function CharacterRuleGate({ roomId, userId, roomRuleTemplate, disabled =
     if (disabled) return;
     let cancelled = false;
 
-    ensureCharacterSheetAction(roomId).then((res) => {
+    ensureCharacterSheetAction(roomId, tabId()).then((res) => {
       if (cancelled) return;
       if (res.status === "initialized") {
         router.refresh();
@@ -78,7 +79,7 @@ export function CharacterRuleGate({ roomId, userId, roomRuleTemplate, disabled =
   const handleRebuild = async () => {
     setBusy(true);
     setError(null);
-    const res = await rebuildCharacterForRoomRuleAction(roomId, userId)
+    const res = await rebuildCharacterForRoomRuleAction(roomId, userId, tabId())
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) {
       setError(res.error);

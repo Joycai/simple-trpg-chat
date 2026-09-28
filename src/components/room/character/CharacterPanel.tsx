@@ -27,6 +27,7 @@ import { useCharacterAvatarUpload } from "./useCharacterAvatarUpload";
 import { AvatarColorBand } from "./AvatarColorBand";
 import { SheetCompletionBar } from "./SheetCompletionBar";
 import { HostEditBanner, SheetConflictNotice } from "./SheetBanners";
+import { tabId } from "@/lib/ui/tab-id";
 
 interface CharacterPanelProps {
   roomId: number;
@@ -113,6 +114,7 @@ export function CharacterPanel({
   // The sheet being edited: the stored sheet plus a draft of unsaved changes.
   const sheet = useSheetDraft({
     roomId, targetUserId: targetUserId ?? userId, characterData, roomRuleTemplate, setPanelError,
+    origin: mode === "self" ? tabId() : undefined,
   });
   const { rule, resolved } = sheet;
   const hasExistingData = !!characterData;

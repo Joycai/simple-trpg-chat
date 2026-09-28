@@ -12,6 +12,7 @@ import { getRule } from "@/lib/rules";
 import { applySheetEdit, resolveSheet, type ResolvedResource } from "@/lib/character/sheet-model";
 import { emptySheet, type ResourceValue } from "@/lib/character/sheet-v2";
 import { getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
+import { tabId } from "@/lib/ui/tab-id";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
 
 /**
@@ -134,7 +135,7 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     setResource(optimistic.resources[resKey]);
     setNotice(null);
     // A throw means the outcome is unknown: the delta may have been applied.
-    const saved = await editCharacterAction(roomId, userId, edit)
+    const saved = await editCharacterAction(roomId, userId, edit, tabId())
       .catch(() => ({ success: false as const, unknown: true as const }));
     pendingRef.current.set(key, (pendingRef.current.get(key) ?? 1) - 1);
     if (saved.success) confirmedRef.current.set(key, saved.data.resources[resKey]);

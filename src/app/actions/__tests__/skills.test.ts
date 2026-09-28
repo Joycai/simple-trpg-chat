@@ -36,7 +36,7 @@ describe("upsertSkillAction", () => {
     expect(await upsertSkillAction(5, " 侦查 ", 60, 3)).toEqual({ success: true });
     expect(resolveSheetWriter).toHaveBeenCalledWith(5, 3);
     expect(inserted[0]).toMatchObject({ roomId: 5, userId: 3, skillName: "侦查", skillValue: 60 });
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { origin: undefined });
   });
 
   it("defaults to the caller's own card", async () => {
@@ -67,7 +67,7 @@ describe("deleteSkillAction", () => {
   it("deletes on the target's card when allowed", async () => {
     expect(await deleteSkillAction(5, 9, 3)).toEqual({ success: true });
     expect(deleted).toHaveBeenCalledTimes(1);
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { origin: undefined });
   });
 
   it("does nothing when refused", async () => {
