@@ -10,7 +10,6 @@ import { useRoomEvents } from "@/components/room/hooks/useRoomEvents";
 import { useSidebar } from "@/components/room/hooks/useSidebar";
 import { useChatScroll } from "@/components/room/hooks/useChatScroll";
 import { useUnreadDmCounts } from "@/components/room/hooks/useUnreadDmCounts";
-import { useCharacterHint } from "@/components/room/hooks/useCharacterHint";
 import { useRoomEventsData } from "@/components/room/hooks/useRoomEventsData";
 import { useUnreadInventoryCount } from "@/components/room/hooks/useUnreadInventoryCount";
 import { useRoomThemeMode } from "@/components/room/hooks/useRoomThemeMode";
@@ -31,6 +30,8 @@ import { buildMentionTargets, buildDmConversations, totalUnread, countRoster, co
 import type { RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
+import type { CompletionSummary } from "@/lib/character/completion";
+import { useRouter } from "next/navigation";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
 
 export function RoomClient({
@@ -78,6 +79,14 @@ export function RoomClient({
   // Live overrides pushed by SSE, keyed by userId — one entry per member,
   // holding the rule's primary vital (HP where the rule has one).
   const [characterResources, setCharacterResources] = useState<Map<number, StatusEntry>>(new Map());
+  // Required-field completion per member (own always; everyone's for the
+  // host), seeded by the page and kept live by `character_updated`.
+  const [completions, setCompletions] = useState<Map<number, CompletionSummary>>(
+    () => new Map(Object.entries(initialSnapshot.completions).map(([k, v]) => [Number(k), v])),
+  );
+  // What to reload when someone else writes a sheet — set once the card
+  // viewer below exists; read by the SSE router through the ref.
+  const onCharacterUpdatedRef = useRef<(userId: number, by: number | null) => void>(() => {});
   const [typingBots, setTypingBots] = useState<TypingBots>({});
 
   // Conversation sidebar (width / collapsed / mobile + drag-to-resize).
@@ -127,13 +136,10 @@ export function RoomClient({
   // stay stable.
   const ruleCapabilities = getRuleForRoom(room).capabilities;
 
-  // "Set up your character" nudge on the 角色档案 top-bar icon.
-  const characterHint = useCharacterHint({
-    room,
-    characterData,
-    skillRefreshKey,
-    initialSkillsEmpty: initialSnapshot.skillsEmpty,
-  });
+  // "Set up your character" nudge on the 角色档案 top-bar icon: some field the
+  // room's rule requires is still unset.
+  const ownCompletion = completions.get(userId);
+  const characterHint = !!ownCompletion && ownCompletion.requiredSet < ownCompletion.requiredTotal;
 
   // Events for this viewer: the EventDataContext list, the chat-card unlock
   // set, the top-bar badge and the open detail modal.
@@ -203,6 +209,8 @@ export function RoomClient({
     setEventsRefreshKey,
     setOnlineUserIds,
     setCharacterResources,
+    setCompletions,
+    onCharacterUpdatedRef,
   });
 
   // Light/dark for the room (configured, or following the timeline).
@@ -224,8 +232,22 @@ export function RoomClient({
   const closeMembers = useCallback(() => overlaySetters.members(false), [overlaySetters]);
   const {
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard,
-    handleViewPlayerCard, closeViewingPlayer,
+    viewedCardRefreshKey, handleViewPlayerCard, closeViewingPlayer, reloadViewedCard,
   } = usePlayerCardViewer(room.id, closeMembers);
+
+  // Someone else wrote a sheet: reload what shows it. Our own writes refresh
+  // themselves where they happen (panel save, .st, the skills tab).
+  const router = useRouter();
+  useEffect(() => {
+    onCharacterUpdatedRef.current = (uid, by) => {
+      if (by === userId) return;
+      if (uid === userId) {
+        router.refresh();
+        bumpSkills();
+      }
+      if (uid === viewingPlayerId) reloadViewedCard();
+    };
+  }, [userId, viewingPlayerId, router, bumpSkills, reloadViewedCard]);
 
   // Check requests, the 加骰 / set-skill prompts, host proxy rolls, and the
   // top-bar check dialog/menu.
@@ -378,6 +400,7 @@ export function RoomClient({
         viewingPlayerNickname={viewingPlayerNickname}
         viewingPlayerCharData={viewingPlayerCharData}
         loadingPlayerCard={loadingPlayerCard}
+        viewedCardRefreshKey={viewedCardRefreshKey}
         onCloseViewingPlayer={closeViewingPlayer}
         eventsRefreshKey={eventsRefreshKey}
         onEventsChanged={bumpEvents}

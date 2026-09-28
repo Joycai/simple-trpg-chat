@@ -13,6 +13,7 @@ import { parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
 import { sheetSnapshot } from "@/lib/character/sheet-export";
 import { editFromToolArgs } from "@/lib/character/sheet-ai";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import { clampInt, getRule, getRuleForRoom } from "@/lib/rules";
 import type { ParsedToolArgs } from "@/lib/ai/agent-tool-guard";
 
@@ -579,6 +580,7 @@ async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext)
     }
   }
 
+  await broadcastCharacterUpdate(roomId, botUserId, { sheet: json ? next : undefined, by: botUserId });
   return { success: true };
 }
 

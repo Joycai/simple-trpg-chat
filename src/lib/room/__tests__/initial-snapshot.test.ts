@@ -2,20 +2,25 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 /** Rows each successive `db.select()` resolves to, in call order. */
 let selectQueue: unknown[][] = [];
-function chain(rows: () => unknown) {
+/** Rows for queries on a specific table, taken before the general queue. */
+let byTable = new Map<unknown, unknown[][]>();
+function chain() {
+  let table: unknown;
   const c: Record<string, unknown> = {};
-  for (const m of ["from", "where", "orderBy", "innerJoin", "leftJoin", "groupBy"]) c[m] = () => c;
+  for (const m of ["where", "orderBy", "innerJoin", "leftJoin", "groupBy"]) c[m] = () => c;
+  c.from = (t: unknown) => { table = t; return c; };
   c.then = (resolve: (r: unknown) => unknown, reject: (e: unknown) => unknown) =>
-    Promise.resolve(rows()).then(resolve, reject);
+    Promise.resolve(byTable.get(table)?.shift() ?? selectQueue.shift() ?? []).then(resolve, reject);
   return c;
 }
 vi.mock("@/db", () => ({
-  db: { select: () => chain(() => selectQueue.shift() ?? []) },
+  db: { select: () => chain() },
 }));
 
 import {
-  countUnreadDms, countUnreadEvents, countUnreadInventory, listVisibleEvents, loadMemberSnapshot,
+  countUnreadDms, countUnreadEvents, countUnreadInventory, listVisibleEvents, loadCompletions, loadMemberSnapshot,
 } from "../initial-snapshot";
+import { rooms, roomMembers, roomSkills } from "@/db/schema";
 
 const ev = (id: number, status: "unpublished" | "partial" | "full", updatedAt = `2026-01-0${id}`) => ({
   id, title: `e${id}`, description: "", timePayload: null, imagesJson: null, status, sortOrder: id, updatedAt,
@@ -23,6 +28,7 @@ const ev = (id: number, status: "unpublished" | "partial" | "full", updatedAt = 
 
 beforeEach(() => {
   selectQueue = [];
+  byTable = new Map();
 });
 
 describe("listVisibleEvents", () => {
@@ -67,21 +73,42 @@ describe("unread counts", () => {
   });
 });
 
+describe("loadCompletions", () => {
+  it("grades each member against the room rule, matching skill aliases", async () => {
+    const coc = { schemaVersion: 2, ruleTemplate: "coc7th", attributes: { str: 60 }, resources: {} };
+    byTable.set(rooms, [[{ ruleTemplate: "coc7th" }]]);
+    byTable.set(roomMembers, [[
+      { userId: 2, characterData: JSON.stringify(coc) },
+      { userId: 3, characterData: null },
+      { userId: 4, characterData: JSON.stringify({ ...coc, ruleTemplate: "dnd5e" }) },
+    ]]);
+    byTable.set(roomSkills, [[{ userId: 2, skillName: "信用" }]]);
+    expect(await loadCompletions(5, 1, true)).toEqual({
+      2: { requiredTotal: 10, requiredSet: 2 }, // str + 信用评级 (via 信用)
+      3: { requiredTotal: 10, requiredSet: 0 },
+      4: { requiredTotal: 10, requiredSet: 0 }, // built for another rule
+    });
+  });
+});
+
 describe("loadMemberSnapshot", () => {
   it("bundles the five reads", async () => {
-    // Rows are taken when each query is awaited: the five first queries in
-    // argument order, then the events' visibility lookup, which waits on its
-    // event list.
+    byTable.set(rooms, [[{ ruleTemplate: "basic" }]]);
+    byTable.set(roomMembers, [[{ userId: 2, characterData: null }]]);
+    byTable.set(roomSkills, [[]]);
+    // The remaining queries take rows in the order they are awaited: the four
+    // first queries in argument order, then the events' visibility lookup.
     selectQueue = [
       [{ senderId: 3, count: 1 }],
-      [],
       [ev(1, "full")],
       [{ n: 2 }],
       [{ count: 4 }],
       [],
     ];
     const snap = await loadMemberSnapshot(5, 2, false);
-    expect(snap).toMatchObject({ unreadDms: { 3: 1 }, skillsEmpty: true, unreadEvents: 2, unreadItems: 4 });
+    expect(snap).toMatchObject({
+      unreadDms: { 3: 1 }, completions: { 2: { requiredTotal: 0, requiredSet: 0 } }, unreadEvents: 2, unreadItems: 4,
+    });
     expect(snap.events.map((e) => e.id)).toEqual([1]);
   });
 });

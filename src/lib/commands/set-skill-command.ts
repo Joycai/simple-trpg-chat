@@ -6,6 +6,7 @@ import { applySheetEdit, statEdit, statValue } from "@/lib/character/sheet-model
 import { parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { getRuleForRoom } from "@/lib/rules";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import type { CommandResult, CommandContext } from "./command-types";
 import { visibilityFor, emitCommandMessage } from "./command-message";
 
@@ -109,6 +110,9 @@ export async function handleSetSkill(
       .set({ characterData: json })
       .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
   }
+
+  // Skills and/or the sheet changed: members' lists, badges and open panels follow.
+  await broadcastCharacterUpdate(roomId, userId, { sheet: json ? sheet : undefined, by: userId });
 
   const summary = summaryParts.join(" · ");
   const vis = visibilityFor(ctx, userId, "self");

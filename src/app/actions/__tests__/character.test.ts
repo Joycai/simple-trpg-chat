@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 let session: { user: { id: string; role: string } } | null = null;
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve(session) }));
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn() }));
+vi.mock("@/lib/character/broadcast", () => ({ broadcastCharacterUpdate: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(async (ns: string) => (key: string) => `${ns}.${key}`),
@@ -39,7 +40,7 @@ vi.mock("@/db", () => ({
 import {
   ensureCharacterSheetAction, rebuildCharacterForRoomRuleAction, editCharacterAction, getCharacterDataAction,
 } from "../character";
-import { broadcastToRoom } from "@/lib/server/events";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 
 /** Rows for checkMembership: the member row, then the room row. */
 const member = (room: { frozen: boolean; hostId: number } = { frozen: false, hostId: 1 }) =>
@@ -159,7 +160,7 @@ describe("editCharacterAction", () => {
       attributes: { empathy: 4 },
       resources: { commendations: { current: 4 }, reprimands: { current: 0 } },
     });
-    expect(broadcastToRoom).toHaveBeenCalledWith(5, expect.objectContaining({ type: "character_updated", userId: 3 }));
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { sheet: written, by: 1 });
   });
 
   it("lets the host write in a frozen room", async () => {

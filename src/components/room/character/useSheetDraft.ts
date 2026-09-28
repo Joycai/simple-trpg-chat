@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { editCharacterAction } from "@/app/actions/character";
 import { getRule, DEFAULT_RULE_ID } from "@/lib/rules";
-import { applySheetEdit, resolveSheet } from "@/lib/character/sheet-model";
+import { applySheetEdit, resolveSheet, sheetDiff } from "@/lib/character/sheet-model";
+import { dropPaths, overlappingChanges } from "@/lib/character/draft";
 import { parseSheet } from "@/lib/character/sheet-store";
 import type { CharacterData, CustomAttribute, SheetEdit } from "@/lib/character/types";
 import type { ProfileEdit } from "@/lib/character/sheet-v2";
@@ -52,6 +53,19 @@ export function useSheetDraft({
 
   const [draft, setDraft] = useState<SheetEdit>({});
   const rule = getRule(baseline.ruleTemplate);
+
+  // A newer sheet arrived (someone else wrote it, or our save landed): adopt
+  // it and keep the draft — untouched fields just refresh. Fields both sides
+  // changed are flagged for the user (`conflict`). Tracked during render, the
+  // React pattern for "adjust state when a prop changes".
+  const [seenBaseline, setSeenBaseline] = useState(baseline);
+  const [conflict, setConflict] = useState<string[]>([]);
+  if (seenBaseline !== baseline) {
+    setSeenBaseline(baseline);
+    const mine = applySheetEdit(getRule(seenBaseline.ruleTemplate), seenBaseline, draft).changed;
+    const overlap = overlappingChanges(sheetDiff(seenBaseline, baseline), mine);
+    if (overlap.length > 0) setConflict(overlap);
+  }
   const preview = useMemo(() => applySheetEdit(rule, baseline, draft), [rule, baseline, draft]);
   const resolved = useMemo(() => resolveSheet(rule, preview.sheet), [rule, preview.sheet]);
 
@@ -108,7 +122,13 @@ export function useSheetDraft({
     setResource,
     setProfile,
     setCustomAttributes,
-    discard: () => setDraft({}),
+    discard: () => { setDraft({}); setConflict([]); },
+    /** Paths someone else changed that the draft changes too (empty = none). */
+    conflict,
+    /** Keep the draft's values for the conflicting fields (saving overwrites). */
+    keepMine: () => setConflict([]),
+    /** Drop the draft's values for the conflicting fields. */
+    takeTheirs: () => { setDraft((d) => dropPaths(d, conflict)); setConflict([]); },
     save,
     saveStatus,
   };

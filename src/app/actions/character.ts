@@ -5,14 +5,14 @@ import { roomMembers, rooms } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { broadcastToRoom } from "@/lib/server/events";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import type { CharacterData, SheetEdit } from "@/lib/character/types";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
 import { applySheetEdit, sanitizeSheetEdit } from "@/lib/character/sheet-model";
 import { parseSheet, parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { resolveSheetWriter } from "@/lib/auth/sheet-access";
-import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
+import { getRule, getRuleForRoom } from "@/lib/rules";
 import { getTranslations } from "next-intl/server";
 import type { Fail } from "@/lib/actions/result";
 
@@ -106,6 +106,7 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
   if (!sheet) {
     const data = emptySheet(rule.id);
     await writeSheet(roomId, userId, JSON.stringify(data));
+    await broadcastCharacterUpdate(roomId, userId, { sheet: data, by: userId });
     revalidatePath(`/rooms/${roomId}`);
     return { status: "initialized", data };
   }
@@ -141,6 +142,7 @@ export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise
   const rebuilt = rebuildSheetForRule(prev, rule.id);
 
   await writeSheet(roomId, userId, JSON.stringify(rebuilt));
+  await broadcastCharacterUpdate(roomId, userId, { sheet: rebuilt, by: userId });
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: rebuilt };
 }
@@ -193,13 +195,7 @@ export async function editCharacterAction(
   if (json === null) return fail("errorDataTooLarge");
   await writeSheet(roomId, targetUserId, json);
 
-  // The member list shows whatever the rule calls this character's primary
-  // vital (HP where it exists, else the first resource/custom attribute).
-  broadcastToRoom(roomId, {
-    type: "character_updated",
-    userId: targetUserId,
-    vital: primaryVital(next),
-  });
+  await broadcastCharacterUpdate(roomId, targetUserId, { sheet: next, by: w.callerId });
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: next };

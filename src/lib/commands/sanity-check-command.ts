@@ -5,6 +5,7 @@ import { rollDie } from "@/lib/commands/dice";
 import { parseAndRollExpression } from "@/lib/commands/expression";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { statValue } from "@/lib/character/sheet-model";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import type { CommandResult, CommandContext } from "./command-types";
 import { attachProxy, visibilityFor, emitCommandMessage } from "./command-message";
 import { syncCharacterStat, getCharacterData } from "./character-stat-sync";
@@ -58,6 +59,7 @@ export async function handleSanityCheck(
   // legacy room_skills(理智值) row in sync for backward compatibility.
   const finalNewSan = await syncCharacterStat(roomId, userIdArg, { kind: "resource", key: "san" }, currentSan - clampedDeduct);
   await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
+  await broadcastCharacterUpdate(roomId, userIdArg, { by: userIdArg });
 
   // The insanity warning is now rendered client-side as a separate banner
   // attached to the sanity card (see chat/message/dice/DiceResultDisplay). The `deduction >= 5`

@@ -52,6 +52,8 @@ interface RoomOverlaysProps {
   viewingPlayerNickname: string;
   viewingPlayerCharData: string | null;
   loadingPlayerCard: boolean;
+  /** Bumped when someone else changes the viewed card (reloads its skills). */
+  viewedCardRefreshKey: number;
   onCloseViewingPlayer: () => void;
 
   eventsRefreshKey: number;
@@ -90,7 +92,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     room, userId, isHost, nickname, characterData, readOnly, players,
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
     inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
-    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
+    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, viewedCardRefreshKey, onCloseViewingPlayer,
     eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
     eventDetailId, setEventDetailId,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
@@ -168,6 +170,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           readOnly={true}
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
+          refreshKey={viewedCardRefreshKey}
           avatarColor={memberOf(viewingPlayerId)?.avatarColor}
           avatar={memberOf(viewingPlayerId)?.avatar}
           isGM={isHost}

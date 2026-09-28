@@ -92,7 +92,7 @@ export function CharacterPanel({
   const {
     skills, skillsLoaded, newSkillName, setNewSkillName, newSkillValue, setNewSkillValue,
     addSkill, removeSkill, updateSkill,
-  } = useCharacterSkills({ roomId, readOnly, targetUserId, refreshKey, afterEnter, onSkillsChanged });
+  } = useCharacterSkills({ roomId, targetUserId, refreshKey, afterEnter, onSkillsChanged, onError: setPanelError });
 
   // "No skills yet" nudge on the 技能 tab: only for the owner, only when this
   // rule uses a structured sheet (basic/通用 d100 never hints), and only once

@@ -1,12 +1,15 @@
 import "server-only";
 import { db } from "@/db";
-import { messages, roomDmReads, roomSkills, storyEvents, storyEventVisibility, inventoryDistributions } from "@/db/schema";
+import { messages, roomDmReads, roomMembers, rooms, roomSkills, storyEvents, storyEventVisibility, inventoryDistributions } from "@/db/schema";
 import { eq, and, asc, sql, or, isNull, not, count } from "drizzle-orm";
 import { parseEventImages, type EventView } from "@/lib/room/story-events";
+import type { CompletionSummary } from "@/lib/character/completion";
+import { memberCompletionSummary } from "@/lib/character/member-completion";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
 
 /**
  * The per-viewer reads a room needs for its first paint: unread badges, the
- * event log, and whether the viewer has any skills yet. The matching read
+ * event log, and character-sheet completion. The matching read
  * actions call these after `checkRoomAccess`; the room page calls them all at
  * once through `loadMemberSnapshot`, so the badges arrive with the HTML
  * instead of trickling in after hydration.
@@ -140,9 +143,35 @@ export async function countUnreadInventory(roomId: number, userId: number): Prom
   return (result[0]?.count as number) || 0;
 }
 
+/**
+ * Required-field completion against the room's rule, keyed by member id: the
+ * viewer's own, plus every member's for the host (the member list marks and
+ * the overview badge). Two queries regardless of room size.
+ */
+export async function loadCompletions(roomId: number, userId: number, isHost: boolean): Promise<Record<number, CompletionSummary>> {
+  const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate }).from(rooms).where(eq(rooms.id, roomId));
+  const roomRuleId = room?.ruleTemplate ?? "basic";
+  const memberScope = isHost ? eq(roomMembers.roomId, roomId) : and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId));
+  const skillScope = isHost ? eq(roomSkills.roomId, roomId) : and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId));
+  const [members, skills] = await Promise.all([
+    db.select({ userId: roomMembers.userId, characterData: roomMembers.characterData }).from(roomMembers).where(memberScope),
+    db.select({ userId: roomSkills.userId, skillName: roomSkills.skillName }).from(roomSkills).where(skillScope),
+  ]);
+  const namesByUser = new Map<number, string[]>();
+  for (const s of skills) namesByUser.set(s.userId, [...(namesByUser.get(s.userId) ?? []), s.skillName]);
+  const out: Record<number, CompletionSummary> = {};
+  for (const m of members) {
+    out[m.userId] = memberCompletionSummary(
+      parseSheetOrNull(m.characterData, roomRuleId), namesByUser.get(m.userId) ?? [], roomRuleId,
+    );
+  }
+  return out;
+}
+
 export interface RoomMemberSnapshot {
   unreadDms: Record<number, number>;
-  skillsEmpty: boolean;
+  /** See `loadCompletions`. */
+  completions: Record<number, CompletionSummary>;
   events: EventView[];
   unreadEvents: number;
   unreadItems: number;
@@ -150,12 +179,12 @@ export interface RoomMemberSnapshot {
 
 /** Everything above in one parallel round, for the room page's server render. */
 export async function loadMemberSnapshot(roomId: number, userId: number, isHost: boolean): Promise<RoomMemberSnapshot> {
-  const [unreadDms, skills, events, unreadEvents, unreadItems] = await Promise.all([
+  const [unreadDms, completions, events, unreadEvents, unreadItems] = await Promise.all([
     countUnreadDms(roomId, userId),
-    listMySkills(roomId, userId),
+    loadCompletions(roomId, userId, isHost),
     listVisibleEvents(roomId, userId, isHost),
     countUnreadEvents(roomId, userId, isHost),
     countUnreadInventory(roomId, userId),
   ]);
-  return { unreadDms, skillsEmpty: skills.length === 0, events, unreadEvents, unreadItems };
+  return { unreadDms, completions, events, unreadEvents, unreadItems };
 }
