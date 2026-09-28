@@ -39,6 +39,7 @@ import {
 } from "./sheet";
 import { resolveShStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
+import { legacyAttributes, legacyBase, legacyCurrent, setResource } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -167,6 +168,43 @@ export const shouhunRule: RuleModule = {
   hintKey: "ruleTemplateShouhunHint",
   rcUsageKey: "shRcUsage",
   capabilities,
+  sheet: {
+    // 1..9 is the E..SSS+ grade ladder — the rulebook range, not a guard rail.
+    attributes: SH_ATTRIBUTE_KEYS.map(({ key, labelKey }) => ({
+      key, labelKey, min: 1, max: 9,
+      default: SH_DEFAULT_ATTRIBUTES[key as keyof ShAttributes],
+      required: true, inStatus: true, badge: shGradeLabel,
+    })),
+    resources: [
+      { key: "hp", labelKey: "hp", style: "bar", max: { derived: "hpMax" }, initial: "max", required: false },
+      { key: "mana", labelKey: "shMana", style: "bar", max: { derived: "manaMax" }, initial: "max", required: false },
+    ],
+    derived: [
+      { key: "hpMax", labelKey: "hp", display: "hidden" },
+      { key: "manaMax", labelKey: "shMana", display: "hidden" },
+      { key: "phyStrength", labelKey: "shPhyStrength", display: "sheet", formulaKey: "shPhyStrengthFormula" },
+      { key: "spellStrength", labelKey: "shSpellStrength", display: "both", formulaKey: "shSpellStrengthFormula" },
+      { key: "psychicStrength", labelKey: "shPsychicStrength", display: "sheet", formulaKey: "shPsychicStrengthFormula" },
+      { key: "spiritSense", labelKey: "shSpiritSense", display: "sheet", formulaKey: "shSpiritSenseHint" },
+    ],
+    profile: { roleLevel: false },
+    customAttributes: {},
+  },
+
+  derive(a) {
+    const d = computeShDerived({ ...SH_DEFAULT_ATTRIBUTES, ...a } as ShAttributes);
+    return { ...d };
+  },
+
+  migrateLegacy(legacy) {
+    const out = legacyBase(legacy, "shouhun");
+    out.attributes = legacyAttributes(legacy.shAttributes, { ...SH_DEFAULT_ATTRIBUTES });
+    const d = computeShDerived({ ...SH_DEFAULT_ATTRIBUTES, ...legacy.shAttributes } as ShAttributes);
+    setResource(out, "hp", { current: legacyCurrent(legacy.shSheet?.hp_current, d.hpMax) });
+    setResource(out, "mana", { current: legacyCurrent(legacy.shSheet?.mana_current, d.manaMax) });
+    return out;
+  },
+
 
   initCharacter(): CharacterData {
     const attrs = { ...SH_DEFAULT_ATTRIBUTES };

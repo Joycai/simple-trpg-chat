@@ -934,7 +934,16 @@
     "errorDataTooLarge": "Character data is too large",
     "errorRoomNotFound": "Room not found",
     "errorUnauthorizedResource": "You can't change this character's resources",
-    "errorTargetNotMember": "That user is not a member of this room"
+    "errorTargetNotMember": "That user is not a member of this room",
+    "mov": "Move MOV",
+    "damageBonus": "Damage Bonus DB",
+    "movFormula": "STR / DEX compared with SIZ",
+    "dbFormula": "From STR + SIZ",
+    "shPhyStrength": "Body Strength",
+    "shPsychicStrength": "Psychic Strength",
+    "shPhyStrengthFormula": "⌊Body / 2⌋",
+    "shSpellStrengthFormula": "⌊Wisdom / 2⌋",
+    "shPsychicStrengthFormula": "⌊Soul / 2⌋"
   },
   "notebook": {
     "title": "Notebook",

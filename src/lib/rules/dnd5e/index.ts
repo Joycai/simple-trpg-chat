@@ -22,6 +22,7 @@ import type { CharacterData } from "@/lib/character/types";
 import { D20_DEFAULT_ATTRIBUTES, type D20Attributes, type D20Sheet } from "./sheet";
 import { resolveD20Stat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
+import { legacyAttributes, legacyAttributesTouched, legacyBase, legacyCurrent, setResource } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -133,6 +134,42 @@ export const dnd5eRule: RuleModule = {
   hintKey: "ruleTemplateDnd5eHint",
   rcUsageKey: "d20RcUsage",
   capabilities,
+  sheet: {
+    attributes: D20_ATTRIBUTE_KEYS.map(({ key, labelKey }) => ({
+      key, labelKey, min: 0, max: 30,
+      default: D20_DEFAULT_ATTRIBUTES[key as keyof D20Attributes],
+      // The six abilities are required; proficiency bonus and AC have usable defaults.
+      required: key !== "pb" && key !== "ac",
+      inStatus: key === "ac",
+    })),
+    resources: [
+      { key: "hp", labelKey: "hp", style: "bar", max: { editable: { default: 10, min: 0, max: 999 } }, initial: "max", required: true },
+    ],
+    derived: [],
+    profile: { roleLevel: true },
+    customAttributes: {},
+  },
+
+  derive() {
+    return {};
+  },
+
+  migrateLegacy(legacy) {
+    const out = legacyBase(legacy, "dnd5e");
+    const defaults = { ...D20_DEFAULT_ATTRIBUTES } as Record<string, number>;
+    out.attributes = legacyAttributes(legacy.d20Attributes, defaults);
+    const meta = legacy.d20Sheet ?? {};
+    if (typeof meta.role === "string" && meta.role) out.role = meta.role;
+    if (typeof meta.level === "number") out.level = meta.level;
+    // Every old sheet was seeded with hpMax 10: count it as set only when it
+    // moved off that seed or the player worked the attribute grid.
+    const maxSet = typeof meta.hpMax === "number"
+      && (meta.hpMax !== 10 || legacyAttributesTouched(legacy.d20Attributes, defaults));
+    const max = maxSet ? meta.hpMax : undefined;
+    setResource(out, "hp", { max, current: legacyCurrent(meta.hp_current, meta.hpMax ?? 10) });
+    return out;
+  },
+
 
   initCharacter(): CharacterData {
     return {

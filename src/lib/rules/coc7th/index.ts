@@ -28,6 +28,9 @@ import {
 } from "./sheet";
 import { getSkillAliasCandidates, resolveCocStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
+import type { SheetSchema } from "../sheet-schema";
+import { COC_STANDARD_SKILLS } from "./skills";
+import { legacyAttributes, legacyBase, legacyCurrent, setResource } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -165,11 +168,67 @@ const capabilities: RuleCapabilities = {
   },
 };
 
+/** COC attribute range: the 0–99 percentile scale (same as the AI clamp). */
+const cocAttr = (key: keyof CocAttributes, labelKey: string, extra: { shortLabelKey?: string; inStatus?: boolean } = {}) =>
+  ({ key, labelKey, min: 0, max: 99, default: COC_DEFAULT_ATTRIBUTES[key], required: true, ...extra });
+
+const COC_SHEET: SheetSchema = {
+  attributes: [
+    cocAttr("str", "str"), cocAttr("dex", "dex"), cocAttr("con", "con"),
+    cocAttr("int", "int"), cocAttr("pow", "pow"), cocAttr("edu", "edu"),
+    cocAttr("siz", "siz"), cocAttr("app", "app"),
+    cocAttr("luck", "luckAttr", { shortLabelKey: "luck", inStatus: true }),
+  ],
+  resources: [
+    { key: "hp", labelKey: "hp", style: "bar", max: { derived: "hpMax" }, initial: "max", required: false },
+    // SAN starts at POW; its cap is 99 regardless (Cthulhu Mythos isn't tracked).
+    { key: "san", labelKey: "san", style: "bar", max: { derived: "sanMax" }, initial: { derived: "sanStart" }, required: false },
+    { key: "mp", labelKey: "mp", style: "bar", max: { derived: "mpMax" }, initial: "max", required: false },
+  ],
+  derived: [
+    { key: "hpMax", labelKey: "hp", display: "hidden" },
+    { key: "mpMax", labelKey: "mp", display: "hidden" },
+    { key: "sanMax", labelKey: "san", display: "hidden" },
+    { key: "sanStart", labelKey: "san", display: "hidden" },
+    { key: "mov", labelKey: "mov", display: "sheet", formulaKey: "movFormula" },
+    { key: "db", labelKey: "damageBonus", display: "sheet", format: "text", formulaKey: "dbFormula" },
+    { key: "build", labelKey: "build", display: "sheet", formulaKey: "dbFormula" },
+  ],
+  standardSkills: COC_STANDARD_SKILLS,
+  profile: { roleLevel: false },
+  customAttributes: {},
+};
+
 export const coc7thRule: RuleModule = {
   id: "coc7th",
   labelKey: "ruleTemplateCoc7th",
   hintKey: "ruleTemplateHint",
   capabilities,
+  sheet: COC_SHEET,
+
+  derive(a) {
+    const d = computeCocDerived({ ...COC_DEFAULT_ATTRIBUTES, ...a } as CocAttributes);
+    return {
+      hpMax: d.hpMax, mpMax: d.mpMax, sanMax: d.sanMax, sanStart: d.san,
+      mov: d.mov, db: d.db, build: d.build,
+    };
+  },
+
+  migrateLegacy(legacy) {
+    const out = legacyBase(legacy, "coc7th");
+    out.attributes = legacyAttributes(legacy.cocAttributes, { ...COC_DEFAULT_ATTRIBUTES });
+    const d = computeCocDerived({ ...COC_DEFAULT_ATTRIBUTES, ...legacy.cocAttributes } as CocAttributes);
+    const old = legacy.cocDerived;
+    if (old) {
+      setResource(out, "hp", { current: legacyCurrent(old.hp_current, d.hpMax) });
+      // `.st san` wrote the base `san` field too; older rows may lack san_current.
+      const san = typeof old.san_current === "number" ? old.san_current
+        : typeof old.san === "number" && old.san !== d.san ? old.san : undefined;
+      setResource(out, "san", { current: legacyCurrent(san, d.san) });
+      setResource(out, "mp", { current: legacyCurrent(old.mp_current, d.mpMax) });
+    }
+    return out;
+  },
 
   initCharacter(): CharacterData {
     const attrs = { ...COC_DEFAULT_ATTRIBUTES };

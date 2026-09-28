@@ -23,6 +23,9 @@
  */
 
 import type { CharacterData } from "@/lib/character/types";
+import type { CharacterSheetV2 } from "@/lib/character/sheet-v2";
+import type { LegacySheet } from "@/lib/character/legacy";
+import type { DerivedValues, SheetSchema } from "./sheet-schema";
 
 // ---------------------------------------------------------------------------
 // Check resolution
@@ -474,6 +477,24 @@ export interface RuleModule {
   readonly capabilities: RuleCapabilities;
 
   // ----- Character sheet ----------------------------------------------------
+
+  /**
+   * Declarative sheet: attributes, resources, derived values and standard
+   * skills. The generic functions in `src/lib/character/` read, edit, clamp
+   * and grade completion from this — see `sheet-schema.ts`.
+   */
+  readonly sheet: SheetSchema;
+  /**
+   * Pure: attribute values (defaults filled in) → derived values, including
+   * the hidden ones resource maxes and initial values point at. Rules
+   * without derivations return `{}`.
+   */
+  derive(attributes: Readonly<Record<string, number>>): DerivedValues;
+  /**
+   * Upgrade a pre-v2 sheet built for this rule to the v2 shape. Only the
+   * compatibility reader and the backfill script call it.
+   */
+  migrateLegacy(legacy: LegacySheet): CharacterSheetV2;
 
   /** Fresh sheet for a new player in this rule's rooms. */
   initCharacter(): CharacterData;

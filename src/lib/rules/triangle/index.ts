@@ -18,6 +18,7 @@ import type { CharacterData } from "@/lib/character/types";
 import { TA_DEFAULT_QUALITIES, type TaQualities, type TaSheet } from "./sheet";
 import { resolveTaStat } from "./stats";
 import { clampAttributes, clampInt } from "../patch-utils";
+import { legacyAttributes, legacyBase, legacyCurrent, setResource } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
   AttributeKeySpec,
@@ -71,6 +72,30 @@ export const triangleRule: RuleModule = {
   hintKey: "ruleTemplateTriangleHint",
   rcUsageKey: "taRcNotSupported",
   capabilities,
+  sheet: {
+    attributes: TA_ATTRIBUTE_KEYS.map(({ key, labelKey }) => ({
+      key, labelKey, min: 0, max: 99, default: 0, required: false,
+    })),
+    resources: TA_RESOURCE_BARS.map(({ key, labelKey }) => ({
+      key, labelKey, style: "counter" as const, initial: 0, cap: 999, required: false,
+    })),
+    derived: [],
+    profile: { roleLevel: false },
+    customAttributes: {},
+  },
+
+  derive() {
+    return {};
+  },
+
+  migrateLegacy(legacy) {
+    const out = legacyBase(legacy, "triangle");
+    out.attributes = legacyAttributes(legacy.taQualities, { ...TA_DEFAULT_QUALITIES });
+    setResource(out, "commendations", { current: legacyCurrent(legacy.taSheet?.commendations, 0) });
+    setResource(out, "reprimands", { current: legacyCurrent(legacy.taSheet?.reprimands, 0) });
+    return out;
+  },
+
 
   initCharacter(): CharacterData {
     return {

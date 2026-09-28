@@ -934,7 +934,16 @@
     "errorDataTooLarge": "角色卡数据过大",
     "errorRoomNotFound": "房间不存在",
     "errorUnauthorizedResource": "无权修改该角色的资源值",
-    "errorTargetNotMember": "目标用户不是该房间成员"
+    "errorTargetNotMember": "目标用户不是该房间成员",
+    "mov": "移动力 MOV",
+    "damageBonus": "伤害加值 DB",
+    "movFormula": "比较 力量 / 敏捷 与 体型",
+    "dbFormula": "由 力量 + 体型 决定",
+    "shPhyStrength": "体魄强度",
+    "shPsychicStrength": "灵能力强度",
+    "shPhyStrengthFormula": "⌊体魄 / 2⌋",
+    "shSpellStrengthFormula": "⌊智慧 / 2⌋",
+    "shPsychicStrengthFormula": "⌊心魂 / 2⌋"
   },
   "notebook": {
     "title": "记事本",

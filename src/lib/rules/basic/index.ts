@@ -13,6 +13,7 @@
 
 import { rollDie } from "@/lib/commands/dice";
 import type { CharacterData } from "@/lib/character/types";
+import { legacyBase } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
   CharacterStatus,
@@ -57,6 +58,23 @@ export const basicRule: RuleModule = {
   labelKey: "ruleTemplateBasic",
   hintKey: undefined,
   capabilities,
+  // No preset fields: a basic sheet is profile + custom attributes, and its
+  // status card shows the first two custom attributes.
+  sheet: {
+    attributes: [],
+    resources: [],
+    derived: [],
+    profile: { roleLevel: false },
+    customAttributes: { statusLimit: 2 },
+  },
+
+  derive() {
+    return {};
+  },
+
+  migrateLegacy(legacy) {
+    return legacyBase(legacy, "basic");
+  },
 
   initCharacter(): CharacterData {
     return { ruleTemplate: "basic" };
