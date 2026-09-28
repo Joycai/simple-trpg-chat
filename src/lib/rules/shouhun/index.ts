@@ -164,8 +164,9 @@ export const shouhunRule: RuleModule = {
     const out = legacyBase(legacy, "shouhun");
     out.attributes = legacyAttributes(legacy.shAttributes, { ...SH_DEFAULT_ATTRIBUTES });
     const d = computeShDerived({ ...SH_DEFAULT_ATTRIBUTES, ...legacy.shAttributes } as ShAttributes);
-    setResource(out, "hp", { current: legacyCurrent(legacy.shSheet?.hp_current, d.hpMax) });
-    setResource(out, "mana", { current: legacyCurrent(legacy.shSheet?.mana_current, d.manaMax) });
+    const touched = Object.keys(out.attributes).length > 0;
+    setResource(out, "hp", { current: legacyCurrent(legacy.shSheet?.hp_current, d.hpMax, touched) });
+    setResource(out, "mana", { current: legacyCurrent(legacy.shSheet?.mana_current, d.manaMax, touched) });
     return out;
   },
 

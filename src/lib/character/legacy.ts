@@ -63,12 +63,16 @@ export function legacyAttributesTouched(
 }
 
 /**
- * A legacy resource current worth keeping: a number that differs from what
- * the v2 sheet would read while unset. Equal values are dropped — they read
- * back identically, and dropping them keeps untouched cards "unset".
+ * A legacy resource current worth keeping. Every stored number is kept, as
+ * the old code never moved it again — except on a card whose attribute grid
+ * was never worked (`attrsTouched` false), where a current equal to what the
+ * v2 sheet reads while unset was only the seed: dropping it keeps an untouched
+ * card "unset" (its SAN then starts at POW once POW is set, as a new card's
+ * would).
  */
-export function legacyCurrent(value: unknown, initial: number): number | undefined {
-  return isNum(value) && value !== initial ? value : undefined;
+export function legacyCurrent(value: unknown, initial: number, attrsTouched: boolean): number | undefined {
+  if (!isNum(value)) return undefined;
+  return !attrsTouched && value === initial ? undefined : value;
 }
 
 /** The rule-agnostic part of an upgrade: profile + custom attributes. */

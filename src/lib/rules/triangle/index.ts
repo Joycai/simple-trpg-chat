@@ -68,7 +68,7 @@ export const triangleRule: RuleModule = {
       key, labelKey, min: 0, max: 99, default: 0, required: false,
     })),
     resources: TA_RESOURCE_BARS.map(({ key, labelKey }) => ({
-      key, labelKey, style: "counter" as const, initial: 0, cap: 999, required: false,
+      key, labelKey, style: "counter" as const, initial: 0, cap: 9999, required: false,
     })),
     derived: [],
     profile: { roleLevel: false },
@@ -82,8 +82,9 @@ export const triangleRule: RuleModule = {
   migrateLegacy(legacy) {
     const out = legacyBase(legacy, "triangle");
     out.attributes = legacyAttributes(legacy.taQualities, { ...TA_DEFAULT_QUALITIES });
-    setResource(out, "commendations", { current: legacyCurrent(legacy.taSheet?.commendations, 0) });
-    setResource(out, "reprimands", { current: legacyCurrent(legacy.taSheet?.reprimands, 0) });
+    const touched = Object.keys(out.attributes).length > 0;
+    setResource(out, "commendations", { current: legacyCurrent(legacy.taSheet?.commendations, 0, touched) });
+    setResource(out, "reprimands", { current: legacyCurrent(legacy.taSheet?.reprimands, 0, touched) });
     return out;
   },
 

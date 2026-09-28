@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LegacySheet } from "@/lib/character/legacy";
-import { findResource, resolveSheet } from "@/lib/character/sheet-model";
+import { applySheetEdit, findResource, resolveSheet } from "@/lib/character/sheet-model";
 import { getRule, listRules } from "../registry";
 import fixture from "./fixtures/legacy-sheets.json";
 
@@ -89,14 +89,26 @@ describe("migrateLegacy: what counts as set", () => {
     expect(v2.attributes).toMatchObject({ str: 70, dex: 50 });
   });
 
-  it("keeps a resource current only when it differs from the unset reading", () => {
+  it("keeps every resource current on a worked card, even one equal to its start", () => {
     const v2 = coc.migrateLegacy({
       ruleTemplate: "coc7th",
       cocAttributes: { ...cocDefaults, pow: 60 },
       cocDerived: { ...cocSeed, san: 60, hp_current: 4, san_current: 60 },
     });
     expect(v2.resources.hp).toEqual({ current: 4 });
-    expect(v2.resources.san).toBeUndefined(); // 60 = POW = starting SAN
+    // Kept: the old code never moved a stored SAN when POW changed later.
+    expect(v2.resources.san).toEqual({ current: 60 });
+    const later = applySheetEdit(coc, v2, { attributes: { pow: 40 } }).sheet;
+    expect(findResource(resolveSheet(coc, later), "san")?.current).toBe(60);
+  });
+
+  it("drops only seed currents on an untouched card", () => {
+    const v2 = coc.migrateLegacy({
+      ruleTemplate: "coc7th",
+      cocAttributes: cocDefaults,
+      cocDerived: { ...cocSeed, san_current: 50, hp_current: 7 },
+    });
+    expect(v2.resources).toEqual({ hp: { current: 7 } });
   });
 
   it("reads a COC san written only to the base field", () => {
@@ -110,12 +122,26 @@ describe("migrateLegacy: what counts as set", () => {
     const seed = { ruleTemplate: "dnd5e", d20Attributes: attrs, d20Sheet: { level: 1, hpMax: 10, hp_current: 10 } };
     expect(d20.migrateLegacy(seed).resources.hp).toBeUndefined();
     expect(d20.migrateLegacy({ ...seed, d20Sheet: { hpMax: 24, hp_current: 24 } }).resources.hp).toEqual({ max: 24 });
-    expect(d20.migrateLegacy({ ...seed, d20Attributes: { ...attrs, str: 16 } }).resources.hp).toEqual({ max: 10 });
+    expect(d20.migrateLegacy({ ...seed, d20Attributes: { ...attrs, str: 16 } }).resources.hp).toEqual({ max: 10, current: 10 });
+  });
+
+  it("makes an orphan d20 HP current its own max, as .st hp did", () => {
+    const d20 = getRule("dnd5e");
+    expect(d20.migrateLegacy({ ruleTemplate: "dnd5e", d20Sheet: { hp_current: 25 } }).resources.hp).toEqual({ max: 25 });
   });
 
   it("carries d20 role and level into the profile", () => {
     const d20 = getRule("dnd5e");
     expect(d20.migrateLegacy({ ruleTemplate: "dnd5e", d20Sheet: { role: "法师", level: 3, hpMax: 10, hp_current: 10 } }))
       .toMatchObject({ role: "法师", level: 3 });
+  });
+
+  it("cleans malformed custom attributes on read", () => {
+    const v2 = getRule("basic").migrateLegacy({
+      ruleTemplate: "basic",
+      customAttributes: [{ name: "ok", value: 1 }, { name: "", value: 2 }, { nope: true }] as never,
+    });
+    const normalized = applySheetEdit(getRule("basic"), v2, {}).sheet;
+    expect(normalized.customAttributes).toEqual([{ name: "ok", value: 1 }]);
   });
 });

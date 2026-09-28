@@ -133,12 +133,18 @@ export const dnd5eRule: RuleModule = {
     const meta = legacy.d20Sheet ?? {};
     if (typeof meta.role === "string" && meta.role) out.role = meta.role;
     if (typeof meta.level === "number") out.level = meta.level;
+    const touched = legacyAttributesTouched(legacy.d20Attributes, defaults);
     // Every old sheet was seeded with hpMax 10: count it as set only when it
-    // moved off that seed or the player worked the attribute grid.
-    const maxSet = typeof meta.hpMax === "number"
-      && (meta.hpMax !== 10 || legacyAttributesTouched(legacy.d20Attributes, defaults));
-    const max = maxSet ? meta.hpMax : undefined;
-    setResource(out, "hp", { max, current: legacyCurrent(meta.hp_current, meta.hpMax ?? 10) });
+    // moved off that seed or the player worked the attribute grid. A current
+    // with no max at all (an AI write) made itself the max, as `.st hp` did.
+    const hasMax = typeof meta.hpMax === "number";
+    const orphanCurrent = !hasMax && typeof meta.hp_current === "number";
+    const max = hasMax && (meta.hpMax !== 10 || touched) ? meta.hpMax
+      : orphanCurrent ? meta.hp_current : undefined;
+    setResource(out, "hp", {
+      max,
+      current: orphanCurrent ? undefined : legacyCurrent(meta.hp_current, meta.hpMax ?? 10, touched),
+    });
     return out;
   },
 

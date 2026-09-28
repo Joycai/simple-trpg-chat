@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applySheetEdit, findResource, resolveSheet } from "@/lib/character/sheet-model";
 import { emptySheet, type SheetEdit } from "@/lib/character/sheet-v2";
+import { sheetCompletion } from "@/lib/character/completion";
 import { getRule } from "../registry";
 
 /**
@@ -34,6 +35,16 @@ describe("coc7th sheet", () => {
       { attributes: { con: 90, siz: 90 }, resources: { hp: { current: 18 } } },
       { attributes: { con: 30 } });
     expect(sheet.resources.hp).toEqual({ current: 12 });
+  });
+
+  it("accepts NPC-scale attributes up to 999", () => {
+    expect(edit("coc7th", { attributes: { str: 150, siz: 1200 } }).sheet.attributes).toEqual({ str: 150, siz: 999 });
+  });
+
+  it("matches 信用 to the required 信用评级", () => {
+    const rule = getRule("coc7th");
+    const c = sheetCompletion(rule, emptySheet("coc7th"), ["信用"], rule.skillAliasCandidates);
+    expect(c.fields.find((f) => f.key === "信用评级")?.state).toBe("set");
   });
 
   it("shows damage bonus as text and build as a number", () => {

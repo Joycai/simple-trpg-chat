@@ -265,6 +265,12 @@ export function normalizeSheet(rule: SheetRule, sheet: CharacterSheetV2): Charac
     if (kept.current !== undefined || kept.max !== undefined) resources[f.key] = kept;
   }
   const out: CharacterSheetV2 = { ...sheet, schemaVersion: 2, attributes, resources };
+  // Stored lists predate validation (legacy rows, old AI writes).
+  if (sheet.customAttributes !== undefined) {
+    const list = sanitizeCustomAttributes(sheet.customAttributes);
+    if (list.length > 0) out.customAttributes = list;
+    else delete out.customAttributes;
+  }
   if (!rule.sheet.profile.roleLevel) {
     delete out.role;
     delete out.level;

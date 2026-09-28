@@ -131,9 +131,12 @@ const capabilities: RuleCapabilities = {
   },
 };
 
-/** COC attribute range: the 0–99 percentile scale (same as the AI clamp). */
+/**
+ * COC attribute range: 0–999. Investigators sit on the 0–99 percentile scale,
+ * but NPCs and monsters exceed it (STR 150), and `.st` already accepts 999.
+ */
 const cocAttr = (key: keyof CocAttributes, labelKey: string, extra: { shortLabelKey?: string; inStatus?: boolean } = {}) =>
-  ({ key, labelKey, min: 0, max: 99, default: COC_DEFAULT_ATTRIBUTES[key], required: true, ...extra });
+  ({ key, labelKey, min: 0, max: 999, default: COC_DEFAULT_ATTRIBUTES[key], required: true, ...extra });
 
 const COC_SHEET: SheetSchema = {
   attributes: [
@@ -182,13 +185,14 @@ export const coc7thRule: RuleModule = {
     out.attributes = legacyAttributes(legacy.cocAttributes, { ...COC_DEFAULT_ATTRIBUTES });
     const d = computeCocDerived({ ...COC_DEFAULT_ATTRIBUTES, ...legacy.cocAttributes } as CocAttributes);
     const old = legacy.cocDerived;
+    const touched = Object.keys(out.attributes).length > 0;
     if (old) {
-      setResource(out, "hp", { current: legacyCurrent(old.hp_current, d.hpMax) });
+      setResource(out, "hp", { current: legacyCurrent(old.hp_current, d.hpMax, touched) });
       // `.st san` wrote the base `san` field too; older rows may lack san_current.
       const san = typeof old.san_current === "number" ? old.san_current
         : typeof old.san === "number" && old.san !== d.san ? old.san : undefined;
-      setResource(out, "san", { current: legacyCurrent(san, d.san) });
-      setResource(out, "mp", { current: legacyCurrent(old.mp_current, d.mpMax) });
+      setResource(out, "san", { current: legacyCurrent(san, d.san, touched) });
+      setResource(out, "mp", { current: legacyCurrent(old.mp_current, d.mpMax, touched) });
     }
     return out;
   },
