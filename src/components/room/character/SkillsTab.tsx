@@ -6,6 +6,7 @@ import { Plus, Search, X } from "lucide-react";
 import {
   filterSkillRows, isNewSkillName, skillFilterCounts, type SkillFilter, type SkillRow,
 } from "@/lib/character/skill-list";
+import type { SkillAliasFn } from "@/lib/character/completion";
 import { FieldTag } from "./SheetFieldCell";
 
 export interface SkillItem {
@@ -18,8 +19,10 @@ interface SkillsTabProps {
   /** Standard skills (schema order) then custom ones — see `buildSkillRows`. */
   rows: SkillRow[];
   editable: boolean;
-  /** Set a skill by name (overwrites, same as `.st`). */
-  onSet: (skillName: string, value: number) => void;
+  /** Alternate spellings of a skill name (COC 侦查/侦察) — for search and add. */
+  aliases?: SkillAliasFn;
+  /** Set a skill by name (overwrites, same as `.st`); resolves to whether it saved. */
+  onSet: (skillName: string, value: number) => Promise<boolean>;
   onRemove: (id: number) => void;
 }
 
@@ -31,17 +34,17 @@ const FILTERS: SkillFilter[] = ["all", "set", "unset", "custom"];
  * skills. The search box filters and, for a name that isn't listed, offers to
  * add it.
  */
-export function SkillsTab({ rows, editable, onSet, onRemove }: SkillsTabProps) {
+export function SkillsTab({ rows, editable, aliases, onSet, onRemove }: SkillsTabProps) {
   const t = useTranslations("character");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<SkillFilter>("all");
   const [newValue, setNewValue] = useState(50);
 
   const counts = skillFilterCounts(rows);
-  const visible = filterSkillRows(rows, filter, query);
+  const visible = filterSkillRows(rows, filter, query, aliases);
   const standard = visible.filter((r) => r.kind === "standard");
   const custom = visible.filter((r) => r.kind === "custom");
-  const canAdd = editable && isNewSkillName(rows, query);
+  const canAdd = editable && isNewSkillName(rows, query, aliases);
   const add = () => {
     if (!canAdd) return;
     onSet(query.trim(), newValue);
@@ -72,14 +75,14 @@ export function SkillsTab({ rows, editable, onSet, onRemove }: SkillsTabProps) {
             placeholder={editable ? t("skillSearchPlaceholder") : t("skillsList")} aria-label={t("skillSearchPlaceholder")}
             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm text-text placeholder:text-text-dim" />
           {query && (
-            <button type="button" onClick={() => setQuery("")} aria-label="clear" className="text-text-dim hover:text-text cursor-pointer">
+            <button type="button" onClick={() => setQuery("")} aria-label={t("skillSearchClear")} className="text-text-dim hover:text-text cursor-pointer">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </label>
         {canAdd && (
           <>
-            <input type="number" min={0} max={999} value={newValue} aria-label={t("skillNamePlaceholder")}
+            <input type="number" min={0} max={999} value={newValue} aria-label={t("skillValueLabel")}
               onChange={(e) => setNewValue(Math.max(0, Math.min(999, parseInt(e.target.value) || 0)))}
               className="w-16 h-9 px-2 border border-input-border bg-input-bg rounded-theme text-sm text-text text-center font-theme-mono outline-none focus:ring-[3px] focus:ring-primary/[0.18] focus:border-primary" />
             <button type="button" onClick={add}
@@ -90,7 +93,7 @@ export function SkillsTab({ rows, editable, onSet, onRemove }: SkillsTabProps) {
         )}
       </div>
 
-      <div role="group" aria-label="filter" className="flex gap-1.5 flex-wrap">
+      <div role="group" aria-label={t("skillFilterLabel")} className="flex gap-1.5 flex-wrap">
         {FILTERS.map((f) => (
           <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
             className={`text-xs leading-7 px-3 rounded-full border transition cursor-pointer ${filter === f
@@ -102,7 +105,7 @@ export function SkillsTab({ rows, editable, onSet, onRemove }: SkillsTabProps) {
       </div>
 
       {visible.length === 0 && (
-        <p className="text-xs text-text-dim text-center py-6">{rows.length === 0 ? t("noSkills") : t("skillNoMatch")}</p>
+        <p className="text-xs text-text-dim text-center py-6">{rows.length === 0 ? (editable ? t("noSkills") : t("noSkillsView")) : t("skillNoMatch")}</p>
       )}
 
       {standard.length > 0 && (
@@ -137,7 +140,7 @@ export function SkillsTab({ rows, editable, onSet, onRemove }: SkillsTabProps) {
 function SkillRowView({ row, editable, onSet, onRemove }: {
   row: SkillRow;
   editable: boolean;
-  onSet: (skillName: string, value: number) => void;
+  onSet: (skillName: string, value: number) => Promise<boolean>;
   onRemove: (id: number) => void;
 }) {
   const t = useTranslations("character");
@@ -147,9 +150,14 @@ function SkillRowView({ row, editable, onSet, onRemove }: {
   // The stored row's own name: a standard skill may be filled by an alias
   // spelling, and writes must keep updating that row.
   const storedName = row.stored?.skillName ?? row.name;
-  const commit = (raw: string) => {
-    const v = parseInt(raw);
-    if (Number.isFinite(v) && v >= 0 && v <= 999 && v !== row.stored?.skillValue) onSet(storedName, v);
+  // An invalid value, or a save that failed, snaps the input back to what is
+  // stored — the input is uncontrolled, so it would otherwise keep showing it.
+  const commit = async (input: HTMLInputElement) => {
+    const saved = row.stored?.skillValue;
+    const v = parseInt(input.value);
+    if (v === saved) return;
+    const ok = Number.isFinite(v) && v >= 0 && v <= 999 && await onSet(storedName, v);
+    if (!ok && saved !== undefined) input.value = String(saved);
   };
   return (
     <div data-field={`skill:${row.name}`} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg ${frame}`}>
@@ -163,7 +171,7 @@ function SkillRowView({ row, editable, onSet, onRemove }: {
         <>
           <input key={row.stored.skillValue} type="number" min={0} max={999} defaultValue={row.stored.skillValue}
             disabled={!editable} aria-label={row.name}
-            onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            onBlur={(e) => commit(e.currentTarget)} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             className="w-14 text-right bg-surface-alt border border-input-border rounded-lg px-2 py-1 text-sm font-bold font-theme-mono text-text outline-none focus:ring-[3px] focus:ring-primary/[0.18] disabled:bg-transparent disabled:border-transparent" />
           {editable && (
             <button type="button" onClick={() => onRemove(row.stored!.id)} aria-label={t("removeCustom", { name: row.name })}

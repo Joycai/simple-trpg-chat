@@ -837,7 +837,6 @@
   },
   "character": {
     "title": "角色卡",
-    "titleOther": "角色卡 · {name}",
     "export": "导出",
     "save": "保存",
     "notInitialized": "该玩家尚未初始化角色卡",
@@ -851,7 +850,6 @@
     "saving": "正在保存...",
     "tabAttributes": "属性",
     "tabSkills": "技能",
-    "hintSkillsUnset": "技能尚未设置",
     "tabBackground": "背景",
     "resourceStatus": "资源状态",
     "avatarColor": "头像颜色",
@@ -887,7 +885,7 @@
     "markdownHint": "支持 Markdown",
     "skillsList": "技能列表",
     "skillsHint": "也可用 .st 指令设置",
-    "noSkills": "暂无技能，使用下方表单添加",
+    "noSkills": "暂无技能，在上方输入名称添加",
     "editTooltip": "点击编辑",
     "skillNamePlaceholder": "技能名",
     "bioPlaceholder": "写下你的角色简介...",
@@ -1023,7 +1021,12 @@
     "overviewFooterRule": "列按房间规则的资源声明生成",
     "overviewTooltip": "角色卡总览",
     "overviewIncompleteBadge": "{count} 张未完成",
-    "missingBadge": "{count} 项必填未设置"
+    "missingBadge": "{count} 项必填未设置",
+    "noSkillsView": "暂无技能",
+    "skillSearchClear": "清空搜索",
+    "skillFilterLabel": "技能筛选",
+    "skillValueLabel": "技能数值",
+    "sheetRuleMismatch": "这张卡是按「{rule}」建立的，与房间当前规则不一致；重新进入房间按提示重建后才计入完成度。"
   },
   "notebook": {
     "title": "记事本",

@@ -40,6 +40,21 @@ describe("buildSkillRows", () => {
     expect(filterSkillRows(rows, "all", "梦").map((r) => r.name)).toEqual(["梦境学"]);
   });
 
+  it("finds and refuses alias spellings of a listed skill", () => {
+    expect(isNewSkillName(rows, "侦察", aliases)).toBe(false);
+    const bothWays = (n: string) => (n === "侦查" ? ["侦察"] : n === "侦察" ? ["侦查"] : []);
+    const stored = buildSkillRows(testRule, emptySheet("fixture"), [{ id: 1, skillName: "侦查", skillValue: 60 }], bothWays);
+    expect(isNewSkillName(stored, "侦察", bothWays)).toBe(false);
+    expect(filterSkillRows(stored, "all", "侦察", bothWays).map((r) => r.name)).toEqual(["侦查"]);
+  });
+
+  it("keeps a shadowed alias row visible as a custom row", () => {
+    const both = buildSkillRows(testRule, emptySheet("fixture"),
+      [{ id: 1, skillName: "侦察", skillValue: 50 }, { id: 2, skillName: "侦查", skillValue: 70 }], aliases);
+    expect(both[0].stored?.id).toBe(2);
+    expect(both.filter((r) => r.kind === "custom").map((r) => r.stored?.id)).toEqual([1]);
+  });
+
   it("offers adding only genuinely new names", () => {
     expect(isNewSkillName(rows, "侦察")).toBe(false);
     expect(isNewSkillName(rows, "闪避")).toBe(false);

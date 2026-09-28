@@ -9,22 +9,26 @@ import { missingFields, type Completion, type FieldStatus } from "@/lib/characte
  * plus the unset required fields as chips that jump to the field. Rules with
  * no required field (basic, Triangle) show how many fields are set instead.
  */
-export function SheetCompletionBar({ completion, labelOf, onJump, compact = false }: {
+export function SheetCompletionBar({ completion, labelOf, onJump, compact = false, pending = false }: {
   completion: Completion;
   labelOf: (field: FieldStatus) => string;
   onJump: (field: FieldStatus) => void;
   /** One line (skills tab): count + bar + "查看缺失". */
   compact?: boolean;
+  /** Skills still loading: hold the strip's place without (wrong) numbers. */
+  pending?: boolean;
 }) {
   const t = useTranslations("character");
   const { requiredTotal, requiredSet } = completion;
   const missing = missingFields(completion);
 
-  if (requiredTotal === 0) {
-    const setCount = completion.fields.filter((f) => f.state === "set").length;
+  if (requiredTotal === 0) return null;
+  if (pending) {
     return (
-      <section className="shrink-0 px-6 py-2.5 border-b border-border bg-surface-alt/60 text-xs text-text-muted">
-        {t("completionSetCount", { count: setCount })}
+      <section aria-busy="true" aria-label={t("completionRequired")} className="shrink-0 px-6 py-2.5 border-b border-border bg-surface-alt/60 flex items-center gap-3">
+        <span className="text-[13px] font-semibold">{t("completionRequired")}</span>
+        <span className="font-theme-mono text-[15px] font-bold text-text-dim">– / {requiredTotal}</span>
+        <div className="flex-1 h-1.5 rounded-full bg-bg" />
       </section>
     );
   }

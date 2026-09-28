@@ -9,7 +9,7 @@ import { Icons } from "@/components/shared/icons";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { Notice } from "@/components/shared/Notice";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { useHostLabel } from "@/components/shared/host-label";
+import { useHostLabel, useRuleLabelResolver } from "@/components/shared/host-label";
 import { AttributesTab } from "@/components/room/character/AttributesTab";
 import { SkillsTab } from "@/components/room/character/SkillsTab";
 import { BackgroundTab } from "@/components/room/character/BackgroundTab";
@@ -19,7 +19,7 @@ import { buildCharacterExportText } from "@/lib/character/panel-status";
 import { memberCompletion } from "@/lib/character/member-completion";
 import { buildSkillRows } from "@/lib/character/skill-list";
 import { resolveSheet } from "@/lib/character/sheet-model";
-import type { FieldState, FieldStatus } from "@/lib/character/completion";
+import { sheetCompletion, type FieldState, type FieldStatus } from "@/lib/character/completion";
 import { useSheetDraft } from "./useSheetDraft";
 import { useCharacterSkills } from "./useCharacterSkills";
 import { useMemberProfile } from "./useMemberProfile";
@@ -85,6 +85,7 @@ export function CharacterPanel({
   const t = useTranslations("character");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
+  const ruleLabel = useRuleLabelResolver();
   const mode: "self" | "host" | "view" = targetUserId === undefined ? "self" : isGM ? "host" : "view";
   const editable = mode === "host" || (mode === "self" && !readOnly);
 
@@ -120,15 +121,22 @@ export function CharacterPanel({
   const changed = useMemo(() => new Set(sheet.changed), [sheet.changed]);
 
   // Skills tab: the card owner's skills, reloaded on refreshKey.
-  const { skills, setSkill, removeSkill } =
+  const { skills, skillsLoaded, setSkill, removeSkill } =
     useCharacterSkills({ roomId, targetUserId, refreshKey, afterEnter, onSkillsChanged, onError: setPanelError });
 
   // Completion of the sheet as edited (draft applied) against the room rule.
+  // A sheet still built for another rule (rebuild declined) is graded by its
+  // own rule, so its fields, chips and states agree with what the panel shows;
+  // the completion bar then explains the mismatch instead of counting.
   const roomRuleId = roomRuleTemplate ?? rule.id;
-  const completion = useMemo(
-    () => memberCompletion(resolved.sheet, skills.map((s) => s.skillName), roomRuleId),
-    [resolved.sheet, skills, roomRuleId],
-  );
+  const ruleMismatch = resolved.sheet.ruleTemplate !== roomRuleId;
+  const aliases = useMemo(() => rule.skillAliasCandidates?.bind(rule), [rule]);
+  const completion = useMemo(() => {
+    const names = skills.map((s) => s.skillName);
+    return ruleMismatch
+      ? sheetCompletion(rule, resolved.sheet, names, aliases)
+      : memberCompletion(resolved.sheet, names, roomRuleId);
+  }, [resolved.sheet, skills, roomRuleId, ruleMismatch, rule, aliases]);
   const stateByField = useMemo(() => {
     const m = new Map<string, FieldState>();
     for (const f of completion.fields) m.set(`${f.kind}:${f.key}`, f.state);
@@ -136,14 +144,18 @@ export function CharacterPanel({
   }, [completion]);
   const stateOf = (key: string): FieldState => stateByField.get(key) ?? "default";
   const skillRows = useMemo(
-    () => buildSkillRows(rule, resolved.sheet, skills, rule.skillAliasCandidates?.bind(rule)),
-    [rule, resolved.sheet, skills],
+    () => buildSkillRows(rule, resolved.sheet, skills, aliases),
+    [rule, resolved.sheet, skills, aliases],
   );
   const missingIn = (kinds: FieldStatus["kind"][]) =>
     completion.fields.filter((f) => f.state === "missing" && kinds.includes(f.kind)).length;
   // Shown from the first frame (skills fill in when they load) so the tab bar
   // doesn't shift down under the user's pointer.
-  const showCompletion = mode !== "view" && completion.requiredTotal + completion.fields.length > 0;
+  // Only where the user can act on it, and only for rules with required
+  // fields (basic / Triangle have none to count). Until the skills load the
+  // bar keeps its place without numbers, so it neither jumps nor misreports.
+  const showCompletion = editable && completion.requiredTotal > 0;
+  const completionPending = !skillsLoaded && (rule.sheet.standardSkills?.length ?? 0) > 0;
 
   const labelOf = (f: FieldStatus) => {
     if (f.kind === "attribute") {
@@ -158,12 +170,18 @@ export function CharacterPanel({
   };
   // Completion chip → the field: switch tab, then scroll to it and focus it
   // once the pane has mounted.
+  const [skillsTabKey, setSkillsTabKey] = useState(0);
   const jumpTo = (f: FieldStatus) => {
+    // A skills-tab filter or search could hide the target row: remount the
+    // tab (it holds them locally) so every row is listed.
+    if (f.kind === "skill") setSkillsTabKey((k) => k + 1);
     setActiveTab(f.kind === "skill" ? "skills" : "attributes");
     setTimeout(() => {
-      const el = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(`${f.kind}:${f.key}`)}"]`);
+      // Scoped to this drawer — a second one (own card + a member's) may be open.
+      const el = scrollRef.current?.querySelector<HTMLElement>(`[data-field="${CSS.escape(`${f.kind}:${f.key}`)}"]`);
       el?.scrollIntoView({ block: "center", behavior: "smooth" });
-      el?.querySelector<HTMLElement>("input, button")?.focus({ preventScroll: true });
+      (el?.querySelector<HTMLElement>("input:not([disabled])") ?? el?.querySelector<HTMLElement>("button:not([disabled])"))
+        ?.focus({ preventScroll: true });
     }, 260);
   };
 
@@ -220,7 +238,7 @@ export function CharacterPanel({
   }
 
   // Only a read-only view needs a stored sheet; a host can fill in an empty one.
-  if (mode === "view" && !hasExistingData) {
+  if ((mode === "view" || (mode === "self" && readOnly)) && !hasExistingData) {
     return drawerShell(
       <div className="flex-1 text-center py-16 text-text-muted flex flex-col items-center justify-center">
         <Icons.User className="w-10 h-10 mb-3 opacity-40" />
@@ -244,7 +262,7 @@ export function CharacterPanel({
               <input value={nickname} onChange={e => setNickname(e.target.value)}
                 maxLength={NICKNAME_MAX_LENGTH}
                 onBlur={saveNickname}
-                onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { e.stopPropagation(); setNickname(currentNickname); setEditingNick(false); } }}
+                onKeyDown={e => { if (e.key === "Enter") saveNickname(); if (e.key === "Escape") { e.preventDefault(); setNickname(currentNickname); setEditingNick(false); } }}
                 autoFocus
                 className="flex-1 min-w-0 text-lg font-bold text-text bg-input-bg border border-input-border rounded px-2 py-0.5 outline-none focus:ring-[3px] focus:ring-primary/[0.18]" />
             </div>
@@ -279,20 +297,26 @@ export function CharacterPanel({
         {sheet.conflict.length > 0 && (
           <div className={mode === "host" ? "" : "pt-3"}>
             <SheetConflictNotice
-              fields={sheet.conflict.map((p) => {
+              fields={[...new Set(sheet.conflict.map((p) => {
                 const [group, key] = p.split(".");
                 if (group === "attributes") return labelOf({ kind: "attribute", key, state: "set", required: false });
                 if (group === "resources") return labelOf({ kind: "resource", key, state: "set", required: false });
                 return group === "profile" ? t(key === "bio" ? "backgroundStory" : key) : t("customAttributes");
-              })}
+              }))]}
               onTakeTheirs={sheet.takeTheirs}
               onKeepMine={sheet.keepMine}
             />
           </div>
         )}
 
-        {showCompletion && (
-          <SheetCompletionBar completion={completion} labelOf={labelOf} onJump={jumpTo} compact={activeTab === "skills"} />
+        {editable && ruleMismatch && (
+          <div className="shrink-0 px-6 py-2.5 border-b border-border bg-surface-alt/60 text-xs text-warning">
+            {t("sheetRuleMismatch", { rule: ruleLabel(resolved.sheet.ruleTemplate) })}
+          </div>
+        )}
+        {showCompletion && !ruleMismatch && (
+          <SheetCompletionBar completion={completion} labelOf={labelOf} onJump={jumpTo}
+            compact={activeTab === "skills"} pending={completionPending} />
         )}
 
         {/* Tab Bar — underline; red count = required fields missing on that tab */}
@@ -304,7 +328,7 @@ export function CharacterPanel({
                 activeTab === tab.id ? "text-primary" : "text-text-muted hover:text-text"
               }`}>
               {tab.label}
-              {showCompletion && tab.missing > 0 && (
+              {showCompletion && !completionPending && tab.missing > 0 && (
                 <span className="ml-1 font-theme-mono text-[11px] text-danger">{tab.missing}</span>
               )}
               {activeTab === tab.id && (
@@ -338,7 +362,7 @@ export function CharacterPanel({
           )}
 
           {activeTab === "skills" && (
-            <SkillsTab rows={skillRows} editable={editable} onSet={setSkill} onRemove={removeSkill} />
+            <SkillsTab key={skillsTabKey} rows={skillRows} editable={editable} aliases={aliases} onSet={setSkill} onRemove={removeSkill} />
           )}
 
           {activeTab === "background" && (

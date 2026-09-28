@@ -59,8 +59,12 @@ export function buildSkillRows(
       group: s.group,
     };
   });
+  // Unmatched rows are custom skills. A row shadowed by another row filling
+  // the same standard skill (both 侦查 and 侦察 stored) is listed with them
+  // too, so it stays visible and deletable.
+  const shown = new Set([...byStandard.values()].map((s) => s.id));
   const custom = skills
-    .filter((s) => !matches.get(s.skillName))
+    .filter((s) => !matches.get(s.skillName) || !shown.has(s.id))
     .sort((a, b) => a.skillName.localeCompare(b.skillName, "zh") || a.id - b.id);
   for (const s of custom) {
     rows.push({ name: s.skillName, kind: "custom", required: false, state: "custom", stored: s });
@@ -77,9 +81,17 @@ export function matchesFilter(row: SkillRow, filter: SkillFilter): boolean {
   }
 }
 
-export function filterSkillRows(rows: ReadonlyArray<SkillRow>, filter: SkillFilter, query: string): SkillRow[] {
+/** Rows matching a filter and a search; an alias spelling finds its row (侦察 → 侦查). */
+export function filterSkillRows(
+  rows: ReadonlyArray<SkillRow>,
+  filter: SkillFilter,
+  query: string,
+  aliases?: SkillAliasFn,
+): SkillRow[] {
   const q = query.trim().toLowerCase();
-  return rows.filter((r) => matchesFilter(r, filter) && (!q || r.name.toLowerCase().includes(q)));
+  const alt = q && aliases ? aliases(query.trim()) : [];
+  return rows.filter((r) => matchesFilter(r, filter)
+    && (!q || r.name.toLowerCase().includes(q) || r.stored?.skillName.toLowerCase().includes(q) || alt.includes(r.name)));
 }
 
 export function skillFilterCounts(rows: ReadonlyArray<SkillRow>): Record<SkillFilter, number> {
@@ -91,8 +103,14 @@ export function skillFilterCounts(rows: ReadonlyArray<SkillRow>): Record<SkillFi
   };
 }
 
-/** Whether a typed name is new (no row of that name), i.e. worth offering "add". */
-export function isNewSkillName(rows: ReadonlyArray<SkillRow>, name: string): boolean {
+/**
+ * Whether a typed name is new, i.e. worth offering "add": no row has that
+ * name, and it isn't an alias spelling of a listed skill — adding 侦察 next
+ * to 侦查 would store a second row the check could silently pick up.
+ */
+export function isNewSkillName(rows: ReadonlyArray<SkillRow>, name: string, aliases?: SkillAliasFn): boolean {
   const n = name.trim();
-  return !!n && !rows.some((r) => r.name === n || r.stored?.skillName === n);
+  if (!n) return false;
+  const spellings = new Set([n, ...(aliases ? aliases(n) : [])]);
+  return !rows.some((r) => spellings.has(r.name) || (r.stored && spellings.has(r.stored.skillName)));
 }

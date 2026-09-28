@@ -58,9 +58,8 @@ export function useCharacterSkills({
   };
 
   // Add or overwrite by (room, user, name), same as .st.
-  const setSkill = async (skillName: string, value: number) => {
-    await afterWrite(upsertSkillAction(roomId, skillName, value, targetUserId));
-  };
+  const setSkill = (skillName: string, value: number) =>
+    afterWrite(upsertSkillAction(roomId, skillName, value, targetUserId));
 
   const removeSkill = async (skillId: number) => {
     await afterWrite(deleteSkillAction(roomId, skillId, targetUserId));
