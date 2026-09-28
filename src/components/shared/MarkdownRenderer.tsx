@@ -139,9 +139,13 @@ function ListView({ list, depth, mentions }: { list: ListBlock; depth: number; m
     "pl-5 space-y-1",
     depth > 0 ? "my-0.5" : "my-1.5",
   ].filter(Boolean).join(" ");
+  // `pl-5` fits a two-digit number; widen for longer ones (`2024.`), which
+  // would otherwise hang outside a chat bubble.
+  const digits = list.ordered ? String((list.start ?? 1) + list.items.length - 1).length : 0;
+  const style = digits > 2 ? { paddingInlineStart: `calc(${digits}ch + 1em)` } : undefined;
 
   return (
-    <Tag className={className} start={list.ordered && list.start !== 1 ? list.start : undefined}>
+    <Tag className={className} style={style} start={list.ordered && list.start !== 1 ? list.start : undefined}>
       {list.items.map((item) => (
         <li key={item.line} className="text-sm leading-relaxed">
           <InlineRenderer text={item.text} mentions={mentions} />

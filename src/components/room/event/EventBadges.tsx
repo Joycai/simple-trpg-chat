@@ -20,7 +20,7 @@ import type { EventStatus } from "@/lib/room/story-events";
 const PREVIEW_MD = [
   "[&_p]:!my-0 [&_p]:!leading-6",
   "[&_.md-heading]:!my-0 [&_.md-heading]:!text-sm [&_.md-heading]:!leading-6",
-  "[&_ul]:!my-0 [&_ol]:!my-0 [&_.md-list]:!pl-4 [&_.md-list]:!space-y-0 [&_li]:!leading-6",
+  "[&_ul]:!my-0 [&_ol]:!my-0 [&_ul.md-list]:!pl-4 [&_.md-list]:!space-y-0 [&_li]:!leading-6",
   "[&_blockquote]:!my-0 [&_blockquote]:!py-0 [&_blockquote]:!leading-6",
   "[&_pre]:!my-0",
   "[&_.h-2]:!hidden",
