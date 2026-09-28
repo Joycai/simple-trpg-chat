@@ -101,10 +101,12 @@ export interface ListLine {
 
 /**
  * A bullet (`-` / `*`) or ordered (`1.` / `1)`) marker followed by at least one
- * blank — the same markers the shared Markdown renderer recognizes. The blank is
- * what keeps `---`, `**bold**` and `1.5` from counting as list items.
+ * blank — kept in step with `LIST_LINE` in `lib/format/markdown-blocks.ts`, so
+ * the editor treats as a list item exactly what the renderer draws as one. The
+ * blank may be any non-newline whitespace (a full-width space from a CJK IME
+ * included); it is what keeps `---`, `**bold**` and `1.5` from counting.
  */
-const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])([ \t]+)(.*)$/;
+const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])([^\S\n]+)([^\n]*)$/;
 
 /** Parse a single line (no `\n`) as a list item, or `null` when it is not one. */
 export function parseListLine(line: string): ListLine | null {
@@ -214,7 +216,7 @@ export function applyListEnterEdit(value: string, start: number, end: number): T
   }
 
   const before = line.slice(0, col);
-  const after = line.slice(col).replace(/^[ \t]+/, "");
+  const after = line.slice(col).replace(/^[^\S\n]+/, "");
   const inserted = `\n${item.indent}${nextListMarker(item.marker)}${item.gap}`;
   const caret = lineStart + before.length + inserted.length;
   return {

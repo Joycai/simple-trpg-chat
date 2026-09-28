@@ -129,6 +129,11 @@ describe("parseListLine", () => {
     expect(parseListLine("3)  y")).toEqual({ indent: "", marker: "3)", gap: "  ", body: "y" });
   });
 
+  it("accepts a full-width space after the marker, as the renderer does", () => {
+    expect(parseListLine("-\u3000线索")).toEqual({ indent: "", marker: "-", gap: "\u3000", body: "线索" });
+    expect(marked(applyListEnterEdit(...at("1.\u3000线索[]"))!)).toBe("1.\u3000线索\n2.\u3000[]");
+  });
+
   it("accepts an item with no body yet", () => {
     expect(parseListLine("- ")).toEqual({ indent: "", marker: "-", gap: " ", body: "" });
     expect(parseListLine("  2. ")?.body).toBe("");
