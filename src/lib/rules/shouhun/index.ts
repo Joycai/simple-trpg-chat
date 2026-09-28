@@ -28,41 +28,29 @@
  */
 
 import { rollDie } from "@/lib/commands/dice";
-import type { CharacterData } from "@/lib/character/types";
 import {
   SH_DEFAULT_ATTRIBUTES,
-  clampShAttr,
   computeShDerived,
   shGradeLabel,
   type ShAttributes,
-  type ShSheet,
 } from "./sheet";
 import { resolveShStat } from "./stats";
-import { clampAttributes, clampInt } from "../patch-utils";
+import { clampInt } from "../patch-utils";
 import { legacyAttributes, legacyBase, legacyCurrent, setResource } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
-  AttributeKeySpec,
-  CharacterStatus,
   CheckRequest,
   CheckResult,
-  ResourceBarSpec,
-  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
   VisualGrade,
 } from "../types";
 
-const SH_ATTRIBUTE_KEYS: ReadonlyArray<AttributeKeySpec> = [
+const SH_ATTRIBUTE_KEYS: ReadonlyArray<{ key: string; labelKey: string }> = [
   { key: "phy", labelKey: "shPhy" },
   { key: "wis", labelKey: "shWis" },
   { key: "soul", labelKey: "shSoul" },
-];
-
-const SH_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
-  { key: "hp", labelKey: "hp" },
-  { key: "mana", labelKey: "shMana" },
 ];
 
 // Rulebook bounds: 加骰 comes from skills/attributes (values stay small, but
@@ -105,24 +93,13 @@ const capabilities: RuleCapabilities = {
   playerLabelKey: "soulHunter",
   hasSanity: false,
   hasPsychologyRoll: false,
-  hasManaPoints: false,
   checkMenuModes: ["check"],
   // No `.sc` — 狩魂者 has no sanity mechanic.
   supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
   helpEntryIds: ["st", "rcSh", "rQuickSh", "rch", "rdr", "rh", "help"],
-  resourceBars: SH_RESOURCE_BARS,
-  attributeKeys: SH_ATTRIBUTE_KEYS,
-  // 术法强度 (= ⌊智慧/2⌋) is surfaced as a read-only derived card in the
-  // character sheet; the value comes from `computeShDerived`, never storage.
-  derivedStats: [{ key: "spellStrength", labelKey: "shSpellStrength" }],
-  // Only 3 attributes, so all of them fit the chat avatar hover card.
-  statusAttributeKeys: SH_ATTRIBUTE_KEYS,
   defaultRollExpression: "1d20",
   // x/y are player-typed, so a check never needs a stored room_skills value.
   requiresStoredTarget: false,
-  hasRoleLevel: false,
-  // HP/mana currents live on shSheet and are host-adjustable via action.
-  resourceCurrentsViaAction: true,
   // Three chips that teach the rule's own syntax at a glance:
   // named check / named check with 时髦骰 / nameless `.r` shorthand.
   quickRolls: [".rc 侦查+2 10", ".rc 侦查+2+1 12", ".r+2+1 12"],
@@ -148,19 +125,6 @@ const capabilities: RuleCapabilities = {
   },
 };
 
-/** Re-clamp stored current resource values to the maxes derived from attrs. */
-function clampSheetToDerived(attrs: ShAttributes, sheet: ShSheet | undefined): ShSheet | undefined {
-  if (!sheet) return sheet;
-  const derived = computeShDerived(attrs);
-  const out: ShSheet = { ...sheet };
-  if (typeof out.hp_current === "number") {
-    out.hp_current = Math.min(Math.max(0, out.hp_current), derived.hpMax);
-  }
-  if (typeof out.mana_current === "number") {
-    out.mana_current = Math.min(Math.max(0, out.mana_current), derived.manaMax);
-  }
-  return out;
-}
 
 export const shouhunRule: RuleModule = {
   id: "shouhun",
@@ -205,97 +169,6 @@ export const shouhunRule: RuleModule = {
     return out;
   },
 
-
-  initCharacter(): CharacterData {
-    const attrs = { ...SH_DEFAULT_ATTRIBUTES };
-    const derived = computeShDerived(attrs);
-    return {
-      ruleTemplate: "shouhun",
-      shAttributes: attrs,
-      shSheet: { hp_current: derived.hpMax, mana_current: derived.manaMax },
-    };
-  },
-
-  computeDerived(sheet: CharacterData): CharacterData {
-    if (sheet.ruleTemplate !== "shouhun" || !sheet.shAttributes) return sheet;
-    // Normalize attributes into the legal 1..9 range, then re-clamp the
-    // player-set current values to the maxes those attributes derive.
-    const attrs: ShAttributes = {
-      phy: clampShAttr(sheet.shAttributes.phy),
-      wis: clampShAttr(sheet.shAttributes.wis),
-      soul: clampShAttr(sheet.shAttributes.soul),
-    };
-    return {
-      ...sheet,
-      shAttributes: attrs,
-      shSheet: clampSheetToDerived(attrs, sheet.shSheet),
-    };
-  },
-
-  readStatus(sheet: CharacterData): CharacterStatus {
-    const attrs = sheet.shAttributes;
-    if (!attrs) return { resources: {} };
-    // Maxes and 术法强度 are never persisted — derive them on read.
-    const derived = computeShDerived(attrs);
-    return {
-      resources: {
-        hp:   { current: sheet.shSheet?.hp_current   ?? derived.hpMax,   max: derived.hpMax   },
-        mana: { current: sheet.shSheet?.mana_current ?? derived.manaMax, max: derived.manaMax },
-      },
-      // spellStrength drives the derived-stat card; spiritSense is surfaced for
-      // the character panel's footer (not a `derivedStats` grid entry).
-      derived: { spellStrength: derived.spellStrength, spiritSense: derived.spiritSense },
-      attributes: { phy: attrs.phy, wis: attrs.wis, soul: attrs.soul },
-      attributeGrades: {
-        phy: shGradeLabel(attrs.phy),
-        wis: shGradeLabel(attrs.wis),
-        soul: shGradeLabel(attrs.soul),
-      },
-    };
-  },
-
-  readAttributes(sheet: CharacterData): Record<string, number> {
-    return { ...(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
-  },
-
-  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
-    const attrs = { ...(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
-    for (const { key } of SH_ATTRIBUTE_KEYS) {
-      if (typeof values[key] === "number") attrs[key as keyof ShAttributes] = values[key];
-    }
-    return { ...sheet, shAttributes: attrs };
-  },
-
-  /**
-   * Accepts `shAttributes` + `shSheet`, the two fields `describeForAI`
-   * declares. Attributes are strictly 1–9 (the E..SSS+ grade ladder has no
-   * rungs outside that), so the clamp here is the rulebook, not a guard rail.
-   * Currents are clamped against maxes derived from the *patched* attributes —
-   * raising 体魄 and healing to the new max in one tool call has to work.
-   */
-  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData {
-    const out = { ...sheet };
-
-    const attrs = clampAttributes(patch.shAttributes, SH_ATTRIBUTE_KEYS, 1, 9, 3);
-    if (attrs) {
-      out.shAttributes = { ...(out.shAttributes ?? SH_DEFAULT_ATTRIBUTES), ...attrs } as ShAttributes;
-    }
-
-    if (patch.shSheet && typeof patch.shSheet === "object") {
-      const incoming = patch.shSheet as Record<string, unknown>;
-      const derived = computeShDerived(out.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
-      const meta: ShSheet = { ...(out.shSheet ?? {}) };
-      if (incoming.hp_current !== undefined) {
-        meta.hp_current = clampInt(incoming.hp_current, 0, derived.hpMax, derived.hpMax);
-      }
-      if (incoming.mana_current !== undefined) {
-        meta.mana_current = clampInt(incoming.mana_current, 0, derived.manaMax, derived.manaMax);
-      }
-      out.shSheet = meta;
-    }
-
-    return out;
-  },
 
   routeStat(name: string): StatRoute {
     const r = resolveShStat(name);
@@ -416,45 +289,6 @@ export const shouhunRule: RuleModule = {
     return { command: `.r${group || "+0"}${dcPart}`, preview };
   },
 
-  applyStatWrite(sheet, route, value) {
-    const data = { ...sheet };
-
-    if (route.kind === "attribute") {
-      const key = route.key as keyof ShAttributes;
-      const attrs: ShAttributes = { ...(data.shAttributes ?? SH_DEFAULT_ATTRIBUTES) };
-      const finalValue = clampShAttr(value);
-      attrs[key] = finalValue;
-      data.shAttributes = attrs;
-      // Derived maxes moved — re-clamp any player-set current values.
-      data.shSheet = clampSheetToDerived(attrs, data.shSheet);
-      return { sheet: data, finalValue };
-    }
-
-    // resource — clamp to the max derived from the current attributes.
-    const attrs = data.shAttributes ?? SH_DEFAULT_ATTRIBUTES;
-    const derived = computeShDerived(attrs);
-    const max = route.key === "hp" ? derived.hpMax : derived.manaMax;
-    const finalValue = Math.min(Math.max(0, value), max);
-    const meta: ShSheet = { ...(data.shSheet ?? {}) };
-    meta[`${route.key}_current` as keyof ShSheet] = finalValue;
-    data.shSheet = meta;
-    return { sheet: data, finalValue };
-  },
-
-  // Batch resource edit — only currents persist; maxes derive from attributes.
-  // Moved verbatim out of updateResourcesAction's shouhun branch.
-  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
-    const derived = computeShDerived(sheet.shAttributes ?? SH_DEFAULT_ATTRIBUTES);
-    const meta: ShSheet = { ...(sheet.shSheet ?? {}) };
-    if (patch.hp_current !== undefined) {
-      meta.hp_current = Math.max(0, Math.min(patch.hp_current, derived.hpMax));
-    }
-    if (patch.mana_current !== undefined) {
-      meta.mana_current = Math.max(0, Math.min(patch.mana_current, derived.manaMax));
-    }
-    return { ...sheet, shSheet: meta };
-  },
-
   resolveCheck(req: CheckRequest): CheckResult {
     const dc = req.explicitTarget ?? 10;
     const modifier = req.modifierValue ?? 0;
@@ -533,31 +367,6 @@ export const shouhunRule: RuleModule = {
     };
   },
 
-  exportSnapshot(sheet: CharacterData): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    const attrs = sheet.shAttributes;
-    if (attrs) {
-      const derived = computeShDerived(attrs);
-      out.attributes = attrs;
-      out.grades = {
-        phy: shGradeLabel(attrs.phy),
-        wis: shGradeLabel(attrs.wis),
-        soul: shGradeLabel(attrs.soul),
-      };
-      out.strengths = {
-        phyStrength: derived.phyStrength,
-        spellStrength: derived.spellStrength,
-        psychicStrength: derived.psychicStrength,
-      };
-      out.spiritSense = derived.spiritSense;
-      out.hp = sheet.shSheet?.hp_current ?? derived.hpMax;
-      out.hpMax = derived.hpMax;
-      out.mana = sheet.shSheet?.mana_current ?? derived.manaMax;
-      out.manaMax = derived.manaMax;
-    }
-    return out;
-  },
-
   describeForAI(): AiRuleHints {
     return {
       rulesPrompt:
@@ -569,27 +378,6 @@ export const shouhunRule: RuleModule = {
         "y (-3..+3) is announced by the host. Characters have 3 attributes 体魄/智慧/心魂, each 1-9 " +
         "(grades E to SSS+); strength tier = floor(attr / 2); HP = 5 + 体魄强度; " +
         "灵力 (mana) = 5 + 智慧×2 + 心魂; 灵识 (spirit sense) = attribute sum, initial 9).",
-      sheetToolSchemaFields: {
-        shAttributes: {
-          type: "object",
-          description:
-            "狩魂者 attributes (only when ruleTemplate is 'shouhun'). " +
-            "3 keys, each an integer 1-9: phy (体魄), wis (智慧), soul (心魂). " +
-            "HP/mana maxes are derived automatically.",
-          properties: {
-            phy: { type: "integer", description: "体魄 (1-9)" },
-            wis: { type: "integer", description: "智慧 (1-9)" },
-            soul: { type: "integer", description: "心魂 (1-9)" },
-          },
-        },
-        shSheet: {
-          type: "object",
-          description:
-            "狩魂者 current resources (only when ruleTemplate is 'shouhun'). " +
-            "Fields: hp_current (number, clamped to 5+体魄强度), " +
-            "mana_current (number, clamped to 5+智慧×2+心魂).",
-        },
-      },
     };
   },
 };

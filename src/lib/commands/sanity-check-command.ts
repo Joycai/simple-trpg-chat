@@ -3,7 +3,8 @@ import { roomSkills, rooms } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { rollDie } from "@/lib/commands/dice";
 import { parseAndRollExpression } from "@/lib/commands/expression";
-import { getRuleForRoom } from "@/lib/rules";
+import { getRule, getRuleForRoom } from "@/lib/rules";
+import { statValue } from "@/lib/character/sheet-model";
 import type { CommandResult, CommandContext } from "./command-types";
 import { attachProxy, visibilityFor, emitCommandMessage } from "./command-message";
 import { syncCharacterStat, getCharacterData } from "./character-stat-sync";
@@ -111,10 +112,10 @@ async function readCurrentSanity(roomId: number, userId: number): Promise<number
   const data = await getCharacterData(roomId, userId);
   if (data) {
     // Sanity is a rule capability, not a COC hardcode: any rule that declares
-    // `hasSanity` exposes it through readStatus().resources.san.
-    const rule = getRuleForRoom(data);
+    // `hasSanity` has a `san` resource in its sheet schema.
+    const rule = getRule(data.ruleTemplate);
     if (rule.capabilities.hasSanity) {
-      const cur = rule.readStatus(data).resources.san?.current;
+      const cur = statValue(rule, data, { kind: "resource", key: "san" });
       if (typeof cur === "number") return cur;
     }
   }

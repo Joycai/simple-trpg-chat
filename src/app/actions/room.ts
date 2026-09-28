@@ -1,5 +1,6 @@
 "use server";
 
+import { emptySheet } from "@/lib/character/sheet-v2";
 import { db } from "@/db";
 import { rooms, roomMembers, users, THEMES, THEME_MODES, RULE_TEMPLATES, type Theme, type RuleTemplate } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -62,7 +63,7 @@ export async function createRoomAction(formData: FormData) {
       userId: parseInt(session.user.id),
       nickname: session.user.name || "Host",
       avatarColor: getRandomColorForUser(parseInt(session.user.id)),
-      characterData: JSON.stringify(getRule(ruleTemplate).initCharacter()),
+      characterData: JSON.stringify(emptySheet(getRule(ruleTemplate).id)),
     });
 
     revalidatePath("/");
@@ -103,7 +104,7 @@ export async function joinRoomAction(formData: FormData) {
         avatarColor: getRandomColorForUser(userId),
         // Seed the sheet for the room's rule up front, so the player never
         // lands on an empty card (and .st writes have something to land on).
-        characterData: JSON.stringify(getRuleForRoom(room).initCharacter()),
+        characterData: JSON.stringify(emptySheet(getRuleForRoom(room).id)),
       });
     }
 

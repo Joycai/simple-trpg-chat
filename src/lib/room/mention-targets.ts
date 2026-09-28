@@ -1,5 +1,6 @@
 import { getBotStatus } from "@/lib/ai/bot-status";
 import { primaryVital, type StatusEntry } from "@/lib/rules";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
 
 /**
  * Pure derivations over the room roster for the chat UI: who can be mentioned
@@ -54,7 +55,8 @@ export function buildMentionTargets(
     .map((p) => {
       const u = p.users || p.user;
       const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
-      const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
+      // Rows may still be pre-v2 (upgraded on read) or unparsable (no vital).
+      const charData = parseSheetOrNull(p.room_members?.characterData);
       return {
         id: (u?.id || p.user_id) ?? 0,
         nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,

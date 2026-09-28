@@ -3,29 +3,20 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Plus, Trash2, X, Check, Minus } from "lucide-react";
-import { getRule } from "@/lib/rules";
+import type { ResolvedSheet } from "@/lib/character/sheet-model";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
 
 type CustomItem = { name: string; value: number; max?: number };
 
 interface AttributesTabProps {
-  ruleTemplate: string;
+  /** The sheet being edited, resolved through its rule (draft applied). */
+  resolved: ResolvedSheet;
   readOnly: boolean;
   canEditResources: boolean;
-  /** Current value per resource key (e.g. {hp:25, san:60}). */
-  currentResources: Record<string, number>;
-  /** Max value per resource key — drives the bar denominator. */
-  resourceMaxes: Record<string, number>;
   /** Updater for a single resource current value. */
   onResourceChange: (key: string, value: number) => void;
-  /** Attribute values keyed by `capabilities.attributeKeys[*].key`. */
-  attributeValues: Record<string, number>;
-  /** Read-only derived stat values keyed by `capabilities.derivedStats[*].key`. */
-  derivedValues?: Record<string, number>;
-  /** Whether the resource bar's max input is editable (d20: yes; COC: no — max is derived). */
-  resourceMaxEditable?: boolean;
-  /** Updater for a single resource max value. Only used when resourceMaxEditable=true. */
-  onResourceMaxChange?: (key: string, value: number) => void;
+  /** Updater for a single resource max value — only offered where the rule's max is editable. */
+  onResourceMaxChange: (key: string, value: number) => void;
   onUpdateAttr: (key: string, value: number) => void;
   customAttrs: CustomItem[];
   onAddCustom: (attr: CustomItem) => void;
@@ -36,18 +27,15 @@ interface AttributesTabProps {
 const num = (v: string) => Math.max(0, parseInt(v) || 0);
 
 export function AttributesTab({
-  ruleTemplate, readOnly, canEditResources,
-  currentResources, resourceMaxes, onResourceChange,
-  resourceMaxEditable = false, onResourceMaxChange,
-  attributeValues, derivedValues, onUpdateAttr,
+  resolved, readOnly, canEditResources,
+  onResourceChange, onResourceMaxChange, onUpdateAttr,
   customAttrs, onAddCustom, onUpdateCustom, onRemoveCustom,
 }: AttributesTabProps) {
   const t = useTranslations("character");
-  // Capability-driven layout: resource bars + attribute grid both come from
-  // the active rule. Each rule advertises which slots to render, and we just
-  // look up the displayed value by the key the rule chose.
-  const cap = getRule(ruleTemplate).capabilities;
-  const hasAttributeGrid = cap.attributeKeys.length > 0;
+  // Schema-driven layout: resources, the attribute grid and derived values all
+  // come from the rule's sheet schema, resolved against the edited sheet.
+  const hasAttributeGrid = resolved.attributes.length > 0;
+  const derived = resolved.derivedFields.filter(d => d.field.display === "sheet" || d.field.display === "both");
 
   // A custom item with a `max` renders as a resource bar; without, as a single value.
   const customResources = customAttrs.filter(a => a.max != null);
@@ -59,15 +47,16 @@ export function AttributesTab({
   const [addAttr, setAddAttr] = useState(false);
   const [attrName, setAttrName] = useState(""); const [attrVal, setAttrVal] = useState(10);
 
-  // Preset resource bars — rendered in the order the rule declared.
-  const predefined = cap.resourceBars.map(spec => ({
-    labelKey: spec.labelKey,
-    iconKey: spec.key,
-    style: spec.style ?? "bar",
-    current: currentResources[spec.key] ?? 0,
-    max: resourceMaxes[spec.key] ?? 0,
-    onChange: (v: number) => onResourceChange(spec.key, v),
-    onMax: onResourceMaxChange ? (v: number) => onResourceMaxChange(spec.key, v) : undefined,
+  // Preset resources — rendered in the order the rule declared.
+  const predefined = resolved.resources.map(r => ({
+    labelKey: r.field.labelKey,
+    iconKey: r.field.key,
+    style: r.field.style,
+    current: r.current,
+    max: r.max ?? 0,
+    maxEditable: !!r.field.max && "editable" in r.field.max,
+    onChange: (v: number) => onResourceChange(r.field.key, v),
+    onMax: (v: number) => onResourceMaxChange(r.field.key, v),
   }));
 
   const sectionHeader = (label: string, sub: string, onAdd?: () => void) => (
@@ -119,7 +108,7 @@ export function AttributesTab({
           return (
             <ResourceCard key={r.iconKey} label={t(r.labelKey)} icon={icon} color={color}
               current={r.current} max={r.max} editable={canEditResources}
-              maxEditable={resourceMaxEditable && !!r.onMax}
+              maxEditable={r.maxEditable && !readOnly}
               onCurrent={r.onChange}
               onMax={r.onMax} />
           );
@@ -150,19 +139,15 @@ export function AttributesTab({
           )}
 
           <div className="grid grid-cols-3 gap-3">
-            {/* Preset attribute grid is rule-driven. Each rule's capabilities
-                declares the keys + labels; we look up the value from the
-                generic `attributeValues` record (COC populates from
-                cocAttributes; d20 from d20Attributes). */}
-            {cap.attributeKeys.map(({ key, labelKey }) => (
-              <AttrCard key={key} label={t(labelKey)} value={attributeValues[key] ?? 0} readOnly={readOnly}
-                onChange={v => onUpdateAttr(key, v)} />
+            {/* Preset attribute grid, declared by the rule's schema. */}
+            {resolved.attributes.map(({ field, value }) => (
+              <AttrCard key={field.key} label={t(field.labelKey)} value={value} readOnly={readOnly}
+                onChange={v => onUpdateAttr(field.key, v)} />
             ))}
-            {/* Derived stats are always read-only — the rule computes them
+            {/* Derived values are always read-only — the rule computes them
                 from the attributes above (e.g. 狩魂者's 术法强度 = ⌊智慧/2⌋). */}
-            {(cap.derivedStats ?? []).map(({ key, labelKey }) => (
-              <AttrCard key={key} label={t(labelKey)} value={derivedValues?.[key] ?? 0} readOnly
-                onChange={() => {}} />
+            {derived.map(({ field, value }) => (
+              <DerivedCard key={field.key} label={t(field.labelKey)} value={value} />
             ))}
             {customSingles.map(a => (
               <AttrCard key={a.name} label={a.name} value={a.value} readOnly={readOnly}
@@ -220,7 +205,7 @@ function ResourceCard({ label, icon, color, current, max, editable, maxEditable,
 }
 
 /**
- * Unbounded counter resource (ResourceBarSpec.style === "counter") — a value
+ * Unbounded counter resource (`style: "counter"`) — a value
  * with −/+ steppers, no max and no fill bar. Used by accumulating resources
  * like Triangle Agency's commendations/reprimands.
  */
@@ -245,6 +230,15 @@ function CounterCard({ label, icon, color, value, editable, onChange }: {
           <Plus className="w-4 h-4" />
         </button>
       </div>
+    </div>
+  );
+}
+
+function DerivedCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-theme bg-surface-alt px-3 py-3 flex flex-col gap-2">
+      <span className="text-xs text-text-muted text-center leading-tight">{label}</span>
+      <span className="text-2xl font-bold text-text-muted font-theme-mono text-center py-1">{value}</span>
     </div>
   );
 }

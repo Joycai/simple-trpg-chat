@@ -13,10 +13,9 @@ import { BackgroundTab } from "@/components/room/character/BackgroundTab";
 import { PaneTransition } from "@/components/shared/PaneTransition";
 import { NICKNAME_MAX_LENGTH } from "@/lib/room/limits";
 import { buildCharacterExportText } from "@/lib/character/panel-status";
-import { useCharacterSheetState } from "./useCharacterSheetState";
+import { useSheetDraft } from "./useSheetDraft";
 import { useCharacterSkills } from "./useCharacterSkills";
 import { useMemberProfile } from "./useMemberProfile";
-import { useCharacterSave } from "./useCharacterSave";
 import { useCharacterAvatarUpload } from "./useCharacterAvatarUpload";
 import { AvatarColorBand } from "./AvatarColorBand";
 
@@ -81,16 +80,13 @@ export function CharacterPanel({
   const { nickname, setNickname, editingNick, setEditingNick, selectedColor, saveNickname, handleColorChange } =
     useMemberProfile({ roomId, userId, currentNickname, avatarColor, readOnly, onNicknameChange, setPanelError });
 
-  // The sheet being edited — seeded from characterData, re-synced when it changes.
-  const {
-    hasExistingData, ruleTemplate, ruleCap,
-    attributeValues, updateAttr,
-    d20Role, setD20Role, d20Level, setD20Level,
-    bio, setBio, occupation, setOccupation, age, setAge,
-    customAttrs, addCustom, updateCustom, removeCustomAttr,
-    draftStatus, derivedValues, resourceMaxes, effectiveResourceMaxes,
-    currentResources, handleResourceChange, handleResourceMaxChange, loadedResourcesRef,
-  } = useCharacterSheetState({ roomId, characterData, roomRuleTemplate, readOnly, afterEnter, setPanelError });
+  // The sheet being edited: the stored sheet plus a draft of unsaved changes.
+  const sheet = useSheetDraft({
+    roomId, targetUserId: targetUserId ?? userId, characterData, roomRuleTemplate, setPanelError,
+  });
+  const { rule, resolved } = sheet;
+  const hasExistingData = !!characterData;
+  const profile = resolved.sheet;
 
   // Skills tab: list, reload on refreshKey, add / remove / edit.
   const {
@@ -102,22 +98,15 @@ export function CharacterPanel({
   // rule uses a structured sheet (basic/通用 d100 never hints), and only once
   // the list has actually loaded (avoids flashing on the async gap).
   const skillsUnset =
-    !readOnly && ruleCap.attributeKeys.length > 0 && skillsLoaded && skills.length === 0;
+    !readOnly && rule.sheet.attributes.length > 0 && skillsLoaded && skills.length === 0;
 
-  // Footer "保存" — attributes, background and resources in one go.
-  const { saveStatus, handleSaveAll } = useCharacterSave({
-    roomId, userId, readOnly, targetUserId, ruleTemplate,
-    bio, occupation, age, attributeValues, d20Role, d20Level,
-    currentResources, resourceMaxes, loadedResourcesRef, setPanelError,
-  });
+  // Footer "保存" — sends the draft (attributes, resources, background, custom
+  // attributes) in one edit.
+  const { saveStatus, save: handleSaveAll } = sheet;
 
   // Footer "导出" — downloads a readable text summary of the sheet (client-side).
   const handleExport = () => {
-    const text = buildCharacterExportText({
-      t, nickname, cap: ruleCap, role: d20Role, level: d20Level,
-      currentResources, resourceMaxes, derivedValues,
-      attributeGrades: draftStatus.attributeGrades, attributeValues, skills, bio,
-    });
+    const text = buildCharacterExportText({ t, nickname, rule, resolved, skills });
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -248,27 +237,17 @@ export function CharacterPanel({
         <PaneTransition paneKey={activeTab}>
           {activeTab === "attributes" && (
             <AttributesTab
-              ruleTemplate={ruleTemplate}
+              resolved={resolved}
               readOnly={readOnly}
               canEditResources={canEditResources}
-              currentResources={currentResources}
-              resourceMaxes={effectiveResourceMaxes}
-              onResourceChange={handleResourceChange}
-              resourceMaxEditable={!!ruleCap.resourceMaxEditable && !readOnly}
-              onResourceMaxChange={handleResourceMaxChange}
-              attributeValues={attributeValues}
-              derivedValues={derivedValues}
-              onUpdateAttr={updateAttr}
-              customAttrs={customAttrs}
-              onAddCustom={addCustom}
-              onUpdateCustom={updateCustom}
-              onRemoveCustom={removeCustomAttr}
+              onResourceChange={(key, v) => sheet.setResource(key, { current: v })}
+              onResourceMaxChange={(key, v) => sheet.setResource(key, { max: v })}
+              onUpdateAttr={(key, v) => sheet.setAttribute(key, v)}
+              customAttrs={profile.customAttributes ?? []}
+              onAddCustom={(attr) => sheet.setCustomAttributes(list => [...list.filter(a => a.name !== attr.name), attr])}
+              onUpdateCustom={(name, patch) => sheet.setCustomAttributes(list => list.map(a => (a.name === name ? { ...a, ...patch } : a)))}
+              onRemoveCustom={(name) => sheet.setCustomAttributes(list => list.filter(a => a.name !== name))}
             />
-          )}
-          {activeTab === "attributes" && derivedValues?.spiritSense !== undefined && (
-            <p className="mt-3 text-xs text-text-dim text-center">
-              {t("shSpiritSense")}: {derivedValues.spiritSense} · {t("shSpiritSenseHint")}
-            </p>
           )}
 
           {activeTab === "skills" && (
@@ -287,18 +266,18 @@ export function CharacterPanel({
 
           {activeTab === "background" && (
             <BackgroundTab
-              bio={bio}
-              onBioChange={setBio}
-              occupation={occupation}
-              onOccupationChange={setOccupation}
-              age={age}
-              onAgeChange={setAge}
+              bio={sheet.profileInput("bio") ?? ""}
+              onBioChange={v => sheet.setProfile({ bio: v })}
+              occupation={sheet.profileInput("occupation") ?? ""}
+              onOccupationChange={v => sheet.setProfile({ occupation: v })}
+              age={sheet.profileInput("age") ?? ""}
+              onAgeChange={v => sheet.setProfile({ age: v === "" ? null : v })}
               readOnly={readOnly}
-              showRoleLevel={ruleCap.hasRoleLevel}
-              role={d20Role}
-              onRoleChange={setD20Role}
-              level={d20Level}
-              onLevelChange={setD20Level}
+              showRoleLevel={rule.sheet.profile.roleLevel}
+              role={sheet.profileInput("role") ?? ""}
+              onRoleChange={v => sheet.setProfile({ role: v })}
+              level={sheet.profileInput("level") ?? ""}
+              onLevelChange={v => sheet.setProfile({ level: v === "" ? null : v })}
             />
           )}
         </PaneTransition>

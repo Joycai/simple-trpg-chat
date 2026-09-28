@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { emptySheet } from "@/lib/character/sheet-v2";
 import { db } from "@/db";
 import { roomMembers, messages, users, systemConfig, aiProviders, roomBackgrounds } from "@/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
@@ -106,7 +107,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
       userId,
       nickname: user.name || user.username || "Host",
       avatarColor: getRandomColorForUser(userId),
-      characterData: JSON.stringify(getRuleForRoom(room).initCharacter()),
+      characterData: JSON.stringify(emptySheet(getRuleForRoom(room).id)),
     });
 
     // Re-fetch members to include the host

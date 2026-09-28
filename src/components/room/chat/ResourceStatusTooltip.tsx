@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { Info, Sparkles } from "lucide-react";
 import { type CharacterData } from "@/lib/character/types";
 import { useTranslations } from "next-intl";
-import { getRule, readStatusEntries } from "@/lib/rules";
+import { readStatusView } from "@/lib/rules";
 import { RESOURCE_ICON, DERIVED_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/character/resource-visuals";
 
 interface ResourceStatusTooltipProps {
@@ -21,15 +21,15 @@ function ratioColor(pct: number): string {
  * Hover card shown over a chat avatar: a read-only glance at whatever the
  * room's rule considers a character's live status.
  *
- * Fully capability-driven — the rule declares which bars, derived stats and
- * compact attributes exist (`resourceBars` / `derivedStats` /
- * `statusAttributeKeys`) and `rule.readStatus()` flattens its own sheet bag
- * into those keys. Adding a rule therefore needs no change here: COC shows
+ * Fully schema-driven — the rule's sheet schema declares which resources,
+ * derived values (`display: status | both`) and compact attributes
+ * (`inStatus`) exist, and `readStatusView` resolves them from the sheet.
+ * Adding a rule therefore needs no change here: COC shows
  * HP/SAN/MP + 幸运, 狩魂者 shows HP/灵力值 + 术法强度 + graded attributes,
  * d20 shows HP + AC, Triangle shows its two counters, and basic — which has
  * no presets — shows only custom attributes. Custom attributes the player
- * typed themselves render underneath for every rule (`statusCustomLimit`
- * caps how many).
+ * typed themselves render underneath for every rule
+ * (`customAttributes.statusLimit` caps how many).
  */
 export function ResourceStatusTooltip({
   loading,
@@ -42,28 +42,9 @@ export function ResourceStatusTooltip({
 
   if (!coords) return null;
 
-  const rule = getRule(charData?.ruleTemplate);
-  const cap = rule.capabilities;
-  const status = charData ? rule.readStatus(charData) : null;
-
-  // A bar/counter renders only when the rule actually returned a value for
-  // its key — an uninitialized sheet shows "unavailable" rather than zeros.
-  // Custom attributes come back already truncated to the rule's own limit.
-  const { resources, custom: customAttrs } = readStatusEntries(charData);
-  const derived = status?.derived
-    ? (cap.derivedStats ?? []).flatMap(spec => {
-        const v = status.derived?.[spec.key];
-        return typeof v === "number" ? [{ spec, value: v }] : [];
-      })
-    : [];
-  const attributes = status?.attributes
-    ? (cap.statusAttributeKeys ?? []).flatMap(spec => {
-        const value = status.attributes?.[spec.key];
-        return typeof value === "number"
-          ? [{ ...spec, value, grade: status.attributeGrades?.[spec.key] }]
-          : [];
-      })
-    : [];
+  // A null sheet shows "unavailable"; custom attributes come back already
+  // truncated to the rule's own limit.
+  const { resources, custom: customAttrs, derived, attributes } = readStatusView(charData);
 
   const hasStatus = !loading && (
     resources.length > 0 || derived.length > 0 || attributes.length > 0 || customAttrs.length > 0
@@ -127,12 +108,12 @@ export function ResourceStatusTooltip({
           )}
 
           {/* Read-only derived stats (狩魂者 术法强度) — computed on read. */}
-          {derived.map(({ spec, value }) => {
-            const Icon = DERIVED_ICON[spec.key] ?? Sparkles;
+          {derived.map(({ key, labelKey, value }) => {
+            const Icon = DERIVED_ICON[key] ?? Sparkles;
             return (
-              <div key={spec.key}
+              <div key={key}
                 className="flex justify-between text-[10px] text-text-muted border-t border-border/40 pt-1.5 font-medium">
-                <span className="inline-flex items-center gap-1"><Icon className="w-3 h-3" /> {tChar(spec.labelKey)}</span>
+                <span className="inline-flex items-center gap-1"><Icon className="w-3 h-3" /> {tChar(labelKey)}</span>
                 <span className="font-mono font-bold text-text">{value}</span>
               </div>
             );

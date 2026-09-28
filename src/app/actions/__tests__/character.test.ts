@@ -17,7 +17,7 @@ vi.mock("next-intl/server", () => ({
 let selectQueue: unknown[][] = [];
 function chain(rows: () => unknown) {
   const c: Record<string, unknown> = {};
-  for (const m of ["from", "where", "set"]) c[m] = () => c;
+  for (const m of ["from", "where", "set", "innerJoin"]) c[m] = () => c;
   c.then = (resolve: (r: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(rows()).then(resolve, reject);
   return c;
@@ -37,14 +37,19 @@ vi.mock("@/db", () => ({
 }));
 
 import {
-  initCharacterAction, saveCharacterDataAction, addCustomAttributeAction,
-  removeCustomAttributeAction, rebuildCharacterForRoomRuleAction, updateResourcesAction,
+  ensureCharacterSheetAction, rebuildCharacterForRoomRuleAction, editCharacterAction, getCharacterDataAction,
 } from "../character";
-import { CHARACTER_DATA_MAX_BYTES } from "@/lib/character/types";
+import { broadcastToRoom } from "@/lib/server/events";
 
-/** Queue rows for checkMembership: the member row, then the room row. */
+/** Rows for checkMembership: the member row, then the room row. */
 const member = (room: { frozen: boolean; hostId: number } = { frozen: false, hostId: 1 }) =>
   [[{ id: 7 }], [room]];
+
+/** Rows for resolveSheetWriter: the room, then the caller/target member rows. */
+const writer = (
+  room: { hostId: number; frozen: boolean; ruleTemplate?: string } | null,
+  members: { userId: number; characterData?: string | null }[],
+) => [room ? [{ ruleTemplate: "basic", ...room }] : [], members.map((m) => ({ characterData: null, ...m }))];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -53,100 +58,114 @@ beforeEach(() => {
   session = { user: { id: "2", role: "player" } };
 });
 
-describe("membership", () => {
-  it("reports a signed-out caller", async () => {
+describe("ensureCharacterSheetAction", () => {
+  it("stays silent for a signed-out caller or a non-member", async () => {
     session = null;
-    expect(await initCharacterAction(5)).toEqual({ success: false, error: "character.errorNotAuthenticated" });
+    expect(await ensureCharacterSheetAction(5)).toEqual({ status: "ok" });
+    session = { user: { id: "2", role: "player" } };
+    selectQueue = [[]];
+    expect(await ensureCharacterSheetAction(5)).toEqual({ status: "ok" });
   });
 
-  it("reports a non-member", async () => {
-    selectQueue = [[]];
-    expect(await saveCharacterDataAction(5, {})).toEqual({ success: false, error: "character.errorNotMember" });
+  it("stores an empty v2 sheet for a member without one", async () => {
+    selectQueue = [[{ characterData: null }], [{ id: 5, hostId: 1, frozen: false, ruleTemplate: "coc7th" }]];
+    const res = await ensureCharacterSheetAction(5);
+    expect(res).toMatchObject({ status: "initialized", data: { schemaVersion: 2, ruleTemplate: "coc7th" } });
+    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: {}, resources: {} });
+  });
+
+  it("reports a sheet built for another rule without writing", async () => {
+    const sheet = { schemaVersion: 2, ruleTemplate: "dnd5e", attributes: {}, resources: {} };
+    selectQueue = [[{ characterData: JSON.stringify(sheet) }], [{ id: 5, hostId: 1, frozen: false, ruleTemplate: "coc7th" }]];
+    expect(await ensureCharacterSheetAction(5)).toEqual({ status: "mismatch", sheetRule: "dnd5e", roomRule: "coc7th" });
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe("rebuildCharacterForRoomRuleAction", () => {
+  it("rejects a non-member", async () => {
+    selectQueue = [[]];
+    expect(await rebuildCharacterForRoomRuleAction(5)).toEqual({ success: false, error: "character.errorNotMember" });
   });
 
   it("reports a frozen room to a player", async () => {
     selectQueue = member({ frozen: true, hostId: 1 });
-    expect(await addCustomAttributeAction(5, { name: "a", value: 1 }))
-      .toEqual({ success: false, error: "character.errorRoomFrozen" });
+    expect(await rebuildCharacterForRoomRuleAction(5)).toEqual({ success: false, error: "character.errorRoomFrozen" });
   });
 
-  it("lets the host write in a frozen room", async () => {
-    selectQueue = [...member({ frozen: true, hostId: 2 }), [{ characterData: null }]];
-    expect(await removeCustomAttributeAction(5, "a")).toEqual({ success: true });
-  });
-});
-
-describe("initCharacterAction / rebuildCharacterForRoomRuleAction", () => {
-  it("returns the seeded sheet", async () => {
-    selectQueue = [...member(), [{ ruleTemplate: "basic" }]];
-    const res = await initCharacterAction(5);
-    expect(res.success).toBe(true);
-    expect(res.success && res.data.ruleTemplate).toBe("basic");
-  });
-
-  it("rebuild rejects a non-member", async () => {
-    selectQueue = [[]];
-    expect(await rebuildCharacterForRoomRuleAction(5)).toEqual({ success: false, error: "character.errorNotMember" });
+  it("keeps the profile and starts the new rule's fields empty", async () => {
+    const legacy = { ruleTemplate: "coc7th", bio: "old", cocAttributes: { str: 70 } };
+    selectQueue = [...member(), [{ characterData: JSON.stringify(legacy) }], [{ ruleTemplate: "dnd5e" }]];
+    const res = await rebuildCharacterForRoomRuleAction(5);
+    expect(res).toMatchObject({ success: true, data: { ruleTemplate: "dnd5e", bio: "old", attributes: {} } });
   });
 });
 
-describe("saveCharacterDataAction", () => {
-  it("rejects an oversized sheet without writing", async () => {
-    selectQueue = [...member(), [{ characterData: null }]];
-    const res = await saveCharacterDataAction(5, { bio: "x".repeat(CHARACTER_DATA_MAX_BYTES) });
-    expect(res).toEqual({ success: false, error: "character.errorDataTooLarge" });
-    expect(update).not.toHaveBeenCalled();
-  });
-
-  it("saves a normal sheet", async () => {
-    selectQueue = [...member(), [{ characterData: null }]];
-    const res = await saveCharacterDataAction(5, { bio: "hi" });
-    expect(res.success).toBe(true);
-    expect(update).toHaveBeenCalledTimes(1);
+describe("getCharacterDataAction", () => {
+  it("upgrades a legacy row on read", async () => {
+    const legacy = {
+      ruleTemplate: "coc7th",
+      cocAttributes: { str: 70, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 },
+    };
+    selectQueue = [...member(), [{ characterData: JSON.stringify(legacy), ruleTemplate: "coc7th" }]];
+    const data = await getCharacterDataAction(5, 3);
+    expect(data).toMatchObject({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { str: 70 } });
   });
 });
 
-describe("updateResourcesAction", () => {
+describe("editCharacterAction", () => {
+  it("reports a signed-out caller", async () => {
+    session = null;
+    expect(await editCharacterAction(5, 2, {})).toEqual({ success: false, error: "character.errorNotAuthenticated" });
+  });
+
   it("refuses another player's sheet", async () => {
-    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }]];
-    expect(await updateResourcesAction(5, 3, { hp_current: 1 }))
+    selectQueue = writer({ hostId: 1, frozen: false }, [{ userId: 2 }, { userId: 3 }]);
+    expect(await editCharacterAction(5, 3, { attributes: { str: 1 } }))
       .toEqual({ success: false, error: "character.errorUnauthorizedResource" });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("reports a frozen room to a player", async () => {
-    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: true }]];
-    expect(await updateResourcesAction(5, 2, { hp_current: 1 }))
-      .toEqual({ success: false, error: "character.errorRoomFrozen" });
+    selectQueue = writer({ hostId: 1, frozen: true }, [{ userId: 2 }]);
+    expect(await editCharacterAction(5, 2, {})).toEqual({ success: false, error: "character.errorRoomFrozen" });
   });
 
   it("reports a target who is not a member", async () => {
-    session = { user: { id: "1", role: "host" } };
-    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }], []];
-    expect(await updateResourcesAction(5, 9, { hp_current: 1 }))
-      .toEqual({ success: false, error: "character.errorTargetNotMember" });
+    session = { user: { id: "1", role: "player" } };
+    selectQueue = writer({ hostId: 1, frozen: false }, [{ userId: 1 }]);
+    expect(await editCharacterAction(5, 9, {})).toEqual({ success: false, error: "character.errorTargetNotMember" });
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("lets the host set another member's counter resources (triangle)", async () => {
-    session = { user: { id: "1", role: "host" } };
-    const sheet = { ruleTemplate: "triangle", taSheet: { commendations: 0, reprimands: 0 } };
-    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }], [{ characterData: JSON.stringify(sheet) }]];
-    expect(await updateResourcesAction(5, 3, { counters: { commendations: 4, reprimands: 1 } })).toEqual({ success: true });
-    expect(written).toMatchObject({ taSheet: { commendations: 4, reprimands: 1 } });
+  it("lets the host edit another member's attributes and counters, and broadcasts", async () => {
+    session = { user: { id: "1", role: "player" } };
+    const sheet = { schemaVersion: 2, ruleTemplate: "triangle", attributes: {}, resources: {} };
+    selectQueue = writer({ hostId: 1, frozen: false, ruleTemplate: "triangle" },
+      [{ userId: 1 }, { userId: 3, characterData: JSON.stringify(sheet) }]);
+    const res = await editCharacterAction(5, 3, {
+      attributes: { empathy: 4, bogus: 9 },
+      resources: { commendations: { current: 4 }, reprimands: { current: -1 } },
+    });
+    expect(res.success).toBe(true);
+    expect(written).toEqual({
+      schemaVersion: 2, ruleTemplate: "triangle",
+      attributes: { empathy: 4 },
+      resources: { commendations: { current: 4 }, reprimands: { current: 0 } },
+    });
+    expect(broadcastToRoom).toHaveBeenCalledWith(5, expect.objectContaining({ type: "character_updated", userId: 3 }));
   });
 
-  it("ignores counters the rule doesn't declare", async () => {
-    session = { user: { id: "1", role: "host" } };
-    const sheet = { ruleTemplate: "basic" };
-    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }], [{ characterData: JSON.stringify(sheet) }]];
-    expect(await updateResourcesAction(5, 3, { counters: { commendations: 4 } })).toEqual({ success: true });
-    expect(written).toEqual({ ruleTemplate: "basic" });
+  it("lets the host write in a frozen room", async () => {
+    session = { user: { id: "1", role: "player" } };
+    selectQueue = writer({ hostId: 1, frozen: true }, [{ userId: 1 }, { userId: 3 }]);
+    expect((await editCharacterAction(5, 3, { profile: { bio: "x" } })).success).toBe(true);
   });
 
-  it("updates the caller's own resources", async () => {
-    selectQueue = [[{ id: 7 }], [{ hostId: 1, frozen: false }], [{ characterData: null }]];
-    expect(await updateResourcesAction(5, 2, { hp_current: 1 })).toEqual({ success: true });
-    expect(update).toHaveBeenCalledTimes(1);
+  it("upgrades a legacy sheet before editing it", async () => {
+    const legacy = { ruleTemplate: "coc7th", cocDerived: { hp_current: 3 } };
+    selectQueue = writer({ hostId: 1, frozen: false, ruleTemplate: "coc7th" }, [{ userId: 2, characterData: JSON.stringify(legacy) }]);
+    expect((await editCharacterAction(5, 2, { profile: { bio: "x" } })).success).toBe(true);
+    expect(written).toMatchObject({ schemaVersion: 2, bio: "x", resources: { hp: { current: 3 } } });
   });
 });

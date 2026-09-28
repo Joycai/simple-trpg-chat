@@ -27,9 +27,10 @@ describe("buildMentionTargets", () => {
   });
 
   it("reads the primary vital from the member's sheet", () => {
-    const sheet = { ruleTemplate: "coc7th", attributes: {}, resources: { hp_current: 7, hp_max: 10 } };
+    const sheet = { schemaVersion: 2 as const, ruleTemplate: "coc7th", attributes: {}, resources: { hp: { current: 7 } } };
     const [t] = buildMentionTargets([{ ...human(2), room_members: { characterData: JSON.stringify(sheet) } }], 1, true, []);
-    expect(t.vital).toEqual(primaryVital(sheet as never));
+    expect(t.vital).toEqual(primaryVital(sheet));
+    expect(t.vital).toMatchObject({ key: "hp", current: 7, max: 10 });
     expect(buildMentionTargets([human(2)], 1, true, [])[0].vital).toBeNull();
   });
 });

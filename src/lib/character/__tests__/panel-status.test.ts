@@ -1,49 +1,41 @@
-import { describe, it, expect } from "vitest";
-import { getRule, type RuleCapabilities } from "@/lib/rules";
-import {
-  parseCharData, buildAttributeValues, draftStatusFor, currentsFromStatus, buildCharacterExportText,
-} from "../panel-status";
+import { describe, expect, it } from "vitest";
+import { buildCharacterExportText } from "../panel-status";
+import { applySheetEdit, resolveSheet } from "../sheet-model";
+import { emptySheet } from "../sheet-v2";
+import type { SheetRule } from "@/lib/rules/sheet-schema";
 
-describe("parseCharData", () => {
-  it("returns an empty object for missing or broken JSON", () => {
-    expect(parseCharData(null)).toEqual({});
-    expect(parseCharData("{nope")).toEqual({});
-    expect(parseCharData('{"bio":"x"}')).toEqual({ bio: "x" });
-  });
-});
-
-describe("status drafting", () => {
-  it("reads the current value of each resource bar the status snapshot has", () => {
-    const attrs = buildAttributeValues("coc7th", undefined, undefined);
-    const status = draftStatusFor("coc7th", {}, attrs);
-    const currents = currentsFromStatus("coc7th", status);
-    const expected = getRule("coc7th").capabilities.resourceBars
-      .map((b) => b.key)
-      .filter((k) => status.resources[k]);
-    expect(expected.length).toBeGreaterThan(0);
-    expect(Object.keys(currents).sort()).toEqual([...expected].sort());
-    for (const k of expected) expect(currents[k]).toBe(status.resources[k].current);
-  });
-
-  it("gives the basic rule no attributes", () => {
-    expect(buildAttributeValues("basic", undefined, undefined)).toEqual({});
-  });
-});
+const rule: SheetRule = {
+  id: "fixture",
+  sheet: {
+    attributes: [
+      { key: "str", labelKey: "str", min: 0, max: 99, default: 0, required: true, badge: (v) => (v >= 60 ? "A" : "C") },
+      { key: "dex", labelKey: "dex", min: 0, max: 99, default: 0, required: true },
+    ],
+    resources: [
+      { key: "hp", labelKey: "hp", style: "bar", max: { derived: "hpMax" }, initial: "max", required: false },
+      { key: "marks", labelKey: "marks", style: "counter", initial: 0, required: false },
+    ],
+    derived: [
+      { key: "hpMax", labelKey: "hpMax", display: "hidden" },
+      { key: "power", labelKey: "power", display: "sheet" },
+      { key: "spiritSense", labelKey: "shSpiritSense", display: "sheet" },
+    ],
+    profile: { roleLevel: true },
+    customAttributes: {},
+  },
+  derive: (a) => ({ hpMax: 10, power: Math.floor(a.str / 15), spiritSense: 5 }),
+};
 
 describe("buildCharacterExportText", () => {
-  const cap = {
-    hasRoleLevel: true,
-    resourceBars: [{ key: "hp", labelKey: "hp" }, { key: "marks", labelKey: "marks", style: "counter" }],
-    derivedStats: [{ key: "power", labelKey: "power" }],
-    attributeKeys: [{ key: "str", labelKey: "str" }, { key: "dex", labelKey: "dex" }],
-  } as unknown as RuleCapabilities;
-
-  it("lists role, resources, derived stats, graded attributes, skills and bio", () => {
+  it("lists role, resources, derived values, graded attributes, skills and bio", () => {
+    const sheet = applySheetEdit(rule, emptySheet("fixture"), {
+      attributes: { str: 60 },
+      resources: { hp: { current: 7 }, marks: { current: 2 } },
+      profile: { role: "Fighter", level: 3, bio: "  hi  " },
+    }).sheet;
     const text = buildCharacterExportText({
-      t: (k) => k, nickname: "Ann", cap, role: "Fighter", level: 3,
-      currentResources: { hp: 7, marks: 2 }, resourceMaxes: { hp: 10 },
-      derivedValues: { power: 4, spiritSense: 5 }, attributeGrades: { str: "A" },
-      attributeValues: { str: 60 }, skills: [{ skillName: "Spot", skillValue: 40 }], bio: "  hi  ",
+      t: (k) => k, nickname: "Ann", rule, resolved: resolveSheet(rule, sheet),
+      skills: [{ skillName: "Spot", skillValue: 40 }],
     });
     expect(text.split("\n")).toEqual([
       "title · Ann", "",
@@ -57,11 +49,14 @@ describe("buildCharacterExportText", () => {
   });
 
   it("leaves out empty sections and unset role/level", () => {
-    const bare = { ...cap, hasRoleLevel: true, resourceBars: [], derivedStats: undefined, attributeKeys: [] } as unknown as RuleCapabilities;
+    const bare: SheetRule = {
+      ...rule,
+      sheet: { ...rule.sheet, attributes: [], resources: [], derived: [] },
+      derive: () => ({}),
+    };
     const text = buildCharacterExportText({
-      t: (k) => k, nickname: "Bo", cap: bare, role: "", level: "",
-      currentResources: {}, resourceMaxes: {}, derivedValues: undefined, attributeGrades: undefined,
-      attributeValues: {}, skills: [], bio: " ",
+      t: (k) => k, nickname: "Bo", rule: bare,
+      resolved: resolveSheet(bare, { ...emptySheet("fixture"), bio: " " }), skills: [],
     });
     expect(text).toBe("title · Bo\n");
   });

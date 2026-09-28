@@ -364,3 +364,27 @@ export function sheetDiff(a: CharacterSheetV2, b: CharacterSheetV2): string[] {
   }
   return [...out].sort();
 }
+
+// ---------------------------------------------------------------------------
+// Stats by route (`.st` / `.rc` / quick-check panel)
+// ---------------------------------------------------------------------------
+
+/** A stat reached by name: an attribute, or a resource's current value. */
+export interface StatRef {
+  kind: "attribute" | "resource";
+  key: string;
+}
+
+/** The value a stat reads as (unset attributes read as their default). */
+export function statValue(rule: SheetRule, sheet: CharacterSheetV2, ref: StatRef): number | undefined {
+  const r = resolveSheet(rule, sheet);
+  if (ref.kind === "attribute") return findAttribute(r, ref.key)?.value;
+  return findResource(r, ref.key)?.current;
+}
+
+/** The edit that sets a stat — what `.st <name> <value>` writes. */
+export function statEdit(ref: StatRef, value: number): SheetEdit {
+  return ref.kind === "attribute"
+    ? { attributes: { [ref.key]: value } }
+    : { resources: { [ref.key]: { current: value } } };
+}

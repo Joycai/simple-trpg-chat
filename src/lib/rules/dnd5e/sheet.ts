@@ -1,8 +1,9 @@
 /**
  * DnD 5e (d20) character-sheet data model. Owned by the d20 rule module (moved
  * out of the shared `character/types.ts`). Self-contained — no `CharacterData`
- * import; the generic sheet type-imports these for its `d20Attributes` /
- * `d20Sheet` fields.
+ * import. The v2 sheet stores values by key (see the d20 `sheet` schema); these
+ * types describe the pre-v2 `d20Attributes` / `d20Sheet` bags `migrateLegacy`
+ * reads.
  */
 
 /**

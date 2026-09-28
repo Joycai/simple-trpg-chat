@@ -1,14 +1,10 @@
 export type {
   AiRuleHints,
-  AttributeKeySpec,
-  CharacterStatus,
   CheckMenuMode,
   CheckRequest,
   CheckResult,
   QuickCheckInput,
   QuickCheckPanelSpec,
-  ResourceBarSpec,
-  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -20,10 +16,12 @@ export { dnd5eRule } from "./dnd5e";
 export { shouhunRule } from "./shouhun";
 export { triangleRule } from "./triangle";
 export { getRule, getRuleForRoom, listRules, listRuleIds, DEFAULT_RULE_ID } from "./registry";
-export { clampAttributes, clampInt } from "./patch-utils";
-export type { StatusEntries, StatusEntry } from "./status-view";
-export { primaryVital, readStatusEntries } from "./status-view";
-export { ruleUsesStructuredSheet, attributesUnset } from "./sheet-state";
+export { clampInt } from "./patch-utils";
+export type { StatusEntries, StatusEntry, StatusView } from "./status-view";
+export { primaryVital, readStatusEntries, readStatusView } from "./status-view";
+export type {
+  AttributeField, DerivedField, DerivedValues, ResourceField, ResourceMax, SheetRule, SheetSchema, StandardSkill,
+} from "./sheet-schema";
 
 // Per-rule character-sheet data models (types + defaults + derivation helpers).
 // Each ruleset owns its own sheet under `rules/<id>/sheet.ts`; re-exported here

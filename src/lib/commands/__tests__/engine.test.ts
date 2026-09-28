@@ -391,7 +391,7 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
     });
   });
 
-  it("seeds a sheet via rule.initCharacter() and persists the attribute write", async () => {
+  it("starts an empty sheet for the room's rule and persists the attribute write", async () => {
     const updateSpy = vi.spyOn(db, "update");
     updateSpy.mockClear();
 
@@ -401,8 +401,7 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
 
     const setFn = updateSpy.mock.results[0].value.set;
     const written = JSON.parse(setFn.mock.calls[0][0].characterData);
-    expect(written.ruleTemplate).toBe("coc7th");
-    expect(written.cocAttributes.str).toBe(50);
+    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { str: 50 }, resources: {} });
     updateSpy.mockRestore();
   });
 
@@ -416,7 +415,7 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
 
     const setFn = updateSpy.mock.results[0].value.set;
     const written = JSON.parse(setFn.mock.calls[0][0].characterData);
-    expect(written.ruleTemplate).toBe("coc7th");
+    expect(written).toMatchObject({ ruleTemplate: "coc7th", resources: { san: { current: 40 } } });
     updateSpy.mockRestore();
   });
 });

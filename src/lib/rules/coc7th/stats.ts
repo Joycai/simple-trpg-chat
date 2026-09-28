@@ -13,7 +13,7 @@
 /** COC 7th attribute keys (match CocAttributes in ./sheet.ts). */
 export type CocAttributeKey = "str" | "con" | "siz" | "dex" | "app" | "int" | "pow" | "edu" | "luck";
 
-/** COC 7th resource keys (current value lives in cocDerived[`${key}_current`]). */
+/** COC 7th resource keys (keys of the COC `sheet.resources` schema). */
 export type CocResourceKey = "hp" | "mp" | "san";
 
 export type CocStatResolution =

@@ -1,12 +1,13 @@
 "use server";
 
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { sheetSnapshot, type SheetSnapshot } from "@/lib/character/sheet-export";
 import { db } from "@/db";
 import { messages, roomMembers, rooms } from "@/db/schema";
 import { eq, asc, and, gt } from "drizzle-orm";
 import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
-import { getRuleForRoom } from "@/lib/rules";
-import type { CharacterData } from "@/lib/character/types";
+import { getRule, getRuleForRoom } from "@/lib/rules";
 
 interface ExportTimelineItem {
   time: string;
@@ -20,15 +21,9 @@ interface ExportTimelineItem {
   targetNickname?: string;
 }
 
-interface ExportCharacterSnapshot {
+interface ExportCharacterSnapshot extends SheetSnapshot {
   nickname: string;
   userId: number;
-  hp?: number;
-  hpMax?: number;
-  san?: number;
-  mp?: number;
-  attributes?: Record<string, number>;
-  skills?: { name: string; value: number }[];
 }
 
 interface ExportRoomData {
@@ -117,22 +112,20 @@ async function loadExportData(roomId: number): Promise<ExportRoomData> {
     }
   }
 
-  // Character snapshots — defer rule-specific fields (hp/san/attributes/…)
-  // to the room's RuleModule so adding a new ruleset doesn't require touching
-  // the export path.
-  const rule = getRuleForRoom(room);
+  // Character snapshots — built from each sheet's rule schema, so adding a
+  // ruleset doesn't require touching the export path. Resource labels are
+  // resolved here so the markdown formatter stays rule-agnostic.
+  const tChar = await getTranslations("character");
   const snapshots: ExportCharacterSnapshot[] = [];
+  const roomRuleId = getRuleForRoom(room).id;
   for (const member of members) {
-    if (!member.characterData) continue;
-    try {
-      const charData = JSON.parse(member.characterData) as CharacterData;
-      const snapshot: ExportCharacterSnapshot = {
-        nickname: member.nickname,
-        userId: member.userId,
-        ...rule.exportSnapshot(charData),
-      };
-      snapshots.push(snapshot);
-    } catch { /* skip */ }
+    const charData = parseSheetOrNull(member.characterData, roomRuleId);
+    if (!charData) continue;
+    snapshots.push({
+      nickname: member.nickname,
+      userId: member.userId,
+      ...sheetSnapshot(getRule(charData.ruleTemplate), charData, (k) => tChar(k as Parameters<typeof tChar>[0])),
+    });
   }
 
   // The rule names itself — every registered ruleset has a `labelKey` under

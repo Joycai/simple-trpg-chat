@@ -6,26 +6,18 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/server/events";
-import {
-  type CharacterData,
-  type CustomAttribute,
-  CHARACTER_DATA_MAX_BYTES,
-} from "@/lib/character/types";
+import type { CharacterData, SheetEdit } from "@/lib/character/types";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
+import { applySheetEdit } from "@/lib/character/sheet-model";
+import { parseSheet, parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
+import { emptySheet } from "@/lib/character/sheet-v2";
+import { resolveSheetWriter } from "@/lib/auth/sheet-access";
 import { getRule, getRuleForRoom, primaryVital } from "@/lib/rules";
 import { getTranslations } from "next-intl/server";
 import type { Fail } from "@/lib/actions/result";
 
 async function fail(key: string): Promise<Fail> {
   return { success: false, error: (await getTranslations("character"))(key) };
-}
-
-/** Serialize a sheet for persistence, rejecting oversized payloads — the
- *  member list ships every sheet to every client, so an unbounded write is a
- *  room-wide payload amplifier. `null` when too large. */
-function serializeSheetChecked(sheet: CharacterData): string | null {
-  const json = JSON.stringify(sheet);
-  return json.length > CHARACTER_DATA_MAX_BYTES ? null : json;
 }
 
 type Membership = { ok: true; userId: number } | { ok: false; key: string };
@@ -64,29 +56,13 @@ async function requireMembership(roomId: number): Promise<number> {
   return m.userId;
 }
 
-/**
- * Initialize a fresh character sheet for the current user, shaped by the
- * room's active rule (COC: 9 attrs + derived; d20: 8 attrs + HP; basic: {}).
- * Delegates entirely to `rule.initCharacter()` — the action just persists.
- */
-export async function initCharacterAction(roomId: number): Promise<{ success: true; data: CharacterData } | Fail> {
-  const m = await checkMembership(roomId);
-  if (!m.ok) return fail(m.key);
-  const { userId } = m;
-
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  const rule = getRuleForRoom(room || {});
-  const characterData = rule.initCharacter();
-
+async function writeSheet(roomId: number, userId: number, json: string) {
   await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(characterData) })
+    .set({ characterData: json })
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)
     ));
-
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true, data: characterData };
 }
 
 /** Result of the on-entry sheet/rule reconciliation. */
@@ -99,7 +75,7 @@ export type SheetRuleStatus =
  * Reconcile the caller's character sheet with the room's active rule, called
  * when a member enters the room (and again whenever the host switches rules).
  *
- * - no sheet yet (or unparsable / rule-less) → seed `rule.initCharacter()`
+ * - no usable sheet yet → store an empty sheet for the room's rule
  * - sheet built for a different rule → report only; the player decides whether
  *   to rebuild (see `rebuildCharacterForRoomRuleAction`)
  *
@@ -125,24 +101,11 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
   if (room.frozen && room.hostId !== userId) return { status: "ok" };
 
   const rule = getRuleForRoom(room);
+  const sheet = parseSheetOrNull(member.characterData, rule.id);
 
-  let sheet: CharacterData | null = null;
-  if (member.characterData) {
-    try {
-      sheet = JSON.parse(member.characterData) as CharacterData;
-    } catch {
-      sheet = null;
-    }
-  }
-
-  if (!sheet?.ruleTemplate) {
-    const data = rule.initCharacter();
-    await db.update(roomMembers)
-      .set({ characterData: JSON.stringify(data) })
-      .where(and(
-        eq(roomMembers.roomId, roomId),
-        eq(roomMembers.userId, userId)
-      ));
+  if (!sheet) {
+    const data = emptySheet(rule.id);
+    await writeSheet(roomId, userId, JSON.stringify(data));
     revalidatePath(`/rooms/${roomId}`);
     return { status: "initialized", data };
   }
@@ -171,278 +134,71 @@ export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise
       eq(roomMembers.userId, userId)
     ));
 
-  let prev: CharacterData | null = null;
-  if (member?.characterData) {
-    try {
-      prev = JSON.parse(member.characterData) as CharacterData;
-    } catch {
-      prev = null;
-    }
-  }
-
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  const rebuilt = rebuildSheetForRule(prev, getRuleForRoom(room || {}).initCharacter());
+  const rule = getRuleForRoom(room || {});
+  // Read under the sheet's own rule: its profile fields are what carries over.
+  const prev = parseSheetOrNull(member?.characterData);
+  const rebuilt = rebuildSheetForRule(prev, rule.id);
 
-  await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(rebuilt) })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
+  await writeSheet(roomId, userId, JSON.stringify(rebuilt));
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: rebuilt };
 }
 
 /**
- * Save character data (attributes, resources, custom fields).
- * Handles COC 7th derived value recomputation.
+ * Get character data for a user in a room, upgraded to the v2 shape.
+ * Null when the member has no sheet (or is not a member).
  */
-export async function saveCharacterDataAction(
-  roomId: number,
-  data: Partial<CharacterData>
-): Promise<{ success: true; data: CharacterData } | Fail> {
-  const m = await checkMembership(roomId);
-  if (!m.ok) return fail(m.key);
-  const { userId } = m;
-
-  // Get existing data
-  const [member] = await db.select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  const existing: CharacterData = member?.characterData
-    ? JSON.parse(member.characterData)
-    : { ruleTemplate: "basic" };
-
-  let merged: CharacterData = { ...existing, ...data };
-
-  // Recompute derived values through the rule module — COC re-derives hp/san/
-  // mp + preserves player-set currents; d20 clamps hp_current to hpMax; basic
-  // is identity. Removes the need for a rule-id branch here.
-  merged = getRule(merged.ruleTemplate).computeDerived(merged);
-
-  const json = serializeSheetChecked(merged);
-  if (json === null) return fail("errorDataTooLarge");
-
-  await db.update(roomMembers)
-    .set({ characterData: json })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true, data: merged };
-}
-
-/**
- * Add a custom attribute (for non-COC systems or extensions).
- */
-export async function addCustomAttributeAction(
-  roomId: number,
-  attr: CustomAttribute
-): Promise<{ success: true } | Fail> {
-  const m = await checkMembership(roomId);
-  if (!m.ok) return fail(m.key);
-  const { userId } = m;
-
-  const [member] = await db.select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  const existing: CharacterData = member?.characterData
-    ? JSON.parse(member.characterData)
-    : { ruleTemplate: "basic" };
-
-  const customAttrs = existing.customAttributes || [];
-  const idx = customAttrs.findIndex(a => a.name === attr.name);
-  if (idx >= 0) {
-    customAttrs[idx] = attr;
-  } else {
-    customAttrs.push(attr);
-  }
-
-  existing.customAttributes = customAttrs;
-
-  const json = serializeSheetChecked(existing);
-  if (json === null) return fail("errorDataTooLarge");
-
-  await db.update(roomMembers)
-    .set({ characterData: json })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true };
-}
-
-/**
- * Remove a custom attribute by name.
- */
-export async function removeCustomAttributeAction(
-  roomId: number,
-  attrName: string
-): Promise<{ success: true } | Fail> {
-  const m = await checkMembership(roomId);
-  if (!m.ok) return fail(m.key);
-  const { userId } = m;
-
-  const [member] = await db.select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  const existing: CharacterData = member?.characterData
-    ? JSON.parse(member.characterData)
-    : { ruleTemplate: "basic" };
-
-  existing.customAttributes = (existing.customAttributes || []).filter(a => a.name !== attrName);
-
-  await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(existing) })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true };
-}
-
-/**
- * Get character data for a user in a room.
- */
-export async function getCharacterDataAction(roomId: number, targetUserId?: number) {
+export async function getCharacterDataAction(roomId: number, targetUserId?: number): Promise<CharacterData | null> {
   const callerId = await requireMembership(roomId);
-
   const userId = targetUserId || callerId;
 
-  // If requesting another user's data, verify they are also a member of this room
-  if (targetUserId && targetUserId !== callerId) {
-    const [targetMember] = await db.select({ id: roomMembers.id })
-      .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, targetUserId)));
-    if (!targetMember) return null;
-  }
-
-  const [member] = await db.select({ characterData: roomMembers.characterData })
+  const [row] = await db.select({ characterData: roomMembers.characterData, ruleTemplate: rooms.ruleTemplate })
     .from(roomMembers)
+    .innerJoin(rooms, eq(rooms.id, roomMembers.roomId))
     .where(and(
       eq(roomMembers.roomId, roomId),
       eq(roomMembers.userId, userId)
     ));
 
-  if (!member?.characterData) return null;
-  return JSON.parse(member.characterData) as CharacterData;
+  if (!row) return null;
+  return parseSheetOrNull(row.characterData, row.ruleTemplate ?? undefined);
 }
 
 /**
- * Update resource current values (HP, SAN, MP).
- * Allows the resource owner to update, or the room host/admin to update any player's resources.
+ * The single write action for a character sheet: attributes, resources
+ * (current and editable max), profile and custom attributes. The member edits
+ * their own card; the room host or an admin may edit any member's (bots
+ * included). The edit is validated and clamped by the rule's schema through
+ * `applySheetEdit`; only the fields it names change, so a stale client can't
+ * roll back values it didn't touch.
  */
-export async function updateResourcesAction(
+export async function editCharacterAction(
   roomId: number,
   targetUserId: number,
-  resources: {
-    hp_current?: number;
-    san_current?: number;
-    mp_current?: number;
-    // d20-only fields — applied to d20Sheet when the active rule is dnd5e.
-    hpMax?: number;
-    // 狩魂者-only field — applied to shSheet when the active rule is shouhun.
-    mana_current?: number;
-    /** Values for the rule's counter-style bars (triangle's 嘉奖/申诫),
-     *  keyed by bar key — written through `applyStatWrite`. */
-    counters?: Record<string, number>;
-  }
-): Promise<{ success: true } | Fail> {
-  const session = await auth();
-  if (!session) return fail("errorNotAuthenticated");
-  const callerId = parseInt(session.user.id);
-  const callerRole = session.user.role;
+  edit: SheetEdit,
+): Promise<{ success: true; data: CharacterData } | Fail> {
+  const w = await resolveSheetWriter(roomId, targetUserId);
+  if (!w.ok) return fail(w.key);
 
-  // Check membership
-  const [caller] = await db.select({ id: roomMembers.id })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, callerId)
-    ));
-  if (!caller) return fail("errorNotMember");
+  const roomRule = getRuleForRoom(w.room);
+  const sheet = parseSheet(w.targetSheet, roomRule.id);
+  // The sheet's own rule owns its fields (mid rule switch it may differ from
+  // the room's until the member rebuilds).
+  const next = applySheetEdit(getRule(sheet.ruleTemplate), sheet, edit).sheet;
 
-  // Check authorization: must be owner, room host, or admin
-  const [room] = await db.select({ hostId: rooms.hostId, frozen: rooms.frozen })
-    .from(rooms)
-    .where(eq(rooms.id, roomId));
-  if (!room) return fail("errorRoomNotFound");
-
-  const isOwner = callerId === targetUserId;
-  const isHost = callerId === room.hostId;
-  const isAdmin = callerRole === "admin";
-
-  if (!isOwner && !isHost && !isAdmin) {
-    return fail("errorUnauthorizedResource");
-  }
-
-  // Frozen rooms are read-only for non-hosts
-  if (room.frozen && !isHost && !isAdmin) {
-    return fail("errorRoomFrozen");
-  }
-
-  // Verify target user is a member
-  const [targetMember] = await db.select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, targetUserId)
-    ));
-  if (!targetMember) return fail("errorTargetNotMember");
-
-  let charData: CharacterData = targetMember.characterData
-    ? JSON.parse(targetMember.characterData)
-    : { ruleTemplate: "basic" };
-
-  // Each rule owns where its resources live and how they clamp (d20 → d20Sheet
-  // with editable max; 狩魂者 → shSheet, maxes derived; COC → cocDerived; basic/
-  // triangle → no standard resources). The action just forwards the whole
-  // patch — this replaced a `ruleTemplate === "…"` chain. Counter-style bars
-  // (triangle's 嘉奖/申诫) go through the rule's stat writer instead.
-  const rule = getRule(charData.ruleTemplate);
-  charData = rule.applyResourcePatch(charData, resources);
-  for (const bar of rule.capabilities.resourceBars) {
-    if (bar.style !== "counter") continue;
-    const v = resources.counters?.[bar.key];
-    if (typeof v !== "number" || !Number.isFinite(v)) continue;
-    charData = rule.applyStatWrite(charData, { kind: "resource", key: bar.key, canonical: bar.key }, Math.trunc(v)).sheet;
-  }
-
-  await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(charData) })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, targetUserId)
-    ));
+  const json = serializeSheet(next);
+  if (json === null) return fail("errorDataTooLarge");
+  await writeSheet(roomId, targetUserId, json);
 
   // The member list shows whatever the rule calls this character's primary
-  // vital (HP where it exists, else the first resource/custom attribute), so
-  // broadcast that entry rather than an HP pair only COC-likes can fill.
+  // vital (HP where it exists, else the first resource/custom attribute).
   broadcastToRoom(roomId, {
     type: "character_updated",
     userId: targetUserId,
-    vital: primaryVital(charData),
+    vital: primaryVital(next),
   });
 
   revalidatePath(`/rooms/${roomId}`);
-  return { success: true };
+  return { success: true, data: next };
 }

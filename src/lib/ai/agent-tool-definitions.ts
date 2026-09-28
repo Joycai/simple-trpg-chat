@@ -1,4 +1,5 @@
-import { listRules, listRuleIds } from "@/lib/rules";
+import { getRule } from "@/lib/rules";
+import { sheetToolSchema } from "@/lib/character/sheet-ai";
 
 /**
  * OpenAI-style function definitions for every tool the bot agent can call.
@@ -6,7 +7,7 @@ import { listRules, listRuleIds } from "@/lib/rules";
  * interpolated into send_image's description so the model sees this room's
  * internal image path.
  */
-export function buildAgentToolDefinitions(roomId: number) {
+export function buildAgentToolDefinitions(roomId: number, ruleId?: string | null) {
   return [
     {
       type: "function",
@@ -164,28 +165,18 @@ export function buildAgentToolDefinitions(roomId: number) {
       type: "function",
       function: {
         name: "set_character_card",
-        description: "Set or update your own character sheet attributes, skills, and background story.",
+        description: "Set or update your own character sheet for this room's rule: attributes, resources, skills, and background story. Only send the fields you want to change.",
         parameters: {
           type: "object",
           properties: {
-            ruleTemplate: {
-              type: "string",
-              // Enum sourced from the rule registry so any newly registered
-              // rule is advertised to the LLM without a manual edit here.
-              enum: [...listRuleIds()],
-              description: "The rule template to use. 'coc7th' is for Call of Cthulhu 7th edition, 'basic' is for a generic TRPG character card, 'dnd5e' is for DnD 5e (d20), 'shouhun' is for 狩魂者 (Soul Hunter)."
-            },
             name: { "type": "string", "description": "The character's name" },
             age: { "type": "integer", "description": "The character's age" },
             occupation: { "type": "string", "description": "The character's occupation" },
             bio: { "type": "string", "description": "The character's biography or backstory" },
-            // Per-rule sheet fields, merged from every registered rule's
-            // describeForAI() output. Adding a new rule auto-advertises its
-            // sheet structure here — no manual edit needed.
-            ...Object.assign(
-              {},
-              ...listRules().map(r => r.describeForAI().sheetToolSchemaFields)
-            ),
+            // The room rule's sheet fields (attributes, resources, role/level),
+            // generated from its schema — the same schema `applySheetEdit`
+            // validates the call against.
+            ...sheetToolSchema(getRule(ruleId)),
             customAttributes: {
               type: "array",
               description: "Generic custom attributes/stats for non-COC systems or extensions.",

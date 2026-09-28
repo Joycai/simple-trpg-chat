@@ -149,26 +149,6 @@ export type StatRoute =
 
 export type CheckMenuMode = "check" | "psychology" | "sancheck";
 
-export interface ResourceBarSpec {
-  /** Logical key the sheet stores under (`hp`, `san`, `mp`, …). */
-  key: string;
-  /** i18n key under `messages.character` for the bar label. */
-  labelKey: string;
-  /**
-   * Render style. `"bar"` (default) is a current/max pair with a fill bar.
-   * `"counter"` is an unbounded counter (value + steppers, no max) for
-   * accumulating resources like Triangle Agency's commendations/reprimands.
-   */
-  style?: "bar" | "counter";
-}
-
-export interface AttributeKeySpec {
-  /** Logical key in `cocAttributes` (or future rule's attribute bag). */
-  key: string;
-  /** i18n key under `messages.character` for the label. */
-  labelKey: string;
-}
-
 export interface RuleCapabilities {
   /**
    * i18n key under `messages.hostLabels` for what this system calls the person
@@ -193,8 +173,6 @@ export interface RuleCapabilities {
   hasSanity: boolean;
   /** Enables host `psychologyHiddenRollAction` and its TopBar menu item. */
   hasPsychologyRoll: boolean;
-  /** Renders MP bar in character sheet + tooltip. */
-  hasManaPoints: boolean;
   /** Modes shown in the TopBar 检定 dropdown for the host. */
   checkMenuModes: ReadonlyArray<CheckMenuMode>;
   /** Whitelist of chat commands the rule honors (`help`, `st`, `rc`, `ra`, `rh`, `rd`, `r`, `sc`). */
@@ -207,32 +185,6 @@ export interface RuleCapabilities {
    * "count the 3s" guidance). Keep in lockstep with `supportedCommands`.
    */
   helpEntryIds: ReadonlyArray<string>;
-  /** Predefined resource bars rendered in the character sheet. */
-  resourceBars: ReadonlyArray<ResourceBarSpec>;
-  /** Predefined attribute grid rendered in the character sheet. */
-  attributeKeys: ReadonlyArray<AttributeKeySpec>;
-  /**
-   * Read-only derived stats rendered after the attribute grid (狩魂者 shows
-   * 术法强度 = ⌊智慧/2⌋). Pure display metadata — the values themselves are
-   * computed by the sheet UI from the rule's derive helper, never persisted.
-   */
-  derivedStats?: ReadonlyArray<AttributeKeySpec>;
-  /**
-   * Attributes compact enough to also show in the chat avatar hover card
-   * (狩魂者 shows its 3 base attributes; COC shows only 幸运). Keys match
-   * `attributeKeys`, but the label may differ — the hover card is tight, so
-   * a rule can point at a shorter i18n key than the sheet grid uses. Omit to
-   * keep the hover card to resources and derived stats only.
-   */
-  statusAttributeKeys?: ReadonlyArray<AttributeKeySpec>;
-  /**
-   * How many player-defined `customAttributes` compact status surfaces (the
-   * chat avatar hover card) may show. Rules with their own preset resources
-   * leave this undefined and show all of them; `basic` has no presets at all,
-   * so its status card is *only* custom attributes and caps at the first 2 to
-   * stay a glance rather than a second character sheet.
-   */
-  statusCustomLimit?: number;
   /**
    * `.rd`/`.r` default dice expression when player supplies no args.
    * COC/basic: `"1d100"`; DnD 5e: `"1d20"`.
@@ -245,27 +197,6 @@ export interface RuleCapabilities {
    * and lets the rule decide a default (d20 uses DC=10).
    */
   requiresStoredTarget: boolean;
-  /**
-   * When true, the character panel exposes free-text `role` and numeric
-   * `level` fields above the attribute grid. d20 sets true; COC/basic false.
-   */
-  hasRoleLevel: boolean;
-  /**
-   * When true, the character panel lets players edit a resource bar's MAX
-   * inline. d20 HP has no auto-derivation, so its max is free-set; rules with
-   * derived maxes (COC / 狩魂者) leave this false — their max moves with the
-   * attributes. Absent ⇒ false.
-   */
-  resourceMaxEditable?: boolean;
-  /**
-   * When true, the character panel persists resource *current* values through
-   * `updateResourcesAction` (which targets a specific member, so a host can
-   * adjust another player's bars) rather than bundling them into the player's
-   * own sheet save. COC / 狩魂者 store currents in a derived/separate bag and set
-   * this; d20 (HP inline on d20Sheet) and Triangle (counters on taSheet) leave
-   * it false and save currents as part of their own sheet. Absent ⇒ false.
-   */
-  resourceCurrentsViaAction?: boolean;
   /**
    * Quick-insert command chips rendered above the chat input, in order.
    * Each entry is a full command string (e.g. `".rd100"`, `".r 6d4"`).
@@ -318,15 +249,15 @@ export interface QuickCheckPanelSpec {
   /** List the player's own `room_skills` rows as pickable entries. */
   skills: boolean;
   /**
-   * List `capabilities.attributeKeys` (values via `readAttributes`) as
+   * List the schema's attributes (`sheet.attributes`, values via `resolveSheet`) as
    * pickable entries. Only meaningful for rules whose `.rc` can resolve an
    * attribute by name (COC's `lookupFallback`); d20 leaves it false because
    * ability *scores* are not modifiers.
    */
   attributes: boolean;
   /**
-   * Checkable resource currents (COC's 理智值), keyed into `resourceBars`.
-   * Values come from `readStatus().resources[key].current`.
+   * Checkable resource currents (COC's 理智值), keyed into `sheet.resources`.
+   * Values come from `resolveSheet(...).resources`.
    */
   resourceKeys?: ReadonlyArray<string>;
   /**
@@ -392,64 +323,12 @@ export interface QuickCheckInput {
 }
 
 // ---------------------------------------------------------------------------
-// Read-only sheet status (chat avatar hover card)
-// ---------------------------------------------------------------------------
-
-/**
- * Flattened, display-ready snapshot of a sheet's live numbers, keyed by the
- * capability keys the rule already declares (`resourceBars`, `derivedStats`,
- * `statusAttributeKeys`). Each rule owns the mapping because each stores its
- * numbers in a different bag (`cocDerived` / `d20Sheet` / `taSheet` / …), so
- * read-only surfaces can render any rule without branching on the rule id.
- */
-export interface CharacterStatus {
-  /**
-   * Current value (and max, for `"bar"`-style resources) per `resourceBars`
-   * key. A key the sheet has no data for is simply omitted — the renderer
-   * skips that bar rather than showing a zero.
-   */
-  resources: Record<string, { current: number; max?: number }>;
-  /** Value per `derivedStats` key. Computed on read, never persisted. */
-  derived?: Record<string, number>;
-  /** Value per `statusAttributeKeys` entry. */
-  attributes?: Record<string, number>;
-  /** Optional short badge rendered next to an attribute (狩魂者 E..SSS+ grade). */
-  attributeGrades?: Record<string, string>;
-}
-
-// ---------------------------------------------------------------------------
 // AI helper payload
 // ---------------------------------------------------------------------------
 
 export interface AiRuleHints {
   /** Single-paragraph rule explanation injected into the bot's system prompt. */
   rulesPrompt: string;
-  /**
-   * Additional JSON-schema fragment merged into the `update_character_sheet`
-   * tool's `properties`. Lets each rule advertise its own sheet structure
-   * to the LLM. May be empty for rules without a structured sheet.
-   */
-  sheetToolSchemaFields: Record<string, unknown>;
-}
-
-// ---------------------------------------------------------------------------
-// Batch resource edit (host/player resource panel)
-// ---------------------------------------------------------------------------
-
-/**
- * A batch resource edit from the character panel / host adjust dialog. This is
- * the union of every rule's resource fields; each rule's `applyResourcePatch`
- * consumes the keys it owns and ignores the rest. Keeping it a flat superset
- * lets the server action stay rule-agnostic — it forwards the whole patch and
- * lets the module decide where each number lands and how it clamps.
- */
-export interface ResourcePatch {
-  hp_current?: number;
-  /** Editable max (d20 HP). Rules with derived maxes ignore it. */
-  hpMax?: number;
-  san_current?: number;
-  mp_current?: number;
-  mana_current?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -495,53 +374,6 @@ export interface RuleModule {
    * compatibility reader and the backfill script call it.
    */
   migrateLegacy(legacy: LegacySheet): CharacterSheetV2;
-
-  /** Fresh sheet for a new player in this rule's rooms. */
-  initCharacter(): CharacterData;
-  /**
-   * Recompute derived fields after attribute edits.
-   * Must preserve player-set current resource values where possible
-   * (COC re-clamps `hp_current` / `san_current` / `mp_current` to new maxes).
-   */
-  computeDerived(sheet: CharacterData): CharacterData;
-  /**
-   * Read the sheet's live numbers into the generic `CharacterStatus` shape
-   * for read-only surfaces (the chat avatar hover card). Rules without a
-   * structured sheet (basic) return `{ resources: {} }`.
-   */
-  readStatus(sheet: CharacterData): CharacterStatus;
-  /**
-   * Read the rule's attribute bag into a flat record keyed by
-   * `capabilities.attributeKeys[*].key` — the shape the character panel's
-   * generic attribute grid edits. Missing values fall back to the rule's
-   * defaults; rules without structured attributes (basic) return `{}`. This is
-   * the read half that lets the panel stop reaching into `cocAttributes` /
-   * `d20Attributes` / … by name.
-   */
-  readAttributes(sheet: CharacterData): Record<string, number>;
-  /**
-   * Merge an edited attribute record (from the panel grid) back into the rule's
-   * attribute bag, whitelisting to `attributeKeys` and returning a new sheet.
-   * Rules without structured attributes (basic) return `sheet` unchanged.
-   * Callers run `computeDerived` afterwards to refresh derived values.
-   */
-  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData;
-  /**
-   * Merge an untrusted sheet patch (the AI bot's `set_character_card` tool
-   * arguments) into `sheet`, returning a new sheet.
-   *
-   * The keys a rule accepts here are exactly the ones it advertised in
-   * `describeForAI().sheetToolSchemaFields` — declaring a field to the model
-   * and then handling it are two halves of the same contract, so they live in
-   * the same module. When the AI layer branched on the rule id instead, the
-   * two rules added later advertised `taQualities` / `shAttributes` to the LLM
-   * and had them silently dropped on write.
-   *
-   * The model is not trusted: implementations must whitelist keys and clamp
-   * every number to a sane range. Rules without a structured sheet (basic)
-   * return `sheet` unchanged. Callers still run `computeDerived` afterwards.
-   */
-  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData;
 
   // ----- Stat resolution ----------------------------------------------------
 
@@ -657,37 +489,8 @@ export interface RuleModule {
    */
   buildCheckCommand?(input: QuickCheckInput): { command: string; preview: string } | null;
 
-  // ----- `.st` attribute/resource write -----------------------------------
-
-  /**
-   * Apply a `.st` write to the sheet for an attribute or resource route.
-   * Returns the mutated sheet (rules may also return the same reference)
-   * and the final stored value (resources are clamped to their maxes).
-   * Rules WITHOUT structured sheets (basic) return the input unchanged.
-   *
-   * The engine never inspects the sheet for rule-specific keys — this
-   * method is the single dispatch point. COC's implementation hosts the
-   * attribute/resource branches that used to live inline in the engine.
-   */
-  applyStatWrite(
-    sheet: CharacterData,
-    route: Extract<StatRoute, { kind: "attribute" } | { kind: "resource" }>,
-    value: number,
-  ): { sheet: CharacterData; finalValue: number };
-
-  /**
-   * Apply a batch resource edit (the character panel's HP/SAN/MP/mana steppers,
-   * or a host adjusting another player's bars) to the sheet, clamping every
-   * field the rule owns to its max. This is the single dispatch point that used
-   * to live as a `ruleTemplate === "…"` chain inside `updateResourcesAction`.
-   * Rules without structured resources (basic) return `sheet` unchanged.
-   */
-  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData;
-
   // ----- Export / AI integration -------------------------------------------
 
-  /** Fields injected into the player snapshot inside character exports. */
-  exportSnapshot(sheet: CharacterData): Record<string, unknown>;
-  /** Rule-flavored prompt + tool schema fragment for the AI agent. */
+  /** Rule-flavored prompt for the AI agent (sheet fields come from `sheet`). */
   describeForAI(): AiRuleHints;
 }

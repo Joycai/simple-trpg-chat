@@ -18,19 +18,13 @@
  */
 
 import { rollDie } from "@/lib/commands/dice";
-import type { CharacterData } from "@/lib/character/types";
-import { D20_DEFAULT_ATTRIBUTES, type D20Attributes, type D20Sheet } from "./sheet";
+import { D20_DEFAULT_ATTRIBUTES, type D20Attributes } from "./sheet";
 import { resolveD20Stat } from "./stats";
-import { clampAttributes, clampInt } from "../patch-utils";
 import { legacyAttributes, legacyAttributesTouched, legacyBase, legacyCurrent, setResource } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
-  AttributeKeySpec,
-  CharacterStatus,
   CheckRequest,
   CheckResult,
-  ResourceBarSpec,
-  ResourcePatch,
   RuleCapabilities,
   RuleModule,
   StatRoute,
@@ -38,7 +32,7 @@ import type {
 } from "../types";
 
 // 8 attribute cards rendered in the character panel grid, in order.
-const D20_ATTRIBUTE_KEYS: ReadonlyArray<AttributeKeySpec> = [
+const D20_ATTRIBUTE_KEYS: ReadonlyArray<{ key: string; labelKey: string }> = [
   { key: "str", labelKey: "str" },
   { key: "dex", labelKey: "dex" },
   { key: "con", labelKey: "con" },
@@ -47,10 +41,6 @@ const D20_ATTRIBUTE_KEYS: ReadonlyArray<AttributeKeySpec> = [
   { key: "cha", labelKey: "cha" },
   { key: "pb",  labelKey: "pb"  },
   { key: "ac",  labelKey: "ac"  },
-];
-
-const D20_RESOURCE_BARS: ReadonlyArray<ResourceBarSpec> = [
-  { key: "hp", labelKey: "hp" },
 ];
 
 /** Modifier formula validator shared by `.rc` and the `.r 优势` shorthand. */
@@ -86,21 +76,12 @@ const capabilities: RuleCapabilities = {
   playerLabelKey: "adventurer",
   hasSanity: false,
   hasPsychologyRoll: false,
-  hasManaPoints: false,
   checkMenuModes: ["check"],
   // No `.sc` — d20 has no sanity. `.st/.rc/.ra/.rh/.rd/.r` all supported.
   supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
   helpEntryIds: ["st", "rcD20", "rcD20Adv", "rch", "rdr", "rh", "help"],
-  resourceBars: D20_RESOURCE_BARS,
-  attributeKeys: D20_ATTRIBUTE_KEYS,
-  // AC is the one number a d20 table asks for constantly ("what's your AC?"),
-  // so it joins HP on the hover card; the six abilities stay on the sheet.
-  statusAttributeKeys: [{ key: "ac", labelKey: "ac" }],
   defaultRollExpression: "1d20",
   requiresStoredTarget: false,
-  hasRoleLevel: true,
-  // HP max is free-set (no auto-derivation), so the panel lets players edit it.
-  resourceMaxEditable: true,
   quickRolls: [".rd20", ".rc 力量+2 15"],
   // Quick-check panel: roll20-style — pick a stored skill (its stored value
   // seeds the modifier stepper), adjust the flat bonus, optionally type a DC.
@@ -118,15 +99,6 @@ const capabilities: RuleCapabilities = {
   },
 };
 
-/** HP clamp helper — the only "derived" calculation in v1. */
-function clampHp(sheet: D20Sheet | undefined): D20Sheet | undefined {
-  if (!sheet) return sheet;
-  const out = { ...sheet };
-  if (typeof out.hpMax === "number" && typeof out.hp_current === "number") {
-    out.hp_current = Math.min(Math.max(0, out.hp_current), out.hpMax);
-  }
-  return out;
-}
 
 export const dnd5eRule: RuleModule = {
   id: "dnd5e",
@@ -170,76 +142,6 @@ export const dnd5eRule: RuleModule = {
     return out;
   },
 
-
-  initCharacter(): CharacterData {
-    return {
-      ruleTemplate: "dnd5e",
-      d20Attributes: { ...D20_DEFAULT_ATTRIBUTES },
-      d20Sheet: { level: 1, hpMax: 10, hp_current: 10 },
-    };
-  },
-
-  computeDerived(sheet: CharacterData): CharacterData {
-    if (sheet.ruleTemplate !== "dnd5e") return sheet;
-    // Only "derivation": clamp HP current to its max. Everything else is
-    // free-set per v1 design.
-    const clamped = clampHp(sheet.d20Sheet);
-    if (clamped === sheet.d20Sheet) return sheet;
-    return { ...sheet, d20Sheet: clamped };
-  },
-
-  readStatus(sheet: CharacterData): CharacterStatus {
-    const d = sheet.d20Sheet;
-    const ac = sheet.d20Attributes?.ac;
-    return {
-      // HP needs a max to draw a bar; AC is independent of it, so a sheet with
-      // only attributes filled in still contributes its AC.
-      resources: d && typeof d.hpMax === "number"
-        ? { hp: { current: d.hp_current ?? d.hpMax, max: d.hpMax } }
-        : {},
-      attributes: typeof ac === "number" ? { ac } : undefined,
-    };
-  },
-
-  readAttributes(sheet: CharacterData): Record<string, number> {
-    return { ...(sheet.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
-  },
-
-  writeAttributes(sheet: CharacterData, values: Record<string, number>): CharacterData {
-    const attrs = { ...(sheet.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
-    for (const { key } of D20_ATTRIBUTE_KEYS) {
-      if (typeof values[key] === "number") attrs[key as keyof D20Attributes] = values[key];
-    }
-    return { ...sheet, d20Attributes: attrs };
-  },
-
-  /**
-   * Accepts `d20Attributes` + `d20Sheet`, the two fields `describeForAI`
-   * declares. Abilities and AC top out at 30 (well past the 20 cap so homebrew
-   * still fits); pb is bounded by the same range rather than 2–6 for the same
-   * reason. Level 1–30 and HP 0–999 are similarly generous — the point is to
-   * reject nonsense, not to enforce the rulebook.
-   */
-  applySheetPatch(sheet: CharacterData, patch: Record<string, unknown>): CharacterData {
-    const out = { ...sheet };
-
-    const attrs = clampAttributes(patch.d20Attributes, D20_ATTRIBUTE_KEYS, 0, 30, 10);
-    if (attrs) {
-      out.d20Attributes = { ...(out.d20Attributes ?? D20_DEFAULT_ATTRIBUTES), ...attrs };
-    }
-
-    if (patch.d20Sheet && typeof patch.d20Sheet === "object") {
-      const incoming = patch.d20Sheet as Record<string, unknown>;
-      const meta: D20Sheet = { ...(out.d20Sheet ?? {}) };
-      if (typeof incoming.role === "string") meta.role = incoming.role.slice(0, 64);
-      if (incoming.level !== undefined) meta.level = clampInt(incoming.level, 1, 30, 1);
-      if (incoming.hpMax !== undefined) meta.hpMax = clampInt(incoming.hpMax, 0, 999, 10);
-      if (incoming.hp_current !== undefined) meta.hp_current = clampInt(incoming.hp_current, 0, 999, 0);
-      out.d20Sheet = meta;
-    }
-
-    return out;
-  },
 
   routeStat(name: string): StatRoute {
     const r = resolveD20Stat(name);
@@ -367,52 +269,6 @@ export const dnd5eRule: RuleModule = {
     return { command, preview };
   },
 
-  applyStatWrite(sheet, route, value) {
-    const data = { ...sheet };
-
-    if (route.kind === "attribute") {
-      const key = route.key as keyof D20Attributes;
-      const attrs: D20Attributes = { ...(data.d20Attributes ?? D20_DEFAULT_ATTRIBUTES) };
-      attrs[key] = value;
-      data.d20Attributes = attrs;
-      // No derivation chain to retrigger for attribute writes (per v1 design
-      // — no auto AC from dex, no auto pb from level).
-      return { sheet: data, finalValue: value };
-    }
-
-    // resource — HP only in v1.
-    const meta: D20Sheet = { ...(data.d20Sheet ?? {}) };
-    if (route.key === "hp") {
-      // Clamp to hpMax if set; else accept the raw value and treat it as new max.
-      if (typeof meta.hpMax === "number") {
-        const clamped = Math.min(Math.max(0, value), meta.hpMax);
-        meta.hp_current = clamped;
-        data.d20Sheet = meta;
-        return { sheet: data, finalValue: clamped };
-      }
-      meta.hp_current = Math.max(0, value);
-      meta.hpMax = meta.hp_current;
-      data.d20Sheet = meta;
-      return { sheet: data, finalValue: meta.hp_current };
-    }
-    return { sheet: data, finalValue: value };
-  },
-
-  // Batch resource edit — d20 HP lives on d20Sheet with an editable max.
-  // Moved verbatim out of updateResourcesAction's dnd5e branch.
-  applyResourcePatch(sheet: CharacterData, patch: ResourcePatch): CharacterData {
-    const meta: D20Sheet = { ...(sheet.d20Sheet ?? {}) };
-    if (patch.hpMax !== undefined) {
-      meta.hpMax = Math.max(0, patch.hpMax);
-    }
-    if (patch.hp_current !== undefined) {
-      const cap = typeof meta.hpMax === "number" ? meta.hpMax : patch.hp_current;
-      meta.hp_current = Math.max(0, Math.min(patch.hp_current, cap));
-      if (typeof meta.hpMax !== "number") meta.hpMax = meta.hp_current;
-    }
-    return { ...sheet, d20Sheet: meta };
-  },
-
   resolveCheck(req: CheckRequest): CheckResult {
     const dc = req.explicitTarget ?? 10;
     const modifier = req.modifierValue ?? 0;
@@ -477,20 +333,6 @@ export const dnd5eRule: RuleModule = {
     };
   },
 
-  exportSnapshot(sheet: CharacterData): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    if (sheet.d20Sheet) {
-      out.role = sheet.d20Sheet.role;
-      out.level = sheet.d20Sheet.level;
-      out.hp = sheet.d20Sheet.hp_current;
-      out.hpMax = sheet.d20Sheet.hpMax;
-    }
-    if (sheet.d20Attributes) {
-      out.attributes = sheet.d20Attributes;
-    }
-    return out;
-  },
-
   describeForAI(): AiRuleHints {
     return {
       rulesPrompt:
@@ -502,22 +344,6 @@ export const dnd5eRule: RuleModule = {
         "nameless shorthand. All character attributes (str/dex/con/int/wis/cha/pb/ac) " +
         "are free-set numbers with NO auto-derivation in this room — players supply modifiers " +
         "explicitly in their .rc commands).",
-      sheetToolSchemaFields: {
-        d20Attributes: {
-          type: "object",
-          description:
-            "DnD 5e attributes (only when ruleTemplate is 'dnd5e'). " +
-            "All 8 keys are free-set numbers: str, dex, con, int, wis, cha (ability scores, " +
-            "typically 8–20); pb (proficiency bonus, typically 2–6); ac (armor class, typically 10–20).",
-        },
-        d20Sheet: {
-          type: "object",
-          description:
-            "DnD 5e role/level/HP meta (only when ruleTemplate is 'dnd5e'). " +
-            "Fields: role (string, e.g. '战士'/'Wizard'), level (number), " +
-            "hpMax (number), hp_current (number, clamped to hpMax on write).",
-        },
-      },
     };
   },
 };

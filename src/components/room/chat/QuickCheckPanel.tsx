@@ -26,7 +26,7 @@ import { useRoomRule } from "@/components/shared/host-label";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { getMySkillsAction } from "@/app/actions/skills";
 import { getCharacterDataAction } from "@/app/actions/character";
-import type { CharacterData } from "@/lib/character/types";
+import { findResource, resolveSheet } from "@/lib/character/sheet-model";
 
 interface QuickCheckPanelProps {
   roomId: number;
@@ -125,8 +125,8 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Fetch fresh on mount (= on open). Attributes/resources flatten through the
-  // rule's own readers, so this component never touches a rule-specific bag.
+  // Fetch fresh on mount (= on open). Attributes/resources resolve through the
+  // rule's sheet schema, so this component never names a rule-specific field.
   useEffect(() => {
     if (!spec) return;
     let alive = true;
@@ -140,28 +140,27 @@ export function QuickCheckPanel({ roomId, onSubmit, onClose }: QuickCheckPanelPr
         if (!alive) return;
 
         const list: Entry[] = [];
-        if (spec.attributes && sheet) {
-          const values = rule.readAttributes(sheet as CharacterData);
-          for (const { key, labelKey } of rule.capabilities.attributeKeys) {
-            if (typeof values[key] !== "number") continue;
+        // A sheet built for another rule (mid rule switch) has none of this
+        // rule's stats to offer.
+        const resolved = sheet && sheet.ruleTemplate === rule.id ? resolveSheet(rule, sheet) : null;
+        if (spec.attributes && resolved) {
+          for (const { field, value } of resolved.attributes) {
             list.push({
               kind: "attribute",
-              name: rule.canonicalStatName(key),
-              label: tChar(labelKey),
-              value: values[key],
+              name: rule.canonicalStatName(field.key),
+              label: tChar(field.labelKey),
+              value,
             });
           }
         }
-        if (spec.resourceKeys?.length && sheet) {
-          const status = rule.readStatus(sheet as CharacterData);
+        if (spec.resourceKeys?.length && resolved) {
           for (const key of spec.resourceKeys) {
-            const res = status.resources[key];
+            const res = findResource(resolved, key);
             if (!res) continue;
-            const bar = rule.capabilities.resourceBars.find((b) => b.key === key);
             list.push({
               kind: "resource",
               name: rule.canonicalStatName(key),
-              label: bar ? tChar(bar.labelKey) : key,
+              label: tChar(res.field.labelKey),
               value: res.current,
             });
           }

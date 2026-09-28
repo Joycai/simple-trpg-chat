@@ -1,5 +1,6 @@
 "use server";
 
+import { emptySheet } from "@/lib/character/sheet-v2";
 import { db } from "@/db";
 import { users, roomMembers, rooms } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -68,7 +69,7 @@ export async function createBotAction(
       nickname: data.nickname,
       avatarColor: data.avatarColor || getRandomColorForUser(userRecord.id),
       // Bots are members too — the AI sheet tools expect a rule-shaped card.
-      characterData: JSON.stringify(getRuleForRoom(room || {}).initCharacter()),
+      characterData: JSON.stringify(emptySheet(getRuleForRoom(room || {}).id)),
     });
 
   });

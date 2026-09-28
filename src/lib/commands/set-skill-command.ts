@@ -2,7 +2,10 @@ import { db, sqlNow } from "@/db";
 import { roomSkills, rooms, roomMembers } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import type { CharacterData } from "@/lib/character/types";
-import { getRuleForRoom } from "@/lib/rules";
+import { applySheetEdit, statEdit, statValue } from "@/lib/character/sheet-model";
+import { parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
+import { emptySheet } from "@/lib/character/sheet-v2";
+import { getRule, getRuleForRoom } from "@/lib/rules";
 import type { CommandResult, CommandContext } from "./command-types";
 import { visibilityFor, emitCommandMessage } from "./command-message";
 
@@ -44,54 +47,34 @@ export async function handleSetSkill(
   const routes = parsed.map(item => ({ item, route: rule.routeStat(item.name) }));
   const needsSheet = routes.some(r => r.route.kind === "attribute" || r.route.kind === "resource");
 
-  // Load the bot/player's sheet once; rule.applyStatWrite mutates it purely
-  // in memory below and we persist a single time at the end.
+  // Load the bot/player's sheet once; every write below edits it in memory
+  // through `applySheetEdit` and we persist a single time at the end.
   let sheet: CharacterData | null = null;
   if (needsSheet) {
     const [member] = await db
       .select({ characterData: roomMembers.characterData })
       .from(roomMembers)
       .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-    if (member?.characterData) {
-      try {
-        sheet = JSON.parse(member.characterData) as CharacterData;
-      } catch (e) {
-        console.error("Failed to parse character data", e);
-        sheet = null;
-      }
-    }
     // A member who has never opened the character panel has no sheet yet.
-    // Seed one (same shape initCharacterAction persists) so the writes below
-    // land instead of being silently dropped while chat reports success.
-    if (member && !sheet) {
-      sheet = rule.initCharacter();
-    }
+    // Start an empty one so the writes below land instead of being silently
+    // dropped while chat reports success.
+    if (member) sheet = parseSheetOrNull(member.characterData, rule.id) ?? emptySheet(rule.id);
   }
+  // The sheet's own rule owns its fields (mid rule switch it may differ from
+  // the room's until the player rebuilds).
+  const sheetRule = sheet ? getRule(sheet.ruleTemplate) : rule;
 
   const summaryParts: string[] = [];
   let sheetDirty = false;
 
   for (const { item, route } of routes) {
-    if (route.kind === "attribute") {
-      if (sheet) {
-        const { sheet: next } = rule.applyStatWrite(sheet, route, item.value);
-        sheet = next;
-        sheetDirty = true;
-      }
-      await cleanupSkillRows(roomId, userId, item.name, route.canonical);
-      summaryParts.push(`${route.canonical} ${item.value}`);
-      continue;
-    }
-
-    if (route.kind === "resource") {
-      // Spec: resources set the current value only (max is unaffected). The
-      // rule may clamp (e.g. d20 HP to hpMax); we use the clamped value in
-      // the user-facing summary.
+    if (route.kind === "attribute" || route.kind === "resource") {
+      // Attributes clamp to their range; resources set the current value only
+      // (max is unaffected) and clamp to it. The summary shows what was stored.
       let displayValue = item.value;
       if (sheet) {
-        const { sheet: next, finalValue } = rule.applyStatWrite(sheet, route, item.value);
-        sheet = next;
-        displayValue = finalValue;
+        sheet = applySheetEdit(sheetRule, sheet, statEdit(route, item.value)).sheet;
+        displayValue = statValue(sheetRule, sheet, route) ?? item.value;
         sheetDirty = true;
       }
       await cleanupSkillRows(roomId, userId, item.name, route.canonical);
@@ -116,9 +99,10 @@ export async function handleSetSkill(
   }
 
   // Single write for any sheet mutations in this batch.
-  if (sheetDirty && sheet) {
+  const json = sheetDirty && sheet ? serializeSheet(sheet) : null;
+  if (json) {
     await db.update(roomMembers)
-      .set({ characterData: JSON.stringify(sheet) })
+      .set({ characterData: json })
       .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
   }
 
