@@ -220,6 +220,8 @@ describe("applyListEnterEdit", () => {
 
   it("splits an item mid-line, carrying the rest onto the new item", () => {
     expect(marked(applyListEnterEdit(...at("- foo[] bar"))!)).toBe("- foo\n- []bar");
+    // Full-width spaces inside the body are content and survive the split.
+    expect(applyListEnterEdit(...at("- 备注：[]\u3000\u3000详情"))!.next).toBe("- 备注：\n- \u3000\u3000详情");
   });
 
   it("replaces a selection before continuing", () => {

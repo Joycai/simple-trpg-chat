@@ -216,7 +216,9 @@ export function applyListEnterEdit(value: string, start: number, end: number): T
   }
 
   const before = line.slice(0, col);
-  const after = line.slice(col).replace(/^[^\S\n]+/, "");
+  // Only the ASCII blanks of a word split: a full-width space the user typed
+  // into the body is content, not the marker's gap.
+  const after = line.slice(col).replace(/^[ \t]+/, "");
   const inserted = `\n${item.indent}${nextListMarker(item.marker)}${item.gap}`;
   const caret = lineStart + before.length + inserted.length;
   return {
