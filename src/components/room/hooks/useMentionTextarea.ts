@@ -80,9 +80,14 @@ export function useMentionTextarea(opts: {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
-  /** Set by Escape on a list line: the next Tab moves focus instead of indenting.
-   *  Any caret move, text change, other key or blur takes it back. */
-  const tabReleased = useRef(false);
+  /**
+   * Where Escape on a list line handed Tab back to the browser. The next Tab
+   * leaves the textarea only while the text and selection are still exactly
+   * this — so typing (IME included), clicking or picking a mention ends the
+   * release without every one of those paths having to clear it. Tab and
+   * Escape consume it; blur drops it, as it belongs to one focus session.
+   */
+  const tabRelease = useRef<{ value: string; start: number; end: number } | null>(null);
   const [commitSeq, setCommitSeq] = useState(0);
   const [mention, setMention] = useState<MentionDraft | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -216,21 +221,24 @@ export function useMentionTextarea(opts: {
     const el = e.currentTarget;
     const start = el.selectionStart ?? 0;
     const end = el.selectionEnd ?? start;
-    const released = tabReleased.current;
-    tabReleased.current = false;
+    const release = tabRelease.current;
+    const released = release !== null && release.value === el.value && release.start === start && release.end === end;
     const otherModifier = e.ctrlKey || e.altKey || e.metaKey;
 
     if (e.key === "Escape") {
+      tabRelease.current = null;
       // Only where Tab is being taken: elsewhere Escape keeps meaning "close".
-      // preventDefault keeps the enclosing drawer's Escape-to-close from firing.
+      // preventDefault keeps the enclosing drawer's Escape-to-close from firing;
+      // a second Escape in place falls through and closes it.
       if (!released && !otherModifier && !e.shiftKey && applyListIndentEdit(el.value, start, end, "in")) {
-        tabReleased.current = true;
+        tabRelease.current = { value: el.value, start, end };
         e.preventDefault();
       }
       return;
     }
 
     if (e.key === "Tab") {
+      tabRelease.current = null;
       if (released || otherModifier) return;
       const edit = applyListIndentEdit(el.value, start, end, e.shiftKey ? "out" : "in");
       if (!edit) return;
@@ -273,21 +281,15 @@ export function useMentionTextarea(opts: {
 
   const textareaProps = useMemo(() => ({
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      tabReleased.current = false;
       setValue(e.target.value);
       syncMention(e.target);
     },
     onKeyDown,
     // `select` is the only native event that fires for every caret move,
     // including arrow keys and Home/End — `click` misses all of those.
-    // It also ends an Escape's Tab release: keydowns alone miss IME input
-    // (keyCode 229), clicks and picked mentions.
-    onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-      tabReleased.current = false;
-      syncMention(e.currentTarget);
-    },
+    onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => syncMention(e.currentTarget),
     onBlur: () => {
-      tabReleased.current = false;
+      tabRelease.current = null;
       cancelBlurDismiss();
       // Deferred so a click on a suggestion lands before the picker closes.
       blurTimer.current = setTimeout(() => {
