@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSheet, parseSheetOrNull, serializeSheet } from "../sheet-store";
+import { parseSheet, parseSheetOrNull, serializeSheet, storedRevision } from "../sheet-store";
 import { emptySheet } from "../sheet-v2";
 import { CHARACTER_DATA_MAX_BYTES } from "../types";
 
@@ -45,6 +45,21 @@ describe("parseSheetOrNull", () => {
     // Without room-rule data it stays under its own rule (and shows the mismatch).
     const coc = { ruleTemplate: "coc7th", cocAttributes: { ...cocDefaults, str: 70 } };
     expect(parseSheetOrNull(coc, "dnd5e")).toMatchObject({ ruleTemplate: "coc7th", attributes: { str: 70 } });
+  });
+});
+
+describe("storedRevision", () => {
+  it("reads a positive integer rev and treats anything else as 0", () => {
+    expect(storedRevision(JSON.stringify({ ...emptySheet("coc7th"), rev: 3 }))).toBe(3);
+    expect(storedRevision({ rev: 7 })).toBe(7);
+    for (const raw of [null, "", "{nope", "[]", { rev: 0 }, { rev: -2 }, { rev: 1.5 }, { rev: "4" }, {}]) {
+      expect(storedRevision(raw)).toBe(0);
+    }
+  });
+
+  it("keeps a valid rev on a parsed v2 sheet and drops an invalid one", () => {
+    expect(parseSheetOrNull({ ...emptySheet("coc7th"), rev: 3 })?.rev).toBe(3);
+    expect(parseSheetOrNull({ ...emptySheet("coc7th"), rev: "3" })).not.toHaveProperty("rev");
   });
 });
 

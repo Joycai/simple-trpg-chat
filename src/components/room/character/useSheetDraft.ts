@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { editCharacterAction, rebuildCharacterForRoomRuleAction } from "@/app/actions/character";
 import { getRule, DEFAULT_RULE_ID } from "@/lib/rules";
 import { applySheetEdit, resolveSheet, sheetDiff } from "@/lib/character/sheet-model";
-import { dropPaths, overlappingChanges } from "@/lib/character/draft";
+import { dropPaths, newerSheet, overlappingChanges } from "@/lib/character/draft";
 import { parseSheet } from "@/lib/character/sheet-store";
 import type { CharacterData, CustomAttribute, SheetEdit } from "@/lib/character/types";
 import type { ProfileEdit } from "@/lib/character/sheet-v2";
@@ -46,10 +46,11 @@ export function useSheetDraft({
     [characterData, roomRuleTemplate],
   );
   // A save returns the stored sheet before the parent's `characterData` catches
-  // up (router.refresh for the own card; never, for a card fetched once). Use
-  // it until the prop changes — a new prop is newer than the save.
-  const [saved, setSaved] = useState<{ from: typeof characterData; sheet: CharacterData } | null>(null);
-  const baseline = saved && saved.from === characterData ? saved.sheet : fromProp;
+  // up (router.refresh for the own card; a reload for someone else's). The
+  // newer copy by write counter is the baseline (`newerSheet`).
+  const [savedFor, setSaved] = useState<{ userId: number; sheet: CharacterData } | null>(null);
+  const saved = savedFor?.userId === targetUserId ? savedFor.sheet : null;
+  const baseline = newerSheet(fromProp, saved);
 
   const [draft, setDraft] = useState<SheetEdit>({});
   const rule = getRule(baseline.ruleTemplate);
@@ -63,7 +64,7 @@ export function useSheetDraft({
   if (seenBaseline !== baseline) {
     setSeenBaseline(baseline);
     // Our own save landing is not someone else's change.
-    if (baseline !== saved?.sheet) {
+    if (baseline !== saved) {
       const mine = applySheetEdit(getRule(seenBaseline.ruleTemplate), seenBaseline, draft).changed;
       const overlap = overlappingChanges(sheetDiff(seenBaseline, baseline), mine);
       if (overlap.length > 0) setConflict((prev) => [...new Set([...prev, ...overlap])]);
@@ -94,7 +95,7 @@ export function useSheetDraft({
     const res = await editCharacterAction(roomId, targetUserId, sent)
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) return failSave(res.error);
-    setSaved({ from: characterData, sheet: res.data });
+    setSaved({ userId: targetUserId, sheet: res.data });
     // Saving writes the user's values over the flagged fields: settled.
     setConflict([]);
     // Keep anything typed while the save was in flight.
@@ -120,7 +121,7 @@ export function useSheetDraft({
       setPanelError(res.error);
       return;
     }
-    setSaved({ from: characterData, sheet: res.data });
+    setSaved({ userId: targetUserId, sheet: res.data });
     setDraft({});
     setConflict([]);
     router.refresh();

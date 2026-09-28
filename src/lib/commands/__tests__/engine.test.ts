@@ -484,7 +484,7 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
 
     const setFn = updateSpy.mock.results[0].value.set;
     const written = JSON.parse(setFn.mock.calls[0][0].characterData);
-    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { str: 50 }, resources: {} });
+    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { str: 50 }, resources: {}, rev: 1 });
     updateSpy.mockRestore();
   });
 

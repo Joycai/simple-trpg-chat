@@ -78,7 +78,7 @@ describe("ensureCharacterSheetAction", () => {
     selectQueue = [[{ characterData: null }], [{ id: 5, hostId: 1, frozen: false, ruleTemplate: "coc7th" }], ...locked()];
     const res = await ensureCharacterSheetAction(5);
     expect(res).toMatchObject({ status: "initialized", data: { schemaVersion: 2, ruleTemplate: "coc7th" } });
-    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: {}, resources: {} });
+    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: {}, resources: {}, rev: 1 });
   });
 
   it("reports a sheet built for another rule without writing", async () => {
@@ -191,7 +191,10 @@ describe("editCharacterAction", () => {
       schemaVersion: 2, ruleTemplate: "triangle",
       attributes: { empathy: 4 },
       resources: { commendations: { current: 4 }, reprimands: { current: 0 } },
+      rev: 1,
     });
+    // The reply is the stored copy, write counter included.
+    expect(res.success && res.data).toEqual(written);
     expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
   });
 

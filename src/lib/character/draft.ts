@@ -1,4 +1,4 @@
-import type { SheetEdit } from "./sheet-v2";
+import type { CharacterSheetV2, SheetEdit } from "./sheet-v2";
 
 /**
  * Pure helpers for the panel's draft when someone else updates the same sheet
@@ -41,4 +41,16 @@ export function dropPaths(draft: SheetEdit, paths: ReadonlyArray<string>): Sheet
   if (out.profile && Object.keys(out.profile).length === 0) delete out.profile;
   for (const k of Object.keys(out) as (keyof SheetEdit)[]) if (out[k] === undefined) delete out[k];
   return out;
+}
+
+/**
+ * The newer of two copies of one sheet: the parent's (loaded or refreshed)
+ * and the one a save returned. The higher write counter wins, so a refresh
+ * that started before the save landed can't bring back the old values, and
+ * any later write — ours arriving through the refresh, or someone else's —
+ * replaces the saved copy. On a tie they are the same write; the loaded one
+ * is kept.
+ */
+export function newerSheet<S extends CharacterSheetV2>(loaded: S, saved: S | null): S {
+  return saved && (saved.rev ?? 0) > (loaded.rev ?? 0) ? saved : loaded;
 }

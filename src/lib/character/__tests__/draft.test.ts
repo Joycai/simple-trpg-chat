@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dropPaths, overlappingChanges } from "../draft";
+import { dropPaths, newerSheet, overlappingChanges } from "../draft";
 import { applySheetEdit, sheetDiff } from "../sheet-model";
 import { emptySheet } from "../sheet-v2";
 import { testRule } from "./fixtures/test-rule";
@@ -35,5 +35,27 @@ describe("dropPaths", () => {
 
   it("reads an all-dropped draft as no changes", () => {
     expect(dropPaths({ attributes: { str: 1 } }, ["attributes.str"])).toEqual({});
+  });
+});
+
+describe("newerSheet", () => {
+  const at = (rev: number | undefined, str: number) => ({ ...emptySheet("test"), attributes: { str }, ...(rev ? { rev } : {}) });
+
+  it("keeps a saved copy over a refresh that started before the save landed", () => {
+    const saved = at(5, 70);
+    expect(newerSheet(at(4, 50), saved)).toBe(saved);
+    expect(newerSheet(at(undefined, 50), saved)).toBe(saved);
+  });
+
+  it("takes the loaded copy once it has caught up or moved past the save", () => {
+    const caughtUp = at(5, 70);
+    expect(newerSheet(caughtUp, at(5, 70))).toBe(caughtUp);
+    const later = at(6, 40);
+    expect(newerSheet(later, at(5, 70))).toBe(later);
+  });
+
+  it("uses the loaded copy when nothing was saved", () => {
+    const loaded = at(2, 50);
+    expect(newerSheet(loaded, null)).toBe(loaded);
   });
 });

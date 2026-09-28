@@ -144,7 +144,8 @@ export async function rebuildCharacterForRoomRuleAction(
     await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
     revalidatePath(`/rooms/${roomId}`);
   }
-  return { success: true, data: out.result };
+  // The stored copy carries the new `rev`; an untouched sheet is the stored one.
+  return { success: true, data: out.sheet ?? out.result };
 }
 
 /**
@@ -195,7 +196,7 @@ export async function editCharacterAction(
   });
   if (out.status === "notMember") return fail("errorTargetNotMember");
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
-  const next = out.result;
+  const next = out.sheet ?? out.result;
 
   await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
 

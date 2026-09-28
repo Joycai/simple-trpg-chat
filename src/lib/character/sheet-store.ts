@@ -41,11 +41,14 @@ export function parseSheetOrNull(raw: unknown, roomRuleId?: string): CharacterDa
   if (!obj || typeof obj.ruleTemplate !== "string" || !obj.ruleTemplate) return null;
 
   if (obj.schemaVersion === 2) {
-    const v2 = {
+    const v2: CharacterData = {
       ...(obj as unknown as CharacterData),
       attributes: (toObject(obj.attributes) as Record<string, number> | null) ?? {},
       resources: (toObject(obj.resources) as CharacterData["resources"] | null) ?? {},
     };
+    const rev = storedRevision(obj);
+    if (rev > 0) v2.rev = rev;
+    else delete v2.rev;
     // Keep the stored rule id even when it's no longer registered, so a rule
     // mismatch stays visible to the caller.
     return { ...normalizeSheet(getRule(obj.ruleTemplate), v2), ruleTemplate: obj.ruleTemplate };
@@ -61,6 +64,16 @@ export function parseSheetOrNull(raw: unknown, roomRuleId?: string): CharacterDa
   }
   const rule = getRule(obj.ruleTemplate);
   return { ...normalizeSheet(rule, rule.migrateLegacy(legacy)), ruleTemplate: obj.ruleTemplate };
+}
+
+/**
+ * The write counter of a stored sheet (`CharacterSheetV2.rev`), 0 when it
+ * has none — a pre-v2 row, an empty column, or a sheet stored before the
+ * counter existed.
+ */
+export function storedRevision(raw: unknown): number {
+  const rev = toObject(raw)?.rev;
+  return typeof rev === "number" && Number.isInteger(rev) && rev > 0 ? rev : 0;
 }
 
 /** Parse a stored sheet, falling back to an empty sheet for `fallbackRuleId`. */
