@@ -80,7 +80,8 @@ export function useMentionTextarea(opts: {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
-  /** Set by Escape on a list line: the next Tab moves focus instead of indenting. */
+  /** Set by Escape on a list line: the next Tab moves focus instead of indenting.
+   *  Any caret move, text change, other key or blur takes it back. */
   const tabReleased = useRef(false);
   const [commitSeq, setCommitSeq] = useState(0);
   const [mention, setMention] = useState<MentionDraft | null>(null);
@@ -200,6 +201,7 @@ export function useMentionTextarea(opts: {
     } catch {
       applied = false;
     }
+    // A mismatch also covers the browser trimming the insertion to `maxlength`.
     if (applied && el.value === edit.next) el.setSelectionRange(edit.selStart, edit.selEnd);
     else commit(edit);
   }, [commit]);
@@ -271,13 +273,19 @@ export function useMentionTextarea(opts: {
 
   const textareaProps = useMemo(() => ({
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      tabReleased.current = false;
       setValue(e.target.value);
       syncMention(e.target);
     },
     onKeyDown,
     // `select` is the only native event that fires for every caret move,
     // including arrow keys and Home/End — `click` misses all of those.
-    onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => syncMention(e.currentTarget),
+    // It also ends an Escape's Tab release: keydowns alone miss IME input
+    // (keyCode 229), clicks and picked mentions.
+    onSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+      tabReleased.current = false;
+      syncMention(e.currentTarget);
+    },
     onBlur: () => {
       tabReleased.current = false;
       cancelBlurDismiss();

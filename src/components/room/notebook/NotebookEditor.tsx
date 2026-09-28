@@ -170,7 +170,6 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
             aria-describedby={hintId}
             className="flex-1 w-full resize-none bg-input-bg border border-input-border rounded-theme px-3.5 py-3 text-sm text-text leading-relaxed font-theme outline-none focus:ring-[3px] focus:ring-accent/[0.18] focus:border-accent/50"
           />
-          <span id={hintId} className="sr-only">{t("listKeysHint")}</span>
 
           {pickerOpen && (
             <MentionPicker
@@ -183,6 +182,9 @@ export function NotebookEditor({ note, categories, entities, dirtyRef, onCancel,
             />
           )}
         </div>
+        {/* Visible from sm up, where a hardware keyboard is likely; the
+            textarea's aria-describedby reads it at every width. */}
+        <p id={hintId} className="hidden sm:block text-xs text-text-dim">{t("listKeysHint")}</p>
       </div>
     </div>
   );

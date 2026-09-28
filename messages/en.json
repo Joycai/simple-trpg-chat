@@ -995,7 +995,7 @@
     "emptyContent": "(empty note)",
     "noResults": "No matching notes",
     "contentPlaceholder": "Markdown supported. Type @ to link clues / items / characters from your backpack…",
-    "listKeysHint": "On list lines, Tab and Shift+Tab indent or outdent and Enter continues the list. Press Escape, then Tab, to leave the editor.",
+    "listKeysHint": "On list lines: Tab / Shift+Tab indents, Enter continues the list, and Esc then Tab leaves the editor.",
     "mentionHeader": "Link backpack entry",
     "mentionSelect": "select",
     "mentionInsert": "insert",
