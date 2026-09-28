@@ -23,6 +23,6 @@ export interface CommandContext {
    * "代投 by <host>" chip and stay transparent about who actually clicked.
    */
   proxiedBy?: { userId: number; nickname: string };
-  /** The browser tab that issued it (`tabId()`), passed on to `character_updated`. */
+  /** The issuing browser tab's id (`tabId()`), bound to the caller in `character_updated`'s origin. */
   origin?: string;
 }

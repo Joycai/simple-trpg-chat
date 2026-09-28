@@ -103,7 +103,7 @@ export async function ensureCharacterSheetAction(roomId: number, origin?: string
     const out = await updateSheetRow(roomId, userId, (raw) =>
       parseSheetOrNull(raw, rule.id) ? { result: null } : { sheet: emptySheet(rule.id), result: null });
     if (out.status !== "ok" || !out.sheet) return { status: "ok" };
-    await broadcastCharacterUpdate(roomId, userId, { origin });
+    await broadcastCharacterUpdate(roomId, userId, { by: userId, tab: origin });
     revalidatePath(`/rooms/${roomId}`);
     return { status: "initialized", data: out.sheet };
   }
@@ -142,7 +142,7 @@ export async function rebuildCharacterForRoomRuleAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
 
   if (out.sheet) {
-    await broadcastCharacterUpdate(roomId, targetUserId, { origin });
+    await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId, tab: origin });
     revalidatePath(`/rooms/${roomId}`);
   }
   // The stored copy carries the new `rev`; an untouched sheet is the stored one.
@@ -201,7 +201,7 @@ export async function editCharacterAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
   const next = out.sheet ?? out.result;
 
-  await broadcastCharacterUpdate(roomId, targetUserId, { origin });
+  await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId, tab: origin });
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: next };

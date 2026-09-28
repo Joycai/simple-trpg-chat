@@ -37,7 +37,7 @@ vi.mock("@/db", async () => {
 });
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn(() => calls.push("emit")) }));
 
-import { broadcastCharacterUpdate, characterUpdatePayload, cleanOrigin } from "../broadcast";
+import { broadcastCharacterUpdate, characterUpdatePayload, writeOrigin } from "../broadcast";
 import { broadcastToRoom } from "@/lib/server/events";
 import { emptySheet } from "../sheet-v2";
 
@@ -72,9 +72,9 @@ describe("broadcastCharacterUpdate", () => {
   it("reads the member's row under its lock and emits before releasing it", async () => {
     const sheet = { ...emptySheet("coc7th"), attributes: { str: 60 }, resources: { hp: { current: 4 } } };
     memberRows = [{ characterData: JSON.stringify(sheet) }];
-    await broadcastCharacterUpdate(5, 3, { origin: "tab-1" });
+    await broadcastCharacterUpdate(5, 3, { by: 1, tab: "tab-1" });
     expect(calls).toEqual(["begin", "lock member for update", "read room", "read skills", "emit", "commit"]);
-    expect(broadcastToRoom).toHaveBeenCalledWith(5, characterUpdatePayload(3, sheet, ["信用评级"], "coc7th", "tab-1"));
+    expect(broadcastToRoom).toHaveBeenCalledWith(5, characterUpdatePayload(3, sheet, ["信用评级"], "coc7th", "1:tab-1"));
   });
 
   it("still broadcasts for a member without a row, as nothing set", async () => {
@@ -82,15 +82,22 @@ describe("broadcastCharacterUpdate", () => {
     expect(broadcastToRoom).toHaveBeenCalledWith(5, expect.objectContaining({ vital: null, origin: null }));
   });
 
-  it("drops an origin that isn't a tab id", async () => {
-    await broadcastCharacterUpdate(5, 3, { origin: "x".repeat(65) });
-    expect(broadcastToRoom).toHaveBeenCalledWith(5, expect.objectContaining({ origin: null }));
+  it("sends no origin for a tab id that isn't one, or without a caller", async () => {
+    await broadcastCharacterUpdate(5, 3, { by: 1, tab: "x".repeat(65) });
+    await broadcastCharacterUpdate(5, 3, { tab: "tab-1" });
+    expect(vi.mocked(broadcastToRoom).mock.calls.map(([, p]) => (p as { origin: unknown }).origin)).toEqual([null, null]);
   });
 });
 
-describe("cleanOrigin", () => {
-  it("accepts a tab id and rejects anything else", () => {
-    expect(cleanOrigin("mfz3k2-4hq9x0a1bc")).toBe("mfz3k2-4hq9x0a1bc");
-    for (const v of [undefined, null, "", 3, "a b", "<script>", "x".repeat(65), {}]) expect(cleanOrigin(v)).toBeNull();
+describe("writeOrigin", () => {
+  it("binds a valid tab id to the caller", () => {
+    expect(writeOrigin(7, "mfz3k2-4hq9x0a1bc")).toBe("7:mfz3k2-4hq9x0a1bc");
+  });
+
+  it("rejects an untrusted tab id that isn't one, or a missing caller", () => {
+    for (const v of [undefined, null, "", 3, "a b", "<script>", "1:tab", "x".repeat(65), {}]) expect(writeOrigin(7, v)).toBeNull();
+    expect(writeOrigin(null, "tab-1")).toBeNull();
+    expect(writeOrigin(undefined, "tab-1")).toBeNull();
+    expect(writeOrigin(1.5, "tab-1")).toBeNull();
   });
 });

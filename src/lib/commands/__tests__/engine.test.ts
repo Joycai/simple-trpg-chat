@@ -63,7 +63,13 @@ vi.mock("next-intl/server", () => ({
   })
 }));
 
+vi.mock("@/lib/server/events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/server/events")>()),
+  broadcastToRoom: vi.fn(),
+}));
+
 import { executeCommand } from "../engine";
+import { broadcastToRoom } from "@/lib/server/events";
 import { parseAndRollExpression, formatDiceRollMessage } from "../expression";
 import { db } from "@/db";
 import { rooms, roomSkills, roomMembers } from "@/db/schema";
@@ -231,6 +237,32 @@ describe("Commands - executeCommand (.sc under the row lock)", () => {
     expect(newSanity).toBe(30 - (isSuccess ? 1 : 5));
     const stored = JSON.parse((set.mock.calls.at(-1) as unknown as [{ characterData: string }])[0].characterData);
     expect(stored.resources.san.current).toBe(newSanity);
+  });
+
+  it("tags the broadcast with the caller's tab, or the host's for a proxy roll", async () => {
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(async () => {
+          if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+          if (table === roomMembers) {
+            return [{ id: 9, characterData: JSON.stringify({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { pow: 60 }, resources: { san: { current: 30 } } }) }];
+          }
+          return [];
+        })
+      }))
+    });
+    const origins = () => vi.mocked(broadcastToRoom).mock.calls
+      .map(([, p]) => p as { type: string; origin?: unknown })
+      .filter((p) => p.type === "character_updated")
+      .map((p) => p.origin);
+
+    vi.mocked(broadcastToRoom).mockClear();
+    await executeCommand(1, 1, ".sc 1/5", { origin: "tab-9" });
+    expect(origins()).toEqual(["1:tab-9"]);
+
+    vi.mocked(broadcastToRoom).mockClear();
+    await executeCommand(1, 1, ".sc 1/5", { origin: "tab-9", proxiedBy: { userId: 4, nickname: "KP" } });
+    expect(origins()).toEqual(["4:tab-9"]);
   });
 });
 
@@ -430,9 +462,11 @@ describe("Commands - .st COC routing", () => {
     insertSpy.mockClear();
     updateSpy.mockClear();
 
-    const result = await executeCommand(1, 1, ".st 力量50");
+    vi.mocked(broadcastToRoom).mockClear();
+    const result = await executeCommand(1, 1, ".st 力量50", { origin: "tab-9" });
     expect(result.success).toBe(true);
     expect(updateSpy).toHaveBeenCalled();   // character_data updated
+    expect(broadcastToRoom).toHaveBeenCalledWith(1, expect.objectContaining({ type: "character_updated", origin: "1:tab-9" }));
     expect(insertSpy).not.toHaveBeenCalled(); // no room_skills row created
     insertSpy.mockRestore();
     updateSpy.mockRestore();

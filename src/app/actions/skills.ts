@@ -75,7 +75,7 @@ export async function upsertSkillAction(
     await syncCharacterSanity(roomId, userId, value);
   }
 
-  await broadcastCharacterUpdate(roomId, userId, { origin });
+  await broadcastCharacterUpdate(roomId, userId, { by: w.callerId, tab: origin });
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }
@@ -94,7 +94,7 @@ export async function deleteSkillAction(roomId: number, skillId: number, targetU
     and(eq(roomSkills.id, skillId), eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId))
   );
 
-  await broadcastCharacterUpdate(roomId, userId, { origin });
+  await broadcastCharacterUpdate(roomId, userId, { by: w.callerId, tab: origin });
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }

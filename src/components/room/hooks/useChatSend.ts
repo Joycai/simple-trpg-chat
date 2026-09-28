@@ -125,13 +125,14 @@ export function useChatSend({
       }
       if (!res.success) {
         pushLocalError(tra("sendFailed", { error: res.error }), channelPartner ?? null);
-        return;
       }
-      if (isSheetMutationCmd) refreshSelfSheet();
     } catch (e) {
       console.error(e);
       pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
     }
+    // Whatever the outcome, like the command path above: the write sent this
+    // tab's id, so its own update is skipped.
+    if (isSheetMutationCmd) refreshSelfSheet();
   }, [roomId, userId, activeTab, tra, tCommon, refreshSelfSheet, pushLocalError]);
 
   // Host withdraws a timeline divider. The row is removed for everyone via the

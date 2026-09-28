@@ -34,7 +34,7 @@ import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
 import { useRouter } from "next/navigation";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
-import { tabId } from "@/lib/ui/tab-id";
+import { isOwnWrite } from "@/lib/ui/tab-id";
 
 export function RoomClient({
   room,
@@ -255,7 +255,7 @@ export function RoomClient({
   const router = useRouter();
   useEffect(() => {
     onCharacterUpdatedRef.current = (uid, origin) => {
-      if (origin === tabId()) return;
+      if (isOwnWrite(origin, userId)) return;
       if (isHost) setSheetsRefreshKey((k) => k + 1);
       if (uid === userId) {
         router.refresh();

@@ -76,8 +76,9 @@ describe("ensureCharacterSheetAction", () => {
 
   it("stores an empty v2 sheet for a member without one", async () => {
     selectQueue = [[{ characterData: null }], [{ id: 5, hostId: 1, frozen: false, ruleTemplate: "coc7th" }], ...locked()];
-    const res = await ensureCharacterSheetAction(5);
+    const res = await ensureCharacterSheetAction(5, "tab-1");
     expect(res).toMatchObject({ status: "initialized", data: { schemaVersion: 2, ruleTemplate: "coc7th" } });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 2, { by: 2, tab: "tab-1" });
     expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: {}, resources: {}, rev: 1 });
   });
 
@@ -109,9 +110,9 @@ describe("rebuildCharacterForRoomRuleAction", () => {
   it("keeps the profile and starts the new rule's fields empty", async () => {
     const legacy = JSON.stringify({ ruleTemplate: "coc7th", bio: "old", cocAttributes: { str: 70 } });
     selectQueue = [...writer({ hostId: 1, frozen: false, ruleTemplate: "dnd5e" }, [{ userId: 2 }]), ...locked(legacy)];
-    const res = await rebuildCharacterForRoomRuleAction(5, 2);
+    const res = await rebuildCharacterForRoomRuleAction(5, 2, "tab-1");
     expect(res).toMatchObject({ success: true, data: { ruleTemplate: "dnd5e", bio: "old", attributes: {} } });
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 2, { origin: undefined });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 2, { by: 2, tab: "tab-1" });
   });
 
   it("lets the host rebuild a bot's sheet", async () => {
@@ -121,7 +122,7 @@ describe("rebuildCharacterForRoomRuleAction", () => {
     const res = await rebuildCharacterForRoomRuleAction(5, 3);
     expect(res).toMatchObject({ success: true, data: { ruleTemplate: "dnd5e", name: "Bot", attributes: {} } });
     expect(written).toMatchObject({ ruleTemplate: "dnd5e", name: "Bot" });
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { origin: undefined });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1, tab: undefined });
   });
 
   it("leaves a sheet already on the room's rule untouched", async () => {
@@ -185,7 +186,7 @@ describe("editCharacterAction", () => {
     const res = await editCharacterAction(5, 3, {
       attributes: { empathy: 4, bogus: 9 },
       resources: { commendations: { current: 4 }, reprimands: { current: -1 } },
-    });
+    }, "tab-1");
     expect(res.success).toBe(true);
     expect(written).toEqual({
       schemaVersion: 2, ruleTemplate: "triangle",
@@ -195,7 +196,7 @@ describe("editCharacterAction", () => {
     });
     // The reply is the stored copy, write counter included.
     expect(res.success && res.data).toEqual(written);
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { origin: undefined });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1, tab: "tab-1" });
   });
 
   it("steps a resource from the locked row's value by a delta", async () => {
