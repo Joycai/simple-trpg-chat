@@ -126,15 +126,14 @@ const BULLET_CLASS = ["list-disc", "list-[circle]", "list-[square]"] as const;
 
 /**
  * One list and, recursively, the lists nested in its items. `md-list` is the
- * notebook's styling hook; `md-list-ordered` / `md-list-nested` let its
- * structural CSS vary the marker by kind and depth.
+ * notebook's styling hook — its structural CSS tells kinds apart by `ul` / `ol`
+ * and levels by nesting — and `md-list-nested` marks a list inside an item.
  */
 function ListView({ list, depth, mentions }: { list: ListBlock; depth: number; mentions?: MentionOptions }) {
   const Tag = list.ordered ? "ol" : "ul";
   const marker = list.ordered ? "list-decimal" : BULLET_CLASS[Math.min(depth, BULLET_CLASS.length - 1)];
   const className = [
     "md-list",
-    list.ordered && "md-list-ordered",
     depth > 0 && "md-list-nested",
     marker,
     "pl-5 space-y-1",
