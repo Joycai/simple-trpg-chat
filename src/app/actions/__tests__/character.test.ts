@@ -192,7 +192,7 @@ describe("editCharacterAction", () => {
       attributes: { empathy: 4 },
       resources: { commendations: { current: 4 }, reprimands: { current: 0 } },
     });
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { sheet: written, by: 1 });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
   });
 
   it("lets the host write in a frozen room", async () => {

@@ -533,7 +533,7 @@ async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext)
   const sheetRule = getRuleForRoom(room || {});
   const edit = editFromToolArgs(args as Record<string, unknown>);
 
-  const out = await updateSheetRow(roomId, botUserId, (raw) => {
+  await updateSheetRow(roomId, botUserId, (raw) => {
     // A bot is never shown the rebuild prompt when the room switches rules, so
     // a sheet built for another rule is rebuilt here before the write.
     const stored = parseSheetOrNull(raw, sheetRule.id);
@@ -567,7 +567,7 @@ async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext)
     }
   }
 
-  await broadcastCharacterUpdate(roomId, botUserId, { sheet: out.status === "ok" ? out.sheet ?? undefined : undefined, by: botUserId });
+  await broadcastCharacterUpdate(roomId, botUserId, { by: botUserId });
   return { success: true };
 }
 

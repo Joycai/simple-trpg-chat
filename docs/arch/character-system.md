@@ -69,7 +69,11 @@ card (bots included) from the panel's rule-mismatch banner.
 
 Every write broadcasts `character_updated { userId, vital, completion, by }`
 (`lib/character/broadcast.ts`): the member list's vital, completion badges,
-and open panels (reloaded when someone else wrote) follow it.
+and open panels (reloaded when someone else wrote) follow it. The broadcast
+reads the sheet, room rule and skills itself and emits while holding the
+member's row lock — the lock sheet writes take — so one member's events go
+out in order and the last one always matches the database. Callers can't
+pass a payload in; they call it after their write has committed.
 
 ## Skills
 

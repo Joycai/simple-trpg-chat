@@ -1,7 +1,6 @@
 import { db, sqlNow } from "@/db";
 import { roomSkills, rooms } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import type { CharacterData } from "@/lib/character/types";
 import { applySheetEdit, statEdit, statValue } from "@/lib/character/sheet-model";
 import { parseSheetOrNull } from "@/lib/character/sheet-store";
 import { updateSheetRow } from "@/lib/character/sheet-row";
@@ -51,7 +50,6 @@ export async function handleSetSkill(
   // The value each sheet item actually stored (attributes clamp to their
   // range, resources to their max), for the summary.
   const storedValues = new Map<number, number>();
-  let writtenSheet: CharacterData | null = null;
   if (sheetItems.length > 0) {
     const out = await updateSheetRow(roomId, userId, (raw) => {
       // A member who has never opened the character panel has no sheet yet.
@@ -72,7 +70,6 @@ export async function handleSetSkill(
     if (out.status !== "notMember") {
       if (out.result === null) return { success: false, isCommand: true, error: t("stSheetRuleMismatch") };
       sheetItems.forEach((r, k) => storedValues.set(r.index, out.result![k]));
-      if (out.status === "ok") writtenSheet = out.sheet;
     }
   }
 
@@ -102,7 +99,7 @@ export async function handleSetSkill(
   }
 
   // Skills and/or the sheet changed: members' lists, badges and open panels follow.
-  await broadcastCharacterUpdate(roomId, userId, { sheet: writtenSheet ?? undefined, by: ctx?.proxiedBy?.userId ?? userId });
+  await broadcastCharacterUpdate(roomId, userId, { by: ctx?.proxiedBy?.userId ?? userId });
 
   const summary = summaryParts.join(" · ");
   const vis = visibilityFor(ctx, userId, "self");

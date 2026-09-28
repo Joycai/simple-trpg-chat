@@ -103,7 +103,7 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
     const out = await updateSheetRow(roomId, userId, (raw) =>
       parseSheetOrNull(raw, rule.id) ? { result: null } : { sheet: emptySheet(rule.id), result: null });
     if (out.status !== "ok" || !out.sheet) return { status: "ok" };
-    await broadcastCharacterUpdate(roomId, userId, { sheet: out.sheet, by: userId });
+    await broadcastCharacterUpdate(roomId, userId, { by: userId });
     revalidatePath(`/rooms/${roomId}`);
     return { status: "initialized", data: out.sheet };
   }
@@ -141,7 +141,7 @@ export async function rebuildCharacterForRoomRuleAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
 
   if (out.sheet) {
-    await broadcastCharacterUpdate(roomId, targetUserId, { sheet: out.sheet, by: w.callerId });
+    await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
     revalidatePath(`/rooms/${roomId}`);
   }
   return { success: true, data: out.result };
@@ -197,7 +197,7 @@ export async function editCharacterAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
   const next = out.result;
 
-  await broadcastCharacterUpdate(roomId, targetUserId, { sheet: next, by: w.callerId });
+  await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: next };

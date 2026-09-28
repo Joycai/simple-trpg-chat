@@ -45,32 +45,44 @@ export function characterUpdatePayload(
 }
 
 /**
- * Read what the event needs (room rule, the member's skills, and the sheet
- * unless the caller just wrote it) and broadcast. Never throws: a failed
- * broadcast only leaves other clients a refresh behind.
+ * Read what the event needs — the member's sheet, the room rule, the
+ * member's skills — and broadcast it, all while holding the member's row lock.
+ *
+ * Sheet writes take the same lock (`updateSheetRow`), so one member's events
+ * go out one at a time, each reading what was committed when it ran: the
+ * last event a client gets always matches the database, whatever order two
+ * writers' broadcasts started in. The payload is always read here, never
+ * handed in, so a caller can't send a copy that a later write has replaced.
+ * `broadcastToRoom` emits synchronously, before the lock is released.
+ *
+ * Call it after the write's own transaction has committed. Never throws: a
+ * failed broadcast only leaves other clients a refresh behind.
  */
 export async function broadcastCharacterUpdate(
   roomId: number,
   userId: number,
-  opts: { sheet?: CharacterData | null; by?: number | null } = {},
+  opts: { by?: number | null } = {},
 ): Promise<void> {
   try {
-    const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate }).from(rooms).where(eq(rooms.id, roomId));
-    if (!room) return;
-    const roomRuleId = room.ruleTemplate ?? "basic";
-    let sheet = opts.sheet;
-    if (sheet === undefined) {
-      const [member] = await db.select({ characterData: roomMembers.characterData })
+    await db.transaction(async (tx) => {
+      const [member] = await tx.select({ characterData: roomMembers.characterData })
         .from(roomMembers)
-        .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-      sheet = parseSheetOrNull(member?.characterData, roomRuleId);
-    }
-    const skills = await db.select({ skillName: roomSkills.skillName })
-      .from(roomSkills)
-      .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)));
-    broadcastToRoom(roomId, characterUpdatePayload(
-      userId, sheet, skills.map((s) => s.skillName), roomRuleId, opts.by ?? null,
-    ));
+        .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)))
+        .for("update");
+      const [room] = await tx.select({ ruleTemplate: rooms.ruleTemplate }).from(rooms).where(eq(rooms.id, roomId));
+      if (!room) return;
+      const roomRuleId = room.ruleTemplate ?? "basic";
+      const skills = await tx.select({ skillName: roomSkills.skillName })
+        .from(roomSkills)
+        .where(and(eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId)));
+      broadcastToRoom(roomId, characterUpdatePayload(
+        userId,
+        parseSheetOrNull(member?.characterData, roomRuleId),
+        skills.map((s) => s.skillName),
+        roomRuleId,
+        opts.by ?? null,
+      ));
+    });
   } catch (e) {
     console.error("character_updated broadcast failed", e);
   }
