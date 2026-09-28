@@ -1021,6 +1021,8 @@
     "overviewFooter": "资源的加减会立即保存并同步给该成员",
     "overviewFooterRule": "列按房间规则的资源声明生成",
     "overviewTooltip": "角色卡总览",
+    "overviewOnline": "在线",
+    "overviewOffline": "离线",
     "overviewIncompleteBadge": "{count} 张未完成",
     "missingBadge": "{count} 项必填未设置",
     "missingList": "{count} 项必填未设置：{fields}",

@@ -103,7 +103,9 @@ SAN resource.
   derived block, skills tab with the standard list, close guard for unsaved
   changes.
 - `HostSheetOverview` — the host's overview (top-bar IdCard button): every
-  member's completion and resource steppers that save at once.
+  member's completion (with the missing fields named) and resource steppers
+  that save at once; each row's subtitle shows presence (people only, from
+  the room's live presence) and the card's occupation.
 - Top bar: missing-required badge on the character button, whose tooltip
   names the missing fields (`CompletionSummary.missing`, labelled by
   `useFieldLabel`); incomplete-member badge on the overview button. Member

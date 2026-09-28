@@ -1021,6 +1021,8 @@
     "overviewFooter": "Resource changes save immediately and sync to that member",
     "overviewFooterRule": "Columns follow the room rule's resources",
     "overviewTooltip": "Character overview",
+    "overviewOnline": "Online",
+    "overviewOffline": "Offline",
     "overviewIncompleteBadge": "{count} incomplete",
     "missingBadge": "{count} required fields unset",
     "missingList": "{count} required fields unset: {fields}",
