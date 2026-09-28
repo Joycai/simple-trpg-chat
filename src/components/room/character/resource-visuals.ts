@@ -27,7 +27,7 @@ export const RESOURCE_ICON: Record<string, { Icon: typeof Heart; color: string; 
   mana:          { Icon: Sparkles,      color: "var(--theme-ai)" },
 };
 
-/** Icon per `capabilities.derivedStats[*].key` (read-only computed values). */
+/** Icon per derived-field key (`sheet.derived`, read-only computed values). */
 export const DERIVED_ICON: Record<string, typeof Heart> = {
   spellStrength: Wand2,
 };

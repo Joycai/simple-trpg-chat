@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  matchStandardSkills, missingFields, sheetCompletion, standardSkillBases,
+  matchStandardSkills, missingFields, sheetCompletion, standardSkillBase,
 } from "../completion";
-import { applySheetEdit } from "../sheet-model";
+import { applySheetEdit, attributeValues } from "../sheet-model";
 import { emptySheet, type CharacterSheetV2, type SheetEdit } from "../sheet-v2";
 import { prng, testRule } from "./fixtures/test-rule";
 
@@ -50,7 +50,9 @@ describe("sheetCompletion", () => {
 
   it("derives attribute-based skill bases from the sheet", () => {
     const s = edit(emptySheet("fixture"), { attributes: { dex: 71 } });
-    expect(standardSkillBases(testRule, s)).toEqual({ 侦查: 25, 闪避: 35, 信用评级: 0 });
+    const attrs = attributeValues(testRule, s);
+    const bases = Object.fromEntries(testRule.sheet.standardSkills!.map((k) => [k.name, standardSkillBase(k, attrs)]));
+    expect(bases).toEqual({ 侦查: 25, 闪避: 35, 信用评级: 0 });
   });
 
   it("keeps its counts consistent with its field states (random sheets)", () => {

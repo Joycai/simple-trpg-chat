@@ -10,6 +10,7 @@ import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/charact
 import type { StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
 import { canOpenMemberCard } from "@/lib/room/card-access";
+import { CompletionMark } from "@/components/room/character/CompletionMark";
 
 interface DMConversation {
   userId: number;
@@ -192,7 +193,6 @@ export function ConversationPanel({
           const isDropdownOpen = openDropdown === conv.userId;
           const canViewCard = canOpenMemberCard({ id: userId, isHost }, conv.userId);
           const completion = isHost && conv.completion && conv.completion.requiredTotal > 0 ? conv.completion : null;
-          const complete = completion ? completion.requiredSet === completion.requiredTotal : false;
           const canDM = conv.userId !== userId;
 
           return (
@@ -268,14 +268,7 @@ export function ConversationPanel({
                       </div>
                     )}
                     {/* Host only: required-field completion of this member. */}
-                    {completion && (
-                      <span
-                        className={`${hasBar ? "" : "ml-auto "}inline-flex items-center font-mono text-[9px] font-bold leading-[13px] px-1 rounded-full border shrink-0 ${complete ? "text-success border-success/45" : "text-warning border-warning/50"}`}
-                        title={complete ? tChar("completionAllSet") : `${tChar("completionRequired")} ${completion.requiredSet}/${completion.requiredTotal}`}
-                      >
-                        {complete ? <Icons.Check className="w-2.5 h-2.5" /> : `${completion.requiredSet}/${completion.requiredTotal}`}
-                      </span>
-                    )}
+                    <CompletionMark completion={completion} className={hasBar ? "" : "ml-auto"} />
                   </div>
                 )}
               </div>

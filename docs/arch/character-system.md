@@ -30,7 +30,8 @@ on read by `parseSheet` / `parseSheetOrNull` (`src/lib/character/sheet-store.ts`
 through the rule's `migrateLegacy`; a row whose own rule no longer matches the
 room but that carries the room rule's bag reads under the room rule. Every
 write stores v2. `pnpm db:migrate-sheets [--room <id>] [--apply]` upgrades the
-remaining rows in place (dry run by default, idempotent).
+remaining rows in place (dry run by default, idempotent; a row the app wrote
+while the script ran is left alone and reported).
 
 ## Reading and writing
 
@@ -42,15 +43,22 @@ remaining rows in place (dry run by default, idempotent).
 - `sheetCompletion` / `memberCompletion` — per-field state (`set` / `missing` /
   `default` / `custom`) and the required set/total against the room's rule.
 
+Every writer runs its edit inside `updateSheetRow` (`lib/character/sheet-row.ts`):
+a `SELECT … FOR UPDATE` on the member row, the edit, the write — so two
+writers overlapping on one sheet (the host's overview ± and the player's `.st`)
+serialize instead of one reverting the other.
+
 Writers: `editCharacterAction(roomId, targetUserId, edit)` (panel, host,
-overview), `.st` (`lib/commands/set-skill-command.ts`), `.sc`
+overview), `rebuildCharacterForRoomRuleAction(roomId, targetUserId)`, `.st` (`lib/commands/set-skill-command.ts`), `.sc`
 (`character-stat-sync.ts`), the AI `set_character_card` tool
 (`lib/character/sheet-ai.ts` maps its arguments to a `SheetEdit`), and the
 skills actions (`upsertSkillAction` / `deleteSkillAction`, optional target).
 Who may write is one rule, `resolveSheetWriter` (`lib/auth/sheet-access.ts`):
 the member, the room host, or an admin; frozen rooms are host/admin only.
 A sheet built for another rule is not written by `.st` (it asks for the
-rebuild); bots' sheets are rebuilt for the room rule before an AI write.
+rebuild); bots' sheets are rebuilt for the room rule before an AI write. The
+member accepts the rebuild prompt on entry; the host can rebuild any member's
+card (bots included) from the panel's rule-mismatch banner.
 
 Every write broadcasts `character_updated { userId, vital, completion, by }`
 (`lib/character/broadcast.ts`): the member list's vital, completion badges,

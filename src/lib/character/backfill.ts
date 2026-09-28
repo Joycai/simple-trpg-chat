@@ -15,7 +15,8 @@ export interface BackfillRow {
 }
 
 export interface BackfillPlan {
-  updates: Array<{ memberId: number; characterData: string }>;
+  /** `from` is the row as read: the write only lands if it is still that. */
+  updates: Array<{ memberId: number; from: string; characterData: string }>;
   report: {
     total: number;
     empty: number;
@@ -54,7 +55,7 @@ export function planSheetBackfill(rows: ReadonlyArray<BackfillRow>): BackfillPla
     if (!sheet) { report.unreadable.push(where); continue; }
     const json = serializeSheet(sheet);
     if (json === null) { report.tooLarge.push(where); continue; }
-    plan.updates.push({ memberId: row.memberId, characterData: json });
+    plan.updates.push({ memberId: row.memberId, from: row.characterData, characterData: json });
     report.upgraded += 1;
     report.byRule[sheet.ruleTemplate] = (report.byRule[sheet.ruleTemplate] ?? 0) + 1;
     if (row.roomRule && sheet.ruleTemplate !== row.roomRule) report.ruleMismatch += 1;

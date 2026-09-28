@@ -3,7 +3,8 @@ import { rooms, roomMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { CharacterData } from "@/lib/character/types";
 import { applySheetEdit, statEdit, statValue, type StatRef } from "@/lib/character/sheet-model";
-import { parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow } from "@/lib/character/sheet-row";
 import { getRule } from "@/lib/rules";
 
 /**
@@ -20,19 +21,16 @@ export async function syncCharacterStat(
   ref: StatRef,
   value: number
 ): Promise<number> {
-  const sheet = await getCharacterData(roomId, userId);
-  if (!sheet) return value;
-
-  const rule = getRule(sheet.ruleTemplate);
-  const next = applySheetEdit(rule, sheet, statEdit(ref, value)).sheet;
-  const json = serializeSheet(next);
-  if (json) {
-    await db
-      .update(roomMembers)
-      .set({ characterData: json })
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-  }
-  return statValue(rule, next, ref) ?? value;
+  const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate }).from(rooms).where(eq(rooms.id, roomId));
+  const out = await updateSheetRow(roomId, userId, (raw) => {
+    // The room rule settles pre-v2 rows that carry two rules' bags.
+    const sheet = parseSheetOrNull(raw, room?.ruleTemplate ?? undefined);
+    if (!sheet) return { result: value };
+    const rule = getRule(sheet.ruleTemplate);
+    const next = applySheetEdit(rule, sheet, statEdit(ref, value)).sheet;
+    return { sheet: next, result: statValue(rule, next, ref) ?? value };
+  });
+  return out.status === "notMember" ? value : out.result;
 }
 
 /**

@@ -5,8 +5,8 @@ const { mockSelect } = vi.hoisted(() => ({
   mockSelect: vi.fn()
 }));
 
-vi.mock("@/db", () => ({
-  db: {
+vi.mock("@/db", () => {
+  const db = {
     select: mockSelect,
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
@@ -20,15 +20,24 @@ vi.mock("@/db", () => ({
     })),
     delete: vi.fn(() => ({
       where: vi.fn()
-    }))
-  },
-  sqlNow: vi.fn(() => "NOW()")
-}));
+    })),
+    // Sheet writes lock the member row (`updateSheetRow`): the transaction runs
+    // inline, and its `select … for("update")` resolves through `mockSelect`.
+    transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({
+      select: (...a: unknown[]) => {
+        const q = mockSelect(...a);
+        return { from: (t: unknown) => ({ where: (...w: unknown[]) => ({ for: () => q.from(t).where(...w) }) }) };
+      },
+      update: (...a: unknown[]) => db.update(...(a as [])),
+    })),
+  };
+  return { db, sqlNow: vi.fn(() => "NOW()") };
+});
 
 vi.mock("@/db/schema", () => ({
   roomSkills: { id: "id", roomId: "roomId", userId: "userId", skillName: "skillName" },
   rooms: { id: "id" },
-  roomMembers: { characterData: "characterData" }
+  roomMembers: { id: "id", characterData: "characterData" }
 }));
 
 // Command feedback now flows through the central message router.

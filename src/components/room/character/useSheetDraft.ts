@@ -3,7 +3,7 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { editCharacterAction } from "@/app/actions/character";
+import { editCharacterAction, rebuildCharacterForRoomRuleAction } from "@/app/actions/character";
 import { getRule, DEFAULT_RULE_ID } from "@/lib/rules";
 import { applySheetEdit, resolveSheet, sheetDiff } from "@/lib/character/sheet-model";
 import { dropPaths, overlappingChanges } from "@/lib/character/draft";
@@ -105,6 +105,28 @@ export function useSheetDraft({
   };
 
   /**
+   * Rebuild a sheet built for another rule on the room's rule (profile kept,
+   * attributes and resources start empty). Drops the draft — its fields
+   * belong to the old rule.
+   */
+  const [rebuilding, setRebuilding] = useState(false);
+  const rebuild = async () => {
+    setRebuilding(true);
+    setPanelError(null);
+    const res = await rebuildCharacterForRoomRuleAction(roomId, targetUserId)
+      .catch(() => ({ success: false as const, error: tCommon("error") }));
+    setRebuilding(false);
+    if (!res.success) {
+      setPanelError(res.error);
+      return;
+    }
+    setSaved({ from: characterData, sheet: res.data });
+    setDraft({});
+    setConflict([]);
+    router.refresh();
+  };
+
+  /**
    * What a profile input shows: the text as typed while it's in the draft
    * (the stored value is trimmed, so reading it back would eat the space
    * between two words mid-typing), else the stored value.
@@ -136,5 +158,7 @@ export function useSheetDraft({
     takeTheirs: () => { setDraft((d) => dropPaths(d, conflict)); setConflict([]); },
     save,
     saveStatus,
+    rebuild,
+    rebuilding,
   };
 }

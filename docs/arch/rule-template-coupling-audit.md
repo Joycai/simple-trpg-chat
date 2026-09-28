@@ -1,5 +1,7 @@
 # 规则模版：耦合度审计与修复计划（2026-07-22）
 
+> ⚠️ **历史文档**：角色卡部分已被声明式 schema 重构取代（`RuleModule.sheet` + `derive` + `migrateLegacy`，`initCharacter` 等方法已删除），见 [`character-system.md`](./character-system.md)。
+
 > 定位：本文是 [`rule-template-refactor.md`](./rule-template-refactor.md) 落地（PR #126 收敛双字段，dnd5e / triangle / 狩魂者 相继落地）之后的**跟踪审计**。
 > 目的：盘点当前 5 套规则模版及其自定义面，量化「规则知识仍泄漏进公共代码」的残余耦合，并给出**按严重程度排序的修复计划**。
 > 一句话结论：核心抽象（`RuleModule` 接口 + 自注册 `registry` + 数据驱动 `capabilities`）已建成且命令/AI/状态主流程基本零分支；**但角色面板 UI、共享数据模型、少数 server action 仍硬编码每套规则**——重构的 Phase 3（UI 接入）只完成了一半。

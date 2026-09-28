@@ -1235,10 +1235,6 @@ describe("rules/naturalGrade", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// applyResourcePatch — batch resource edit moved out of updateResourcesAction
-// ---------------------------------------------------------------------------
-
 describe("coc7thRule 奖励/惩罚骰", () => {
   it("parseRcArgs:legacy 形态逐字保留(名称 / 空格阈值 / 紧凑阈值)", () => {
     expect(coc7thRule.parseRcArgs("侦查")).toEqual({ skillName: "侦查", ruleData: undefined });

@@ -410,6 +410,7 @@ export function RoomClient({
         onlineUserIds={onlineUserIds}
         playerCount={playerCount}
         botCount={botCount}
+        completions={completions}
         activeTab={activeTab}
         viewingPlayerId={viewingPlayerId}
         viewingPlayerNickname={viewingPlayerNickname}

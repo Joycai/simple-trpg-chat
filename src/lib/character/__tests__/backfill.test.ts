@@ -15,6 +15,8 @@ describe("planSheetBackfill", () => {
       row(5, JSON.stringify({ ruleTemplate: "dnd5e", d20Attributes: { str: 16 } })),
     ]);
     expect(plan.updates.map((u) => u.memberId)).toEqual([1, 5]);
+    // The write is conditional on the row still holding what was read.
+    expect(plan.updates[0].from).toBe(JSON.stringify({ ruleTemplate: "coc7th", cocAttributes: coc }));
     expect(JSON.parse(plan.updates[0].characterData)).toMatchObject({ schemaVersion: 2, attributes: { str: 70 } });
     expect(plan.report).toMatchObject({
       total: 5, empty: 1, alreadyV2: 1, upgraded: 2, ruleMismatch: 1,

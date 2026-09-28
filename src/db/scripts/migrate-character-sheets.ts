@@ -7,9 +7,11 @@
  * write stores v2 — so this is housekeeping: it leaves no old rows behind.
  * Dry run by default: prints what it would do. Idempotent: v2 rows are
  * skipped, so it is safe to re-run. Unreadable or oversized rows are
- * reported and left untouched.
+ * reported and left untouched. Safe while the app runs: each row is only
+ * replaced if it still holds what was read, so a sheet written meanwhile
+ * (already v2) is kept and reported.
  */
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../index";
 import { roomMembers, rooms } from "../schema";
 import { planSheetBackfill } from "@/lib/character/backfill";
@@ -46,12 +48,19 @@ async function main() {
     console.log("[migrate-sheets] Nothing written. Re-run with --apply to upgrade.");
     process.exit(0);
   }
-  await db.transaction(async (tx) => {
+  const skipped = await db.transaction(async (tx) => {
+    const changedMeanwhile: number[] = [];
     for (const u of updates) {
-      await tx.update(roomMembers).set({ characterData: u.characterData }).where(eq(roomMembers.id, u.memberId));
+      const done = await tx.update(roomMembers)
+        .set({ characterData: u.characterData })
+        .where(and(eq(roomMembers.id, u.memberId), eq(roomMembers.characterData, u.from)))
+        .returning({ id: roomMembers.id });
+      if (done.length === 0) changedMeanwhile.push(u.memberId);
     }
+    return changedMeanwhile;
   });
-  console.log(`[migrate-sheets] Upgraded ${updates.length} sheets.`);
+  for (const id of skipped) console.log(`  written by the app meanwhile, left as is: member ${id}`);
+  console.log(`[migrate-sheets] Upgraded ${updates.length - skipped.length} sheets.`);
   process.exit(0);
 }
 

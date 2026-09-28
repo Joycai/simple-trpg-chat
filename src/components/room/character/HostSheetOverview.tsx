@@ -40,6 +40,11 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
   // for each — a reply that isn't the latest must not overwrite newer clicks.
   const pendingRef = useRef(new Map<string, number>());
   const seqRef = useRef(new Map<string, number>());
+  // Per resource, the last value the server is known to hold — what a failed
+  // save restores (the value before the click may itself be unconfirmed).
+  const confirmedRef = useRef(new Map<string, ResourceValue | undefined>());
+  // The refresh key of the last load: only a bump after that is debounced.
+  const loadedKeyRef = useRef(refreshKey);
   // The latest rows, for computing a click from values newer than this render.
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; });
@@ -59,8 +64,10 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
       })
       .catch(() => { if (alive) setFailed(true); });
     // A reload after someone else's write is debounced: a batch .st or a bot's
-    // tool loop broadcasts once per write.
-    const timer = refreshKey > 0 ? setTimeout(load, 400) : (load(), undefined);
+    // tool loop broadcasts once per write. Opening the panel or retrying isn't.
+    const debounce = refreshKey !== loadedKeyRef.current;
+    loadedKeyRef.current = refreshKey;
+    const timer = debounce ? setTimeout(load, 400) : (load(), undefined);
     return () => { alive = false; if (timer) clearTimeout(timer); };
   }, [roomId, refreshKey, attempt]);
 
@@ -81,7 +88,7 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
 
   // Resource ±1: optimistic, saved at once. Each click steps from the latest
   // value; only the newest reply for that resource is applied, and a failure
-  // restores only that resource.
+  // restores only that resource, to the last value the server confirmed.
   const step = async (userId: number, resKey: string, delta: number) => {
     const row = dataRef.current?.rows.find((r) => r.userId === userId);
     if (!row) return;
@@ -102,6 +109,8 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
           return { ...r, sheet: { ...sheet, resources } };
         }),
       });
+    // No save in flight: the row's value is the server's (loaded or saved).
+    if (!pendingRef.current.get(key)) confirmedRef.current.set(key, before);
     const seq = (seqRef.current.get(key) ?? 0) + 1;
     seqRef.current.set(key, seq);
     pendingRef.current.set(key, (pendingRef.current.get(key) ?? 0) + 1);
@@ -114,10 +123,17 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     const saved = await editCharacterAction(roomId, userId, edit)
       .catch(() => ({ success: false as const, error: "" }));
     pendingRef.current.set(key, (pendingRef.current.get(key) ?? 1) - 1);
+    if (saved.success) confirmedRef.current.set(key, saved.data.resources[resKey]);
     if (seqRef.current.get(key) !== seq) return; // a newer click owns this resource
     if (saved.success) { setResource(saved.data.resources[resKey]); return; }
-    setResource(before);
-    setNotice(t("overviewSaveFailed", { name: row.nickname, resource: t(current.field.labelKey), value: current.current }));
+    const restore = confirmedRef.current.get(key);
+    setResource(restore);
+    const base = row.sheet ?? emptySheet(rule.id);
+    const restoredResources = { ...base.resources };
+    if (restore) restoredResources[resKey] = restore; else delete restoredResources[resKey];
+    const restored = resolveSheet(rule, { ...base, resources: restoredResources })
+      .resources.find((r) => r.field.key === resKey)?.current ?? current.current;
+    setNotice(t("overviewSaveFailed", { name: row.nickname, resource: t(current.field.labelKey), value: restored }));
   };
 
   return (

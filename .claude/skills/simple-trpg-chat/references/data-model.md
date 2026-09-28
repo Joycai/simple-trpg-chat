@@ -28,7 +28,7 @@ All tables defined in `src/db/schema.ts` using Drizzle ORM's `pgTable` (PostgreS
 
 ## Extension Points
 
-- `room_members.characterData` JSON — flexible character sheet (COC 7th or generic)
+- `room_members.characterData` JSON — v2 character sheet keyed by the room rule's sheet schema (only set values stored; pre-v2 rows upgrade on read)
 - `messages.type` includes `clue` — reserved for clue card push
 - `messages.diceDetail` JSON — structured dice results with `check` metadata: `{ skillName, target, roll, success, grade }`
 - `inventory_items.imageUrl` — image attachment support

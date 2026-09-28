@@ -161,7 +161,7 @@ or an unbounded `counter`), derived values (computed by `derive`, never stored o
 writable) and standard skills (base value, required). `roomMembers.characterData` is a
 v2 sheet that stores **only the values someone set** (absent key = unset), so
 completion is exact. Read through `parseSheet` / `parseSheetOrNull` (upgrades pre-v2
-rows via `migrateLegacy`; pass the room rule), write **only** through `applySheetEdit`
+rows via `migrateLegacy`; pass the room rule), write **only** through `applySheetEdit` inside `updateSheetRow` (row lock)
 — via `editCharacterAction`, `.st`, `.sc`, the AI tool or the skills actions — and let
 `broadcastCharacterUpdate` send `character_updated { vital, completion, by }`.
 Permission is one rule, `resolveSheetWriter`: the member, the host, or an admin.

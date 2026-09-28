@@ -1026,8 +1026,11 @@
     "skillSearchClear": "清空搜索",
     "skillFilterLabel": "技能筛选",
     "skillValueLabel": "技能数值",
-    "sheetRuleMismatch": "这张卡是按「{rule}」建立的，与房间当前规则不一致；重新进入房间按提示重建后才计入完成度。",
-    "overviewRuleMismatch": "这张卡按其他规则建立，打开角色卡处理后再调整资源"
+    "sheetRuleMismatch": "这张卡是按「{rule}」建立的，与房间当前规则「{roomRule}」不一致，不计入完成度。",
+    "sheetRebuildBtn": "按房间规则重建",
+    "sheetRebuildTitle": "按房间规则重建角色卡？",
+    "sheetRebuildBody": "将按「{rule}」重建这张卡：保留名字、年龄、职业、背景、自定义属性和技能，规则属性和资源清空后需重新填写。未保存的修改也会丢弃。",
+    "overviewRuleMismatch": "这张卡按其他规则建立，打开角色卡按房间规则重建后再调整资源"
   },
   "notebook": {
     "title": "记事本",

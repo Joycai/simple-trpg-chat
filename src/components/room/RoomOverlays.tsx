@@ -24,6 +24,7 @@ import { MembersDialog } from "@/components/room/MembersDialog";
 import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import type { Room, PlayerEntry, MentionTarget, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import type { ThemeId, StoredThemeMode } from "@/themes/types";
+import type { CompletionSummary } from "@/lib/character/completion";
 
 interface RoomOverlaysProps {
   room: Room;
@@ -46,6 +47,8 @@ interface RoomOverlaysProps {
   onlineUserIds?: Set<number>;
   playerCount: number;
   botCount: number;
+  /** Required-field completion per member (the host's member-list marks). */
+  completions: ReadonlyMap<number, CompletionSummary>;
   activeTab: "public" | number;
 
   // Viewing another player's character card
@@ -94,7 +97,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
   const {
     room, userId, isHost, nickname, characterData, readOnly, players,
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
-    inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
+    inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, completions, activeTab,
     viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, viewedCardRefreshKey, sheetsRefreshKey, onCloseViewingPlayer,
     eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
     eventDetailId, setEventDetailId,
@@ -142,6 +145,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       {/* Seeds a missing sheet / prompts when the room's rule no longer matches it. */}
       <CharacterRuleGate
         roomId={room.id}
+        userId={userId}
         roomRuleTemplate={room.ruleTemplate || "basic"}
         disabled={readOnly}
       />
@@ -229,6 +233,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           botCount={botCount}
           onViewPlayerCard={onViewPlayerCard}
           onStartDM={onStartDM}
+          completions={completions}
           onClose={() => setShowMembers(false)}
         />
       )}

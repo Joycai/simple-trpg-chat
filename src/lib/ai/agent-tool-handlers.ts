@@ -9,7 +9,8 @@ import { getTranslations } from "next-intl/server";
 import { rollDice } from "@/lib/commands/dice";
 import { executeCommand } from "@/lib/commands/engine";
 import { applySheetEdit } from "@/lib/character/sheet-model";
-import { parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow } from "@/lib/character/sheet-row";
 import { sheetSnapshot } from "@/lib/character/sheet-export";
 import { editFromToolArgs } from "@/lib/character/sheet-ai";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
@@ -529,35 +530,21 @@ async function myCharacterTool(_args: ParsedToolArgs, ctx: AgentToolContext): Pr
 
 async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext): Promise<unknown> {
   const { roomId, botUserId, room } = ctx;
-  const [memberInfo] = await db.select({
-    characterData: roomMembers.characterData,
-  }).from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, botUserId)
-    ));
-
-  // A bot is never shown the rebuild prompt when the room switches rules, so
-  // a sheet built for another rule is rebuilt here before the write.
   const sheetRule = getRuleForRoom(room || {});
-  const stored = parseSheetOrNull(memberInfo?.characterData, sheetRule.id);
-  const existing = stored && stored.ruleTemplate === sheetRule.id
-    ? stored
-    : rebuildSheetForRule(stored, sheetRule.id);
+  const edit = editFromToolArgs(args as Record<string, unknown>);
 
-  // The model is not trusted: `applySheetEdit` whitelists the keys the rule's
-  // schema declares (the same schema the tool advertised) and clamps every
-  // number, and the custom-attribute list is sanitized and capped there too.
-  const next = applySheetEdit(sheetRule, existing, editFromToolArgs(args as Record<string, unknown>)).sheet;
-  const json = serializeSheet(next);
-  if (json) {
-    await db.update(roomMembers)
-      .set({ characterData: json })
-      .where(and(
-        eq(roomMembers.roomId, roomId),
-        eq(roomMembers.userId, botUserId)
-      ));
-  }
+  const out = await updateSheetRow(roomId, botUserId, (raw) => {
+    // A bot is never shown the rebuild prompt when the room switches rules, so
+    // a sheet built for another rule is rebuilt here before the write.
+    const stored = parseSheetOrNull(raw, sheetRule.id);
+    const existing = stored && stored.ruleTemplate === sheetRule.id
+      ? stored
+      : rebuildSheetForRule(stored, sheetRule.id);
+    // The model is not trusted: `applySheetEdit` whitelists the keys the rule's
+    // schema declares (the same schema the tool advertised) and clamps every
+    // number, and the custom-attribute list is sanitized and capped there too.
+    return { sheet: applySheetEdit(sheetRule, existing, edit).sheet, result: null };
+  });
 
   if (args.skills && Array.isArray(args.skills)) {
     // Cap the skills list — a hallucinating model could otherwise emit
@@ -580,7 +567,7 @@ async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext)
     }
   }
 
-  await broadcastCharacterUpdate(roomId, botUserId, { sheet: json ? next : undefined, by: botUserId });
+  await broadcastCharacterUpdate(roomId, botUserId, { sheet: out.status === "ok" ? out.sheet ?? undefined : undefined, by: botUserId });
   return { success: true };
 }
 

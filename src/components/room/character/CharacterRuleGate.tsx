@@ -17,6 +17,8 @@ const dismissKey = (roomId: number) => `trpg:sheetRuleDismiss:${roomId}`;
 
 interface CharacterRuleGateProps {
   roomId: number;
+  /** The signed-in member, whose sheet the gate reconciles. */
+  userId: number;
   /** The room's active rule — changing it (host switched rules) re-runs the check. */
   roomRuleTemplate: string;
   /** Observers and frozen-room players neither seed nor get prompted. */
@@ -35,7 +37,7 @@ interface CharacterRuleGateProps {
  *
  * Renders nothing unless a mismatch needs the player's decision.
  */
-export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }: CharacterRuleGateProps) {
+export function CharacterRuleGate({ roomId, userId, roomRuleTemplate, disabled = false }: CharacterRuleGateProps) {
   const t = useTranslations("character");
   const tRules = useTranslations("roomSettings");
   const tCommon = useTranslations("common");
@@ -76,7 +78,7 @@ export function CharacterRuleGate({ roomId, roomRuleTemplate, disabled = false }
   const handleRebuild = async () => {
     setBusy(true);
     setError(null);
-    const res = await rebuildCharacterForRoomRuleAction(roomId)
+    const res = await rebuildCharacterForRoomRuleAction(roomId, userId)
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) {
       setError(res.error);

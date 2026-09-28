@@ -1,5 +1,5 @@
 import type { SheetRule, StandardSkill } from "@/lib/rules/sheet-schema";
-import { attributeValues, resolveSheet } from "./sheet-model";
+import { resolveSheet } from "./sheet-model";
 import type { CharacterSheetV2 } from "./sheet-v2";
 
 /**
@@ -125,10 +125,4 @@ export function missingFields(completion: Completion): FieldStatus[] {
 
 export function summarize(completion: Completion): CompletionSummary {
   return { requiredTotal: completion.requiredTotal, requiredSet: completion.requiredSet };
-}
-
-/** Standard-skill base values for a sheet (unset skills read as these). */
-export function standardSkillBases(rule: SheetRule, sheet: CharacterSheetV2): Record<string, number> {
-  const attrs = attributeValues(rule, sheet);
-  return Object.fromEntries((rule.sheet.standardSkills ?? []).map((s) => [s.name, standardSkillBase(s, attrs)]));
 }

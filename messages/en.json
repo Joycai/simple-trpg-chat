@@ -1026,8 +1026,11 @@
     "skillSearchClear": "Clear search",
     "skillFilterLabel": "Skill filter",
     "skillValueLabel": "Skill value",
-    "sheetRuleMismatch": "This sheet was built for {rule}, not this room's rule; re-enter the room and rebuild it when prompted to count toward completion.",
-    "overviewRuleMismatch": "This sheet was built for another rule; open it to sort that out before adjusting resources"
+    "sheetRuleMismatch": "This sheet was built for {rule}, not this room's rule ({roomRule}), so it doesn't count toward completion.",
+    "sheetRebuildBtn": "Rebuild for room rule",
+    "sheetRebuildTitle": "Rebuild this sheet for the room's rule?",
+    "sheetRebuildBody": "The sheet will be rebuilt for {rule}: name, age, occupation, background, custom attributes and skills are kept; the rule's attributes and resources are cleared and need filling in again. Unsaved changes are discarded too.",
+    "overviewRuleMismatch": "This sheet was built for another rule; open it and rebuild it for the room's rule before adjusting resources"
   },
   "notebook": {
     "title": "Notebook",

@@ -187,6 +187,7 @@ export function CharacterPanel({
 
   // Closing with unsaved changes asks first (× / backdrop / Escape).
   const [confirmClose, setConfirmClose] = useState(false);
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
   const dirtyCount = sheet.changed.length;
   const requestClose = () => { if (dirtyCount > 0) setConfirmClose(true); else close(); };
   useEscapeToClose(requestClose, !confirmClose);
@@ -310,8 +311,12 @@ export function CharacterPanel({
         )}
 
         {editable && ruleMismatch && (
-          <div className="shrink-0 px-6 py-2.5 border-b border-border bg-surface-alt/60 text-xs text-warning">
-            {t("sheetRuleMismatch", { rule: ruleLabel(resolved.sheet.ruleTemplate) })}
+          <div className="shrink-0 flex items-center gap-3 px-6 py-2.5 border-b border-border bg-surface-alt/60 text-xs text-warning">
+            <span className="flex-1 min-w-0">{t("sheetRuleMismatch", { rule: ruleLabel(resolved.sheet.ruleTemplate), roomRule: ruleLabel(roomRuleId) })}</span>
+            <button type="button" onClick={() => setConfirmRebuild(true)} disabled={sheet.rebuilding}
+              className="shrink-0 font-semibold text-primary border border-primary/40 rounded-lg px-2.5 py-1 hover:bg-primary/10 cursor-pointer disabled:opacity-50 disabled:cursor-default">
+              {t("sheetRebuildBtn")}
+            </button>
           </div>
         )}
         {showCompletion && !ruleMismatch && (
@@ -418,6 +423,16 @@ export function CharacterPanel({
         </div>
       </div>
     </div>
+
+    {confirmRebuild && (
+      <ConfirmDialog
+        title={t("sheetRebuildTitle")}
+        description={t("sheetRebuildBody", { rule: ruleLabel(roomRuleId) })}
+        confirmLabel={t("sheetRebuildBtn")}
+        onConfirm={() => { setConfirmRebuild(false); sheet.rebuild(); }}
+        onCancel={() => setConfirmRebuild(false)}
+      />
+    )}
 
     {confirmClose && (
       <ConfirmDialog

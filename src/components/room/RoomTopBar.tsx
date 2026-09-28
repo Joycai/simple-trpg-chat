@@ -262,6 +262,7 @@ export function RoomTopBar({
             onClick={() => setShowCharacter(!showCharacter)}
             className={`${iconBtn} ${showCharacter ? iconNavActive : iconNavIdle}`}
             title={`${t("tooltipCharacter")} · ${nickname}${characterMissing > 0 ? ` · ${tChar("missingBadge", { count: characterMissing })}` : ""} (${formatHotkey("KeyC")})`}
+            aria-label={`${t("tooltipCharacter")}${characterMissing > 0 ? ` · ${tChar("missingBadge", { count: characterMissing })}` : ""}`}
             aria-pressed={showCharacter}
           >
             <Icons.User className="w-[18px] h-[18px]" />
@@ -408,6 +409,7 @@ export function RoomTopBar({
                 onClick={() => setShowHostSheets(!showHostSheets)}
                 className={`${iconBtn} ${showHostSheets ? iconAccentActive : iconAccentIdle}`}
                 title={`${tChar("overviewTooltip")}${incompleteMembers > 0 ? ` · ${tChar("overviewIncompleteBadge", { count: incompleteMembers })}` : ""}`}
+                aria-label={`${tChar("overviewTooltip")}${incompleteMembers > 0 ? ` · ${tChar("overviewIncompleteBadge", { count: incompleteMembers })}` : ""}`}
                 aria-pressed={showHostSheets}
               >
                 <IdCard className="w-[18px] h-[18px]" />

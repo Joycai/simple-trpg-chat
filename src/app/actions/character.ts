@@ -9,7 +9,8 @@ import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import type { CharacterData, SheetEdit } from "@/lib/character/types";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
 import { applySheetEdit, sanitizeSheetEdit } from "@/lib/character/sheet-model";
-import { parseSheet, parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
+import { parseSheet, parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow } from "@/lib/character/sheet-row";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { resolveSheetWriter } from "@/lib/auth/sheet-access";
 import { checkRoomAccess } from "@/lib/auth/room-access";
@@ -59,15 +60,6 @@ async function requireMembership(roomId: number): Promise<number> {
   return m.userId;
 }
 
-async function writeSheet(roomId: number, userId: number, json: string) {
-  await db.update(roomMembers)
-    .set({ characterData: json })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
-}
-
 /** Result of the on-entry sheet/rule reconciliation. */
 export type SheetRuleStatus =
   | { status: "ok" }
@@ -107,11 +99,13 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
   const sheet = parseSheetOrNull(member.characterData, rule.id);
 
   if (!sheet) {
-    const data = emptySheet(rule.id);
-    await writeSheet(roomId, userId, JSON.stringify(data));
-    await broadcastCharacterUpdate(roomId, userId, { sheet: data, by: userId });
+    // Re-checked under the lock: another writer may have stored one meanwhile.
+    const out = await updateSheetRow(roomId, userId, (raw) =>
+      parseSheetOrNull(raw, rule.id) ? { result: null } : { sheet: emptySheet(rule.id), result: null });
+    if (out.status !== "ok" || !out.sheet) return { status: "ok" };
+    await broadcastCharacterUpdate(roomId, userId, { sheet: out.sheet, by: userId });
     revalidatePath(`/rooms/${roomId}`);
-    return { status: "initialized", data };
+    return { status: "initialized", data: out.sheet };
   }
 
   if (sheet.ruleTemplate !== rule.id) {
@@ -122,32 +116,35 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
 }
 
 /**
- * Rebuild the caller's sheet for the room's current rule, keeping the generic
- * profile fields (see `CARRYOVER_KEYS`). Invoked only after the player accepts
- * the rule-change prompt.
+ * Rebuild a member's sheet for the room's current rule, keeping the generic
+ * profile fields (see `CARRYOVER_KEYS`). The member invokes it after accepting
+ * the rule-change prompt; the host (or an admin) may rebuild any member's —
+ * bots never see that prompt. A sheet already on the room's rule is left
+ * as it is, so a repeated click can't wipe it.
  */
-export async function rebuildCharacterForRoomRuleAction(roomId: number): Promise<{ success: true; data: CharacterData } | Fail> {
-  const m = await checkMembership(roomId);
-  if (!m.ok) return fail(m.key);
-  const { userId } = m;
+export async function rebuildCharacterForRoomRuleAction(
+  roomId: number,
+  targetUserId: number,
+): Promise<{ success: true; data: CharacterData } | Fail> {
+  const w = await resolveSheetWriter(roomId, targetUserId);
+  if (!w.ok) return fail(w.key);
+  const rule = getRuleForRoom(w.room);
 
-  const [member] = await db.select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, userId)
-    ));
+  const out = await updateSheetRow(roomId, targetUserId, (raw) => {
+    // Read under the sheet's own rule: its profile fields are what carries over.
+    const prev = parseSheetOrNull(raw);
+    if (prev && prev.ruleTemplate === rule.id) return { result: prev };
+    const rebuilt = rebuildSheetForRule(prev, rule.id);
+    return { sheet: rebuilt, result: rebuilt };
+  });
+  if (out.status === "notMember") return fail("errorTargetNotMember");
+  if (out.status === "tooLarge") return fail("errorDataTooLarge");
 
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  const rule = getRuleForRoom(room || {});
-  // Read under the sheet's own rule: its profile fields are what carries over.
-  const prev = parseSheetOrNull(member?.characterData);
-  const rebuilt = rebuildSheetForRule(prev, rule.id);
-
-  await writeSheet(roomId, userId, JSON.stringify(rebuilt));
-  await broadcastCharacterUpdate(roomId, userId, { sheet: rebuilt, by: userId });
-  revalidatePath(`/rooms/${roomId}`);
-  return { success: true, data: rebuilt };
+  if (out.sheet) {
+    await broadcastCharacterUpdate(roomId, targetUserId, { sheet: out.sheet, by: w.callerId });
+    revalidatePath(`/rooms/${roomId}`);
+  }
+  return { success: true, data: out.result };
 }
 
 /**
@@ -189,14 +186,16 @@ export async function editCharacterAction(
   if (!w.ok) return fail(w.key);
 
   const roomRule = getRuleForRoom(w.room);
-  const sheet = parseSheet(w.targetSheet, roomRule.id);
-  // The sheet's own rule owns its fields (mid rule switch it may differ from
-  // the room's until the member rebuilds).
-  const next = applySheetEdit(getRule(sheet.ruleTemplate), sheet, clean).sheet;
-
-  const json = serializeSheet(next);
-  if (json === null) return fail("errorDataTooLarge");
-  await writeSheet(roomId, targetUserId, json);
+  const out = await updateSheetRow(roomId, targetUserId, (raw) => {
+    const sheet = parseSheet(raw, roomRule.id);
+    // The sheet's own rule owns its fields (mid rule switch it may differ from
+    // the room's until the member rebuilds).
+    const next = applySheetEdit(getRule(sheet.ruleTemplate), sheet, clean).sheet;
+    return { sheet: next, result: next };
+  });
+  if (out.status === "notMember") return fail("errorTargetNotMember");
+  if (out.status === "tooLarge") return fail("errorDataTooLarge");
+  const next = out.result;
 
   await broadcastCharacterUpdate(roomId, targetUserId, { sheet: next, by: w.callerId });
 
