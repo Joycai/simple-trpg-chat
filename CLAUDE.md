@@ -39,6 +39,7 @@ pnpm db:push    # Push schema to PostgreSQL
 pnpm db:studio  # Drizzle Studio GUI
 pnpm db:seed    # Seed database (creates admin / admin123)
 pnpm db:doctor  # Environment & DB diagnostics
+pnpm db:migrate-sheets  # Upgrade stored character sheets to v2 (dry run; --apply, --room <id>)
 ```
 
 ## Project Structure
@@ -64,7 +65,7 @@ src/
 │   ├── actions/               #   write-action result types (Fail / Done), noRoomAccess()
 │   ├── ai/                    #   bot agent loop, tool definitions/handlers, usage, presets
 │   ├── auth/                  #   room access checks, invites, rate limit, login history
-│   ├── character/             #   rule-agnostic CharacterData shell + sheet rebuild
+│   ├── character/             #   v2 sheet: schema-driven resolve / edit / completion, legacy upgrade
 │   ├── commands/              #   chat command engine, dice expressions, CSPRNG dice
 │   ├── format/                #   time / bytes / markdown blocks / export formatting
 │   ├── media/                 #   uploads, room backgrounds, stickers, avatars, image cache
@@ -93,7 +94,7 @@ For deep dives into specific systems, see `docs/`:
 | Database — 23 tables, schema, relations | `docs/arch/database.md` |
 | Real-time — SSE, privacy filter, DMs | `docs/arch/realtime.md` |
 | AI — agent tools, token usage, points, SSRF | `docs/arch/ai-system.md` |
-| Character — COC 7th, sheets, skills | `docs/arch/character-system.md` |
+| Character — sheet schema, v2 storage, completion, host editing | `docs/arch/character-system.md` |
 | Admin — users, config, stats, filtering | `docs/arch/admin-panel.md` |
 
 ### ⚠️ Critical: EventEmitter must use globalThis
@@ -152,6 +153,24 @@ ruleset, this panel spec must be part of the change** — see the
 `simple-trpg-chat-rules` skill (§3 `quickCheckPanel`) for the contract.
 Component: `src/components/room/chat/QuickCheckPanel.tsx`.
 
+### Character Sheets (角色卡)
+
+Each rule declares its sheet as data — `RuleModule.sheet` (`lib/rules/sheet-schema.ts`):
+attributes (range, default, required), resources (`bar` with a derived / editable max,
+or an unbounded `counter`), derived values (computed by `derive`, never stored or
+writable) and standard skills (base value, required). `roomMembers.characterData` is a
+v2 sheet that stores **only the values someone set** (absent key = unset), so
+completion is exact. Read through `parseSheet` / `parseSheetOrNull` (upgrades pre-v2
+rows via `migrateLegacy`; pass the room rule), write **only** through `applySheetEdit`
+— via `editCharacterAction`, `.st`, `.sc`, the AI tool or the skills actions — and let
+`broadcastCharacterUpdate` send `character_updated { vital, completion, by }`.
+Permission is one rule, `resolveSheetWriter`: the member, the host, or an admin.
+UI: `CharacterPanel` (own / host-edit / view modes, `useSheetDraft` draft over a
+baseline, completion bar, close guard), `HostSheetOverview` (host top-bar button),
+top-bar missing-count badges, member-list completion marks. Backfill:
+`pnpm db:migrate-sheets [--room <id>] [--apply]`. Details: `docs/arch/character-system.md`;
+adding a rule's schema: the `simple-trpg-chat-rules` skill.
+
 ### Avatar System
 
 Users can upload and crop custom avatars for each room they join. Avatars are stored as base64 JPEG in the database (max 512×512px per room membership).
@@ -186,7 +205,7 @@ Special files per segment (Next 16.3 — `error.tsx` gets `{ error, retry }`; `r
 - **Loading**: `rooms/[id]/loading.tsx` mirrors RoomClient's shells (RoomTopBar rows, the sidebar from `lg` at useSidebar's default 200px, ChatArea's input shell) so nothing jumps on arrival; admin pages share `admin/AdminSkeleton.tsx`, and a page with a different outer container passes it from its own `loading.tsx` (config, usage). Change a page's shell → update its skeleton.
 - **Errors**: `rooms/[id]/error.tsx` and `admin/error.tsx` render `components/shared/RouteError.tsx` — retry, a way back, and the digest only (never `error.message`). `app/global-error.tsx` replaces the root layout, so no theme, fonts or next-intl reach it: it is the one UI file that hardcodes its colors (OS light/dark, no tokens available) and writes its copy in both languages.
 
-First paint: the room page reads `loadMemberSnapshot` (`lib/room/initial-snapshot.ts` — unread DMs per sender, whether I have any skills yet, visible events, unread events, unread items) in its `Promise.all` and passes `initialSnapshot` to RoomClient, whose hooks seed that state from it (`useUnreadDmCounts`, `useCharacterHint`, `useRoomEventsData`, `useUnreadInventoryCount`) — there is no "loading" state for these any more. The matching read actions are thin `checkRoomAccess` wrappers over the same functions, and the hooks' refresh-key effects skip their key-0 run, re-reading only when bumped. The page decides host-level reads with `isRoomHostOrAdmin` — the same rule `checkRoomAccess` uses.
+First paint: the room page reads `loadMemberSnapshot` (`lib/room/initial-snapshot.ts` — unread DMs per sender, sheet completion (own; every member's for the host), visible events, unread events, unread items) in its `Promise.all` and passes `initialSnapshot` to RoomClient, whose hooks seed that state from it (`useUnreadDmCounts`, the completions map, `useRoomEventsData`, `useUnreadInventoryCount`) — there is no "loading" state for these any more. The matching read actions are thin `checkRoomAccess` wrappers over the same functions, and the hooks' refresh-key effects skip their key-0 run, re-reading only when bumped. The page decides host-level reads with `isRoomHostOrAdmin` — the same rule `checkRoomAccess` uses.
 
 ### Room Client
 
@@ -247,7 +266,7 @@ Public `/register` page: new users sign up with a host-issued invite code and jo
   `lib/actions/result.ts` rather than a local copy. Write-action status by module:
   - Converted: `admin` · `ai-import` · `background` · `bot` · `bot-presets` ·
     `character` · `checks` · `dice-announcer` · `event` · `image-cache` · `inventory` ·
-    `invite` · `messages` · `notebook` · `room` · `theme` (setters;
+    `invite` · `messages` · `notebook` · `room` · `skills` · `theme` (setters;
     `updateSiteFavicon` still returns English errors) · `user` (`changeOwnPassword`) ·
     `ai-providers` (`deleteProvider`; `createProvider` / `updateProvider` keep their
     older `{ error } | data` shape — their auth and ownership errors are localized, but
