@@ -19,7 +19,7 @@ description: >
 
 # Simple TRPG Chat — 规则模板模块系统
 
-> 规则系统的设计文档在 `docs/arch/rule-template-system.md`(重构前现状)和 `docs/arch/rule-template-refactor.md`(方案,历史)。角色卡声明式 schema 这轮重构的设计文档在 `.claude/tasks/character-sheet-framework/02-design.md`。本文件描述**当前**实现,与代码同步维护。
+> 规则系统的设计文档在 `docs/arch/rule-template-system.md`(重构前现状)和 `docs/arch/rule-template-refactor.md`(方案,历史)。角色卡声明式 schema 的架构说明在 `docs/arch/character-system.md`。本文件描述**当前**实现,与代码同步维护。
 
 ## 0. 设计意图
 

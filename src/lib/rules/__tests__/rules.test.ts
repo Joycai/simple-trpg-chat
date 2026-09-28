@@ -320,7 +320,7 @@ describe("skillAliasCandidates", () => {
 });
 
 // ---------------------------------------------------------------------------
-// initCharacter / computeDerived
+// dnd5e capabilities / check parsing
 // ---------------------------------------------------------------------------
 
 describe("dnd5eRule/capabilities", () => {
