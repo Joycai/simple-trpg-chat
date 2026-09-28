@@ -580,7 +580,9 @@ body {
   margin-top: 0.15rem;
 }
 
-/* Unordered lists: themed marker glyph in place of the default disc. */
+/* Unordered lists: themed marker glyph in place of the default disc.
+   The glyph rules are scoped to `ul` so an ordered list never inherits one,
+   whatever it is nested in. Each nesting level steps to a lighter glyph. */
 .notebook-note-body .md-list {
   list-style: none;
   padding-left: 0.15rem;
@@ -591,7 +593,7 @@ body {
   padding-left: 1.35em;
   line-height: var(--theme-nb-body-leading, 1.8);
 }
-.notebook-note-body .md-list > li::before {
+.notebook-note-body ul.md-list > li::before {
   content: var(--theme-nb-list-marker, "◆");
   position: absolute;
   left: 0.1em;
@@ -599,6 +601,30 @@ body {
   font-size: 0.8em;
   line-height: calc(var(--theme-nb-body-leading, 1.8) / 0.8);
   color: var(--theme-nb-list-marker-color, rgb(var(--theme-primary)));
+}
+.notebook-note-body .md-list ul.md-list > li::before {
+  content: var(--theme-nb-list-marker-2, "◇");
+}
+.notebook-note-body .md-list .md-list ul.md-list > li::before {
+  content: var(--theme-nb-list-marker-3, "•");
+}
+/* A nested list sits tight under its parent item. */
+.notebook-note-body .md-list-nested {
+  margin: 0.1rem 0;
+}
+
+/* Ordered lists: native numbering, tinted like the bullet glyphs. */
+.notebook-note-body ol.md-list {
+  list-style: decimal;
+  padding-left: 1.6em;
+}
+.notebook-note-body ol.md-list > li {
+  padding-left: 0.2em;
+}
+.notebook-note-body ol.md-list > li::marker {
+  color: var(--theme-nb-list-marker-color, rgb(var(--theme-primary)));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Blockquotes: heavier accent bar + tinted panel + leading quote glyph. */
