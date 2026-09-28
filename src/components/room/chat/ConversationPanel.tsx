@@ -176,7 +176,7 @@ export function ConversationPanel({
         {dmConversations.map(conv => {
           // Every member (bots included) shows their rule's primary vital — a
           // fill bar when it has a max, a bare count when it doesn't
-          // (Triangle's 嘉奖), and nothing at all when the sheet is empty.
+          // (Triangle's 嘉奖), and nothing while the sheet is untouched.
           const vital = conv.vital ?? null;
           const hasBar = vital != null && vital.max != null && vital.max > 0;
           const vitalPct = hasBar

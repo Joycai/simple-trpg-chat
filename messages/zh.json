@@ -1026,7 +1026,8 @@
     "skillSearchClear": "清空搜索",
     "skillFilterLabel": "技能筛选",
     "skillValueLabel": "技能数值",
-    "sheetRuleMismatch": "这张卡是按「{rule}」建立的，与房间当前规则不一致；重新进入房间按提示重建后才计入完成度。"
+    "sheetRuleMismatch": "这张卡是按「{rule}」建立的，与房间当前规则不一致；重新进入房间按提示重建后才计入完成度。",
+    "overviewRuleMismatch": "这张卡按其他规则建立，打开角色卡处理后再调整资源"
   },
   "notebook": {
     "title": "记事本",

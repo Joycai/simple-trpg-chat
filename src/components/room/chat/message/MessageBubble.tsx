@@ -123,6 +123,9 @@ export const MessageBubble = memo(function MessageBubble({
   const diceCardKind = dice?.cardKind ?? null;
   const diceProxyNick = dice?.proxyNick ?? null;
   const diceAnnouncer = dice?.announcer ?? null;
+  // The sender-name menu: DM for a member's messages, plus 编辑角色卡 for the
+  // host — also on a bot's messages (the card entry rule includes bots).
+  const canOpenMenu = !!senderId && !isOwn && (!displayIsBot || (isHost && !!onViewCharacter && !diceAnnouncer));
 
   // Visibility badge shown next to the nickname. Driven by the message audience
   // (not the legacy isPrivate flag) so a DM whisper isn't mislabelled as a GM
@@ -189,9 +192,9 @@ export const MessageBubble = memo(function MessageBubble({
       <div className={`flex flex-col max-w-[90%] sm:max-w-[85%] md:max-w-[80%] ${isOwn ? "items-end" : ""}`}>
         <div className={`flex items-center gap-2 mb-0.5 ${isOwn ? "flex-row-reverse" : ""} relative`}>
           <span
-            className={`text-[13px] font-semibold text-text-muted inline-flex items-center gap-1 ${(!displayIsBot && !isOwn && senderId) ? "cursor-pointer hover:underline select-none" : ""}`}
+            className={`text-[13px] font-semibold text-text-muted inline-flex items-center gap-1 ${canOpenMenu ? "cursor-pointer hover:underline select-none" : ""}`}
             onClick={(e) => {
-              if (!displayIsBot && !isOwn && senderId) {
+              if (canOpenMenu) {
                 e.stopPropagation();
                 setShowMenu(!showMenu);
               }
@@ -254,8 +257,8 @@ export const MessageBubble = memo(function MessageBubble({
               style={{ top: "100%" }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Same rule as the member list: the host, on someone else's message. */}
-              {isHost && !isOwn && onViewCharacter && (
+              {/* Same rule as the member list: the host, on someone else's message — bots included. */}
+              {isHost && onViewCharacter && (
                 <button
                   onClick={() => {
                     onViewCharacter(senderId, nickname);
@@ -266,7 +269,7 @@ export const MessageBubble = memo(function MessageBubble({
                   {tRoom("btnViewCard")}
                 </button>
               )}
-              {onStartDM && (
+              {onStartDM && !displayIsBot && (
                 <button
                   onClick={() => {
                     onStartDM(senderId);

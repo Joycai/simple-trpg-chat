@@ -1158,6 +1158,10 @@ describe("status-view", () => {
   it("没有任何数据时不显示(返回 null)", () => {
     expect(primaryVital(null)).toBeNull();
     expect(primaryVital(sheet("basic"))).toBeNull();
+    // An untouched sheet's default-derived HP is not shown as if it were real.
+    expect(primaryVital(sheet("dnd5e"))).toBeNull();
+    expect(primaryVital(sheet("coc7th", { customAttributes: [{ name: "信仰", value: 3 }] })))
+      .toMatchObject({ label: "信仰" });
   });
 });
 

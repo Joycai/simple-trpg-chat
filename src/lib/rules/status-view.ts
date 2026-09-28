@@ -102,10 +102,16 @@ export function readStatusEntries(charData: CharacterData | null | undefined): S
  * HP wins wherever a rule has it (COC / d20 / 狩魂者) — it's the number the
  * table watches. Rules without HP fall back to their first declared resource
  * (Triangle → 嘉奖), and rules with no presets at all fall back to the
- * player's first custom attribute. Returns null when there is nothing to show,
- * in which case the caller renders no bar at all.
+ * player's first custom attribute. An untouched sheet (nothing set) has only
+ * default-derived numbers, so it shows no resource. Returns null when there is
+ * nothing to show, in which case the caller renders no bar at all.
  */
 export function primaryVital(charData: CharacterData | null | undefined): StatusEntry | null {
   const { resources, custom } = readStatusEntries(charData);
+  // A sheet nobody has filled in would show numbers derived from defaults
+  // (a "full" HP 10/10) that look real — show its custom attributes, or nothing.
+  const touched = !!charData && (Object.keys(charData.attributes ?? {}).length > 0
+    || Object.keys(charData.resources ?? {}).length > 0);
+  if (!touched) return custom[0] ?? null;
   return resources.find(r => r.key === "hp") ?? resources[0] ?? custom[0] ?? null;
 }

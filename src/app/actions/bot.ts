@@ -1,5 +1,6 @@
 "use server";
 
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { db } from "@/db";
 import { users, roomMembers, rooms } from "@/db/schema";
@@ -44,7 +45,7 @@ export async function createBotAction(
     .from(rooms)
     .where(eq(rooms.id, roomId));
 
-  await db.transaction(async (tx) => {
+  const botUserId = await db.transaction(async (tx) => {
     const [userRecord] = await tx.insert(users).values({
       username: botUsername,
       passwordHash,
@@ -71,8 +72,10 @@ export async function createBotAction(
       // Bots are members too — the AI sheet tools expect a rule-shaped card.
       characterData: JSON.stringify(emptySheet(getRuleForRoom(room || {}).id)),
     });
-
+    return userRecord.id;
   });
+  // The host's completion badges count the new bot right away.
+  await broadcastCharacterUpdate(roomId, botUserId, { by: null });
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };

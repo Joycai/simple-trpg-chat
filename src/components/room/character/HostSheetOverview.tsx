@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, ChevronRight, IdCard, Minus, Plus } from "lucide-react";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -10,7 +10,7 @@ import { usePlayerLabel } from "@/components/shared/host-label";
 import { editCharacterAction, loadHostSheetsAction, type HostSheetRow } from "@/app/actions/character";
 import { getRule } from "@/lib/rules";
 import { applySheetEdit, resolveSheet, type ResolvedResource } from "@/lib/character/sheet-model";
-import { emptySheet } from "@/lib/character/sheet-v2";
+import { emptySheet, type ResourceValue } from "@/lib/character/sheet-v2";
 import { getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
 
@@ -36,12 +36,32 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
   const [filter, setFilter] = useState<"all" | "incomplete">("all");
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Saves in flight per `userId:resource`, and the latest sequence number sent
+  // for each — a reply that isn't the latest must not overwrite newer clicks.
+  const pendingRef = useRef(new Map<string, number>());
+  const seqRef = useRef(new Map<string, number>());
+  // The latest rows, for computing a click from values newer than this render.
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; });
+
   useEffect(() => {
     let alive = true;
-    loadHostSheetsAction(roomId)
-      .then((d) => { if (alive) { setData(d); setFailed(false); } })
+    const load = () => loadHostSheetsAction(roomId)
+      .then((d) => {
+        if (!alive) return;
+        // Rows with a save in flight keep their local (optimistic) sheet.
+        const busy = new Set([...pendingRef.current.entries()].filter(([, n]) => n > 0).map(([k]) => Number(k.split(":")[0])));
+        setData((prev) => ({
+          ...d,
+          rows: d.rows.map((r) => (busy.has(r.userId) ? prev?.rows.find((p) => p.userId === r.userId) ?? r : r)),
+        }));
+        setFailed(false);
+      })
       .catch(() => { if (alive) setFailed(true); });
-    return () => { alive = false; };
+    // A reload after someone else's write is debounced: a batch .st or a bot's
+    // tool loop broadcasts once per write.
+    const timer = refreshKey > 0 ? setTimeout(load, 400) : (load(), undefined);
+    return () => { alive = false; if (timer) clearTimeout(timer); };
   }, [roomId, refreshKey, attempt]);
 
   const rule = getRule(data?.ruleId);
@@ -59,22 +79,45 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     return field ? t(field.labelKey) : key;
   };
 
-  // Resource ±1: optimistic, saved at once, rolled back if the save fails.
-  const step = async (row: HostSheetRow, res: ResolvedResource, delta: number) => {
-    const next = res.current + delta;
-    const before = row.sheet;
-    const base = before ?? emptySheet(rule.id);
-    const edit = { resources: { [res.field.key]: { current: next } } };
-    const optimistic = applySheetEdit(rule, base, edit).sheet;
-    const patch = (sheet: HostSheetRow["sheet"]) =>
-      setData((d) => d && { ...d, rows: d.rows.map((r) => (r.userId === row.userId ? { ...r, sheet } : r)) });
-    patch(optimistic);
+  // Resource ±1: optimistic, saved at once. Each click steps from the latest
+  // value; only the newest reply for that resource is applied, and a failure
+  // restores only that resource.
+  const step = async (userId: number, resKey: string, delta: number) => {
+    const row = dataRef.current?.rows.find((r) => r.userId === userId);
+    if (!row) return;
+    const key = `${userId}:${resKey}`;
+    const current = resolveSheet(rule, row.sheet ?? emptySheet(rule.id)).resources.find((r) => r.field.key === resKey);
+    if (!current) return;
+    const before = row.sheet?.resources[resKey];
+    const edit = { resources: { [resKey]: { current: current.current + delta } } };
+    const optimistic = applySheetEdit(rule, row.sheet ?? emptySheet(rule.id), edit).sheet;
+    const setResource = (value: ResourceValue | undefined) =>
+      setData((d) => d && {
+        ...d,
+        rows: d.rows.map((r) => {
+          if (r.userId !== userId) return r;
+          const sheet = r.sheet ?? emptySheet(rule.id);
+          const resources = { ...sheet.resources };
+          if (value) resources[resKey] = value; else delete resources[resKey];
+          return { ...r, sheet: { ...sheet, resources } };
+        }),
+      });
+    const seq = (seqRef.current.get(key) ?? 0) + 1;
+    seqRef.current.set(key, seq);
+    pendingRef.current.set(key, (pendingRef.current.get(key) ?? 0) + 1);
+    dataRef.current = dataRef.current && {
+      ...dataRef.current,
+      rows: dataRef.current.rows.map((r) => (r.userId === userId ? { ...r, sheet: optimistic } : r)),
+    };
+    setResource(optimistic.resources[resKey]);
     setNotice(null);
-    const saved = await editCharacterAction(roomId, row.userId, edit)
+    const saved = await editCharacterAction(roomId, userId, edit)
       .catch(() => ({ success: false as const, error: "" }));
-    if (saved.success) { patch(saved.data); return; }
-    patch(before);
-    setNotice(t("overviewSaveFailed", { name: row.nickname, resource: t(res.field.labelKey), value: res.current }));
+    pendingRef.current.set(key, (pendingRef.current.get(key) ?? 1) - 1);
+    if (seqRef.current.get(key) !== seq) return; // a newer click owns this resource
+    if (saved.success) { setResource(saved.data.resources[resKey]); return; }
+    setResource(before);
+    setNotice(t("overviewSaveFailed", { name: row.nickname, resource: t(current.field.labelKey), value: current.current }));
   };
 
   return (
@@ -152,7 +195,10 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                   const resolved = resolveSheet(rule, row.sheet ?? emptySheet(rule.id));
                   const { requiredSet, requiredTotal } = row.completion;
                   const done = requiredSet === requiredTotal;
-                  const untouched = requiredTotal > 0 && requiredSet === 0;
+                  const untouched = !row.sheet || (requiredTotal > 0 && requiredSet === 0);
+                  // A sheet still built for another rule: the room rule's
+                  // columns don't apply to it — the panel handles the rebuild.
+                  const mismatch = !!row.sheet && row.sheet.ruleTemplate !== rule.id;
                   const color = row.avatarColor || getRandomColorForUser(row.userId);
                   return (
                     <div key={row.userId}
@@ -192,9 +238,16 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                         )}
                       </div>
 
-                      {resolved.resources.map((res) => (
+                      {mismatch || untouched ? (
+                        rule.sheet.resources.length > 0 && (
+                          <span className="text-xs text-text-dim sm:[grid-column:span_var(--span)]"
+                            style={{ "--span": rule.sheet.resources.length } as React.CSSProperties}>
+                            {mismatch ? t("overviewRuleMismatch") : t("overviewNoSheetHint")}
+                          </span>
+                        )
+                      ) : resolved.resources.map((res) => (
                         <OverviewStepper key={res.field.key} resource={res} label={t(res.field.labelKey)}
-                          onStep={(d) => step(row, res, d)}
+                          onStep={(d) => step(row.userId, res.field.key, d)}
                           decreaseLabel={t("decrease", { name: t(res.field.labelKey) })}
                           increaseLabel={t("increase", { name: t(res.field.labelKey) })} />
                       ))}

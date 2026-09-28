@@ -1,5 +1,6 @@
 "use server";
 
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { db } from "@/db";
 import { rooms, roomMembers, users, THEMES, THEME_MODES, RULE_TEMPLATES, type Theme, type RuleTemplate } from "@/db/schema";
@@ -106,6 +107,8 @@ export async function joinRoomAction(formData: FormData) {
         // lands on an empty card (and .st writes have something to land on).
         characterData: JSON.stringify(emptySheet(getRuleForRoom(room).id)),
       });
+      // The host's completion badges count the newcomer right away.
+      await broadcastCharacterUpdate(roomId, userId, { by: userId });
     }
 
     revalidatePath("/");

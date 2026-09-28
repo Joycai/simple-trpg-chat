@@ -1026,7 +1026,8 @@
     "skillSearchClear": "Clear search",
     "skillFilterLabel": "Skill filter",
     "skillValueLabel": "Skill value",
-    "sheetRuleMismatch": "This sheet was built for {rule}, not this room's rule; re-enter the room and rebuild it when prompted to count toward completion."
+    "sheetRuleMismatch": "This sheet was built for {rule}, not this room's rule; re-enter the room and rebuild it when prompted to count toward completion.",
+    "overviewRuleMismatch": "This sheet was built for another rule; open it to sort that out before adjusting resources"
   },
   "notebook": {
     "title": "Notebook",
