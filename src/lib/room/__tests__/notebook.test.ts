@@ -65,6 +65,10 @@ describe("stripMarkdown", () => {
     expect(stripMarkdown(md)).toBe("线索 子线索 细节 第一步 第二步");
   });
 
+  it("removes a marker followed by a full-width space, without joining lines", () => {
+    expect(stripMarkdown("-\u3000项目\n-\n下一行")).toBe("项目 - 下一行");
+  });
+
   it("keeps numbers that are not list markers", () => {
     expect(stripMarkdown("1.5 倍伤害\n2024年")).toBe("1.5 倍伤害 2024年");
   });

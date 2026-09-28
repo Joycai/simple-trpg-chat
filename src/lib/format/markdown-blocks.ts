@@ -54,9 +54,11 @@ function isTableLine(line: string): boolean {
  * number, at least one space, then the item text. `**bold**` and `---` don't
  * match because the marker must be followed by whitespace.
  */
-// The text group is `[^\n]*`, not `.*`: `.` rejects `\r` / U+2028, and a
-// failed match would backtrack across every space run — quadratic on a long line.
-const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])[ \t]+([^\n]*)$/;
+// The separator is any whitespace but a newline, so an IME full-width space
+// (U+3000) or NBSP after the marker still counts. The text group is `[^\n]*`,
+// not `.*`: `.` rejects `\r` / U+2028, and a failed match would backtrack
+// across every space run — quadratic on a long line.
+const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])[^\S\n]+([^\n]*)$/;
 
 interface ListLine {
   indent: number;

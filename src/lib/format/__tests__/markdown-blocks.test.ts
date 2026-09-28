@@ -210,6 +210,10 @@ describe("splitBlocks — nested lists", () => {
     expect(blocks[1]).toMatchObject({ line: 1, text: "   接续文字" });
   });
 
+  it("accepts a full-width space or NBSP after the marker", () => {
+    expect(shape(onlyList("-\u3000项目\n  1.\u00a0子项"))).toEqual([["项目", ["ol:1", "子项"]]]);
+  });
+
   it("does not treat bold, italics or rules as list items", () => {
     const blocks = splitBlocks("**粗体**\n*斜体*\n---\n1.5 倍伤害");
     expect(blocks.every((b) => b.kind === "paragraph")).toBe(true);
