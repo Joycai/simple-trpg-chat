@@ -49,6 +49,8 @@ export function buildMentionTargets(
   userId: number,
   aiEnabled: boolean,
   validProviderIds: number[],
+  /** The room's rule — settles pre-v2 rows that carry two rules' bags. */
+  roomRuleId?: string,
 ): RoomMentionTarget[] {
   return players
     .filter((p) => (p.users?.id || p.user_id) !== userId)
@@ -56,7 +58,7 @@ export function buildMentionTargets(
       const u = p.users || p.user;
       const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
       // Rows may still be pre-v2 (upgraded on read) or unparsable (no vital).
-      const charData = parseSheetOrNull(p.room_members?.characterData);
+      const charData = parseSheetOrNull(p.room_members?.characterData, roomRuleId);
       return {
         id: (u?.id || p.user_id) ?? 0,
         nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,

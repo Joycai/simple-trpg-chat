@@ -12,7 +12,7 @@ import { checkRoomAccess } from "@/lib/auth/room-access";
 import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
 import { getTranslations } from "next-intl/server";
 import { getRuleForRoom } from "@/lib/rules";
-import type { CharacterData } from "@/lib/character/types";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
 
 // --- Host Skill Check Request ---
 
@@ -370,12 +370,10 @@ export async function getProxyCheckTargetsAction(
   const targets = pending.map((uid: number) => {
     const m = memberByUid.get(uid);
     let value: number | null = valueByUid.get(uid) ?? null;
-    if (value === null && rule && m?.characterData) {
-      try {
-        const sheet = JSON.parse(m.characterData) as CharacterData;
-        const fallback = rule.lookupFallback(lookupName, sheet);
-        if (fallback) value = fallback.value;
-      } catch { /* leave value as null */ }
+    if (value === null && rule) {
+      // Same reader as the roll itself: pre-v2 rows upgrade on read.
+      const fallback = rule.lookupFallback(lookupName, parseSheetOrNull(m?.characterData, rule.id));
+      if (fallback) value = fallback.value;
     }
     return { userId: uid, nickname: m?.nickname || `#${uid}`, value };
   });

@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { broadcastToRoom } from "@/lib/server/events";
 import type { CharacterData, SheetEdit } from "@/lib/character/types";
 import { rebuildSheetForRule } from "@/lib/character/sheet";
-import { applySheetEdit } from "@/lib/character/sheet-model";
+import { applySheetEdit, sanitizeSheetEdit } from "@/lib/character/sheet-model";
 import { parseSheet, parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { resolveSheetWriter } from "@/lib/auth/sheet-access";
@@ -178,6 +178,8 @@ export async function editCharacterAction(
   targetUserId: number,
   edit: SheetEdit,
 ): Promise<{ success: true; data: CharacterData } | Fail> {
+  const clean = sanitizeSheetEdit(edit);
+  if (!clean) return fail("errorInvalidEdit");
   const w = await resolveSheetWriter(roomId, targetUserId);
   if (!w.ok) return fail(w.key);
 
@@ -185,7 +187,7 @@ export async function editCharacterAction(
   const sheet = parseSheet(w.targetSheet, roomRule.id);
   // The sheet's own rule owns its fields (mid rule switch it may differ from
   // the room's until the member rebuilds).
-  const next = applySheetEdit(getRule(sheet.ruleTemplate), sheet, edit).sheet;
+  const next = applySheetEdit(getRule(sheet.ruleTemplate), sheet, clean).sheet;
 
   const json = serializeSheet(next);
   if (json === null) return fail("errorDataTooLarge");

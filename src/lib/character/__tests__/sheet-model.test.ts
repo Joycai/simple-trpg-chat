@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  applySheetEdit, findAttribute, findResource, resolveSheet, sanitizeCustomAttributes, sheetDiff,
+  applySheetEdit, findAttribute, findResource, resolveSheet, sanitizeCustomAttributes, sanitizeSheetEdit, sheetDiff,
 } from "../sheet-model";
 import { emptySheet, type CharacterSheetV2, type SheetEdit } from "../sheet-v2";
 import { prng, testRule } from "./fixtures/test-rule";
@@ -147,6 +147,23 @@ describe("profile.roleLevel", () => {
     expect(s).toMatchObject({ role: "法师", level: 99 });
     expect(applySheetEdit(withRole, s, { attributes: { str: 60 } }).sheet).toMatchObject({ role: "法师", level: 99 });
     expect(applySheetEdit(withRole, s, { profile: { level: null } }).sheet.level).toBeUndefined();
+  });
+});
+
+describe("sanitizeSheetEdit", () => {
+  it("accepts well-shaped groups and rejects malformed ones outright", () => {
+    expect(sanitizeSheetEdit({ attributes: { str: 5 }, resources: { hp: { current: 3 } }, customAttributes: [] }))
+      .toEqual({ attributes: { str: 5 }, resources: { hp: { current: 3, max: undefined } }, customAttributes: [] });
+    expect(sanitizeSheetEdit(null)).toBeNull();
+    expect(sanitizeSheetEdit([])).toBeNull();
+    expect(sanitizeSheetEdit({ attributes: [1] })).toBeNull();
+    expect(sanitizeSheetEdit({ resources: { hp: 3 } })).toBeNull();
+    expect(sanitizeSheetEdit({ customAttributes: "x" })).toBeNull();
+  });
+
+  it("never wipes custom attributes through a non-array", () => {
+    const s = edit(empty(), { customAttributes: [{ name: "a", value: 1 }] });
+    expect(edit(s, { customAttributes: "x" as never }).customAttributes).toEqual([{ name: "a", value: 1 }]);
   });
 });
 

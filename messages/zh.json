@@ -943,7 +943,8 @@
     "shPsychicStrength": "灵能力强度",
     "shPhyStrengthFormula": "⌊体魄 / 2⌋",
     "shSpellStrengthFormula": "⌊智慧 / 2⌋",
-    "shPsychicStrengthFormula": "⌊心魂 / 2⌋"
+    "shPsychicStrengthFormula": "⌊心魂 / 2⌋",
+    "errorInvalidEdit": "角色卡数据格式不正确"
   },
   "notebook": {
     "title": "记事本",
@@ -1478,6 +1479,7 @@
     "unknownCommandGuess": "未知指令。你是否想输入 {guess}？输入 .help 查看可用指令。",
     "stUsageError": "格式错误。正确用法：.st 侦查 50",
     "stSuccess": "技能已更新：{summary}",
+    "stSheetRuleMismatch": "你的角色卡还是按其他规则建立的，属性和资源暂时无法设置。重新进入房间后按提示重建角色卡即可。",
     "rcUsageError": "用法：.rc 侦查",
     "d20RcUsage": "用法：.rc <名称>[<+/-调整值>] [DC]。例如 .rc str+3 15、.rc athletics+1+1d6 12。调整值与 DC 之间空格不可省略。",
     "taRcNotSupported": "Triangle Agency 规则不支持 .rc 检定——直接使用 .r 掷 6d4，数结果中「3」的数量即成功数。",

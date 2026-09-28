@@ -5,7 +5,7 @@ import type { CharacterData } from "@/lib/character/types";
 import { applySheetEdit, statEdit, statValue } from "@/lib/character/sheet-model";
 import { parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
 import { emptySheet } from "@/lib/character/sheet-v2";
-import { getRule, getRuleForRoom } from "@/lib/rules";
+import { getRuleForRoom } from "@/lib/rules";
 import type { CommandResult, CommandContext } from "./command-types";
 import { visibilityFor, emitCommandMessage } from "./command-message";
 
@@ -60,9 +60,13 @@ export async function handleSetSkill(
     // dropped while chat reports success.
     if (member) sheet = parseSheetOrNull(member.characterData, rule.id) ?? emptySheet(rule.id);
   }
-  // The sheet's own rule owns its fields (mid rule switch it may differ from
-  // the room's until the player rebuilds).
-  const sheetRule = sheet ? getRule(sheet.ruleTemplate) : rule;
+  // Names were routed by the room's rule; a sheet still built for another
+  // rule (the player declined the rebuild) has other fields, so writing it
+  // would drop or misplace values. Ask for the rebuild instead.
+  if (sheet && sheet.ruleTemplate !== rule.id) {
+    return { success: false, isCommand: true, error: t("stSheetRuleMismatch") };
+  }
+  const sheetRule = rule;
 
   const summaryParts: string[] = [];
   let sheetDirty = false;

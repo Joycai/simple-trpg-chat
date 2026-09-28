@@ -330,7 +330,7 @@ export function applySheetEdit(
   }
 
   if (edit.profile) applyProfile(next, edit.profile);
-  if (edit.customAttributes !== undefined) {
+  if (Array.isArray(edit.customAttributes)) {
     const list = sanitizeCustomAttributes(edit.customAttributes);
     if (list.length > 0) next.customAttributes = list;
     else delete next.customAttributes;
@@ -338,6 +338,44 @@ export function applySheetEdit(
 
   const normalized = normalizeSheet(rule, next);
   return { sheet: normalized, changed: sheetDiff(sheet, normalized) };
+}
+
+/**
+ * Shape-check an untrusted edit at an action boundary: each group must be the
+ * right kind of container, or the whole edit is rejected (null) rather than
+ * half-applied. Values are validated by `applySheetEdit`.
+ */
+export function sanitizeSheetEdit(input: unknown): SheetEdit | null {
+  const rec = (v: unknown): Record<string, unknown> | undefined =>
+    v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+  const r = rec(input);
+  if (!r) return null;
+  const out: SheetEdit = {};
+  if (r.attributes !== undefined) {
+    const a = rec(r.attributes);
+    if (!a) return null;
+    out.attributes = a as SheetEdit["attributes"];
+  }
+  if (r.resources !== undefined) {
+    const res = rec(r.resources);
+    if (!res) return null;
+    out.resources = {};
+    for (const [k, v] of Object.entries(res)) {
+      const one = rec(v);
+      if (!one) return null;
+      out.resources[k] = { current: one.current as number | null | undefined, max: one.max as number | null | undefined };
+    }
+  }
+  if (r.profile !== undefined) {
+    const p = rec(r.profile);
+    if (!p) return null;
+    out.profile = p as SheetEdit["profile"];
+  }
+  if (r.customAttributes !== undefined) {
+    if (!Array.isArray(r.customAttributes)) return null;
+    out.customAttributes = r.customAttributes as SheetEdit["customAttributes"];
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

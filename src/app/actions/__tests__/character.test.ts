@@ -119,6 +119,12 @@ describe("editCharacterAction", () => {
     expect(await editCharacterAction(5, 2, {})).toEqual({ success: false, error: "character.errorNotAuthenticated" });
   });
 
+  it("rejects a malformed edit before touching the database", async () => {
+    expect(await editCharacterAction(5, 2, { attributes: [1] } as never))
+      .toEqual({ success: false, error: "character.errorInvalidEdit" });
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("refuses another player's sheet", async () => {
     selectQueue = writer({ hostId: 1, frozen: false }, [{ userId: 2 }, { userId: 3 }]);
     expect(await editCharacterAction(5, 3, { attributes: { str: 1 } }))

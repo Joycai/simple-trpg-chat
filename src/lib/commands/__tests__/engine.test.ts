@@ -420,6 +420,39 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
   });
 });
 
+describe("Commands - .st on a v2 sheet", () => {
+  const withSheet = (sheet: object) => mockSelect.mockReturnValue({
+    from: vi.fn((table) => ({
+      where: vi.fn(() => {
+        if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+        if (table === roomMembers) return [{ characterData: JSON.stringify(sheet) }];
+        return [];
+      })
+    }))
+  });
+
+  it("reports the clamped value it stored", async () => {
+    withSheet({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: {}, resources: {} });
+    const updateSpy = vi.spyOn(db, "update");
+    updateSpy.mockClear();
+    const result = await executeCommand(1, 1, ".st 理智值150");
+    expect(result.success).toBe(true);
+    const written = JSON.parse(updateSpy.mock.results[0].value.set.mock.calls[0][0].characterData);
+    expect(written.resources.san).toEqual({ current: 99 });
+    updateSpy.mockRestore();
+  });
+
+  it("refuses attribute writes to a sheet built for another rule", async () => {
+    withSheet({ schemaVersion: 2, ruleTemplate: "dnd5e", attributes: { str: 12 }, resources: {} });
+    const updateSpy = vi.spyOn(db, "update");
+    updateSpy.mockClear();
+    const result = await executeCommand(1, 1, ".st 意志60");
+    expect(result).toMatchObject({ success: false, error: "stSheetRuleMismatch" });
+    expect(updateSpy).not.toHaveBeenCalled();
+    updateSpy.mockRestore();
+  });
+});
+
 describe("Commands - unknown command suggestions", () => {
   it("suggests the nearest command for a close typo", async () => {
     const result = await executeCommand(1, 1, ".halp");

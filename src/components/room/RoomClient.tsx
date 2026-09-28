@@ -113,8 +113,8 @@ export function RoomClient({
   // Mention targets (players + bots, excluding self), the DM list and its
   // badge total — pure derivations in lib/room/mention-targets.
   const mentionTargets = useMemo(
-    () => buildMentionTargets(players || [], userId, aiEnabled, validProviderIds),
-    [players, userId, aiEnabled, validProviderIds],
+    () => buildMentionTargets(players || [], userId, aiEnabled, validProviderIds, room.ruleTemplate ?? undefined),
+    [players, userId, aiEnabled, validProviderIds, room.ruleTemplate],
   );
   const dmConversations = useMemo(
     () => buildDmConversations(mentionTargets, unreadCounts, onlineUserIds, characterResources),
