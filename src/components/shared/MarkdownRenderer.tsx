@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import { segmentMentions, type NotebookLinkEntity } from "@/lib/room/notebook";
-import { splitBlocks, splitCodeFences } from "@/lib/format/markdown-blocks";
+import { splitBlocks, splitCodeFences, type ListBlock } from "@/lib/format/markdown-blocks";
 
 /**
  * Optional @-mention support (notebook). When provided, plain-text runs are
@@ -18,7 +18,8 @@ export interface MentionOptions {
 /**
  * Lightweight Markdown renderer for chat bubbles and notebook notes.
  * Supports common LLM output patterns: headings, tables, code blocks,
- * blockquotes, bullet lists, bold, italic, inline code, strikethrough, links.
+ * blockquotes, nested bullet / numbered lists, bold, italic, inline code,
+ * strikethrough, links.
  */
 export function MarkdownRenderer({ content, mentions }: { content: string; mentions?: MentionOptions }) {
   return (
@@ -75,15 +76,7 @@ function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOpt
             );
 
           case "list":
-            return (
-              <ul key={`ul-${block.line}`} className="md-list list-disc pl-5 my-1.5 space-y-1">
-                {block.items.map((item, li) => (
-                  <li key={li} className="text-sm leading-relaxed">
-                    <InlineRenderer text={item} mentions={mentions} />
-                  </li>
-                ))}
-              </ul>
-            );
+            return <ListView key={`ul-${block.line}`} list={block} depth={0} mentions={mentions} />;
 
           case "table":
             return (
@@ -125,6 +118,40 @@ function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOpt
         }
       })}
     </>
+  );
+}
+
+/** Bullet glyph per nesting depth; anything deeper keeps the last one. */
+const BULLET_CLASS = ["list-disc", "list-[circle]", "list-[square]"] as const;
+
+/**
+ * One list and, recursively, the lists nested in its items. `md-list` is the
+ * notebook's styling hook; `md-list-ordered` / `md-list-nested` let its
+ * structural CSS vary the marker by kind and depth.
+ */
+function ListView({ list, depth, mentions }: { list: ListBlock; depth: number; mentions?: MentionOptions }) {
+  const Tag = list.ordered ? "ol" : "ul";
+  const marker = list.ordered ? "list-decimal" : BULLET_CLASS[Math.min(depth, BULLET_CLASS.length - 1)];
+  const className = [
+    "md-list",
+    list.ordered && "md-list-ordered",
+    depth > 0 && "md-list-nested",
+    marker,
+    "pl-5 space-y-1",
+    depth > 0 ? "my-0.5" : "my-1.5",
+  ].filter(Boolean).join(" ");
+
+  return (
+    <Tag className={className} start={list.ordered && list.start !== 1 ? list.start : undefined}>
+      {list.items.map((item) => (
+        <li key={item.line} className="text-sm leading-relaxed">
+          <InlineRenderer text={item.text} mentions={mentions} />
+          {item.children.map((child) => (
+            <ListView key={child.items[0].line} list={child} depth={depth + 1} mentions={mentions} />
+          ))}
+        </li>
+      ))}
+    </Tag>
   );
 }
 
