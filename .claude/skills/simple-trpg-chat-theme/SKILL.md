@@ -213,8 +213,10 @@ import { <Id>LoginHero } from "@/themes/<id>/<Id>LoginHero";
 | `--theme-nb-heading-marker-color` | 前导竖条色 | `rgb(var(--theme-primary))` |
 | `--theme-nb-heading-marker-width` | 前导竖条宽（设 `0` 隐藏） | `3px` |
 | `--theme-nb-heading-rule` | 标题底部细线色 | `rgb(var(--theme-border))` |
-| `--theme-nb-list-marker` | 无序列表标记字形 | `"◆"` |
-| `--theme-nb-list-marker-color` | 列表标记色 | `rgb(var(--theme-primary))` |
+| `--theme-nb-list-marker` | 无序列表标记字形（第 1 层） | `"◆"` |
+| `--theme-nb-list-marker-2` | 嵌套第 2 层字形 | `"◇"` |
+| `--theme-nb-list-marker-3` | 嵌套第 3 层及更深字形 | `"•"` |
+| `--theme-nb-list-marker-color` | 列表标记色（含有序列表序号） | `rgb(var(--theme-primary))` |
 | `--theme-nb-quote-border` | 引用块竖条色 | `rgb(var(--theme-accent))` |
 | `--theme-nb-quote-bg` | 引用块底色 | `rgb(var(--theme-surface-alt) / 0.5)` |
 | `--theme-nb-strong-color` | 加粗文字色 | `inherit` |

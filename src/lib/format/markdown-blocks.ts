@@ -13,11 +13,30 @@ export type TopLevelPart =
   | { kind: "code"; lang: string | null; code: string }
   | { kind: "markdown"; text: string };
 
+/** One list item; `line` is its 0-based source line — a stable React key. */
+export interface ListItem {
+  line: number;
+  text: string;
+  /**
+   * Lists nested under this item, in source order. More than one when the
+   * marker kind switches at the same depth (`- a` then `1. b`), as in CommonMark.
+   */
+  children: ListBlock[];
+}
+
+/** A run of sibling items sharing one marker kind. */
+export interface ListBlock {
+  ordered: boolean;
+  /** The first item's number for an ordered list (`3.` → 3); absent otherwise. */
+  start?: number;
+  items: ListItem[];
+}
+
 export type Block =
   /** `line` is the 0-based index of the block's first line — a stable React key. */
   | { kind: "heading"; line: number; level: 1 | 2 | 3; text: string }
   | { kind: "quote"; line: number; lines: string[] }
-  | { kind: "list"; line: number; items: string[] }
+  | ({ kind: "list"; line: number } & ListBlock)
   | { kind: "table"; line: number; headers: string[]; rows: string[][] }
   | { kind: "break"; line: number }
   | { kind: "paragraph"; line: number; text: string };
@@ -28,6 +47,112 @@ const SEPARATOR_ROW = /^\|[\s\-:|]+\|$/;
 /** A line that opens a table: starts with `|` and carries at least one more. */
 function isTableLine(line: string): boolean {
   return line.startsWith("|") && line.includes("|", 1);
+}
+
+/**
+ * A list item line: optional indent, a `-` / `*` bullet or a `1.` / `1)`
+ * number, at least one space, then the item text. `**bold**` and `---` don't
+ * match because the marker must be followed by whitespace.
+ */
+// The separator is any whitespace but a newline, so an IME full-width space
+// (U+3000) or NBSP after the marker still counts. The text group is `[^\n]*`,
+// not `.*`: `.` rejects `\r` / U+2028, and a failed match would backtrack
+// across every space run — quadratic on a long line.
+const LIST_LINE = /^([ \t]*)([-*]|\d{1,9}[.)])[^\S\n]+([^\n]*)$/;
+
+interface ListLine {
+  indent: number;
+  ordered: boolean;
+  number: number;
+  text: string;
+}
+
+function parseListLine(line: string): ListLine | null {
+  const m = LIST_LINE.exec(line);
+  if (!m) return null;
+  const ordered = m[2] !== "-" && m[2] !== "*";
+  return {
+    indent: indentWidth(m[1]),
+    ordered,
+    number: ordered ? parseInt(m[2], 10) : 0,
+    text: m[3],
+  };
+}
+
+/** Width of leading whitespace in columns, with tab stops every 4 columns. */
+function indentWidth(ws: string): number {
+  let col = 0;
+  for (const ch of ws) col = ch === "\t" ? col + 4 - (col % 4) : col + 1;
+  return col;
+}
+
+function newList(first: ListLine, line: number): ListBlock {
+  const list: ListBlock = first.ordered
+    ? { ordered: true, start: first.number, items: [] }
+    : { ordered: false, items: [] };
+  list.items.push({ line, text: first.text, children: [] });
+  return list;
+}
+
+/**
+ * Consume the run of list lines starting at `start` and rebuild the nesting.
+ *
+ * Depth is judged relative to the enclosing items rather than by a fixed
+ * width, so 2-, 3- and 4-space (and tab) indents all work: a line indented
+ * past its parent's is one level deeper however far it jumps, and a line
+ * indented less closes every level it no longer reaches. The run ends at the
+ * first non-list line (blank lines included) or when the top-level marker kind
+ * switches, which leaves the next line for the caller to start a fresh block.
+ */
+function parseListRun(lines: string[], start: number): { list: ListBlock; next: number } {
+  const first = parseListLine(lines[start])!;
+  const root = newList(first, start);
+  // Each level's indent and the list currently open at that level.
+  const stack: { indent: number; list: ListBlock }[] = [{ indent: first.indent, list: root }];
+
+  let i = start + 1;
+  for (; i < lines.length; i++) {
+    const item = parseListLine(lines[i]);
+    if (!item) break;
+
+    while (stack.length > 1 && item.indent < stack[stack.length - 1].indent) stack.pop();
+    const top = stack[stack.length - 1];
+    // Back out past the first line's indent: this line is the new top-level
+    // baseline, so its own sub-items can nest under it.
+    if (stack.length === 1 && item.indent < top.indent) top.indent = item.indent;
+
+    if (item.indent > top.indent) {
+      // One level deeper, under the last item at this level. Rejoin its
+      // trailing child list when the kind matches, so a sub-item that was
+      // indented unevenly still lands beside its siblings.
+      const parent = top.list.items[top.list.items.length - 1];
+      const last = parent.children[parent.children.length - 1];
+      if (last && last.ordered === item.ordered) {
+        last.items.push({ line: i, text: item.text, children: [] });
+        stack.push({ indent: item.indent, list: last });
+      } else {
+        const child = newList(item, i);
+        parent.children.push(child);
+        stack.push({ indent: item.indent, list: child });
+      }
+      continue;
+    }
+
+    if (item.ordered !== top.list.ordered) {
+      if (stack.length === 1) break;
+      // Same depth, other kind: a new sibling list under the same parent.
+      const parent = stack[stack.length - 2].list;
+      const owner = parent.items[parent.items.length - 1];
+      const sibling = newList(item, i);
+      owner.children.push(sibling);
+      top.list = sibling;
+      continue;
+    }
+
+    top.list.items.push({ line: i, text: item.text, children: [] });
+  }
+
+  return { list: root, next: i };
 }
 
 /** Parse a table row like `| col1 | col2 | col3 |`. */
@@ -66,7 +191,8 @@ export function splitCodeFences(content: string): TopLevelPart[] {
  * swallowing itself and the line after it.
  */
 export function splitBlocks(text: string): Block[] {
-  const lines = text.split("\n");
+  // CRLF content (pasted, or from an API) would otherwise leave `\r` on every line.
+  const lines = text.split(/\r?\n/);
   const blocks: Block[] = [];
 
   let i = 0;
@@ -75,7 +201,7 @@ export function splitBlocks(text: string): Block[] {
     const line = lines[i];
 
     // Heading: # / ## / ###
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const headingMatch = line.match(/^(#{1,3})\s+([^\n]+)$/);
     if (headingMatch) {
       blocks.push({
         kind: "heading",
@@ -98,14 +224,11 @@ export function splitBlocks(text: string): Block[] {
       continue;
     }
 
-    // Bullet list: consecutive lines starting with "- " or "* "
-    if (/^[-*]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-*]\s+/, ""));
-        i++;
-      }
-      blocks.push({ kind: "list", line: start, items });
+    // List: consecutive bullet / numbered lines, nested by indentation.
+    if (LIST_LINE.test(line)) {
+      const { list, next } = parseListRun(lines, i);
+      blocks.push({ kind: "list", line: start, ...list });
+      i = next;
       continue;
     }
 

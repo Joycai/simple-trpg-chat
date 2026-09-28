@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import { segmentMentions, type NotebookLinkEntity } from "@/lib/room/notebook";
-import { splitBlocks, splitCodeFences } from "@/lib/format/markdown-blocks";
+import { splitBlocks, splitCodeFences, type ListBlock } from "@/lib/format/markdown-blocks";
 
 /**
  * Optional @-mention support (notebook). When provided, plain-text runs are
@@ -18,7 +18,8 @@ export interface MentionOptions {
 /**
  * Lightweight Markdown renderer for chat bubbles and notebook notes.
  * Supports common LLM output patterns: headings, tables, code blocks,
- * blockquotes, bullet lists, bold, italic, inline code, strikethrough, links.
+ * blockquotes, nested bullet / numbered lists, bold, italic, inline code,
+ * strikethrough, links.
  */
 export function MarkdownRenderer({ content, mentions }: { content: string; mentions?: MentionOptions }) {
   return (
@@ -75,15 +76,7 @@ function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOpt
             );
 
           case "list":
-            return (
-              <ul key={`ul-${block.line}`} className="md-list list-disc pl-5 my-1.5 space-y-1">
-                {block.items.map((item, li) => (
-                  <li key={li} className="text-sm leading-relaxed">
-                    <InlineRenderer text={item} mentions={mentions} />
-                  </li>
-                ))}
-              </ul>
-            );
+            return <ListView key={`ul-${block.line}`} list={block} depth={0} mentions={mentions} />;
 
           case "table":
             return (
@@ -125,6 +118,43 @@ function BlockRenderer({ text, mentions }: { text: string; mentions?: MentionOpt
         }
       })}
     </>
+  );
+}
+
+/** Bullet glyph per nesting depth; anything deeper keeps the last one. */
+const BULLET_CLASS = ["list-disc", "list-[circle]", "list-[square]"] as const;
+
+/**
+ * One list and, recursively, the lists nested in its items. `md-list` is the
+ * notebook's styling hook — its structural CSS tells kinds apart by `ul` / `ol`
+ * and levels by nesting — and `md-list-nested` marks a list inside an item.
+ */
+function ListView({ list, depth, mentions }: { list: ListBlock; depth: number; mentions?: MentionOptions }) {
+  const Tag = list.ordered ? "ol" : "ul";
+  const marker = list.ordered ? "list-decimal" : BULLET_CLASS[Math.min(depth, BULLET_CLASS.length - 1)];
+  const className = [
+    "md-list",
+    depth > 0 && "md-list-nested",
+    marker,
+    "pl-5 space-y-1",
+    depth > 0 ? "my-0.5" : "my-1.5",
+  ].filter(Boolean).join(" ");
+  // `pl-5` only fits a one-digit number: from `10.` up the marker hangs past
+  // the padding — outside a chat bubble, or clipped in a line-clamped preview.
+  const digits = list.ordered ? String((list.start ?? 1) + list.items.length - 1).length : 0;
+  const style = digits > 1 ? { paddingInlineStart: `calc(${digits}ch + 1em)` } : undefined;
+
+  return (
+    <Tag className={className} style={style} start={list.ordered && list.start !== 1 ? list.start : undefined}>
+      {list.items.map((item) => (
+        <li key={item.line} className="text-sm leading-relaxed">
+          <InlineRenderer text={item.text} mentions={mentions} />
+          {item.children.map((child) => (
+            <ListView key={child.items[0].line} list={child} depth={depth + 1} mentions={mentions} />
+          ))}
+        </li>
+      ))}
+    </Tag>
   );
 }
 
