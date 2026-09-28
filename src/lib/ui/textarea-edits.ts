@@ -188,7 +188,9 @@ export function applyListIndentEdit(
  * the same bullet (ordered markers count up, keeping `.` or `)`). Enter on an
  * empty item clears the marker instead, ending the list without adding a line.
  *
- * A selection is replaced first, as a plain Enter would. Returns `null` — let the
+ * A selection is replaced first, as a plain Enter would — and an item whose
+ * body was only emptied by that replacement still continues: it was not empty
+ * when Enter was pressed. Returns `null` — let the
  * browser insert its newline — when the caret's line is not a list item, or the
  * caret sits inside the marker (Enter there should push the item down, not split
  * its marker).
@@ -203,7 +205,7 @@ export function applyListEnterEdit(value: string, start: number, end: number): T
   const item = parseListLine(line);
   if (!item || col < item.indent.length + item.marker.length + item.gap.length) return null;
 
-  if (item.body === "") {
+  if (item.body === "" && start === end) {
     return {
       next: value.slice(0, lineStart) + value.slice(lineEnd),
       selStart: lineStart,

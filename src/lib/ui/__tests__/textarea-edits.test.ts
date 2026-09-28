@@ -221,6 +221,10 @@ describe("applyListEnterEdit", () => {
     expect(marked(applyListEnterEdit(...at("- a[bc]d"))!)).toBe("- a\n- []d");
   });
 
+  it("continues rather than clears when the selection was the whole body", () => {
+    expect(marked(applyListEnterEdit(...at("- [abc]"))!)).toBe("- \n- []");
+  });
+
   it("clears the marker of an empty item instead of adding a line", () => {
     expect(marked(applyListEnterEdit(...at("- a\n- []"))!)).toBe("- a\n[]");
     expect(marked(applyListEnterEdit(...at("- a\n  2.  []\nafter"))!)).toBe("- a\n[]\nafter");
