@@ -59,7 +59,9 @@ export async function handleSanityCheck(
   // legacy room_skills(理智值) row in sync for backward compatibility.
   const finalNewSan = await syncCharacterStat(roomId, userIdArg, { kind: "resource", key: "san" }, currentSan - clampedDeduct);
   await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
-  await broadcastCharacterUpdate(roomId, userIdArg, { by: userIdArg });
+  // A host rolling on the player's behalf is the writer — the player's own
+  // client must reload.
+  await broadcastCharacterUpdate(roomId, userIdArg, { by: ctx?.proxiedBy?.userId ?? userIdArg });
 
   // The insanity warning is now rendered client-side as a separate banner
   // attached to the sanity card (see chat/message/dice/DiceResultDisplay). The `deduction >= 5`

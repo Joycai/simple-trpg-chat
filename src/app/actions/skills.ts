@@ -53,12 +53,12 @@ export async function upsertSkillAction(
   if (!w.ok) return fail(w.key);
 
   let normalizedSkillName = skillName.trim().slice(0, SKILL_NAME_MAX);
-  if (!normalizedSkillName) return fail("errorInvalidEdit");
+  if (!normalizedSkillName) return fail("errorInvalidSkill");
   if (normalizedSkillName.toLowerCase() === "san" || normalizedSkillName === "san值") {
     normalizedSkillName = "理智值";
   }
   const value = Math.round(Number(skillValue));
-  if (!Number.isFinite(value) || value < 0 || value > 999) return fail("errorInvalidEdit");
+  if (!Number.isFinite(value) || value < 0 || value > 999) return fail("errorInvalidSkill");
 
   await db.insert(roomSkills).values({
     roomId,

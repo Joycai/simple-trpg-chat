@@ -81,9 +81,16 @@ export function RoomClient({
   const [characterResources, setCharacterResources] = useState<Map<number, StatusEntry>>(new Map());
   // Required-field completion per member (own always; everyone's for the
   // host), seeded by the page and kept live by `character_updated`.
-  const [completions, setCompletions] = useState<Map<number, CompletionSummary>>(
-    () => new Map(Object.entries(initialSnapshot.completions).map(([k, v]) => [Number(k), v])),
-  );
+  const toCompletionMap = (c: Record<number, CompletionSummary>) =>
+    new Map(Object.entries(c).map(([k, v]) => [Number(k), v] as const));
+  const [completions, setCompletions] = useState(() => toCompletionMap(initialSnapshot.completions));
+  // A fresh server render (router.refresh after a rule switch, a reconnect)
+  // re-grades everyone; adopt it — SSE keeps it live from there.
+  const [seenCompletions, setSeenCompletions] = useState(initialSnapshot.completions);
+  if (seenCompletions !== initialSnapshot.completions) {
+    setSeenCompletions(initialSnapshot.completions);
+    setCompletions(toCompletionMap(initialSnapshot.completions));
+  }
   // What to reload when someone else writes a sheet — set once the card
   // viewer below exists; read by the SSE router through the ref.
   const onCharacterUpdatedRef = useRef<(userId: number, by: number | null) => void>(() => {});

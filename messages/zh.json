@@ -1003,7 +1003,8 @@
     "noPresetHint": "可以添加自定义属性，或用 .st 设置技能",
     "removeCustom": "删除 {name}",
     "decrease": "减少 {name}",
-    "increase": "增加 {name}"
+    "increase": "增加 {name}",
+    "errorInvalidSkill": "技能名不能为空，数值需在 0–999 之间"
   },
   "notebook": {
     "title": "记事本",

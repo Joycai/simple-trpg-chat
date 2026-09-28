@@ -1003,7 +1003,8 @@
     "noPresetHint": "Add custom attributes, or set skills with .st",
     "removeCustom": "Remove {name}",
     "decrease": "Decrease {name}",
-    "increase": "Increase {name}"
+    "increase": "Increase {name}",
+    "errorInvalidSkill": "A skill needs a name and a value from 0 to 999"
   },
   "notebook": {
     "title": "Notebook",

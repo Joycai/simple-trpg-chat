@@ -7,6 +7,7 @@ import { canSee, isAudience, countsAsDmUnread } from "@/lib/messaging/audience";
 import type { Message, ConnectionStatus, TypingBots, PlayerEntry } from "@/components/room/types";
 import type { StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
+import { invalidateCharacterCache } from "@/components/room/chat/message/character-cache";
 
 interface UseRoomEventsParams {
   roomId: number;
@@ -237,6 +238,7 @@ export function useRoomEvents({
               else next.delete(uid);
               return next;
             });
+            invalidateCharacterCache(roomId, uid);
             const completion = data.completion as CompletionSummary | undefined;
             if (completion) setCompletions((prev) => new Map(prev).set(uid, completion));
             onCharacterUpdatedRef.current(uid, (data.by as number | null) ?? null);

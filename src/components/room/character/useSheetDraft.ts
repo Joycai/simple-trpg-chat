@@ -62,9 +62,12 @@ export function useSheetDraft({
   const [conflict, setConflict] = useState<string[]>([]);
   if (seenBaseline !== baseline) {
     setSeenBaseline(baseline);
-    const mine = applySheetEdit(getRule(seenBaseline.ruleTemplate), seenBaseline, draft).changed;
-    const overlap = overlappingChanges(sheetDiff(seenBaseline, baseline), mine);
-    if (overlap.length > 0) setConflict(overlap);
+    // Our own save landing is not someone else's change.
+    if (baseline !== saved?.sheet) {
+      const mine = applySheetEdit(getRule(seenBaseline.ruleTemplate), seenBaseline, draft).changed;
+      const overlap = overlappingChanges(sheetDiff(seenBaseline, baseline), mine);
+      if (overlap.length > 0) setConflict((prev) => [...new Set([...prev, ...overlap])]);
+    }
   }
   const preview = useMemo(() => applySheetEdit(rule, baseline, draft), [rule, baseline, draft]);
   const resolved = useMemo(() => resolveSheet(rule, preview.sheet), [rule, preview.sheet]);
@@ -92,6 +95,8 @@ export function useSheetDraft({
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) return failSave(res.error);
     setSaved({ from: characterData, sheet: res.data });
+    // Saving writes the user's values over the flagged fields: settled.
+    setConflict([]);
     // Keep anything typed while the save was in flight.
     setDraft((d) => (d === sent ? {} : d));
     setSaveStatus("success");

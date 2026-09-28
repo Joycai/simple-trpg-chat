@@ -112,7 +112,7 @@ export async function handleSetSkill(
   }
 
   // Skills and/or the sheet changed: members' lists, badges and open panels follow.
-  await broadcastCharacterUpdate(roomId, userId, { sheet: json ? sheet : undefined, by: userId });
+  await broadcastCharacterUpdate(roomId, userId, { sheet: json ? sheet : undefined, by: ctx?.proxiedBy?.userId ?? userId });
 
   const summary = summaryParts.join(" · ");
   const vis = visibilityFor(ctx, userId, "self");

@@ -12,6 +12,11 @@ export const characterCache = new Map<
   }
 >();
 
+/** Drop a member's cached sheet (it changed; the next hover refetches). */
+export function invalidateCharacterCache(roomId: number, userId: number) {
+  characterCache.delete(`${roomId}-${userId}`);
+}
+
 export function setCacheEntry(key: string, value: { data: CharacterData | null; promise?: Promise<CharacterData | null> }) {
   if (!characterCache.has(key) && characterCache.size >= CHAR_CACHE_MAX) {
     // Evict oldest entry
