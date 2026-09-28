@@ -13,7 +13,7 @@
 /** COC 7th attribute keys (match CocAttributes in ./sheet.ts). */
 export type CocAttributeKey = "str" | "con" | "siz" | "dex" | "app" | "int" | "pow" | "edu" | "luck";
 
-/** COC 7th resource keys (current value lives in cocDerived[`${key}_current`]). */
+/** COC 7th resource keys (keys of the COC `sheet.resources` schema). */
 export type CocResourceKey = "hp" | "mp" | "san";
 
 export type CocStatResolution =
@@ -78,6 +78,7 @@ export function resolveCocStat(name: string): CocStatResolution {
 // just append an array here — no other code needs to change.
 const SKILL_ALIAS_GROUPS: ReadonlyArray<ReadonlyArray<string>> = [
   ["侦查", "侦察"],
+  ["信用评级", "信用"],
 ];
 
 /**

@@ -1,14 +1,10 @@
 import type { CharacterData } from "@/lib/character/types";
+import { emptySheet } from "./sheet-v2";
 
 /**
  * Fields that describe the *person*, not the ruleset — they survive a rebuild
- * when the room switches rule templates. Everything else on the sheet
- * (cocAttributes / d20Sheet / taSheet / shSheet / derived values / resource
- * bars) is rule-specific and comes fresh from `rule.initCharacter()`.
- *
- * `resources` is deliberately absent: resource bars are driven by the rule's
- * capabilities, so carrying the old rule's bars over would resurrect e.g. a
- * SAN bar in a system that has no sanity.
+ * when the room switches rule templates. Attributes and resources are keyed
+ * by the old rule's schema, so they start empty under the new rule.
  */
 export const CARRYOVER_KEYS = [
   "name",
@@ -20,21 +16,14 @@ export const CARRYOVER_KEYS = [
 ] as const;
 
 /**
- * Rebuild a character sheet for a new rule template.
- *
- * `fresh` must be the output of `rule.initCharacter()` for the room's *current*
- * rule — this function never inspects rule ids, so adding a ruleset requires no
- * change here. Only the generic profile fields listed in `CARRYOVER_KEYS` are
- * copied over from the previous sheet; skills live in the `room_skills` table
- * and are untouched either way.
+ * Rebuild a character sheet for a new rule template: an empty sheet for
+ * `ruleId` plus the profile fields listed in `CARRYOVER_KEYS`. This function
+ * never inspects rule ids, so adding a ruleset requires no change here;
+ * skills live in the `room_skills` table and are untouched either way.
  */
-export function rebuildSheetForRule(
-  prev: CharacterData | null | undefined,
-  fresh: CharacterData
-): CharacterData {
-  if (!prev) return fresh;
-
-  const out: CharacterData = { ...fresh };
+export function rebuildSheetForRule(prev: CharacterData | null | undefined, ruleId: string): CharacterData {
+  const out = emptySheet(ruleId);
+  if (!prev) return out;
   for (const key of CARRYOVER_KEYS) {
     const value = prev[key];
     if (value !== undefined) {

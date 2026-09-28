@@ -1,5 +1,7 @@
 import { getBotStatus } from "@/lib/ai/bot-status";
 import { primaryVital, type StatusEntry } from "@/lib/rules";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import type { CompletionSummary } from "@/lib/character/completion";
 
 /**
  * Pure derivations over the room roster for the chat UI: who can be mentioned
@@ -40,6 +42,8 @@ export interface RoomDmConversation {
   vital: StatusEntry | null;
   avatar: string | null;
   avatarColor: string | null;
+  /** Required-field completion (known for every member only to the host). */
+  completion?: CompletionSummary;
 }
 
 /** Players and bots other than the viewer, with bot availability and the primary vital. */
@@ -48,13 +52,16 @@ export function buildMentionTargets(
   userId: number,
   aiEnabled: boolean,
   validProviderIds: number[],
+  /** The room's rule — settles pre-v2 rows that carry two rules' bags. */
+  roomRuleId?: string,
 ): RoomMentionTarget[] {
   return players
     .filter((p) => (p.users?.id || p.user_id) !== userId)
     .map((p) => {
       const u = p.users || p.user;
       const { isBotDisabled, isProviderError } = getBotStatus(u, aiEnabled, validProviderIds);
-      const charData = p.room_members?.characterData ? JSON.parse(p.room_members.characterData) : null;
+      // Rows may still be pre-v2 (upgraded on read) or unparsable (no vital).
+      const charData = parseSheetOrNull(p.room_members?.characterData, roomRuleId);
       return {
         id: (u?.id || p.user_id) ?? 0,
         nickname: p.room_members?.nickname || u?.displayName || `#${u?.id || p.user_id}`,
@@ -75,6 +82,7 @@ export function buildDmConversations(
   unreadCounts: Record<number, number>,
   onlineUserIds: Set<number>,
   liveVitals: Map<number, StatusEntry>,
+  completions?: ReadonlyMap<number, CompletionSummary>,
 ): RoomDmConversation[] {
   return targets.map((p) => ({
     userId: p.id,
@@ -85,6 +93,7 @@ export function buildDmConversations(
     isProviderError: p.isProviderError,
     isOnline: onlineUserIds.has(p.id),
     vital: liveVitals.get(p.id) ?? p.vital,
+    completion: completions?.get(p.id),
     avatar: p.avatar,
     avatarColor: p.avatarColor,
   }));

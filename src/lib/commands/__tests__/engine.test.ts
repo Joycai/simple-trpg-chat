@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies to prevent Next.js server actions / NextAuth import errors in vitest environment
-const { mockSelect } = vi.hoisted(() => ({
-  mockSelect: vi.fn()
+const { mockSelect, lockedReads } = vi.hoisted(() => ({
+  mockSelect: vi.fn(),
+  /** Tables read with `FOR UPDATE` inside a transaction, in order. */
+  lockedReads: [] as unknown[],
 }));
 
-vi.mock("@/db", () => ({
-  db: {
+vi.mock("@/db", () => {
+  const db = {
     select: mockSelect,
     insert: vi.fn(() => ({
       values: vi.fn(() => ({
@@ -20,15 +22,32 @@ vi.mock("@/db", () => ({
     })),
     delete: vi.fn(() => ({
       where: vi.fn()
-    }))
-  },
-  sqlNow: vi.fn(() => "NOW()")
-}));
+    })),
+    // Sheet writes lock the member row (`updateSheetRow`): the transaction runs
+    // inline, and its `select … for("update")` resolves through `mockSelect`.
+    // `where()` resolves to the rows as-is and also takes `.for()`, like Drizzle.
+    transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({
+      select: (...a: unknown[]) => {
+        const q = mockSelect(...a);
+        return {
+          from: (t: unknown) => ({
+            where: (...w: unknown[]) => {
+              const rows = q.from(t).where(...w);
+              return Object.assign(Promise.resolve(rows), { for: () => { lockedReads.push(t); return rows; } });
+            },
+          }),
+        };
+      },
+      update: (...a: unknown[]) => db.update(...(a as [])),
+    })),
+  };
+  return { db, sqlNow: vi.fn(() => "NOW()") };
+});
 
 vi.mock("@/db/schema", () => ({
   roomSkills: { id: "id", roomId: "roomId", userId: "userId", skillName: "skillName" },
   rooms: { id: "id" },
-  roomMembers: { characterData: "characterData" }
+  roomMembers: { id: "id", characterData: "characterData" }
 }));
 
 // Command feedback now flows through the central message router.
@@ -50,6 +69,7 @@ import { db } from "@/db";
 import { rooms, roomSkills, roomMembers } from "@/db/schema";
 
 beforeEach(() => {
+  lockedReads.length = 0;
   mockSelect.mockReset();
   mockSelect.mockReturnValue({
     from: vi.fn(() => ({
@@ -180,6 +200,69 @@ describe("Commands - executeCommand (.sc)", () => {
     expect(result.success).toBe(true);
     expect(result.isCommand).toBe(true);
     expect(result.message).toBeDefined();
+  });
+});
+
+describe("Commands - executeCommand (.sc under the row lock)", () => {
+  it("rolls against the locked SAN and stores old − loss, matching the card", async () => {
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    const set = vi.fn(() => ({ where: vi.fn() }));
+    vi.mocked(db.update).mockImplementationOnce((() => ({ set })) as never);
+    mockSelect.mockReturnValue({
+      from: vi.fn((table) => ({
+        where: vi.fn(() => {
+          if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+          if (table === roomMembers) {
+            return [{ id: 9, characterData: JSON.stringify({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { pow: 60 }, resources: { san: { current: 30 } } }) }];
+          }
+          return [];
+        })
+      }))
+    });
+
+    const result = await executeCommand(1, 1, ".sc 1/5");
+    expect(result.success).toBe(true);
+    // The only sheet read is the locked one (the broadcast locks the row again).
+    expect(lockedReads.filter((t) => t === roomMembers)).toHaveLength(2);
+    const detail = JSON.parse(vi.mocked(dispatchMessage).mock.calls.at(-1)![0].diceDetail as string);
+    const { oldSanity, newSanity, isSuccess } = detail.sanityCheck;
+    expect(oldSanity).toBe(30);
+    expect(detail.check.target).toBe(30);
+    expect(newSanity).toBe(30 - (isSuccess ? 1 : 5));
+    const stored = JSON.parse((set.mock.calls.at(-1) as unknown as [{ characterData: string }])[0].characterData);
+    expect(stored.resources.san.current).toBe(newSanity);
+  });
+});
+
+describe("Commands - executeCommand (.sc without sanity on the sheet)", () => {
+  const roomWith = (rows: { members?: unknown[]; skills?: unknown[] }) => mockSelect.mockReturnValue({
+    from: vi.fn((table) => ({
+      where: vi.fn(() => {
+        if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+        if (table === roomMembers) return rows.members ?? [];
+        if (table === roomSkills) return rows.skills ?? [];
+        return [];
+      })
+    }))
+  });
+
+  it("falls back to a legacy 理智值 row for a non-member and writes no sheet", async () => {
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    roomWith({ skills: [{ id: 4, roomId: 1, userId: 1, skillName: "理智值", skillValue: 40 }] });
+    vi.mocked(db.update).mockClear();
+    const result = await executeCommand(1, 1, ".sc 2/3");
+    expect(result.success).toBe(true);
+    const { oldSanity, newSanity, isSuccess } = JSON.parse(vi.mocked(dispatchMessage).mock.calls.at(-1)![0].diceDetail as string).sanityCheck;
+    expect(oldSanity).toBe(40);
+    expect(newSanity).toBe(40 - (isSuccess ? 2 : 3));
+    expect(db.update).toHaveBeenCalledTimes(1); // the legacy row only
+  });
+
+  it("reports STAT_NOT_SET when neither the sheet nor a legacy row has sanity", async () => {
+    // A sheet whose own rule has no sanity (built for basic, room now COC).
+    roomWith({ members: [{ id: 9, characterData: JSON.stringify({ schemaVersion: 2, ruleTemplate: "basic", attributes: {}, resources: {} }) }] });
+    const result = await executeCommand(1, 1, ".sc 1/5");
+    expect(result).toMatchObject({ success: false, code: "STAT_NOT_SET", error: "scNoSanity" });
   });
 });
 
@@ -391,7 +474,7 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
     });
   });
 
-  it("seeds a sheet via rule.initCharacter() and persists the attribute write", async () => {
+  it("starts an empty sheet for the room's rule and persists the attribute write", async () => {
     const updateSpy = vi.spyOn(db, "update");
     updateSpy.mockClear();
 
@@ -401,8 +484,7 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
 
     const setFn = updateSpy.mock.results[0].value.set;
     const written = JSON.parse(setFn.mock.calls[0][0].characterData);
-    expect(written.ruleTemplate).toBe("coc7th");
-    expect(written.cocAttributes.str).toBe(50);
+    expect(written).toEqual({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: { str: 50 }, resources: {} });
     updateSpy.mockRestore();
   });
 
@@ -416,7 +498,40 @@ describe("Commands - .st on a fresh member (no sheet yet)", () => {
 
     const setFn = updateSpy.mock.results[0].value.set;
     const written = JSON.parse(setFn.mock.calls[0][0].characterData);
-    expect(written.ruleTemplate).toBe("coc7th");
+    expect(written).toMatchObject({ ruleTemplate: "coc7th", resources: { san: { current: 40 } } });
+    updateSpy.mockRestore();
+  });
+});
+
+describe("Commands - .st on a v2 sheet", () => {
+  const withSheet = (sheet: object) => mockSelect.mockReturnValue({
+    from: vi.fn((table) => ({
+      where: vi.fn(() => {
+        if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+        if (table === roomMembers) return [{ characterData: JSON.stringify(sheet) }];
+        return [];
+      })
+    }))
+  });
+
+  it("reports the clamped value it stored", async () => {
+    withSheet({ schemaVersion: 2, ruleTemplate: "coc7th", attributes: {}, resources: {} });
+    const updateSpy = vi.spyOn(db, "update");
+    updateSpy.mockClear();
+    const result = await executeCommand(1, 1, ".st 理智值150");
+    expect(result.success).toBe(true);
+    const written = JSON.parse(updateSpy.mock.results[0].value.set.mock.calls[0][0].characterData);
+    expect(written.resources.san).toEqual({ current: 99 });
+    updateSpy.mockRestore();
+  });
+
+  it("refuses attribute writes to a sheet built for another rule", async () => {
+    withSheet({ schemaVersion: 2, ruleTemplate: "dnd5e", attributes: { str: 12 }, resources: {} });
+    const updateSpy = vi.spyOn(db, "update");
+    updateSpy.mockClear();
+    const result = await executeCommand(1, 1, ".st 意志60");
+    expect(result).toMatchObject({ success: false, error: "stSheetRuleMismatch" });
+    expect(updateSpy).not.toHaveBeenCalled();
     updateSpy.mockRestore();
   });
 });

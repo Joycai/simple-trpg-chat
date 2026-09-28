@@ -2,56 +2,35 @@ import { db } from "@/db";
 import { rooms, roomMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { CharacterData } from "@/lib/character/types";
-import { getRuleForRoom } from "@/lib/rules";
+import { applySheetEdit, statEdit, statValue, type StatRef } from "@/lib/character/sheet-model";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow } from "@/lib/character/sheet-row";
+import { getRule } from "@/lib/rules";
 
 /**
- * Persist a `.st` attribute or resource write into room_members.character_data
- * by delegating to the active rule module's `applyStatWrite`. The engine no
- * longer knows about COC/d20-specific sheet shapes — each rule handles its
- * own clamping, derivation, and field layout.
+ * Persist a single absolute attribute or resource write (the skills
+ * form's 理智值 row) into room_members.character_data through the generic
+ * `applySheetEdit`, which owns clamping and derivation for every rule.
  *
- * Returns the value actually stored (rules may clamp resources). When the
- * member has no parsed sheet, returns the input value unchanged.
+ * Returns the value actually stored (resources clamp to their max). When the
+ * member has no usable sheet, returns the input value unchanged.
  */
 export async function syncCharacterStat(
   roomId: number,
   userId: number,
-  resolution: { kind: "attribute"; key: string } | { kind: "resource"; key: string },
+  ref: StatRef,
   value: number
 ): Promise<number> {
-  const [member] = await db
-    .select({ characterData: roomMembers.characterData })
-    .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-
-  if (!member?.characterData) return value;
-
-  let data: CharacterData;
-  try {
-    data = JSON.parse(member.characterData) as CharacterData;
-  } catch (e) {
-    console.error("Failed to parse character data", e);
-    return value;
-  }
-  if (!data) return value;
-
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
-  if (!room) return value;
-  const rule = getRuleForRoom(room);
-
-  const route =
-    resolution.kind === "attribute"
-      ? ({ kind: "attribute", key: resolution.key, canonical: resolution.key } as const)
-      : ({ kind: "resource", key: resolution.key, canonical: resolution.key } as const);
-
-  const { sheet, finalValue } = rule.applyStatWrite(data, route, value);
-
-  await db
-    .update(roomMembers)
-    .set({ characterData: JSON.stringify(sheet) })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-
-  return finalValue;
+  const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate }).from(rooms).where(eq(rooms.id, roomId));
+  const out = await updateSheetRow(roomId, userId, (raw) => {
+    // The room rule settles pre-v2 rows that carry two rules' bags.
+    const sheet = parseSheetOrNull(raw, room?.ruleTemplate ?? undefined);
+    if (!sheet) return { result: value };
+    const rule = getRule(sheet.ruleTemplate);
+    const next = applySheetEdit(rule, sheet, statEdit(ref, value)).sheet;
+    return { sheet: next, result: statValue(rule, next, ref) ?? value };
+  });
+  return out.status === "notMember" ? value : out.result;
 }
 
 /**
@@ -62,16 +41,14 @@ export async function syncCharacterSanity(roomId: number, userId: number, newSan
   return syncCharacterStat(roomId, userId, { kind: "resource", key: "san" }, newSan);
 }
 
-/** Read a member's parsed character_data (or null). */
+/** Read a member's sheet (v2, upgraded on read), or null when there is none. */
 export async function getCharacterData(roomId: number, userId: number): Promise<CharacterData | null> {
   const [member] = await db
     .select({ characterData: roomMembers.characterData })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-  if (!member?.characterData) return null;
-  try {
-    return JSON.parse(member.characterData);
-  } catch {
-    return null;
-  }
+  if (!member) return null;
+  // The room rule settles pre-v2 rows that carry two rules' bags.
+  const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate }).from(rooms).where(eq(rooms.id, roomId));
+  return parseSheetOrNull(member.characterData, room?.ruleTemplate ?? undefined);
 }

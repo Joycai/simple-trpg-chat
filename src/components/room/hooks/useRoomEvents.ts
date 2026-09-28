@@ -6,6 +6,8 @@ import { markDMReadAction, catchUpMessagesAction } from "@/app/actions/messages"
 import { canSee, isAudience, countsAsDmUnread } from "@/lib/messaging/audience";
 import type { Message, ConnectionStatus, TypingBots, PlayerEntry } from "@/components/room/types";
 import type { StatusEntry } from "@/lib/rules";
+import type { CompletionSummary } from "@/lib/character/completion";
+import { invalidateCharacterCache } from "@/components/room/chat/message/character-cache";
 
 interface UseRoomEventsParams {
   roomId: number;
@@ -26,6 +28,9 @@ interface UseRoomEventsParams {
   setEventsRefreshKey: React.Dispatch<React.SetStateAction<number>>;
   setOnlineUserIds: React.Dispatch<React.SetStateAction<Set<number>>>;
   setCharacterResources: React.Dispatch<React.SetStateAction<Map<number, StatusEntry>>>;
+  setCompletions: React.Dispatch<React.SetStateAction<Map<number, CompletionSummary>>>;
+  /** Called on every `character_updated` with the member and the writer. */
+  onCharacterUpdatedRef: React.RefObject<(userId: number, by: number | null) => void>;
 }
 
 /* Owns the room's single SSE connection: subscribes to /api/rooms/[id]/events,
@@ -48,6 +53,8 @@ export function useRoomEvents({
   setEventsRefreshKey,
   setOnlineUserIds,
   setCharacterResources,
+  setCompletions,
+  onCharacterUpdatedRef,
 }: UseRoomEventsParams) {
   const router = useRouter();
 
@@ -219,6 +226,7 @@ export function useRoomEvents({
             return;
           }
           if (data.type === "character_updated") {
+            // Sent by every sheet / skill write (lib/character/broadcast).
             // `vital` is whatever the room's rule considers this character's
             // headline number (see lib/rules/status-view). It is null when the
             // sheet has nothing to show — drop the stale entry in that case.
@@ -230,6 +238,10 @@ export function useRoomEvents({
               else next.delete(uid);
               return next;
             });
+            invalidateCharacterCache(roomId, uid);
+            const completion = data.completion as CompletionSummary | undefined;
+            if (completion) setCompletions((prev) => new Map(prev).set(uid, completion));
+            onCharacterUpdatedRef.current(uid, (data.by as number | null) ?? null);
             return;
           }
           if (data.type === "typing") {

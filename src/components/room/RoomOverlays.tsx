@@ -1,5 +1,6 @@
 "use client";
 
+import { HostSheetOverview } from "@/components/room/character/HostSheetOverview";
 import { CharacterPanel } from "@/components/room/character/CharacterPanel";
 import { RoomSettings } from "@/components/room/RoomSettings";
 import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
@@ -23,6 +24,7 @@ import { MembersDialog } from "@/components/room/MembersDialog";
 import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
 import type { Room, PlayerEntry, MentionTarget, CheckMode, PendingSkillCheck } from "@/components/room/types";
 import type { ThemeId, StoredThemeMode } from "@/themes/types";
+import type { CompletionSummary } from "@/lib/character/completion";
 
 interface RoomOverlaysProps {
   room: Room;
@@ -45,6 +47,8 @@ interface RoomOverlaysProps {
   onlineUserIds?: Set<number>;
   playerCount: number;
   botCount: number;
+  /** Required-field completion per member (the host's member-list marks). */
+  completions: ReadonlyMap<number, CompletionSummary>;
   activeTab: "public" | number;
 
   // Viewing another player's character card
@@ -52,6 +56,10 @@ interface RoomOverlaysProps {
   viewingPlayerNickname: string;
   viewingPlayerCharData: string | null;
   loadingPlayerCard: boolean;
+  /** Bumped when someone else changes the viewed card (reloads its skills). */
+  viewedCardRefreshKey: number;
+  /** Bumped when any sheet changes elsewhere (reloads the host overview). */
+  sheetsRefreshKey: number;
   onCloseViewingPlayer: () => void;
 
   eventsRefreshKey: number;
@@ -89,8 +97,8 @@ export function RoomOverlays(props: RoomOverlaysProps) {
   const {
     room, userId, isHost, nickname, characterData, readOnly, players,
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
-    inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
-    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, onCloseViewingPlayer,
+    inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, completions, activeTab,
+    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, viewedCardRefreshKey, sheetsRefreshKey, onCloseViewingPlayer,
     eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
     eventDetailId, setEventDetailId,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
@@ -104,14 +112,14 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       members: showMembers, inventory: showInventory, notebook: showNotebook,
       itemManager: showItemManager, events: showEvents, eventManage: showEventManage,
       timeline: showTimeline, settings: showSettings, roomInfo: showRoomInfo, export: showExport,
-      userSettings: showUserSettings,
+      userSettings: showUserSettings, hostSheets: showHostSheets,
     },
     setters: {
       character: setShowCharacter, botManager: setShowBotManager, aiImport: setShowAiImport,
       members: setShowMembers, inventory: setShowInventory, notebook: setShowNotebook,
       itemManager: setShowItemManager, events: setShowEvents, eventManage: setShowEventManage,
       timeline: setShowTimeline, settings: setShowSettings, roomInfo: setShowRoomInfo,
-      export: setShowExport, userSettings: setShowUserSettings,
+      export: setShowExport, userSettings: setShowUserSettings, hostSheets: setShowHostSheets,
     },
   } = overlays;
 
@@ -137,6 +145,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       {/* Seeds a missing sheet / prompts when the room's rule no longer matches it. */}
       <CharacterRuleGate
         roomId={room.id}
+        userId={userId}
         roomRuleTemplate={room.ruleTemplate || "basic"}
         disabled={readOnly}
       />
@@ -165,12 +174,20 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           roomRuleTemplate={room.ruleTemplate || "basic"}
           onClose={onCloseViewingPlayer}
           onNicknameChange={() => {}}
-          readOnly={true}
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
+          refreshKey={viewedCardRefreshKey}
           avatarColor={memberOf(viewingPlayerId)?.avatarColor}
           avatar={memberOf(viewingPlayerId)?.avatar}
           isGM={isHost}
+        />
+      )}
+      {showHostSheets && isHost && (
+        <HostSheetOverview
+          roomId={room.id}
+          refreshKey={sheetsRefreshKey}
+          onClose={() => setShowHostSheets(false)}
+          onOpenCard={onViewPlayerCard}
         />
       )}
       {showBotManager && (
@@ -216,6 +233,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           botCount={botCount}
           onViewPlayerCard={onViewPlayerCard}
           onStartDM={onStartDM}
+          completions={completions}
           onClose={() => setShowMembers(false)}
         />
       )}

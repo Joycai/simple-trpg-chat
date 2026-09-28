@@ -1,132 +1,57 @@
-import type { CharacterData } from "@/lib/character/types";
-import {
-  getRule,
-  type CocAttributes, type D20Attributes, type ShAttributes, type TaQualities,
-  type RuleCapabilities,
-} from "@/lib/rules";
+import type { SheetRule } from "@/lib/rules/sheet-schema";
+import type { ResolvedSheet } from "./sheet-model";
 
 /**
- * Pure helpers behind the character-sheet panel: reading the stored sheet,
- * drafting the rule's live status from edited attributes, and the plain-text
- * export. The panel asks the rule for everything; nothing here names a rule.
- */
-
-export function parseCharData(json?: string | null): Record<string, unknown> {
-  try { return json ? JSON.parse(json) : {}; } catch { return {}; }
-}
-
-/**
- * Draft the active rule's live status from the currently-edited attribute
- * values: writeAttributes → computeDerived → readStatus. Gives the panel a
- * generic `{ resources: { current, max }, derived }` snapshot so the resource
- * bars, their denominators, and the derived footer stop calling
- * computeCocDerived / computeShDerived by name (was a per-rule if-chain).
- */
-export function draftStatusFor(ruleTemplate: string, sheet: unknown, attributeValues: Record<string, number>) {
-  const rule = getRule(ruleTemplate);
-  const base = { ...(sheet as CharacterData), ruleTemplate };
-  return rule.readStatus(rule.computeDerived(rule.writeAttributes(base, attributeValues)));
-}
-
-/** Pull the current value for each of a rule's resource bars from a status snapshot. */
-export function currentsFromStatus(ruleTemplate: string, status: { resources: Record<string, { current: number; max?: number }> }): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const bar of getRule(ruleTemplate).capabilities.resourceBars) {
-    const r = status.resources[bar.key];
-    if (r) out[bar.key] = r.current;
-  }
-  return out;
-}
-
-/**
- * Build the generic `attributeValues: Record<string, number>` record fed to
- * AttributesTab from rule-specific attribute bags. COC → cocAttributes;
- * d20 → d20Attributes; basic → empty.
- */
-export function buildAttributeValues(
-  ruleTemplate: string,
-  coc: CocAttributes | undefined,
-  d20: D20Attributes | undefined,
-  ta?: TaQualities,
-  sh?: ShAttributes,
-): Record<string, number> {
-  // The rule owns which bag its attributes live in; the panel just asks for a
-  // flat record. (Was a coc7th/dnd5e/triangle/shouhun if-chain.)
-  return getRule(ruleTemplate).readAttributes({
-    ruleTemplate,
-    cocAttributes: coc,
-    d20Attributes: d20,
-    taQualities: ta,
-    shAttributes: sh,
-  });
-}
-
-/**
- * The panel's "导出" text. Driven entirely by capabilities + the rule's status
- * snapshot, so a new rule exports with no edit here (was a
- * coc7th/dnd5e/triangle/shouhun if-chain).
+ * The panel's "导出" text: a readable summary of the sheet as it is being
+ * edited. Driven entirely by the rule's schema and the resolved sheet, so a
+ * new rule exports with no edit here.
  */
 export function buildCharacterExportText({
   t,
   nickname,
-  cap,
-  role,
-  level,
-  currentResources,
-  resourceMaxes,
-  derivedValues,
-  attributeGrades,
-  attributeValues,
+  rule,
+  resolved,
   skills,
-  bio,
 }: {
   t: (key: string) => string;
   nickname: string;
-  cap: RuleCapabilities;
-  role: string;
-  level: number | "";
-  currentResources: Record<string, number>;
-  resourceMaxes: Record<string, number>;
-  derivedValues: Record<string, number> | undefined;
-  attributeGrades: Record<string, string> | undefined;
-  attributeValues: Record<string, number>;
+  rule: SheetRule;
+  resolved: ResolvedSheet;
   skills: { skillName: string; skillValue: number }[];
-  bio: string;
 }): string {
+  const { sheet } = resolved;
   const lines = [`${t("title")} · ${nickname}`, ""];
 
   // Role / level (only rules that expose them).
-  if (cap.hasRoleLevel) {
-    if (role) lines.push(`${t("role")}: ${role}`);
-    if (level !== "") lines.push(`${t("level")}: ${level}`);
+  if (rule.sheet.profile.roleLevel) {
+    if (sheet.role) lines.push(`${t("role")}: ${sheet.role}`);
+    if (sheet.level !== undefined) lines.push(`${t("level")}: ${sheet.level}`);
   }
 
-  // Resource bars: `current/max` for bars, bare value for counters.
-  for (const bar of cap.resourceBars) {
-    const cur = currentResources[bar.key] ?? 0;
-    lines.push((bar.style ?? "bar") === "counter"
-      ? `${t(bar.labelKey)}: ${cur}`
-      : `${t(bar.labelKey)}: ${cur}/${resourceMaxes[bar.key] ?? 0}`);
+  // Resources: `current/max` for bounded ones, bare value for counters.
+  for (const r of resolved.resources) {
+    lines.push(r.max === undefined
+      ? `${t(r.field.labelKey)}: ${r.current}`
+      : `${t(r.field.labelKey)}: ${r.current}/${r.max}`);
   }
 
-  // Derived stats (e.g. 狩魂者 术法强度) + 灵识 footer value, if the rule has them.
-  for (const d of cap.derivedStats ?? []) {
-    lines.push(`${t(d.labelKey)}: ${derivedValues?.[d.key] ?? 0}`);
-  }
-  if (derivedValues?.spiritSense !== undefined) {
-    lines.push(`${t("shSpiritSense")}: ${derivedValues.spiritSense}`);
+  // Displayed derived values (e.g. 狩魂者 术法强度 / 灵识, COC MOV / DB).
+  for (const d of resolved.derivedFields) {
+    if (d.field.display === "hidden") continue;
+    lines.push(`${t(d.field.labelKey)}: ${d.value}`);
   }
 
-  // Attributes, with the rule's grade badge appended when it has one.
-  if (cap.attributeKeys.length) {
+  // Attributes, with the rule's badge appended when it has one.
+  if (resolved.attributes.length) {
     lines.push("", t("baseAttributes") + ":");
-    cap.attributeKeys.forEach(({ key, labelKey }) => {
-      const g = attributeGrades?.[key];
-      lines.push(`  ${t(labelKey)}: ${attributeValues[key] ?? 0}${g ? ` (${g})` : ""}`);
-    });
+    for (const a of resolved.attributes) {
+      const badge = a.field.badge?.(a.value);
+      lines.push(`  ${t(a.field.labelKey)}: ${a.value}${badge ? ` (${badge})` : ""}`);
+    }
   }
 
   if (skills.length) { lines.push("", t("tabSkills") + ":"); skills.forEach((s) => lines.push(`  ${s.skillName}: ${s.skillValue}`)); }
-  if (bio.trim()) lines.push("", t("tabBackground") + ":", bio.trim());
+  const bio = sheet.bio?.trim();
+  if (bio) lines.push("", t("tabBackground") + ":", bio);
   return lines.join("\n");
 }

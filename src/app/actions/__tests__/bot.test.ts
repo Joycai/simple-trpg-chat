@@ -10,7 +10,7 @@ vi.mock("@/lib/auth/room-access", () => ({
 }));
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/rules", () => ({ getRuleForRoom: () => ({ initCharacter: () => ({ ruleTemplate: "basic" }) }) }));
+vi.mock("@/lib/rules", () => ({ getRuleForRoom: () => ({ id: "basic" }) }));
 const runAgent = vi.fn(() => Promise.resolve());
 vi.mock("@/lib/ai/agent", () => ({ runAgent: () => runAgent() }));
 vi.mock("next-intl/server", () => ({

@@ -1,6 +1,6 @@
 {
   "name": "simple-trpg-chat",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "engines": {
@@ -20,6 +20,7 @@
     "db:doctor": "tsx --conditions=react-server src/db/scripts/doctor.ts",
     "db:backfill-audience": "tsx --conditions=react-server src/db/scripts/backfill-audience.ts",
     "db:dedup-room-members": "tsx --conditions=react-server src/db/scripts/dedup-room-members.ts",
+    "db:migrate-sheets": "tsx --conditions=react-server src/db/scripts/migrate-character-sheets.ts",
     "tsc": "tsc",
     "test": "vitest run",
     "i18n:check": "tsx scripts/check-i18n.ts",

@@ -8,7 +8,7 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 export const ROOM_OVERLAYS = [
   "settings", "character", "inventory", "notebook", "itemManager", "events", "eventManage",
   "timeline", "botManager", "aiImport", "roomInfo", "members", "systemMenu", "aiMenu",
-  "userSettings", "export", "hotkeyHelp",
+  "userSettings", "export", "hotkeyHelp", "hostSheets",
 ] as const;
 export type RoomOverlayKey = (typeof ROOM_OVERLAYS)[number];
 

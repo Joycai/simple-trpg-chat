@@ -3,9 +3,10 @@
  * and the derivation helper. Owned by the COC rule module (moved out of the
  * shared `character/types.ts` so each ruleset carries its own sheet types).
  *
- * Self-contained: no import of `CharacterData` or any other rule. The generic
- * `CharacterData` in `@/lib/character/types` type-imports these interfaces for
- * its optional `cocAttributes` / `cocDerived` fields.
+ * Self-contained: no import of `CharacterData` or any other rule. The v2 sheet
+ * stores attributes by key (see the COC `sheet` schema); these types still
+ * describe the pre-v2 `cocAttributes` / `cocDerived` bags `migrateLegacy`
+ * reads, and `computeCocDerived` backs the rule's `derive`.
  */
 
 /** COC 7th standard attributes */

@@ -669,7 +669,7 @@ export async function runAgent(
   const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
   const enabledTools: string[] = botCfg.enableTools || ["roll_dice", "respond_check"];
 
-  const allTools = buildAgentToolDefinitions(roomId);
+  const allTools = buildAgentToolDefinitions(roomId, room.ruleTemplate);
   // Filter to only the tools enabled for this bot. Note: free-text replies are
   // broadcast directly from the model's message content (R3), so there is no
   // "send_message" tool — a bot can always talk without one being enabled.

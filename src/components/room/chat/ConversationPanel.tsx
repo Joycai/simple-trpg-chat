@@ -8,6 +8,9 @@ import { Icons } from "@/components/shared/icons";
 import { useHostLabel } from "@/components/shared/host-label";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "@/components/room/character/resource-visuals";
 import type { StatusEntry } from "@/lib/rules";
+import type { CompletionSummary } from "@/lib/character/completion";
+import { canOpenMemberCard } from "@/lib/room/card-access";
+import { CompletionMark } from "@/components/room/character/CompletionMark";
 
 interface DMConversation {
   userId: number;
@@ -22,6 +25,8 @@ interface DMConversation {
   vital?: StatusEntry | null;
   avatar?: string | null;
   avatarColor?: string | null;
+  /** Required-field completion; shown to the host as a small mark. */
+  completion?: CompletionSummary;
 }
 
 interface ConversationPanelProps {
@@ -170,10 +175,10 @@ export function ConversationPanel({
       {/* Member list — avatar + name + HP bar + action dropdown */}
       <div className="flex-1 overflow-y-auto" style={{ padding: 8, display: "flex", flexDirection: "column", gap: 3 }}>
         {dmConversations.map(conv => {
-          // Bots have no sheet; everyone else shows their rule's primary vital
-          // — a fill bar when it has a max, a bare count when it doesn't
-          // (Triangle's 嘉奖), and nothing at all when the sheet is empty.
-          const vital = conv.isBot ? null : conv.vital ?? null;
+          // Every member (bots included) shows their rule's primary vital — a
+          // fill bar when it has a max, a bare count when it doesn't
+          // (Triangle's 嘉奖), and nothing while the sheet is untouched.
+          const vital = conv.vital ?? null;
           const hasBar = vital != null && vital.max != null && vital.max > 0;
           const vitalPct = hasBar
             ? Math.max(0, Math.min(100, (vital.current / vital.max!) * 100))
@@ -186,7 +191,8 @@ export function ConversationPanel({
           const isSelf = conv.userId === userId;
           const isHostMember = conv.userId === hostId;
           const isDropdownOpen = openDropdown === conv.userId;
-          const canViewCard = isHost && !conv.isBot;
+          const canViewCard = canOpenMemberCard({ id: userId, isHost }, conv.userId);
+          const completion = isHost && conv.completion && conv.completion.requiredTotal > 0 ? conv.completion : null;
           const canDM = conv.userId !== userId;
 
           return (
@@ -254,9 +260,15 @@ export function ConversationPanel({
                     </span>
                   )}
                 </div>
-                {hasBar && (
-                  <div style={{ height: 3, borderRadius: 2, background: "rgb(var(--theme-border))", marginTop: 4 }}>
-                    <div style={{ width: `${vitalPct}%`, height: "100%", borderRadius: 2, background: vitalColor, transition: "width 300ms var(--ease-emphasized)" }} />
+                {(hasBar || completion) && (
+                  <div className="flex items-center gap-1.5" style={{ marginTop: 4 }}>
+                    {hasBar && (
+                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: "rgb(var(--theme-border))" }}>
+                        <div style={{ width: `${vitalPct}%`, height: "100%", borderRadius: 2, background: vitalColor, transition: "width 300ms var(--ease-emphasized)" }} />
+                      </div>
+                    )}
+                    {/* Host only: required-field completion of this member. */}
+                    <CompletionMark completion={completion} className={hasBar ? "" : "ml-auto"} />
                   </div>
                 )}
               </div>

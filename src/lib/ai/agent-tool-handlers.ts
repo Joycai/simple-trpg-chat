@@ -8,8 +8,14 @@ import { shareItemCore } from "@/lib/room/inventory-share";
 import { getTranslations } from "next-intl/server";
 import { rollDice } from "@/lib/commands/dice";
 import { executeCommand } from "@/lib/commands/engine";
-import type { CharacterData } from "@/lib/character/types";
-import { clampInt, getRuleForRoom } from "@/lib/rules";
+import { applySheetEdit } from "@/lib/character/sheet-model";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow } from "@/lib/character/sheet-row";
+import { sheetSnapshot } from "@/lib/character/sheet-export";
+import { editFromToolArgs } from "@/lib/character/sheet-ai";
+import { rebuildSheetForRule } from "@/lib/character/sheet";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
+import { clampInt, getRule, getRuleForRoom } from "@/lib/rules";
 import type { ParsedToolArgs } from "@/lib/ai/agent-tool-guard";
 
 /**
@@ -509,17 +515,14 @@ async function myCharacterTool(_args: ParsedToolArgs, ctx: AgentToolContext): Pr
       eq(roomSkills.roomId, roomId),
       eq(roomSkills.userId, botUserId)
     ));
-  const charData: CharacterData | null = memberInfo?.characterData
-    ? JSON.parse(memberInfo.characterData)
-    : null;
-  // `exportSnapshot` is each rule's own answer to "what on this sheet
-  // is worth reporting?" — reading `cocAttributes`/`cocDerived`
-  // directly handed a d20 or Triangle bot two nulls and no way to
-  // learn its own stats.
   const sheetRule = getRuleForRoom(room || {});
+  const charData = parseSheetOrNull(memberInfo?.characterData, sheetRule.id);
+  // The snapshot is built from the rule's schema, so a d20 or Triangle bot
+  // learns its own stats the same way a COC one does — including which
+  // attributes it hasn't set yet.
   return {
     hasCharacterSheet: !!charData,
-    sheet: charData ? sheetRule.exportSnapshot(charData) : null,
+    sheet: charData ? sheetSnapshot(getRule(charData.ruleTemplate), charData) : null,
     skills: skills.map(s => ({ name: s.skillName, value: s.skillValue })),
     customAttributes: charData?.customAttributes || [],
   };
@@ -527,55 +530,21 @@ async function myCharacterTool(_args: ParsedToolArgs, ctx: AgentToolContext): Pr
 
 async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext): Promise<unknown> {
   const { roomId, botUserId, room } = ctx;
-  const [memberInfo] = await db.select({
-    characterData: roomMembers.characterData,
-  }).from(roomMembers)
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, botUserId)
-    ));
+  const sheetRule = getRuleForRoom(room || {});
+  const edit = editFromToolArgs(args as Record<string, unknown>);
 
-  const existing: CharacterData = memberInfo?.characterData
-    ? JSON.parse(memberInfo.characterData)
-    : { ruleTemplate: args.ruleTemplate || "basic" };
-
-  const sheetRule = getRuleForRoom(room || { ruleTemplate: args.ruleTemplate as string | undefined });
-
-  // Cap customAttributes — the schema is `{name, value, max?}[]` and
-  // the model has no legitimate reason to emit dozens of them. Pre-
-  // capping here keeps the persisted JSON small.
-  const trimmedCustom = Array.isArray(args.customAttributes)
-    ? args.customAttributes.slice(0, 30)
-    : undefined;
-
-  const merged: CharacterData = {
-    ...existing,
-    ...(args.ruleTemplate ? { ruleTemplate: args.ruleTemplate } : {}),
-    ...(args.name !== undefined ? { name: args.name } : {}),
-    ...(args.age !== undefined ? { age: args.age } : {}),
-    ...(args.occupation !== undefined ? { occupation: args.occupation } : {}),
-    ...(args.bio !== undefined ? { bio: args.bio } : {}),
-    ...(trimmedCustom !== undefined ? { customAttributes: trimmedCustom } : {}),
-  };
-
-  // The model is not trusted to stay within bounds, and only the
-  // rule knows its own storage bag and legal ranges — so the rule
-  // that advertised these fields in `describeForAI` is also the one
-  // that validates them. Branching on the rule id here is what left
-  // Triangle and 狩魂者 writes silently dropped.
-  Object.assign(merged, sheetRule.applySheetPatch(merged, args as Record<string, unknown>));
-
-  // Always run derivation through the rule so future computed
-  // fields (e.g. COC cocDerived recomputation, d20 HP clamp) stay
-  // consistent regardless of which keys the model touched.
-  Object.assign(merged, sheetRule.computeDerived(merged));
-
-  await db.update(roomMembers)
-    .set({ characterData: JSON.stringify(merged) })
-    .where(and(
-      eq(roomMembers.roomId, roomId),
-      eq(roomMembers.userId, botUserId)
-    ));
+  await updateSheetRow(roomId, botUserId, (raw) => {
+    // A bot is never shown the rebuild prompt when the room switches rules, so
+    // a sheet built for another rule is rebuilt here before the write.
+    const stored = parseSheetOrNull(raw, sheetRule.id);
+    const existing = stored && stored.ruleTemplate === sheetRule.id
+      ? stored
+      : rebuildSheetForRule(stored, sheetRule.id);
+    // The model is not trusted: `applySheetEdit` whitelists the keys the rule's
+    // schema declares (the same schema the tool advertised) and clamps every
+    // number, and the custom-attribute list is sanitized and capped there too.
+    return { sheet: applySheetEdit(sheetRule, existing, edit).sheet, result: null };
+  });
 
   if (args.skills && Array.isArray(args.skills)) {
     // Cap the skills list — a hallucinating model could otherwise emit
@@ -598,6 +567,7 @@ async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext)
     }
   }
 
+  await broadcastCharacterUpdate(roomId, botUserId, { by: botUserId });
   return { success: true };
 }
 

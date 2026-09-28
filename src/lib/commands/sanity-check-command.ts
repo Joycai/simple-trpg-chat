@@ -3,10 +3,13 @@ import { roomSkills, rooms } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { rollDie } from "@/lib/commands/dice";
 import { parseAndRollExpression } from "@/lib/commands/expression";
-import { getRuleForRoom } from "@/lib/rules";
+import { getRule, getRuleForRoom } from "@/lib/rules";
+import { applySheetEdit, statValue, type StatRef } from "@/lib/character/sheet-model";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow, type SheetRowStep } from "@/lib/character/sheet-row";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import type { CommandResult, CommandContext } from "./command-types";
 import { attachProxy, visibilityFor, emitCommandMessage } from "./command-message";
-import { syncCharacterStat, getCharacterData } from "./character-stat-sync";
 
 /** .sc: Sanity Check */
 export async function handleSanityCheck(
@@ -34,29 +37,43 @@ export async function handleSanityCheck(
   const successExpr = scMatch[1].trim();
   const failureExpr = scMatch[2].trim();
 
-  // Current sanity: character sheet (current) → legacy room_skills(理智值).
-  const currentSan = await readCurrentSanity(roomId, userIdArg);
-  if (currentSan === null) {
-    return { success: false, isCommand: true, error: t("scNoSanity"), code: "STAT_NOT_SET" };
-  }
+  // The check reads SAN and writes the loss under the member's row lock, so
+  // the roll's target, the stored loss and the card's old → new are the same
+  // value — a host editing SAN meanwhile is neither overwritten nor undone.
+  const roomRuleId = room.ruleTemplate ?? "basic";
+  const locked = await updateSheetRow(roomId, userIdArg, (raw): SheetRowStep<SanOutcome> => {
+    const sheet = parseSheetOrNull(raw, roomRuleId);
+    // Sanity is a rule capability, not a COC hardcode: any rule that declares
+    // `hasSanity` has a `san` resource in its sheet schema.
+    const rule = sheet ? getRule(sheet.ruleTemplate) : null;
+    const oldSan = sheet && rule?.capabilities.hasSanity ? statValue(rule, sheet, SAN) : undefined;
+    if (!sheet || !rule || typeof oldSan !== "number") return { result: { kind: "noSheetSan" } };
+    const check = rollSanity(oldSan, successExpr, failureExpr, t);
+    if (check.kind === "error") return { result: check };
+    const next = applySheetEdit(rule, sheet, { resources: { san: { delta: -check.loss } } }).sheet;
+    return { sheet: next, result: { ...check, newSan: statValue(rule, next, SAN) ?? oldSan - check.loss } };
+  });
 
-  const roll = rollDie(100);
-  const isSuccess = roll <= currentSan;
+  let outcome: SanOutcome = locked.status === "notMember" ? { kind: "noSheetSan" } : locked.result;
+  if (outcome.kind === "noSheetSan") {
+    // No sanity on the sheet: a legacy room_skills(理智值) row, if any.
+    const legacy = await readLegacySanity(roomId, userIdArg);
+    if (legacy === null) {
+      return { success: false, isCommand: true, error: t("scNoSanity"), code: "STAT_NOT_SET" };
+    }
+    outcome = rollSanity(legacy, successExpr, failureExpr, t);
+  }
+  if (outcome.kind === "error") return { success: false, isCommand: true, error: outcome.error };
+
+  const { roll, isSuccess, rollResult, oldSan: currentSan, newSan: finalNewSan } = outcome;
   const resultLabel = isSuccess ? t("success") : t("failure");
-
-  const deductExpr = isSuccess ? successExpr : failureExpr;
-  const rollResult = parseAndRollExpression(deductExpr, t);
-  if (!rollResult.success) {
-    return { success: false, isCommand: true, error: rollResult.error };
-  }
-
   const deductVal = rollResult.totalSum;
-  const clampedDeduct = Math.max(0, deductVal);
 
-  // Write the new sanity to the character sheet (current value) and keep any
-  // legacy room_skills(理智值) row in sync for backward compatibility.
-  const finalNewSan = await syncCharacterStat(roomId, userIdArg, { kind: "resource", key: "san" }, currentSan - clampedDeduct);
+  // Keep any legacy room_skills(理智值) row in sync for backward compatibility.
   await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
+  // A host rolling on the player's behalf is the writer — the player's own
+  // client must reload.
+  await broadcastCharacterUpdate(roomId, userIdArg, { by: ctx?.proxiedBy?.userId ?? userIdArg });
 
   // The insanity warning is now rendered client-side as a separate banner
   // attached to the sanity card (see chat/message/dice/DiceResultDisplay). The `deduction >= 5`
@@ -106,18 +123,40 @@ export async function handleSanityCheck(
   return { success: true, isCommand: true, message: msg };
 }
 
-/** Read the current sanity value: character sheet current → base → legacy room_skills. */
-async function readCurrentSanity(roomId: number, userId: number): Promise<number | null> {
-  const data = await getCharacterData(roomId, userId);
-  if (data) {
-    // Sanity is a rule capability, not a COC hardcode: any rule that declares
-    // `hasSanity` exposes it through readStatus().resources.san.
-    const rule = getRuleForRoom(data);
-    if (rule.capabilities.hasSanity) {
-      const cur = rule.readStatus(data).resources.san?.current;
-      if (typeof cur === "number") return cur;
-    }
-  }
+const SAN: StatRef = { kind: "resource", key: "san" };
+
+type SanRoll = {
+  kind: "done";
+  roll: number;
+  isSuccess: boolean;
+  rollResult: ReturnType<typeof parseAndRollExpression>;
+  oldSan: number;
+  loss: number;
+  newSan: number;
+};
+type SanOutcome = SanRoll | { kind: "error"; error: string | undefined } | { kind: "noSheetSan" };
+
+/**
+ * Roll the check against `current` and the loss for its outcome. Pure and
+ * synchronous, so it can run inside the row-lock step. `newSan` is the
+ * unclamped result; a sheet writer replaces it with the value it stored.
+ */
+function rollSanity(
+  current: number,
+  successExpr: string,
+  failureExpr: string,
+  t: (key: string, opts?: Record<string, string | number | Date>) => string,
+): SanRoll | { kind: "error"; error: string | undefined } {
+  const roll = rollDie(100);
+  const isSuccess = roll <= current;
+  const rollResult = parseAndRollExpression(isSuccess ? successExpr : failureExpr, t);
+  if (!rollResult.success) return { kind: "error", error: rollResult.error };
+  const loss = Math.max(0, rollResult.totalSum);
+  return { kind: "done", roll, isSuccess, rollResult, oldSan: current, loss, newSan: current - loss };
+}
+
+/** A legacy room_skills(理智值) value, for members whose sheet has no sanity. */
+async function readLegacySanity(roomId: number, userId: number): Promise<number | null> {
   const [sanSkill] = await db.select().from(roomSkills).where(
     and(
       eq(roomSkills.roomId, roomId),

@@ -1,42 +1,105 @@
 # Character System
 
-## Storage
+## Model: a declarative schema per rule
 
-Character data is stored as JSON in `roomMembers.characterData`. Each player has one character per room.
+Each rule declares its character sheet once, as data — `RuleModule.sheet`
+(`src/lib/rules/sheet-schema.ts`) — plus a pure `derive(attributes)`:
 
-## COC 7th Edition Support
+| Kind | What it is | Examples |
+| --- | --- | --- |
+| attribute | A number the player sets; feeds checks and derivations. `min`/`max`/`default`/`required`, optional `badge` and `inStatus` | COC STR…LUCK, d20 abilities, 狩魂者 体魄/智慧/心魂 |
+| resource | A state value: a `bar` (`current / max`) or an unbounded `counter`. The max is derived, player-set (`editable`), or absent; the unset current is `"max"`, a number, or a derived value | HP / SAN / MP, d20 HP (editable max), Triangle 嘉奖/处分 |
+| derived | Computed by `derive`, never stored, never writable. `display` decides where it shows (`hidden` for inputs like a resource max) | COC MOV / DB / 体格, 狩魂者 术法强度 / 灵识 |
+| standard skill | A preset row of the rule's skill list with a base value (fixed or from an attribute); may be required. Skills themselves stay in `room_skills` | COC 7th skill list (信用评级 required) |
 
-Types defined in `src/lib/character/types.ts`:
+Adding a rule means writing a schema, `derive`, and `migrateLegacy` — no
+per-rule read/write code. The self-check in `src/lib/rules/__tests__/sheet-schema.test.ts`
+covers every registered rule.
 
-**Core attributes** (STR, CON, SIZ, DEX, APP, INT, POW, EDU) — set manually or rolled.
+## Storage (v2)
 
-**Derived stats** (auto-calculated):
-- HP = (CON + SIZ) / 10
-- MP = POW / 5
-- SAN = POW (initial)
-- Move rate based on STR/DEX/SIZ comparison
+`roomMembers.characterData` holds a `CharacterSheetV2` (`src/lib/character/sheet-v2.ts`):
+profile fields, `attributes` and `resources` keyed by the schema's field keys,
+and `customAttributes`. **Only values someone set are stored** — an absent key
+means "unset" and reads as the field's default, which is what lets completion
+tell "the player chose 50" apart from "nobody touched it". Derived values are
+recomputed on every read.
 
-**Custom attributes**: Freeform key-value pairs for non-COC systems.
+Pre-v2 rows (one bag per rule: `cocAttributes` / `d20Sheet` / …) are upgraded
+on read by `parseSheet` / `parseSheetOrNull` (`src/lib/character/sheet-store.ts`)
+through the rule's `migrateLegacy`; a row whose own rule no longer matches the
+room but that carries the room rule's bag reads under the room rule. Every
+write stores v2. `pnpm db:migrate-sheets [--room <id>] [--apply]` upgrades the
+remaining rows in place (dry run by default, idempotent; a row the app wrote
+while the script ran is left alone and reported).
 
-**Resources**: HP current/max, SAN current/max, MP current/max.
+## Reading and writing
+
+- `resolveSheet(rule, sheet)` — defaults, derived values, resource bounds, `isSet` per field.
+- `applySheetEdit(rule, sheet, edit)` — **the single write path**: whitelists
+  keys to the schema, rounds and clamps, `null` clears, derived keys are
+  ignored, stored currents re-clamp when an attribute change lowers a max.
+  Returns the new sheet and the changed paths (`sheetDiff`).
+- `sheetCompletion` / `memberCompletion` — per-field state (`set` / `missing` /
+  `default` / `custom`) and the required set/total against the room's rule.
+
+Every writer runs its edit inside `updateSheetRow` (`lib/character/sheet-row.ts`):
+a `SELECT … FOR UPDATE` on the member row, the edit, the write — so two
+writers overlapping on one sheet (the host's overview ± and the player's `.st`)
+serialize instead of one reverting the other.
+
+A relative change is sent as one: `resources.<key>.delta` steps from the value
+the locked sheet reads as (unset included), clamped like any write, so two
+writers changing the same resource both land. The overview ± sends `delta: ±1`;
+`.sc` rolls against the locked SAN and applies `delta: -loss` in the same step,
+so its card's target and old → new are what was stored. An absolute
+`current` wins over a `delta` in the same patch.
+
+Writers: `editCharacterAction(roomId, targetUserId, edit)` (panel, host,
+overview), `rebuildCharacterForRoomRuleAction(roomId, targetUserId)`, `.st` (`lib/commands/set-skill-command.ts`), `.sc`
+(`sanity-check-command.ts`), the skills form's 理智值 row (`character-stat-sync.ts`), the AI `set_character_card` tool
+(`lib/character/sheet-ai.ts` maps its arguments to a `SheetEdit`), and the
+skills actions (`upsertSkillAction` / `deleteSkillAction`, optional target).
+Who may write is one rule, `resolveSheetWriter` (`lib/auth/sheet-access.ts`):
+the member, the room host, or an admin; frozen rooms are host/admin only.
+A sheet built for another rule is not written by `.st` (it asks for the
+rebuild); bots' sheets are rebuilt for the room rule before an AI write. The
+member accepts the rebuild prompt on entry; the host can rebuild any member's
+card (bots included) from the panel's rule-mismatch banner.
+
+Every write broadcasts `character_updated { userId, vital, completion, by }`
+(`lib/character/broadcast.ts`): the member list's vital, completion badges,
+and open panels (reloaded when someone else wrote) follow it. The broadcast
+reads the sheet, room rule and skills itself and emits while holding the
+member's row lock — the lock sheet writes take — so one member's events go
+out in order and the last one always matches the database. Callers can't
+pass a payload in; they call it after their write has committed.
 
 ## Skills
 
-Skills are stored separately in `roomSkills` (one row per skill per player per room), not inside `characterData`. The sanity skill (`san`) is synced between `roomSkills` and `characterData.resources.san` when updated.
-
-Actions: `src/app/actions/skills.ts`
-
-## Character Actions (`src/app/actions/character.ts`)
-
-- Initialize COC attributes for a new character
-- Save/update the full character sheet
-- Manage custom attributes (add, edit, delete)
-- Retrieve character snapshot (used during export)
+Skills live in `roomSkills` (one row per skill per member per room), not in
+the sheet. Standard skills from the schema match stored rows by name or alias
+(COC 侦查/侦察, 信用评级/信用). Setting 理智值 through the skills form syncs the
+SAN resource.
 
 ## UI
 
-`src/components/room/character/CharacterPanel.tsx` — full sheet editor with attribute inputs, derived stat display, resource trackers, and custom attribute management. Its state lives in hooks beside it (`useCharacterSheetState`, `useCharacterSkills`, `useMemberProfile`, `useCharacterSave`, `useCharacterAvatarUpload`); the rule-agnostic pure helpers (`draftStatusFor`, `buildAttributeValues`, the export text) are in `src/lib/character/panel-status.ts`.
+- `CharacterPanel` (`src/components/room/character/`) — three modes: own card,
+  host editing another member (every field, saved to that member), read-only
+  view. State: `useSheetDraft` (baseline + a `SheetEdit` draft, previewed with
+  the same `applySheetEdit` the server uses; overlapping edits from others are
+  flagged). Completion bar with jump-to-field chips, per-field state frames,
+  derived block, skills tab with the standard list, close guard for unsaved
+  changes.
+- `HostSheetOverview` — the host's overview (top-bar IdCard button): every
+  member's completion and resource steppers that save at once.
+- Top bar: missing-required badge on the character button; incomplete-member
+  badge on the overview button. Member list: completion mark for the host.
+- Read-only status: `readStatusView` / `primaryVital` (`lib/rules/status-view.ts`)
+  for the avatar hover card and the member list.
 
-## Export Integration
+## Export
 
-Character snapshots are included in room exports (`src/app/actions/export.ts`), capturing the state of each player's sheet at export time.
+Room exports include `sheetSnapshot` (`lib/character/sheet-export.ts`) per
+member — attributes, labelled resources, displayed derived values — also used
+by the AI's `my_character` tool.

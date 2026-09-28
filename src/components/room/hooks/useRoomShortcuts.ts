@@ -57,7 +57,9 @@ export function useRoomShortcuts({
     readOnly,
     onAction: (action: RoomHotkeyAction) => {
       switch (action) {
-        case "toggle-character": setShowCharacter((v) => !v); break;
+        // Opens only: the open panel closes through its own guard (unsaved
+        // changes ask first, and the exit animates) — × / backdrop / Esc.
+        case "toggle-character": setShowCharacter(true); break;
         case "toggle-inventory": toggleInventory(); break;
         case "toggle-notebook": setShowNotebook((v) => !v); break;
         case "toggle-events": setShowEvents((v) => !v); break;

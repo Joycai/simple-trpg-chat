@@ -40,7 +40,7 @@ Free-text replies are **not** a tool — they are broadcast directly from the mo
 | `my_inventory` | List all items in the bot's inventory |
 | `my_clues` | List all clue cards revealed to the bot |
 | `my_character` | Read the bot's character sheet (attributes, HP/SAN/MP, skills) |
-| `set_character_card` | Write/update the bot's character sheet (COC attrs clamped 0–99, skills 0–999) |
+| `set_character_card` | Write/update the bot's character sheet — arguments generated from the room rule's sheet schema (`sheetToolSchema`), applied through `applySheetEdit` (whitelisted and clamped to the schema's ranges); skills 0–999 |
 
 ### `send_image` trust model
 

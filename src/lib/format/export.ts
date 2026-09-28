@@ -11,11 +11,8 @@ interface ExportTimelineItem {
 interface ExportCharacterSnapshot {
   nickname: string;
   userId: number;
-  hp?: number;
-  hpMax?: number;
-  san?: number;
-  mp?: number;
-  attributes?: Record<string, number>;
+  /** Rule resources in schema order; `label` already localized by the caller. */
+  resources: Array<{ key: string; label?: string; current: number; max?: number }>;
 }
 
 interface ExportRoomData {
@@ -91,10 +88,8 @@ export function formatAsMarkdown(data: ExportRoomData, t: (key: string, values?:
     lines.push(`## ${t("characterSnapshot")}`);
     lines.push("");
     for (const snap of data.characterSnapshots) {
-      const parts: string[] = [];
-      if (snap.hp !== undefined) parts.push(`HP ${snap.hp}/${snap.hpMax || snap.hp}`);
-      if (snap.san !== undefined) parts.push(`SAN ${snap.san}`);
-      if (snap.mp !== undefined) parts.push(`MP ${snap.mp}`);
+      const parts = snap.resources.map((r) =>
+        `${r.label ?? r.key} ${r.max === undefined ? r.current : `${r.current}/${r.max}`}`);
       lines.push(`- **${snap.nickname}**：${parts.join(", ")}`);
     }
     lines.push("");

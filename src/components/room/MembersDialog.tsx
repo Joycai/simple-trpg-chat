@@ -1,11 +1,14 @@
 "use client";
 
+import { canOpenMemberCard } from "@/lib/room/card-access";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { getRandomColorForUser, getContrastColor } from "@/lib/ui/avatar-colors";
 import { getBotStatus } from "@/lib/ai/bot-status";
 import type { PlayerEntry } from "@/components/room/types";
+import type { CompletionSummary } from "@/lib/character/completion";
+import { CompletionMark } from "@/components/room/character/CompletionMark";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
 
 interface MembersDialogProps {
@@ -19,6 +22,8 @@ interface MembersDialogProps {
   botCount: number;
   onViewPlayerCard: (targetUserId: number, targetNickname: string) => void;
   onStartDM: (targetUserId: number) => void;
+  /** Required-field completion per member — shown to the host only. */
+  completions?: ReadonlyMap<number, CompletionSummary>;
   onClose: () => void;
 }
 
@@ -33,6 +38,7 @@ export function MembersDialog({
   botCount,
   onViewPlayerCard,
   onStartDM,
+  completions,
   onClose,
 }: MembersDialogProps) {
   const t = useTranslations("room");
@@ -107,6 +113,7 @@ export function MembersDialog({
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={`text-[15px] truncate ${isMe ? "font-bold text-primary" : "font-bold text-text"}`}>{nick}</span>
                     {isMe && <span className="shrink-0 text-xs text-text-muted">{t("suffixMe")}</span>}
+                    {isHost && !isHostMember && <CompletionMark completion={completions?.get(u.id ?? 0)} />}
                     {isBot && isBotDisabled && (
                       <span className="shrink-0 text-[10px] font-bold px-1.5 rounded bg-danger/10 text-danger border border-danger/30 select-none">
                         {t("tagDisabled")}
@@ -124,7 +131,7 @@ export function MembersDialog({
                 {/* Actions */}
                 {!isMe && (
                   <div className="flex items-center gap-2 shrink-0">
-                    {isHost && (
+                    {canOpenMemberCard({ id: userId, isHost }, u.id ?? 0) && (
                       <button
                         onClick={() => onViewPlayerCard(u.id ?? 0, nick)}
                         className="text-xs font-bold px-3 py-1.5 rounded-theme bg-primary/10 hover:bg-primary/20 text-primary transition cursor-pointer"

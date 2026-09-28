@@ -1,8 +1,12 @@
 import { db, sqlNow } from "@/db";
-import { roomSkills, rooms, roomMembers } from "@/db/schema";
+import { roomSkills, rooms } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import type { CharacterData } from "@/lib/character/types";
+import { applySheetEdit, statEdit, statValue } from "@/lib/character/sheet-model";
+import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import { updateSheetRow } from "@/lib/character/sheet-row";
+import { emptySheet } from "@/lib/character/sheet-v2";
 import { getRuleForRoom } from "@/lib/rules";
+import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import type { CommandResult, CommandContext } from "./command-types";
 import { visibilityFor, emitCommandMessage } from "./command-message";
 
@@ -37,65 +41,44 @@ export async function handleSetSkill(
   if (!room) return { success: false, isCommand: true, error: t("roomNotFound") };
   const rule = getRuleForRoom(room);
 
-  // Route every parsed item once so we can decide whether the sheet needs to
-  // be loaded at all, and whether more than one item targets it (e.g.
-  // `.st STR 80 DEX 70 HP 12` — three sheet writes that used to each do
-  // SELECT room + SELECT roomMembers + UPDATE roomMembers).
+  // Route every parsed item once; the attribute/resource ones share a single
+  // sheet write (`.st STR 80 DEX 70 HP 12` is one read-modify-write).
   const routes = parsed.map(item => ({ item, route: rule.routeStat(item.name) }));
-  const needsSheet = routes.some(r => r.route.kind === "attribute" || r.route.kind === "resource");
+  const sheetItems = routes.flatMap(({ item, route }, index) =>
+    route.kind === "attribute" || route.kind === "resource" ? [{ item, route, index }] : []);
 
-  // Load the bot/player's sheet once; rule.applyStatWrite mutates it purely
-  // in memory below and we persist a single time at the end.
-  let sheet: CharacterData | null = null;
-  if (needsSheet) {
-    const [member] = await db
-      .select({ characterData: roomMembers.characterData })
-      .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-    if (member?.characterData) {
-      try {
-        sheet = JSON.parse(member.characterData) as CharacterData;
-      } catch (e) {
-        console.error("Failed to parse character data", e);
-        sheet = null;
+  // The value each sheet item actually stored (attributes clamp to their
+  // range, resources to their max), for the summary.
+  const storedValues = new Map<number, number>();
+  if (sheetItems.length > 0) {
+    const out = await updateSheetRow(roomId, userId, (raw) => {
+      // A member who has never opened the character panel has no sheet yet.
+      // Start an empty one so the writes land instead of being silently
+      // dropped while chat reports success.
+      let sheet = parseSheetOrNull(raw, rule.id) ?? emptySheet(rule.id);
+      // Names were routed by the room's rule; a sheet still built for another
+      // rule (the player declined the rebuild) has other fields, so writing it
+      // would drop or misplace values. Ask for the rebuild instead.
+      if (sheet.ruleTemplate !== rule.id) return { result: null };
+      const values: number[] = [];
+      for (const { item, route } of sheetItems) {
+        sheet = applySheetEdit(rule, sheet, statEdit(route, item.value)).sheet;
+        values.push(statValue(rule, sheet, route) ?? item.value);
       }
-    }
-    // A member who has never opened the character panel has no sheet yet.
-    // Seed one (same shape initCharacterAction persists) so the writes below
-    // land instead of being silently dropped while chat reports success.
-    if (member && !sheet) {
-      sheet = rule.initCharacter();
+      return { sheet, result: values };
+    });
+    if (out.status !== "notMember") {
+      if (out.result === null) return { success: false, isCommand: true, error: t("stSheetRuleMismatch") };
+      sheetItems.forEach((r, k) => storedValues.set(r.index, out.result![k]));
     }
   }
 
   const summaryParts: string[] = [];
-  let sheetDirty = false;
 
-  for (const { item, route } of routes) {
-    if (route.kind === "attribute") {
-      if (sheet) {
-        const { sheet: next } = rule.applyStatWrite(sheet, route, item.value);
-        sheet = next;
-        sheetDirty = true;
-      }
+  for (const [index, { item, route }] of routes.entries()) {
+    if (route.kind === "attribute" || route.kind === "resource") {
       await cleanupSkillRows(roomId, userId, item.name, route.canonical);
-      summaryParts.push(`${route.canonical} ${item.value}`);
-      continue;
-    }
-
-    if (route.kind === "resource") {
-      // Spec: resources set the current value only (max is unaffected). The
-      // rule may clamp (e.g. d20 HP to hpMax); we use the clamped value in
-      // the user-facing summary.
-      let displayValue = item.value;
-      if (sheet) {
-        const { sheet: next, finalValue } = rule.applyStatWrite(sheet, route, item.value);
-        sheet = next;
-        displayValue = finalValue;
-        sheetDirty = true;
-      }
-      await cleanupSkillRows(roomId, userId, item.name, route.canonical);
-      summaryParts.push(`${route.canonical} ${displayValue}`);
+      summaryParts.push(`${route.canonical} ${storedValues.get(index) ?? item.value}`);
       continue;
     }
 
@@ -115,12 +98,8 @@ export async function handleSetSkill(
     summaryParts.push(`${name} ${item.value}`);
   }
 
-  // Single write for any sheet mutations in this batch.
-  if (sheetDirty && sheet) {
-    await db.update(roomMembers)
-      .set({ characterData: JSON.stringify(sheet) })
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
-  }
+  // Skills and/or the sheet changed: members' lists, badges and open panels follow.
+  await broadcastCharacterUpdate(roomId, userId, { by: ctx?.proxiedBy?.userId ?? userId });
 
   const summary = summaryParts.join(" · ");
   const vis = visibilityFor(ctx, userId, "self");

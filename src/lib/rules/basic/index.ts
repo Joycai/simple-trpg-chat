@@ -12,10 +12,9 @@
  */
 
 import { rollDie } from "@/lib/commands/dice";
-import type { CharacterData } from "@/lib/character/types";
+import { legacyBase } from "@/lib/character/legacy";
 import type {
   AiRuleHints,
-  CharacterStatus,
   CheckRequest,
   CheckResult,
   RuleCapabilities,
@@ -28,19 +27,12 @@ const capabilities: RuleCapabilities = {
   playerLabelKey: "player",
   hasSanity: false,
   hasPsychologyRoll: false,
-  hasManaPoints: false,
   checkMenuModes: ["check"],
   // Same command surface as today minus `.sc` (which is gated to COC).
   supportedCommands: ["help", "st", "rc", "ra", "rch", "rah", "rh", "rd", "r"],
   helpEntryIds: ["st", "rcD100", "rch", "rdr", "rh", "help"],
-  resourceBars: [],
-  attributeKeys: [],
-  // No preset resources at all, so the hover card is entirely player-defined
-  // custom attributes — capped at the first two to stay a glance.
-  statusCustomLimit: 2,
   defaultRollExpression: "1d100",
   requiresStoredTarget: true,
-  hasRoleLevel: false,
   quickRolls: [".rc 侦查", ".rd100"],
   // Quick-check panel: stored skills only — basic has no structured sheet, so
   // there are no attributes/resources to list, and no dice extras to configure.
@@ -57,35 +49,22 @@ export const basicRule: RuleModule = {
   labelKey: "ruleTemplateBasic",
   hintKey: undefined,
   capabilities,
-
-  initCharacter(): CharacterData {
-    return { ruleTemplate: "basic" };
+  // No preset fields: a basic sheet is profile + custom attributes, and its
+  // status card shows the first two custom attributes.
+  sheet: {
+    attributes: [],
+    resources: [],
+    derived: [],
+    profile: { roleLevel: false },
+    customAttributes: { statusLimit: 2 },
   },
 
-  // No derived state — basic sheets are free-form.
-  computeDerived(sheet: CharacterData): CharacterData {
-    return sheet;
-  },
-
-  // No preset resources: a basic sheet's numbers are all customAttributes,
-  // which read-only surfaces render generically.
-  readStatus(): CharacterStatus {
-    return { resources: {} };
-  },
-
-  // No structured attributes — a basic sheet's numbers are all custom.
-  readAttributes(): Record<string, number> {
+  derive() {
     return {};
   },
-  writeAttributes(sheet: CharacterData): CharacterData {
-    return sheet;
-  },
 
-  // `describeForAI` advertises no rule-specific sheet fields, so there is
-  // nothing rule-owned for the bot to patch. The generic parts of the sheet
-  // (name/age/bio/customAttributes) are handled by the caller.
-  applySheetPatch(sheet: CharacterData): CharacterData {
-    return sheet;
+  migrateLegacy(legacy) {
+    return legacyBase(legacy, "basic");
   },
 
   routeStat(name: string): StatRoute {
@@ -158,18 +137,6 @@ export const basicRule: RuleModule = {
     return { command, preview };
   },
 
-  // Basic has no structured sheet — `.st` writes never reach attribute/
-  // resource branches in practice (routeStat always returns "skill"). If a
-  // future call site reaches here, return the input unchanged.
-  applyStatWrite(sheet, _route, value) {
-    return { sheet, finalValue: value };
-  },
-
-  // Basic has no structured resources — nothing to apply.
-  applyResourcePatch(sheet: CharacterData): CharacterData {
-    return sheet;
-  },
-
   // Plain-roll reading for the AI agent: basic has no crit/fumble grading, but
   // keeps the "CoC-cultural" hint so the LLM reacts idiomatically to 1/100 on a
   // raw d100 (moved verbatim out of ai/agent.ts's rule-id branch).
@@ -181,10 +148,6 @@ export const basicRule: RuleModule = {
     return null;
   },
 
-  exportSnapshot(): Record<string, unknown> {
-    return {};
-  },
-
   describeForAI(): AiRuleHints {
     return {
       // Verbatim from the legacy ai/agent.ts `rulesExplanation` else-branch.
@@ -192,7 +155,6 @@ export const basicRule: RuleModule = {
         "Room Dice Rules: Basic (No special success/failure grading for raw dice rolls). " +
         "Note that in CoC/TRPG culture, rolling 100 on d100 is culturally considered a Fumble (大失败), " +
         "and 1 is a Critical Success (大成功). Please react appropriately to dice roll results.",
-      sheetToolSchemaFields: {},
     };
   },
 };
