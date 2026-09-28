@@ -84,8 +84,10 @@ export function useMentionTextarea(opts: {
    * Where Escape on a list line handed Tab back to the browser. The next Tab
    * leaves the textarea only while the text and selection are still exactly
    * this — so typing (IME included), clicking or picking a mention ends the
-   * release without every one of those paths having to clear it. Tab and
-   * Escape consume it; blur drops it, as it belongs to one focus session.
+   * release without every one of those paths having to clear it. Moving away
+   * and back to the same spot (←→, x then Backspace) counts as unchanged and
+   * still leaves: nothing tells the two apart. Tab and Escape consume it;
+   * blur drops it, as it belongs to one focus session.
    */
   const tabRelease = useRef<{ value: string; start: number; end: number } | null>(null);
   const [commitSeq, setCommitSeq] = useState(0);
