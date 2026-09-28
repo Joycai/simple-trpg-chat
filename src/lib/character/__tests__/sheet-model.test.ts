@@ -160,19 +160,25 @@ describe("applySheetEdit — relative resource edits", () => {
     expect(sanitizeSheetEdit({ resources: { hp: { delta: -2 } } })?.resources?.hp?.delta).toBe(-2);
   });
 
-  // The concurrency property: writers serialized by the row lock in any order
-  // end at the same value — no relative change is lost to another.
+  // The concurrency property: whatever order the row lock serializes writers
+  // in, each relative change lands on the value the previous one stored —
+  // checked step by step against clamp(prev + delta), bounds included.
   for (const seed of [3, 11, 2024]) {
-    it(`serialized deltas commute and none is lost (seed ${seed})`, () => {
+    it(`each delta steps from the stored value, clamped (seed ${seed})`, () => {
       const rand = prng(seed);
-      for (let trial = 0; trial < 50; trial++) {
-        const start = edit(empty(), { resources: { san: { current: 40 + Math.floor(rand() * 20) } } });
-        const deltas = Array.from({ length: 2 + Math.floor(rand() * 6) }, () => Math.floor(rand() * 9) - 4);
-        const apply = (ds: number[]) => ds.reduce((s, d) => edit(s, { resources: { san: { delta: d } } }), start);
-        const shuffled = [...deltas].sort(() => rand() - 0.5);
-        // san stays well inside 0..99 here, so nothing clamps.
-        expect(cur(apply(deltas), "san")).toBe(cur(start, "san")! + deltas.reduce((a, b) => a + b, 0));
-        expect(apply(shuffled)).toEqual(apply(deltas));
+      const sanMax = findResource(resolveSheet(testRule, empty()), "san")!.max!;
+      let sheet = empty();
+      for (let step = 0; step < 400; step++) {
+        const prev = cur(sheet, "san")!;
+        if (rand() < 0.2) {
+          const v = Math.floor(rand() * 140) - 20;
+          sheet = edit(sheet, { resources: { san: { current: v } } });
+          expect(cur(sheet, "san")).toBe(Math.min(sanMax, Math.max(0, v)));
+        } else {
+          const d = Math.floor(rand() * 61) - 30;
+          sheet = edit(sheet, { resources: { san: { delta: d } } });
+          expect(cur(sheet, "san")).toBe(Math.min(sanMax, Math.max(0, prev + d)));
+        }
       }
     });
   }

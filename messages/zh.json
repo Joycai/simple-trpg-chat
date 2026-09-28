@@ -1017,6 +1017,7 @@
     "overviewLoadFailed": "角色卡加载失败",
     "overviewRetry": "重试",
     "overviewSaveFailed": "{name} 的{resource}未能保存，已恢复为 {value}",
+    "overviewSaveUnknown": "{name} 的{resource}保存结果未知，已重新读取",
     "overviewFooter": "资源的加减会立即保存并同步给该成员",
     "overviewFooterRule": "列按房间规则的资源声明生成",
     "overviewTooltip": "角色卡总览",

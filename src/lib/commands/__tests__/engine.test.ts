@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies to prevent Next.js server actions / NextAuth import errors in vitest environment
-const { mockSelect } = vi.hoisted(() => ({
-  mockSelect: vi.fn()
+const { mockSelect, lockedReads } = vi.hoisted(() => ({
+  mockSelect: vi.fn(),
+  /** Tables read with `FOR UPDATE` inside a transaction, in order. */
+  lockedReads: [] as unknown[],
 }));
 
 vi.mock("@/db", () => {
@@ -23,10 +25,18 @@ vi.mock("@/db", () => {
     })),
     // Sheet writes lock the member row (`updateSheetRow`): the transaction runs
     // inline, and its `select … for("update")` resolves through `mockSelect`.
+    // `where()` resolves to the rows as-is and also takes `.for()`, like Drizzle.
     transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({
       select: (...a: unknown[]) => {
         const q = mockSelect(...a);
-        return { from: (t: unknown) => ({ where: (...w: unknown[]) => ({ for: () => q.from(t).where(...w) }) }) };
+        return {
+          from: (t: unknown) => ({
+            where: (...w: unknown[]) => {
+              const rows = q.from(t).where(...w);
+              return Object.assign(Promise.resolve(rows), { for: () => { lockedReads.push(t); return rows; } });
+            },
+          }),
+        };
       },
       update: (...a: unknown[]) => db.update(...(a as [])),
     })),
@@ -59,6 +69,7 @@ import { db } from "@/db";
 import { rooms, roomSkills, roomMembers } from "@/db/schema";
 
 beforeEach(() => {
+  lockedReads.length = 0;
   mockSelect.mockReset();
   mockSelect.mockReturnValue({
     from: vi.fn(() => ({
@@ -211,6 +222,8 @@ describe("Commands - executeCommand (.sc under the row lock)", () => {
 
     const result = await executeCommand(1, 1, ".sc 1/5");
     expect(result.success).toBe(true);
+    // The only sheet read is the locked one (the broadcast locks the row again).
+    expect(lockedReads.filter((t) => t === roomMembers)).toHaveLength(2);
     const detail = JSON.parse(vi.mocked(dispatchMessage).mock.calls.at(-1)![0].diceDetail as string);
     const { oldSanity, newSanity, isSuccess } = detail.sanityCheck;
     expect(oldSanity).toBe(30);
@@ -218,6 +231,38 @@ describe("Commands - executeCommand (.sc under the row lock)", () => {
     expect(newSanity).toBe(30 - (isSuccess ? 1 : 5));
     const stored = JSON.parse((set.mock.calls.at(-1) as unknown as [{ characterData: string }])[0].characterData);
     expect(stored.resources.san.current).toBe(newSanity);
+  });
+});
+
+describe("Commands - executeCommand (.sc without sanity on the sheet)", () => {
+  const roomWith = (rows: { members?: unknown[]; skills?: unknown[] }) => mockSelect.mockReturnValue({
+    from: vi.fn((table) => ({
+      where: vi.fn(() => {
+        if (table === rooms) return [{ id: 1, ruleTemplate: "coc7th" }];
+        if (table === roomMembers) return rows.members ?? [];
+        if (table === roomSkills) return rows.skills ?? [];
+        return [];
+      })
+    }))
+  });
+
+  it("falls back to a legacy 理智值 row for a non-member and writes no sheet", async () => {
+    const { dispatchMessage } = await import("@/lib/messaging/router");
+    roomWith({ skills: [{ id: 4, roomId: 1, userId: 1, skillName: "理智值", skillValue: 40 }] });
+    vi.mocked(db.update).mockClear();
+    const result = await executeCommand(1, 1, ".sc 2/3");
+    expect(result.success).toBe(true);
+    const { oldSanity, newSanity, isSuccess } = JSON.parse(vi.mocked(dispatchMessage).mock.calls.at(-1)![0].diceDetail as string).sanityCheck;
+    expect(oldSanity).toBe(40);
+    expect(newSanity).toBe(40 - (isSuccess ? 2 : 3));
+    expect(db.update).toHaveBeenCalledTimes(1); // the legacy row only
+  });
+
+  it("reports STAT_NOT_SET when neither the sheet nor a legacy row has sanity", async () => {
+    // A sheet whose own rule has no sanity (built for basic, room now COC).
+    roomWith({ members: [{ id: 9, characterData: JSON.stringify({ schemaVersion: 2, ruleTemplate: "basic", attributes: {}, resources: {} }) }] });
+    const result = await executeCommand(1, 1, ".sc 1/5");
+    expect(result).toMatchObject({ success: false, code: "STAT_NOT_SET", error: "scNoSanity" });
   });
 });
 

@@ -1017,6 +1017,7 @@
     "overviewLoadFailed": "Couldn't load the character sheets",
     "overviewRetry": "Retry",
     "overviewSaveFailed": "{name}'s {resource} wasn't saved; restored to {value}",
+    "overviewSaveUnknown": "Couldn't confirm saving {name}'s {resource}; reloaded from the server",
     "overviewFooter": "Resource changes save immediately and sync to that member",
     "overviewFooterRule": "Columns follow the room rule's resources",
     "overviewTooltip": "Character overview",

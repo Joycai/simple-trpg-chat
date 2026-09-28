@@ -195,6 +195,17 @@ describe("editCharacterAction", () => {
     expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
   });
 
+  it("steps a resource from the locked row's value by a delta", async () => {
+    session = { user: { id: "1", role: "player" } };
+    // The client last saw 4; another writer stored 2 meanwhile.
+    const sheet = { schemaVersion: 2, ruleTemplate: "triangle", attributes: {}, resources: { commendations: { current: 2 } } };
+    selectQueue = [...writer({ hostId: 1, frozen: false, ruleTemplate: "triangle" }, [{ userId: 1 }, { userId: 3 }]),
+      ...locked(JSON.stringify(sheet))];
+    const res = await editCharacterAction(5, 3, { resources: { commendations: { delta: 1 } } });
+    expect(res.success).toBe(true);
+    expect(written).toMatchObject({ resources: { commendations: { current: 3 } } });
+  });
+
   it("lets the host write in a frozen room", async () => {
     session = { user: { id: "1", role: "player" } };
     selectQueue = [...writer({ hostId: 1, frozen: true }, [{ userId: 1 }, { userId: 3 }]), ...locked()];

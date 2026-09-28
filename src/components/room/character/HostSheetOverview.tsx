@@ -54,11 +54,22 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     const load = () => loadHostSheetsAction(roomId)
       .then((d) => {
         if (!alive) return;
-        // Rows with a save in flight keep their local (optimistic) sheet.
-        const busy = new Set([...pendingRef.current.entries()].filter(([, n]) => n > 0).map(([k]) => Number(k.split(":")[0])));
+        // A resource with a save in flight keeps its local (optimistic) value;
+        // everything else in the row comes from the server.
+        const busy = [...pendingRef.current.entries()].filter(([, n]) => n > 0).map(([k]) => k.split(":"));
         setData((prev) => ({
           ...d,
-          rows: d.rows.map((r) => (busy.has(r.userId) ? prev?.rows.find((p) => p.userId === r.userId) ?? r : r)),
+          rows: d.rows.map((r) => {
+            const keys = busy.filter(([uid]) => Number(uid) === r.userId).map(([, res]) => res);
+            const local = keys.length > 0 ? prev?.rows.find((p) => p.userId === r.userId)?.sheet : undefined;
+            if (!local) return r;
+            const sheet = r.sheet ?? emptySheet(local.ruleTemplate);
+            const resources = { ...sheet.resources };
+            for (const k of keys) {
+              if (local.resources[k]) resources[k] = local.resources[k]; else delete resources[k];
+            }
+            return { ...r, sheet: { ...sheet, resources } };
+          }),
         }));
         setFailed(false);
       })
@@ -122,12 +133,20 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     };
     setResource(optimistic.resources[resKey]);
     setNotice(null);
+    // A throw means the outcome is unknown: the delta may have been applied.
     const saved = await editCharacterAction(roomId, userId, edit)
-      .catch(() => ({ success: false as const, error: "" }));
+      .catch(() => ({ success: false as const, unknown: true as const }));
     pendingRef.current.set(key, (pendingRef.current.get(key) ?? 1) - 1);
     if (saved.success) confirmedRef.current.set(key, saved.data.resources[resKey]);
     if (seqRef.current.get(key) !== seq) return; // a newer click owns this resource
     if (saved.success) { setResource(saved.data.resources[resKey]); return; }
+    if ("unknown" in saved) {
+      // Restoring a guess and letting the host click again could apply the
+      // step twice — reload what the server holds instead.
+      setNotice(t("overviewSaveUnknown", { name: row.nickname, resource: t(current.field.labelKey) }));
+      setAttempt((a) => a + 1);
+      return;
+    }
     const restore = confirmedRef.current.get(key);
     setResource(restore);
     const base = row.sheet ?? emptySheet(rule.id);
