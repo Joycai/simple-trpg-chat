@@ -56,9 +56,19 @@ export function useSheetDraft({
   // A save returns the stored sheet before the parent's `characterData` catches
   // up (router.refresh for the own card; a reload for someone else's). The
   // newer copy by write counter is the baseline (`newerSheet`).
-  const [savedFor, setSaved] = useState<{ userId: number; sheet: CharacterData } | null>(null);
+  const [savedFor, setSavedFor] = useState<{ userId: number; sheet: CharacterData } | null>(null);
   const saved = savedFor?.userId === targetUserId ? savedFor.sheet : null;
   const baseline = newerSheet(fromProp, saved);
+  // Once the loaded copy has caught up, the saved one has nothing left to add:
+  // drop it, so a row whose counter restarted (re-inserted on a rejoin) can't
+  // be masked by an old reply. Adjusted during render, like `seenBaseline`.
+  if (saved && baseline === fromProp) setSavedFor(null);
+  // Keep the newer of two replies (a save and a rebuild can overlap).
+  const keepSaved = (sheet: CharacterData) =>
+    setSavedFor((prev) => ({
+      userId: targetUserId,
+      sheet: newerSheet(sheet, prev?.userId === targetUserId ? prev.sheet : null),
+    }));
 
   const [draft, setDraft] = useState<SheetEdit>({});
   const rule = getRule(baseline.ruleTemplate);
@@ -103,7 +113,7 @@ export function useSheetDraft({
     const res = await editCharacterAction(roomId, targetUserId, sent, origin)
       .catch(() => ({ success: false as const, error: tCommon("error") }));
     if (!res.success) return failSave(res.error);
-    setSaved({ userId: targetUserId, sheet: res.data });
+    keepSaved(res.data);
     // Saving writes the user's values over the flagged fields: settled.
     setConflict([]);
     // Keep anything typed while the save was in flight.
@@ -129,7 +139,7 @@ export function useSheetDraft({
       setPanelError(res.error);
       return;
     }
-    setSaved({ userId: targetUserId, sheet: res.data });
+    keepSaved(res.data);
     setDraft({});
     setConflict([]);
     router.refresh();

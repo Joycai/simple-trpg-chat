@@ -101,10 +101,10 @@ export function useCheckFlow({
     setPendingSkillCheck(null);
     const res = await executeCommandAction(roomId, userId, `.st ${skillName}${value}`, undefined, undefined, tabId())
       .catch(() => ({ success: false as const, error: tCommon("error") }));
-    // Sent with this tab's id, so refresh here whatever the outcome.
-    refreshSelfSheet();
     // Without the stat the check would only ask for it again — stop here.
     if (!res.success) {
+      // Sent with this tab's id, so refresh here (respondCheck does on success).
+      refreshSelfSheet();
       pushLocalError(tra("commandError", { error: res.error || tCommon("error") }));
       return;
     }

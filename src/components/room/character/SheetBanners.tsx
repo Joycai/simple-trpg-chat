@@ -29,7 +29,7 @@ export function SheetConflictNotice({ fields, onTakeTheirs, onKeepMine }: {
       <span className="flex items-center gap-2 font-semibold text-warning">
         <AlertCircle className="w-4 h-4 shrink-0" />{t("conflictTitle")}
       </span>
-      <span className="text-xs text-text-muted">{t("conflictFields", { fields: fields.join("、") })}</span>
+      <span className="text-xs text-text-muted">{t("conflictFields", { fields: fields.join(t("listSeparator")) })}</span>
       <span className="text-xs text-text-muted">{t("conflictBody")}</span>
       <span className="flex gap-2">
         <button type="button" onClick={onTakeTheirs}

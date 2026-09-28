@@ -12,7 +12,6 @@ import { getRule } from "@/lib/rules";
 import { applySheetEdit, resolveSheet, type ResolvedResource } from "@/lib/character/sheet-model";
 import { emptySheet, type ResourceValue } from "@/lib/character/sheet-v2";
 import { getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
-import { tabId } from "@/lib/ui/tab-id";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
 import { useFieldLabel } from "./useFieldLabel";
 
@@ -134,7 +133,9 @@ export function HostSheetOverview({ roomId, refreshKey, onlineUserIds, onClose, 
     setResource(optimistic.resources[resKey]);
     setNotice(null);
     // A throw means the outcome is unknown: the delta may have been applied.
-    const saved = await editCharacterAction(roomId, userId, edit, tabId())
+    // No tab id: the overview applies its own replies, but a card opened from
+    // it (still open above) must reload, so the event reaches this tab too.
+    const saved = await editCharacterAction(roomId, userId, edit)
       .catch(() => ({ success: false as const, unknown: true as const }));
     pendingRef.current.set(key, (pendingRef.current.get(key) ?? 1) - 1);
     if (saved.success) confirmedRef.current.set(key, saved.data.resources[resKey]);
@@ -237,7 +238,7 @@ export function HostSheetOverview({ roomId, refreshKey, onlineUserIds, onClose, 
                   const online = onlineUserIds.has(row.userId);
                   const subtitle = [
                     row.isBot ? null : t(online ? "overviewOnline" : "overviewOffline"),
-                    row.sheet?.occupation?.trim() || null,
+                    (typeof row.sheet?.occupation === "string" && row.sheet.occupation.trim()) || null,
                   ].filter(Boolean).join(" · ");
                   const done = requiredSet === requiredTotal;
                   const untouched = !row.sheet || (requiredTotal > 0 && requiredSet === 0);
