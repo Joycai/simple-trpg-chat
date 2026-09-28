@@ -88,7 +88,9 @@ export function stripMarkdown(content: string): string {
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^>\s?/gm, '')
-    .replace(/^[-*]\s+/gm, '')
+    // Bullet or numbered item at any indent — the grammar of LIST_LINE in
+    // lib/format/markdown-blocks.ts, so search text matches what renders.
+    .replace(/^[ \t]*(?:[-*]|\d{1,9}[.)])[ \t]+/gm, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/(\*\*|__|~~|`)/g, '')
     .replace(/\*([^*\n]+)\*/g, '$1')

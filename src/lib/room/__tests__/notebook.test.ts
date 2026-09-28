@@ -60,6 +60,15 @@ describe("stripMarkdown", () => {
     expect(stripMarkdown(md)).toBe("已确认的事实 守夜人 不在岗 引用 异常 code 链接");
   });
 
+  it("removes indented bullets and numbered markers", () => {
+    const md = "* 线索\n   * 子线索\n\t- 细节\n1. 第一步\n  2) 第二步";
+    expect(stripMarkdown(md)).toBe("线索 子线索 细节 第一步 第二步");
+  });
+
+  it("keeps numbers that are not list markers", () => {
+    expect(stripMarkdown("1.5 倍伤害\n2024年")).toBe("1.5 倍伤害 2024年");
+  });
+
   it("drops fenced code blocks", () => {
     expect(stripMarkdown("前\n```js\nlet a=1\n```\n后")).toBe("前 后");
   });
