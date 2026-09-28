@@ -167,7 +167,6 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           roomRuleTemplate={room.ruleTemplate || "basic"}
           onClose={onCloseViewingPlayer}
           onNicknameChange={() => {}}
-          readOnly={true}
           targetUserId={viewingPlayerId}
           loading={loadingPlayerCard}
           refreshKey={viewedCardRefreshKey}

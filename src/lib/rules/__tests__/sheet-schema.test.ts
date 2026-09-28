@@ -9,8 +9,10 @@ import { listRules } from "../registry";
  * an attribute it doesn't have, or a label missing from either language.
  */
 
-const zhChar = (zh as { character: Record<string, string> }).character;
-const enChar = (en as { character: Record<string, string> }).character;
+const zhChar = (zh as unknown as { character: Record<string, string> }).character;
+const enChar = (en as unknown as { character: Record<string, string> }).character;
+const zhGroups = (zh as unknown as { character: { skillGroups: Record<string, string> } }).character.skillGroups;
+const enGroups = (en as unknown as { character: { skillGroups: Record<string, string> } }).character.skillGroups;
 
 describe.each(listRules().map((r) => [r.id, r] as const))("sheet schema: %s", (_id, rule) => {
   const { sheet } = rule;
@@ -60,6 +62,14 @@ describe.each(listRules().map((r) => [r.id, r] as const))("sheet schema: %s", (_
     expect(new Set(skills.map((s) => s.name)).size).toBe(skills.length);
     for (const s of skills) {
       if (typeof s.base === "object") expect(attrKeys.has(s.base.fromAttribute)).toBe(true);
+    }
+  });
+
+  it("names every standard-skill group in both languages", () => {
+    for (const s of sheet.standardSkills ?? []) {
+      if (!s.group) continue;
+      expect(zhGroups[s.group], `zh skillGroups.${s.group}`).toBeTruthy();
+      expect(enGroups[s.group], `en skillGroups.${s.group}`).toBeTruthy();
     }
   });
 

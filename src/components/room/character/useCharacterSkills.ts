@@ -41,8 +41,6 @@ export function useCharacterSkills({
   const tCommon = useTranslations("common");
   const [skills, setSkills] = useState<SkillItem[]>([]);
   const [skillsLoaded, setSkillsLoaded] = useState(false);
-  const [newSkillName, setNewSkillName] = useState("");
-  const [newSkillValue, setNewSkillValue] = useState(50);
 
   useEffect(() => {
     fetchSkills(roomId, targetUserId).then((data) => {
@@ -59,22 +57,14 @@ export function useCharacterSkills({
     return true;
   };
 
-  const addSkill = async () => {
-    if (!newSkillName.trim()) return;
-    if (await afterWrite(upsertSkillAction(roomId, newSkillName.trim(), newSkillValue, targetUserId))) setNewSkillName("");
+  // Add or overwrite by (room, user, name), same as .st.
+  const setSkill = async (skillName: string, value: number) => {
+    await afterWrite(upsertSkillAction(roomId, skillName, value, targetUserId));
   };
 
   const removeSkill = async (skillId: number) => {
     await afterWrite(deleteSkillAction(roomId, skillId, targetUserId));
   };
 
-  // Inline value edit — upsert overwrites by (room, user, name), same as .st.
-  const updateSkill = async (skillName: string, value: number) => {
-    await afterWrite(upsertSkillAction(roomId, skillName, value, targetUserId));
-  };
-
-  return {
-    skills, skillsLoaded, newSkillName, setNewSkillName, newSkillValue, setNewSkillValue,
-    addSkill, removeSkill, updateSkill,
-  };
+  return { skills, skillsLoaded, setSkill, removeSkill };
 }
