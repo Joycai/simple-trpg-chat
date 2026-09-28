@@ -1,5 +1,6 @@
 "use client";
 
+import { canOpenMemberCard } from "@/lib/room/card-access";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
@@ -124,7 +125,7 @@ export function MembersDialog({
                 {/* Actions */}
                 {!isMe && (
                   <div className="flex items-center gap-2 shrink-0">
-                    {isHost && (
+                    {canOpenMemberCard({ id: userId, isHost }, u.id ?? 0) && (
                       <button
                         onClick={() => onViewPlayerCard(u.id ?? 0, nick)}
                         className="text-xs font-bold px-3 py-1.5 rounded-theme bg-primary/10 hover:bg-primary/20 text-primary transition cursor-pointer"

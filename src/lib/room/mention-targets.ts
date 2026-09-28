@@ -1,6 +1,7 @@
 import { getBotStatus } from "@/lib/ai/bot-status";
 import { primaryVital, type StatusEntry } from "@/lib/rules";
 import { parseSheetOrNull } from "@/lib/character/sheet-store";
+import type { CompletionSummary } from "@/lib/character/completion";
 
 /**
  * Pure derivations over the room roster for the chat UI: who can be mentioned
@@ -41,6 +42,8 @@ export interface RoomDmConversation {
   vital: StatusEntry | null;
   avatar: string | null;
   avatarColor: string | null;
+  /** Required-field completion (known for every member only to the host). */
+  completion?: CompletionSummary;
 }
 
 /** Players and bots other than the viewer, with bot availability and the primary vital. */
@@ -79,6 +82,7 @@ export function buildDmConversations(
   unreadCounts: Record<number, number>,
   onlineUserIds: Set<number>,
   liveVitals: Map<number, StatusEntry>,
+  completions?: ReadonlyMap<number, CompletionSummary>,
 ): RoomDmConversation[] {
   return targets.map((p) => ({
     userId: p.id,
@@ -89,6 +93,7 @@ export function buildDmConversations(
     isProviderError: p.isProviderError,
     isOnline: onlineUserIds.has(p.id),
     vital: liveVitals.get(p.id) ?? p.vital,
+    completion: completions?.get(p.id),
     avatar: p.avatar,
     avatarColor: p.avatarColor,
   }));

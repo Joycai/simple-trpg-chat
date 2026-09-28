@@ -27,6 +27,7 @@ import { SidebarBackdrop, SidebarResizeHandle } from "@/components/room/SidebarC
 import { EventDataProvider } from "@/components/room/event/EventDataContext";
 import { useTranslations } from "next-intl";
 import { buildMentionTargets, buildDmConversations, totalUnread, countRoster, countOnline } from "@/lib/room/mention-targets";
+import { countIncomplete } from "@/lib/room/card-access";
 import type { RoomClientProps, ConnectionStatus, TypingBots } from "@/components/room/types";
 import { channelOf } from "@/lib/messaging/audience";
 import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
@@ -133,8 +134,8 @@ export function RoomClient({
     [players, userId, aiEnabled, validProviderIds, room.ruleTemplate],
   );
   const dmConversations = useMemo(
-    () => buildDmConversations(mentionTargets, unreadCounts, onlineUserIds, characterResources),
-    [mentionTargets, unreadCounts, onlineUserIds, characterResources],
+    () => buildDmConversations(mentionTargets, unreadCounts, onlineUserIds, characterResources, completions),
+    [mentionTargets, unreadCounts, onlineUserIds, characterResources, completions],
   );
   const totalUnreadCount = useMemo(() => totalUnread(unreadCounts), [unreadCounts]);
 
@@ -146,7 +147,11 @@ export function RoomClient({
   // "Set up your character" nudge on the 角色档案 top-bar icon: some field the
   // room's rule requires is still unset.
   const ownCompletion = completions.get(userId);
-  const characterHint = !!ownCompletion && ownCompletion.requiredSet < ownCompletion.requiredTotal;
+  const characterMissing = ownCompletion ? ownCompletion.requiredTotal - ownCompletion.requiredSet : 0;
+  // Host overview badge: members (not the host) whose required fields aren't all set.
+  const incompleteMembers = isHost ? countIncomplete(completions, [room.hostId]) : 0;
+  // Reloads the host overview when a sheet changes elsewhere.
+  const [sheetsRefreshKey, setSheetsRefreshKey] = useState(0);
 
   // Events for this viewer: the EventDataContext list, the chat-card unlock
   // set, the top-bar badge and the open detail modal.
@@ -248,13 +253,14 @@ export function RoomClient({
   useEffect(() => {
     onCharacterUpdatedRef.current = (uid, by) => {
       if (by === userId) return;
+      if (isHost) setSheetsRefreshKey((k) => k + 1);
       if (uid === userId) {
         router.refresh();
         bumpSkills();
       }
       if (uid === viewingPlayerId) reloadViewedCard();
     };
-  }, [userId, viewingPlayerId, router, bumpSkills, reloadViewedCard]);
+  }, [userId, isHost, viewingPlayerId, router, bumpSkills, reloadViewedCard]);
 
   // Check requests, the 加骰 / set-skill prompts, host proxy rolls, and the
   // top-bar check dialog/menu.
@@ -308,7 +314,8 @@ export function RoomClient({
         setRoomNameDraft={setRoomNameDraft}
         setEditingRoomName={setEditingRoomName}
         onSaveRoomName={handleSaveRoomName}
-        characterHint={characterHint}
+        characterMissing={characterMissing}
+        incompleteMembers={incompleteMembers}
         unreadItems={unreadItems}
         onToggleInventory={handleToggleInventory}
         unreadEvents={unreadEvents}
@@ -408,6 +415,7 @@ export function RoomClient({
         viewingPlayerCharData={viewingPlayerCharData}
         loadingPlayerCard={loadingPlayerCard}
         viewedCardRefreshKey={viewedCardRefreshKey}
+        sheetsRefreshKey={sheetsRefreshKey}
         onCloseViewingPlayer={closeViewingPlayer}
         eventsRefreshKey={eventsRefreshKey}
         onEventsChanged={bumpEvents}

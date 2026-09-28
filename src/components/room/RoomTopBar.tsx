@@ -1,5 +1,6 @@
 "use client";
 
+import { IdCard } from "lucide-react";
 import { useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -65,9 +66,10 @@ interface RoomTopBarProps {
   setRoomNameDraft: Dispatch<SetStateAction<string>>;
   setEditingRoomName: Dispatch<SetStateAction<boolean>>;
   onSaveRoomName: () => void;
-  // Gentle nudge dot when the current user's character sheet isn't set up yet
-  // (structured-sheet rules only; see useCharacterHint).
-  characterHint?: boolean;
+  /** Required fields of the viewer's own sheet still unset (badge; 0 = none). */
+  characterMissing?: number;
+  /** Host only: members whose required fields aren't all set (overview badge). */
+  incompleteMembers?: number;
   unreadItems: number;
   onToggleInventory: () => void;
   // Events (事件) — unread badge on the player-facing panel toggle.
@@ -129,7 +131,8 @@ export function RoomTopBar({
   setRoomNameDraft,
   setEditingRoomName,
   onSaveRoomName,
-  characterHint = false,
+  characterMissing = 0,
+  incompleteMembers = 0,
   unreadItems,
   onToggleInventory,
   unreadEvents,
@@ -144,7 +147,7 @@ export function RoomTopBar({
     shown: {
       character: showCharacter, inventory: showInventory, notebook: showNotebook,
       events: showEvents, itemManager: showItemManager, timeline: showTimeline, aiMenu: showAiMenu,
-      systemMenu: showSystemMenu,
+      systemMenu: showSystemMenu, hostSheets: showHostSheets,
     },
     setters: {
       character: setShowCharacter, notebook: setShowNotebook, events: setShowEvents,
@@ -152,9 +155,11 @@ export function RoomTopBar({
       aiMenu: setShowAiMenu, aiImport: setShowAiImport, botManager: setShowBotManager,
       systemMenu: setShowSystemMenu, members: setShowMembers, roomInfo: setShowRoomInfo,
       export: setShowExport, settings: setShowSettings, userSettings: setShowUserSettings,
+      hostSheets: setShowHostSheets,
     },
   } = overlays;
   const t = useTranslations("room");
+  const tChar = useTranslations("character");
   const tn = useTranslations("nav");
   const ts = useTranslations("userSettings");
   const tb = useTranslations("roomBackground");
@@ -256,15 +261,15 @@ export function RoomTopBar({
           <button
             onClick={() => setShowCharacter(!showCharacter)}
             className={`${iconBtn} ${showCharacter ? iconNavActive : iconNavIdle}`}
-            title={`${t("tooltipCharacter")} · ${nickname}${characterHint ? ` · ${t("charHintUnset")}` : ""} (${formatHotkey("KeyC")})`}
+            title={`${t("tooltipCharacter")} · ${nickname}${characterMissing > 0 ? ` · ${tChar("missingBadge", { count: characterMissing })}` : ""} (${formatHotkey("KeyC")})`}
             aria-pressed={showCharacter}
           >
             <Icons.User className="w-[18px] h-[18px]" />
-            {characterHint && (
-              <span
-                className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary shadow-[var(--theme-glow)]"
-                aria-hidden="true"
-              />
+            {characterMissing > 0 && (
+              <span key={characterMissing} className="absolute -top-1 -right-1 bg-danger text-bg text-[9px] font-bold min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center badge-in shadow-md"
+                aria-hidden="true">
+                {characterMissing > 9 ? "9+" : characterMissing}
+              </span>
             )}
           </button>
           <button
@@ -399,6 +404,20 @@ export function RoomTopBar({
               <span className="inline-flex items-center h-9 px-2.5 rounded-theme border border-accent/50 text-accent text-xs font-bold tracking-wide select-none shrink-0">
                 {hostLabel}
               </span>
+              <button
+                onClick={() => setShowHostSheets(!showHostSheets)}
+                className={`${iconBtn} ${showHostSheets ? iconAccentActive : iconAccentIdle}`}
+                title={`${tChar("overviewTooltip")}${incompleteMembers > 0 ? ` · ${tChar("overviewIncompleteBadge", { count: incompleteMembers })}` : ""}`}
+                aria-pressed={showHostSheets}
+              >
+                <IdCard className="w-[18px] h-[18px]" />
+                {incompleteMembers > 0 && (
+                  <span key={incompleteMembers} className="absolute -top-1 -right-1 bg-warning text-bg text-[9px] font-bold min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center badge-in shadow-md"
+                    aria-hidden="true">
+                    {incompleteMembers > 9 ? "9+" : incompleteMembers}
+                  </span>
+                )}
+              </button>
               {checkMenuModes.length > 1 ? (
                 /* Multi-mode rule (e.g. COC): a 检定 dropdown enumerating the
                    rule's exposed modes. Each row uses the static UI mapping

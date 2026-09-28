@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { roomMembers, rooms } from "@/db/schema";
+import { roomMembers, rooms, roomSkills, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
@@ -12,6 +12,9 @@ import { applySheetEdit, sanitizeSheetEdit } from "@/lib/character/sheet-model";
 import { parseSheet, parseSheetOrNull, serializeSheet } from "@/lib/character/sheet-store";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { resolveSheetWriter } from "@/lib/auth/sheet-access";
+import { checkRoomAccess } from "@/lib/auth/room-access";
+import { memberCompletion } from "@/lib/character/member-completion";
+import { missingFields, summarize, type CompletionSummary, type FieldStatus } from "@/lib/character/completion";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { getTranslations } from "next-intl/server";
 import type { Fail } from "@/lib/actions/result";
@@ -200,3 +203,52 @@ export async function editCharacterAction(
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: next };
 }
+
+/** One row of the host's character overview. */
+export interface HostSheetRow {
+  userId: number;
+  nickname: string;
+  isBot: boolean;
+  avatarColor: string | null;
+  /** The member's sheet (v2), or null when none is stored. */
+  sheet: CharacterData | null;
+  completion: CompletionSummary;
+  /** Required fields still unset, in schema order. */
+  missing: Array<{ kind: FieldStatus["kind"]; key: string }>;
+}
+
+/**
+ * Every member's sheet and completion for the host's overview (players and
+ * bots; the host's own card is left out). Host / admin only — a read action,
+ * so it throws on refusal and the panel shows its retry state.
+ */
+export async function loadHostSheetsAction(roomId: number): Promise<{ ruleId: string; rows: HostSheetRow[] }> {
+  await checkRoomAccess(roomId, true);
+  const [room] = await db.select({ ruleTemplate: rooms.ruleTemplate, hostId: rooms.hostId }).from(rooms).where(eq(rooms.id, roomId));
+  if (!room) return { ruleId: "basic", rows: [] };
+  const ruleId = getRuleForRoom(room).id;
+  const [members, skills] = await Promise.all([
+    db.select({
+      userId: roomMembers.userId, nickname: roomMembers.nickname, avatarColor: roomMembers.avatarColor,
+      characterData: roomMembers.characterData, isBot: users.isBot,
+    }).from(roomMembers).innerJoin(users, eq(users.id, roomMembers.userId)).where(eq(roomMembers.roomId, roomId)),
+    db.select({ userId: roomSkills.userId, skillName: roomSkills.skillName }).from(roomSkills).where(eq(roomSkills.roomId, roomId)),
+  ]);
+  const rows = members
+    .filter((m) => m.userId !== room.hostId)
+    .map((m) => {
+      const sheet = parseSheetOrNull(m.characterData, ruleId);
+      const completion = memberCompletion(sheet, skills.filter((s) => s.userId === m.userId).map((s) => s.skillName), ruleId);
+      return {
+        userId: m.userId,
+        nickname: m.nickname,
+        isBot: !!m.isBot,
+        avatarColor: m.avatarColor,
+        sheet,
+        completion: summarize(completion),
+        missing: missingFields(completion).map((f) => ({ kind: f.kind, key: f.key })),
+      };
+    });
+  return { ruleId, rows };
+}
+

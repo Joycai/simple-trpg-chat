@@ -1,5 +1,6 @@
 "use client";
 
+import { HostSheetOverview } from "@/components/room/character/HostSheetOverview";
 import { CharacterPanel } from "@/components/room/character/CharacterPanel";
 import { RoomSettings } from "@/components/room/RoomSettings";
 import { InventoryPanel } from "@/components/room/inventory/InventoryPanel";
@@ -54,6 +55,8 @@ interface RoomOverlaysProps {
   loadingPlayerCard: boolean;
   /** Bumped when someone else changes the viewed card (reloads its skills). */
   viewedCardRefreshKey: number;
+  /** Bumped when any sheet changes elsewhere (reloads the host overview). */
+  sheetsRefreshKey: number;
   onCloseViewingPlayer: () => void;
 
   eventsRefreshKey: number;
@@ -92,7 +95,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
     room, userId, isHost, nickname, characterData, readOnly, players,
     aiEnabled, validProviderIds, userName, userRole, roomTheme, roomThemeMode,
     inventoryRefreshKey, skillRefreshKey, onSkillsChanged, mentionTargets, onlineUserIds, playerCount, botCount, activeTab,
-    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, viewedCardRefreshKey, onCloseViewingPlayer,
+    viewingPlayerId, viewingPlayerNickname, viewingPlayerCharData, loadingPlayerCard, viewedCardRefreshKey, sheetsRefreshKey, onCloseViewingPlayer,
     eventsRefreshKey, onEventsChanged, onEventBadgeChanged,
     eventDetailId, setEventDetailId,
     checkMode, setCheckMode, pendingSkillCheck, setPendingSkillCheck, onConfirmSkillSet,
@@ -106,14 +109,14 @@ export function RoomOverlays(props: RoomOverlaysProps) {
       members: showMembers, inventory: showInventory, notebook: showNotebook,
       itemManager: showItemManager, events: showEvents, eventManage: showEventManage,
       timeline: showTimeline, settings: showSettings, roomInfo: showRoomInfo, export: showExport,
-      userSettings: showUserSettings,
+      userSettings: showUserSettings, hostSheets: showHostSheets,
     },
     setters: {
       character: setShowCharacter, botManager: setShowBotManager, aiImport: setShowAiImport,
       members: setShowMembers, inventory: setShowInventory, notebook: setShowNotebook,
       itemManager: setShowItemManager, events: setShowEvents, eventManage: setShowEventManage,
       timeline: setShowTimeline, settings: setShowSettings, roomInfo: setShowRoomInfo,
-      export: setShowExport, userSettings: setShowUserSettings,
+      export: setShowExport, userSettings: setShowUserSettings, hostSheets: setShowHostSheets,
     },
   } = overlays;
 
@@ -173,6 +176,14 @@ export function RoomOverlays(props: RoomOverlaysProps) {
           avatarColor={memberOf(viewingPlayerId)?.avatarColor}
           avatar={memberOf(viewingPlayerId)?.avatar}
           isGM={isHost}
+        />
+      )}
+      {showHostSheets && isHost && (
+        <HostSheetOverview
+          roomId={room.id}
+          refreshKey={sheetsRefreshKey}
+          onClose={() => setShowHostSheets(false)}
+          onOpenCard={onViewPlayerCard}
         />
       )}
       {showBotManager && (

@@ -254,7 +254,8 @@ export const MessageBubble = memo(function MessageBubble({
               style={{ top: "100%" }}
               onClick={(e) => e.stopPropagation()}
             >
-              {isHost && onViewCharacter && (
+              {/* Same rule as the member list: the host, on someone else's message. */}
+              {isHost && !isOwn && onViewCharacter && (
                 <button
                   onClick={() => {
                     onViewCharacter(senderId, nickname);
