@@ -14,8 +14,8 @@ import { updateSheetRow } from "@/lib/character/sheet-row";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { resolveSheetWriter } from "@/lib/auth/sheet-access";
 import { checkRoomAccess } from "@/lib/auth/room-access";
-import { memberCompletion } from "@/lib/character/member-completion";
-import { missingFields, summarize, type CompletionSummary, type FieldStatus } from "@/lib/character/completion";
+import { memberCompletionSummary } from "@/lib/character/member-completion";
+import type { CompletionSummary } from "@/lib/character/completion";
 import { getRule, getRuleForRoom } from "@/lib/rules";
 import { getTranslations } from "next-intl/server";
 import type { Fail } from "@/lib/actions/result";
@@ -77,7 +77,7 @@ export type SheetRuleStatus =
  * Never throws for non-members / observers / frozen rooms — those just get
  * `ok` so the client can stay silent.
  */
-export async function ensureCharacterSheetAction(roomId: number): Promise<SheetRuleStatus> {
+export async function ensureCharacterSheetAction(roomId: number, origin?: string): Promise<SheetRuleStatus> {
   const session = await auth();
   if (!session) return { status: "ok" };
   const userId = parseInt(session.user.id);
@@ -103,7 +103,7 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
     const out = await updateSheetRow(roomId, userId, (raw) =>
       parseSheetOrNull(raw, rule.id) ? { result: null } : { sheet: emptySheet(rule.id), result: null });
     if (out.status !== "ok" || !out.sheet) return { status: "ok" };
-    await broadcastCharacterUpdate(roomId, userId, { by: userId });
+    await broadcastCharacterUpdate(roomId, userId, { by: userId, tab: origin });
     revalidatePath(`/rooms/${roomId}`);
     return { status: "initialized", data: out.sheet };
   }
@@ -125,6 +125,7 @@ export async function ensureCharacterSheetAction(roomId: number): Promise<SheetR
 export async function rebuildCharacterForRoomRuleAction(
   roomId: number,
   targetUserId: number,
+  origin?: string,
 ): Promise<{ success: true; data: CharacterData } | Fail> {
   const w = await resolveSheetWriter(roomId, targetUserId);
   if (!w.ok) return fail(w.key);
@@ -141,10 +142,11 @@ export async function rebuildCharacterForRoomRuleAction(
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
 
   if (out.sheet) {
-    await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
+    await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId, tab: origin });
     revalidatePath(`/rooms/${roomId}`);
   }
-  return { success: true, data: out.result };
+  // The stored copy carries the new `rev`; an untouched sheet is the stored one.
+  return { success: true, data: out.sheet ?? out.result };
 }
 
 /**
@@ -179,6 +181,8 @@ export async function editCharacterAction(
   roomId: number,
   targetUserId: number,
   edit: SheetEdit,
+  /** The calling tab (`tabId()`), so its own `character_updated` echo is skipped. */
+  origin?: string,
 ): Promise<{ success: true; data: CharacterData } | Fail> {
   const clean = sanitizeSheetEdit(edit);
   if (!clean) return fail("errorInvalidEdit");
@@ -195,9 +199,9 @@ export async function editCharacterAction(
   });
   if (out.status === "notMember") return fail("errorTargetNotMember");
   if (out.status === "tooLarge") return fail("errorDataTooLarge");
-  const next = out.result;
+  const next = out.sheet ?? out.result;
 
-  await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId });
+  await broadcastCharacterUpdate(roomId, targetUserId, { by: w.callerId, tab: origin });
 
   revalidatePath(`/rooms/${roomId}`);
   return { success: true, data: next };
@@ -211,9 +215,8 @@ export interface HostSheetRow {
   avatarColor: string | null;
   /** The member's sheet (v2), or null when none is stored. */
   sheet: CharacterData | null;
+  /** Required set / total, and the fields still missing. */
   completion: CompletionSummary;
-  /** Required fields still unset, in schema order. */
-  missing: Array<{ kind: FieldStatus["kind"]; key: string }>;
 }
 
 /**
@@ -237,15 +240,13 @@ export async function loadHostSheetsAction(roomId: number): Promise<{ ruleId: st
     .filter((m) => m.userId !== room.hostId)
     .map((m) => {
       const sheet = parseSheetOrNull(m.characterData, ruleId);
-      const completion = memberCompletion(sheet, skills.filter((s) => s.userId === m.userId).map((s) => s.skillName), ruleId);
       return {
         userId: m.userId,
         nickname: m.nickname,
         isBot: !!m.isBot,
         avatarColor: m.avatarColor,
         sheet,
-        completion: summarize(completion),
-        missing: missingFields(completion).map((f) => ({ kind: f.kind, key: f.key })),
+        completion: memberCompletionSummary(sheet, skills.filter((s) => s.userId === m.userId).map((s) => s.skillName), ruleId),
       };
     });
   return { ruleId, rows };

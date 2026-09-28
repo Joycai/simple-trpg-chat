@@ -67,13 +67,27 @@ rebuild); bots' sheets are rebuilt for the room rule before an AI write. The
 member accepts the rebuild prompt on entry; the host can rebuild any member's
 card (bots included) from the panel's rule-mismatch banner.
 
-Every write broadcasts `character_updated { userId, vital, completion, by }`
+Every write broadcasts `character_updated { userId, vital, completion, origin }`
 (`lib/character/broadcast.ts`): the member list's vital, completion badges,
-and open panels (reloaded when someone else wrote) follow it. The broadcast
+and open panels follow it. `origin` is the writing browser tab
+(`lib/ui/tab-id.ts`), sent by writes whose tab refreshes itself afterwards
+(own panel save, `.st` / `.sc` from chat, own skills, the overview ±, which
+applies its own replies); that tab skips the reload, every other tab — the
+same user's other tabs and devices included — reloads. A host editing someone
+else's card in the panel, a proxy roll and the AI send no tab id, so the
+host's overview and views follow too. The server binds the tab id to the
+session caller (`<caller id>:<tab id>`), so replaying another member's tab id
+can't silence their reload. The broadcast
 reads the sheet, room rule and skills itself and emits while holding the
 member's row lock — the lock sheet writes take — so one member's events go
 out in order and the last one always matches the database. Callers can't
 pass a payload in; they call it after their write has committed.
+
+Each stored write also bumps the sheet's `rev` (`updateSheetRow`), and save
+replies carry the stored copy. The panel keeps whichever of its two copies —
+the loaded one and the one its save returned — has the higher `rev`
+(`newerSheet`), so a page refresh that raced a save can't bring back the old
+values.
 
 ## Skills
 
@@ -92,9 +106,13 @@ SAN resource.
   derived block, skills tab with the standard list, close guard for unsaved
   changes.
 - `HostSheetOverview` — the host's overview (top-bar IdCard button): every
-  member's completion and resource steppers that save at once.
-- Top bar: missing-required badge on the character button; incomplete-member
-  badge on the overview button. Member list: completion mark for the host.
+  member's completion (with the missing fields named) and resource steppers
+  that save at once; each row's subtitle shows presence (people only, from
+  the room's live presence) and the card's occupation.
+- Top bar: missing-required badge on the character button, whose tooltip
+  names the missing fields (`CompletionSummary.missing`, labelled by
+  `useFieldLabel`); incomplete-member badge on the overview button. Member
+  list: completion mark for the host.
 - Read-only status: `readStatusView` / `primaryVital` (`lib/rules/status-view.ts`)
   for the avatar hover card and the member list.
 

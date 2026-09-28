@@ -567,7 +567,7 @@ async function setCharacterCardTool(args: ParsedToolArgs, ctx: AgentToolContext)
     }
   }
 
-  await broadcastCharacterUpdate(roomId, botUserId, { by: botUserId });
+  await broadcastCharacterUpdate(roomId, botUserId);
   return { success: true };
 }
 

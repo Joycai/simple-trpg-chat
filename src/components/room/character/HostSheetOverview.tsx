@@ -12,7 +12,9 @@ import { getRule } from "@/lib/rules";
 import { applySheetEdit, resolveSheet, type ResolvedResource } from "@/lib/character/sheet-model";
 import { emptySheet, type ResourceValue } from "@/lib/character/sheet-v2";
 import { getContrastColor, getRandomColorForUser } from "@/lib/ui/avatar-colors";
+import { tabId } from "@/lib/ui/tab-id";
 import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
+import { useFieldLabel } from "./useFieldLabel";
 
 /**
  * The host's character overview (UI spec ④): every member (players and bots)
@@ -20,10 +22,12 @@ import { RESOURCE_ICON, DEFAULT_RESOURCE_COLOR } from "./resource-visuals";
  * rule resource that saves immediately — rolled back with a notice if the
  * save fails. "打开角色卡" hands over to the sheet panel in host edit mode.
  */
-export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
+export function HostSheetOverview({ roomId, refreshKey, onlineUserIds, onClose, onOpenCard }: {
   roomId: number;
   /** Bumped when a sheet changes elsewhere; triggers a quiet reload. */
   refreshKey: number;
+  /** Members connected right now (the room's live presence), for each row's subtitle. */
+  onlineUserIds: ReadonlySet<number>;
   onClose: () => void;
   onOpenCard: (userId: number, nickname: string) => void;
 }) {
@@ -91,11 +95,7 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
   const incompleteCount = (data?.rows ?? []).filter(incomplete).length;
   const columns = `minmax(160px,1.4fr) minmax(120px,1fr) repeat(${rule.sheet.resources.length}, minmax(96px,1fr)) auto`;
 
-  const labelOf = (kind: string, key: string) => {
-    const field = kind === "attribute" ? rule.sheet.attributes.find((f) => f.key === key)
-      : kind === "resource" ? rule.sheet.resources.find((f) => f.key === key) : undefined;
-    return field ? t(field.labelKey) : key;
-  };
+  const labelOf = useFieldLabel(rule);
 
   // Resource ±1: optimistic, saved at once. Each click steps from the latest
   // value locally; only the newest reply for that resource is applied, and a failure
@@ -134,7 +134,7 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
     setResource(optimistic.resources[resKey]);
     setNotice(null);
     // A throw means the outcome is unknown: the delta may have been applied.
-    const saved = await editCharacterAction(roomId, userId, edit)
+    const saved = await editCharacterAction(roomId, userId, edit, tabId())
       .catch(() => ({ success: false as const, unknown: true as const }));
     pendingRef.current.set(key, (pendingRef.current.get(key) ?? 1) - 1);
     if (saved.success) confirmedRef.current.set(key, saved.data.resources[resKey]);
@@ -230,7 +230,15 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                 </div>
                 {rows.map((row) => {
                   const resolved = resolveSheet(rule, row.sheet ?? emptySheet(rule.id));
-                  const { requiredSet, requiredTotal } = row.completion;
+                  const { requiredSet, requiredTotal, missing } = row.completion;
+                  const missingText = missing.map((m) => labelOf(m.kind, m.key)).join(t("listSeparator"));
+                  // "在线 · 调查记者": presence for people (bots have no
+                  // connection to show), then the card's occupation if any.
+                  const online = onlineUserIds.has(row.userId);
+                  const subtitle = [
+                    row.isBot ? null : t(online ? "overviewOnline" : "overviewOffline"),
+                    row.sheet?.occupation?.trim() || null,
+                  ].filter(Boolean).join(" · ");
                   const done = requiredSet === requiredTotal;
                   const untouched = !row.sheet || (requiredTotal > 0 && requiredSet === 0);
                   // A sheet still built for another rule: the room rule's
@@ -246,9 +254,19 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                           style={{ backgroundColor: color, color: getContrastColor(color) }}>
                           {row.isBot ? <Icons.Bot className="w-4 h-4" /> : row.nickname.charAt(0).toUpperCase()}
                         </span>
-                        <span className="flex items-center gap-1.5 min-w-0 text-sm font-semibold">
-                          <span className="truncate">{row.nickname}</span>
-                          {row.isBot && <span className="text-[10px] font-bold text-ai border border-ai/45 rounded-full px-1.5 leading-4 shrink-0">BOT</span>}
+                        <span className="flex flex-col min-w-0">
+                          <span className="flex items-center gap-1.5 min-w-0 text-sm font-semibold">
+                            <span className="truncate">{row.nickname}</span>
+                            {row.isBot && <span className="text-[10px] font-bold text-ai border border-ai/45 rounded-full px-1.5 leading-4 shrink-0">BOT</span>}
+                          </span>
+                          {subtitle && (
+                            <span className="flex items-center gap-1.5 min-w-0 text-[11px] text-text-muted">
+                              {!row.isBot && (
+                                <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full shrink-0 ${online ? "bg-success" : "bg-border"}`} />
+                              )}
+                              <span className="truncate" title={subtitle}>{subtitle}</span>
+                            </span>
+                          )}
                         </span>
                       </div>
 
@@ -263,8 +281,8 @@ export function HostSheetOverview({ roomId, refreshKey, onClose, onOpenCard }: {
                               <div className={`h-full ${done ? "bg-success" : "bg-warning"}`} style={{ width: `${Math.round((requiredSet / requiredTotal) * 100)}%` }} />
                             </div>
                             {!done && (
-                              <span className="text-[11px] text-danger truncate" title={row.missing.map((m) => labelOf(m.kind, m.key)).join("、")}>
-                                {untouched ? t("overviewNoSheet") : t("overviewMissing", { fields: row.missing.map((m) => labelOf(m.kind, m.key)).join("、") })}
+                              <span className="text-[11px] text-danger truncate" title={missingText}>
+                                {untouched ? t("overviewNoSheet") : t("overviewMissing", { fields: missingText })}
                               </span>
                             )}
                           </>

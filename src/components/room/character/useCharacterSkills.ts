@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { getRoomSkills, getMySkillsAction, upsertSkillAction, deleteSkillAction } from "@/app/actions/skills";
 import type { SkillItem } from "@/components/room/character/SkillsTab";
 import type { Done } from "@/lib/actions/result";
+import { tabId } from "@/lib/ui/tab-id";
 
 /** The card owner's skills: the viewer's own, or another member's. */
 function fetchSkills(roomId: number, targetUserId: number | undefined): Promise<SkillItem[]> {
@@ -57,12 +58,17 @@ export function useCharacterSkills({
     return true;
   };
 
+  // Own skills: `afterWrite` refreshes all this tab shows of them, so it skips
+  // its own `character_updated`. A host editing someone else's lets the event
+  // reload the overview and the member's other views.
+  const origin = targetUserId === undefined ? tabId() : undefined;
+
   // Add or overwrite by (room, user, name), same as .st.
   const setSkill = (skillName: string, value: number) =>
-    afterWrite(upsertSkillAction(roomId, skillName, value, targetUserId));
+    afterWrite(upsertSkillAction(roomId, skillName, value, targetUserId, origin));
 
   const removeSkill = async (skillId: number) => {
-    await afterWrite(deleteSkillAction(roomId, skillId, targetUserId));
+    await afterWrite(deleteSkillAction(roomId, skillId, targetUserId, origin));
   };
 
   return { skills, skillsLoaded, setSkill, removeSkill };

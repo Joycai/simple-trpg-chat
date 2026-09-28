@@ -25,13 +25,24 @@ export interface FieldStatus {
   required: boolean;
 }
 
-/** The two numbers every badge needs. */
-export interface CompletionSummary {
+/** A required field still unset — its label comes from the rule (`useFieldLabel`). */
+export interface MissingField {
+  kind: FieldStatus["kind"];
+  key: string;
+}
+
+interface RequiredCounts {
   requiredTotal: number;
   requiredSet: number;
 }
 
-export interface Completion extends CompletionSummary {
+/** What every badge needs: the two numbers, and which fields are missing (for tooltips). */
+export interface CompletionSummary extends RequiredCounts {
+  /** Required fields still unset, in schema order (`requiredTotal - requiredSet` of them). */
+  missing: MissingField[];
+}
+
+export interface Completion extends RequiredCounts {
   fields: FieldStatus[];
   skills: { standardTotal: number; standardSet: number; custom: number };
 }
@@ -124,5 +135,9 @@ export function missingFields(completion: Completion): FieldStatus[] {
 }
 
 export function summarize(completion: Completion): CompletionSummary {
-  return { requiredTotal: completion.requiredTotal, requiredSet: completion.requiredSet };
+  return {
+    requiredTotal: completion.requiredTotal,
+    requiredSet: completion.requiredSet,
+    missing: missingFields(completion).map((f) => ({ kind: f.kind, key: f.key })),
+  };
 }

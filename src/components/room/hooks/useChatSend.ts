@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { sendMessageAction, rollDiceAction, executeCommandAction, withdrawTimelineDividerAction } from "@/app/actions/messages";
 import type { Message } from "@/components/room/types";
+import { tabId } from "@/lib/ui/tab-id";
 
 // Decrementing counter for local-only ephemeral message IDs (never persisted to DB).
 // Negative IDs guarantee no collision with real DB auto-increment IDs.
@@ -88,12 +89,14 @@ export function useChatSend({
     // No \b after st/sc: the compact form (.stsan60) has no boundary, and no other
     // command token starts with "st"/"sc", so a bare prefix match is correct.
     const isSheetMutationCmd = type === "text" && /^[.。]\s*(st|sc)/i.test(content.trim());
+    // That refresh covers the write, so this tab skips its own character_updated.
+    const origin = isSheetMutationCmd ? tabId() : undefined;
 
     // Commands are also intercepted server-side in sendMessageAction; both guards must stay in sync.
     // Pass the channel context so command feedback stays inside a DM instead of broadcasting publicly.
     if (content.startsWith(".") && type === "text") {
       try {
-        const result = await executeCommandAction(roomId, userId, content, finalIsPrivate, finalTargetId);
+        const result = await executeCommandAction(roomId, userId, content, finalIsPrivate, finalTargetId, origin);
         if (!result.success && result.error) {
           pushLocalError(tra("commandError", { error: result.error }), channelPartner ?? null);
         }
@@ -118,17 +121,18 @@ export function useChatSend({
         const hidden = !!isPrivate;
         res = await rollDiceAction(roomId, faces, detail.count, hidden, channelPartner);
       } else {
-        res = await sendMessageAction(roomId, content, type, finalIsPrivate, finalTargetId);
+        res = await sendMessageAction(roomId, content, type, finalIsPrivate, finalTargetId, origin);
       }
       if (!res.success) {
         pushLocalError(tra("sendFailed", { error: res.error }), channelPartner ?? null);
-        return;
       }
-      if (isSheetMutationCmd) refreshSelfSheet();
     } catch (e) {
       console.error(e);
       pushLocalError(tra("sendFailed", { error: tCommon("error") }), channelPartner ?? null);
     }
+    // Whatever the outcome, like the command path above: the write sent this
+    // tab's id, so its own update is skipped.
+    if (isSheetMutationCmd) refreshSelfSheet();
   }, [roomId, userId, activeTab, tra, tCommon, refreshSelfSheet, pushLocalError]);
 
   // Host withdraws a timeline divider. The row is removed for everyone via the

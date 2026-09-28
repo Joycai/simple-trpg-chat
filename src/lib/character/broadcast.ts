@@ -14,18 +14,34 @@ import type { CharacterData } from "./types";
  * member list, the badges and any open panel stay current no matter who wrote
  * (the member, the host, `.st` / `.sc`, the AI):
  *
- *   { type, userId, vital, completion, by }
+ *   { type, userId, vital, completion, origin }
  *
  * `vital` is the member list's headline number, `completion` the required
- * set/total against the room's rule, `by` the writer (clients skip reloading
- * what they just saved themselves).
+ * set/total (and what's missing) against the room's rule, `origin` the
+ * writing tab as `<caller id>:<tab id>` (`lib/ui/tab-id.ts`), or null for a
+ * write no tab made (the AI, a join). A tab skips reloading only for its own
+ * writes, which refresh themselves where they happen — the same user's other
+ * tabs and devices still reload.
+ *
+ * The tab id comes from the client and reaches every member, so the server
+ * prefixes the session caller: a member who replays someone else's tab id
+ * gets an origin with their own user id, which that tab doesn't match.
  */
 export interface CharacterUpdateEvent {
   type: "character_updated";
   userId: number;
   vital: StatusEntry | null;
   completion: CompletionSummary;
-  by: number | null;
+  origin: string | null;
+}
+
+/**
+ * The event's `origin`: the session caller bound to the tab id they sent, or
+ * null when either is missing or the tab id isn't one (it is untrusted).
+ */
+export function writeOrigin(by: number | null | undefined, tab: unknown): string | null {
+  if (!Number.isInteger(by)) return null;
+  return typeof tab === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(tab) ? `${by}:${tab}` : null;
 }
 
 export function characterUpdatePayload(
@@ -33,14 +49,14 @@ export function characterUpdatePayload(
   sheet: CharacterData | null,
   skillNames: ReadonlyArray<string>,
   roomRuleId: string,
-  by: number | null,
+  origin: string | null,
 ): CharacterUpdateEvent {
   return {
     type: "character_updated",
     userId,
     vital: primaryVital(sheet),
     completion: memberCompletionSummary(sheet, skillNames, roomRuleId),
-    by,
+    origin,
   };
 }
 
@@ -61,7 +77,8 @@ export function characterUpdatePayload(
 export async function broadcastCharacterUpdate(
   roomId: number,
   userId: number,
-  opts: { by?: number | null } = {},
+  /** `by`: the session caller (never a client value); `tab`: the tab id they sent. */
+  opts: { by?: number | null; tab?: unknown } = {},
 ): Promise<void> {
   try {
     await db.transaction(async (tx) => {
@@ -80,7 +97,7 @@ export async function broadcastCharacterUpdate(
         parseSheetOrNull(member?.characterData, roomRuleId),
         skills.map((s) => s.skillName),
         roomRuleId,
-        opts.by ?? null,
+        writeOrigin(opts.by, opts.tab),
       ));
     });
   } catch (e) {

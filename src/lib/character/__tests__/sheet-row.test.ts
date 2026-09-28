@@ -41,9 +41,20 @@ describe("updateSheetRow", () => {
     let seen: string | null = null;
     const out = await updateSheetRow(5, 2, (raw) => { seen = raw; return { sheet, result: 7 }; });
     expect(seen).toBe("raw");
-    expect(out).toEqual({ status: "ok", result: 7, sheet });
+    expect(out).toEqual({ status: "ok", result: 7, sheet: { ...sheet, rev: 1 } });
     expect(calls).toEqual(["begin", "select for update", "update", "commit"]);
-    expect(JSON.parse(writes[0])).toEqual(sheet);
+    expect(JSON.parse(writes[0])).toEqual({ ...sheet, rev: 1 });
+  });
+
+  it("bumps the stored rev on every write, whatever rev the step's sheet carries", async () => {
+    lockedRows = [{ id: 1, characterData: JSON.stringify({ ...emptySheet("coc7th"), rev: 4 }) }];
+    // A rebuilt sheet starts without one; a stale copy may carry an older one.
+    for (const stepSheet of [emptySheet("dnd5e"), { ...emptySheet("coc7th"), rev: 2 }]) {
+      writes.length = 0;
+      const out = await updateSheetRow(5, 2, () => ({ sheet: stepSheet, result: null }));
+      expect(out.status === "ok" && out.sheet?.rev).toBe(5);
+      expect(JSON.parse(writes[0]).rev).toBe(5);
+    }
   });
 
   it("writes nothing when the step returns no sheet", async () => {

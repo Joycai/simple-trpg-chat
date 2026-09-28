@@ -19,6 +19,12 @@ export interface CharacterSheetV2 {
   schemaVersion: 2;
   /** Rule id — resolves to a RuleModule via `getRule`. */
   ruleTemplate: string;
+  /**
+   * Write counter, bumped by `updateSheetRow` on every stored write (absent =
+   * never written since it was added). Tells a client which of two copies
+   * it holds is newer — a save's reply or a page refresh that raced it.
+   */
+  rev?: number;
 
   // Profile — survives a rule switch.
   name?: string;

@@ -34,6 +34,7 @@ import { getRuleForRoom, type StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
 import { useRouter } from "next/navigation";
 import { RuleTemplateProvider } from "@/components/shared/host-label";
+import { isOwnWrite } from "@/lib/ui/tab-id";
 
 export function RoomClient({
   room,
@@ -94,7 +95,7 @@ export function RoomClient({
   }
   // What to reload when someone else writes a sheet — set once the card
   // viewer below exists; read by the SSE router through the ref.
-  const onCharacterUpdatedRef = useRef<(userId: number, by: number | null) => void>(() => {});
+  const onCharacterUpdatedRef = useRef<(userId: number, origin: string | null) => void>(() => {});
   const [typingBots, setTypingBots] = useState<TypingBots>({});
 
   // Conversation sidebar (width / collapsed / mobile + drag-to-resize).
@@ -148,7 +149,7 @@ export function RoomClient({
   // room's rule requires is still unset.
   const ownCompletion = completions.get(userId);
   // The host usually plays without a card (the overview leaves it out too).
-  const characterMissing = !isHost && ownCompletion ? ownCompletion.requiredTotal - ownCompletion.requiredSet : 0;
+  const characterMissing = !isHost && ownCompletion ? ownCompletion.missing : undefined;
   // Host overview badge: members (not the host) whose required fields aren't all set.
   const incompleteMembers = isHost ? countIncomplete(completions, [room.hostId]) : 0;
   // Reloads the host overview when a sheet changes elsewhere.
@@ -248,12 +249,13 @@ export function RoomClient({
     viewedCardRefreshKey, handleViewPlayerCard, closeViewingPlayer, reloadViewedCard,
   } = usePlayerCardViewer(room.id, closeMembers);
 
-  // Someone else wrote a sheet: reload what shows it. Our own writes refresh
-  // themselves where they happen (panel save, .st, the skills tab).
+  // A sheet changed: reload what shows it — unless this tab wrote it and
+  // already refreshed where the write happened (panel save, .st, the skills
+  // tab). The same user's other tabs and devices have another id and reload.
   const router = useRouter();
   useEffect(() => {
-    onCharacterUpdatedRef.current = (uid, by) => {
-      if (by === userId) return;
+    onCharacterUpdatedRef.current = (uid, origin) => {
+      if (isOwnWrite(origin, userId)) return;
       if (isHost) setSheetsRefreshKey((k) => k + 1);
       if (uid === userId) {
         router.refresh();

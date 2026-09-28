@@ -73,7 +73,7 @@ export async function handleSanityCheck(
   await syncLegacySanitySkill(roomId, userIdArg, finalNewSan);
   // A host rolling on the player's behalf is the writer — the player's own
   // client must reload.
-  await broadcastCharacterUpdate(roomId, userIdArg, { by: ctx?.proxiedBy?.userId ?? userIdArg });
+  await broadcastCharacterUpdate(roomId, userIdArg, { by: ctx?.proxiedBy?.userId ?? userIdArg, tab: ctx?.origin });
 
   // The insanity warning is now rendered client-side as a separate banner
   // attached to the sanity card (see chat/message/dice/DiceResultDisplay). The `deduction >= 5`

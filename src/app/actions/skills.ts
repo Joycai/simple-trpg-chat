@@ -45,6 +45,7 @@ export async function upsertSkillAction(
   skillName: string,
   skillValue: number,
   targetUserId?: number,
+  origin?: string,
 ): Promise<Done> {
   const session = await auth();
   if (!session) return fail("errorNotAuthenticated");
@@ -74,13 +75,13 @@ export async function upsertSkillAction(
     await syncCharacterSanity(roomId, userId, value);
   }
 
-  await broadcastCharacterUpdate(roomId, userId, { by: w.callerId });
+  await broadcastCharacterUpdate(roomId, userId, { by: w.callerId, tab: origin });
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }
 
 /** Remove one of a member's skills (own, or host / admin for any member). */
-export async function deleteSkillAction(roomId: number, skillId: number, targetUserId?: number): Promise<Done> {
+export async function deleteSkillAction(roomId: number, skillId: number, targetUserId?: number, origin?: string): Promise<Done> {
   const session = await auth();
   if (!session) return fail("errorNotAuthenticated");
   const userId = targetUserId ?? parseInt(session.user.id);
@@ -93,7 +94,7 @@ export async function deleteSkillAction(roomId: number, skillId: number, targetU
     and(eq(roomSkills.id, skillId), eq(roomSkills.roomId, roomId), eq(roomSkills.userId, userId))
   );
 
-  await broadcastCharacterUpdate(roomId, userId, { by: w.callerId });
+  await broadcastCharacterUpdate(roomId, userId, { by: w.callerId, tab: origin });
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }

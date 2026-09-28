@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { executeCommandAction } from "@/app/actions/messages";
 import { respondToCheckRequestAction, getProxyCheckTargetsAction } from "@/app/actions/checks";
 import type { CheckMode, PendingSkillCheck } from "@/components/room/types";
+import { tabId } from "@/lib/ui/tab-id";
 
 /**
  * Skill checks in the room: the top-bar check dialog/menu state, answering a
@@ -34,17 +35,25 @@ export function useCheckFlow({
   // Roll the check on the server. Returns { needsSkill } when the stat isn't set yet
   // (so the caller can open the prompt); otherwise surfaces any error inline.
   const respondCheck = useCallback(async (messageId: number, onBehalfOfUserId?: number, bonusDice?: number): Promise<{ needsSkill?: boolean }> => {
-    const result = await respondToCheckRequestAction(
-      roomId, messageId,
-      onBehalfOfUserId !== undefined || bonusDice !== undefined ? { onBehalfOfUserId, bonusDice } : undefined
-    );
+    // Only a self roll refreshes this tab afterwards (below), so only it skips
+    // its own `character_updated`; a proxy roll lets the event reload the
+    // host's overview and views of that player.
+    let result: Awaited<ReturnType<typeof respondToCheckRequestAction>>;
+    try {
+      result = await respondToCheckRequestAction(
+        roomId, messageId,
+        onBehalfOfUserId !== undefined ? { onBehalfOfUserId, bonusDice } : { bonusDice, origin: tabId() }
+      );
+    } finally {
+      // A sanity check deducts 理智值 — refresh the open sheet/skill panels,
+      // on failure too: the roll sent this tab's id, so its own update is
+      // skipped and a write that landed before the error would never show.
+      // (Proxy rolls deduct the proxied player's sanity and send no tab id.)
+      if (!onBehalfOfUserId) refreshSelfSheet();
+    }
     if (result.needsSkill) return { needsSkill: true };
     if (!result.success && result.error) {
       pushLocalError(tra("commandError", { error: result.error }));
-    } else if (result.success && !onBehalfOfUserId) {
-      // A sanity check deducts 理智值 — refresh the open sheet/skill panels.
-      // (Proxy rolls deduct the proxied player's sanity, not the host's — no self refresh.)
-      refreshSelfSheet();
     }
     return {};
   }, [roomId, tra, refreshSelfSheet, pushLocalError]);
@@ -90,15 +99,17 @@ export function useCheckFlow({
     if (!pendingSkillCheck) return;
     const { messageId, skillName } = pendingSkillCheck;
     setPendingSkillCheck(null);
-    const res = await executeCommandAction(roomId, userId, `.st ${skillName}${value}`)
+    const res = await executeCommandAction(roomId, userId, `.st ${skillName}${value}`, undefined, undefined, tabId())
       .catch(() => ({ success: false as const, error: tCommon("error") }));
+    // Sent with this tab's id, so refresh here whatever the outcome.
+    refreshSelfSheet();
     // Without the stat the check would only ask for it again — stop here.
     if (!res.success) {
       pushLocalError(tra("commandError", { error: res.error || tCommon("error") }));
       return;
     }
     await respondCheck(messageId);
-  }, [pendingSkillCheck, roomId, userId, respondCheck, pushLocalError, tra, tCommon]);
+  }, [pendingSkillCheck, roomId, userId, respondCheck, refreshSelfSheet, pushLocalError, tra, tCommon]);
 
   return {
     checkMode, setCheckMode, showCheckMenu, setShowCheckMenu,

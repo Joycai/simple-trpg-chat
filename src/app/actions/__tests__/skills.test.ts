@@ -33,10 +33,10 @@ beforeEach(() => {
 
 describe("upsertSkillAction", () => {
   it("lets the host write another member's skill and broadcasts for that member", async () => {
-    expect(await upsertSkillAction(5, " 侦查 ", 60, 3)).toEqual({ success: true });
+    expect(await upsertSkillAction(5, " 侦查 ", 60, 3, "tab-1")).toEqual({ success: true });
     expect(resolveSheetWriter).toHaveBeenCalledWith(5, 3);
     expect(inserted[0]).toMatchObject({ roomId: 5, userId: 3, skillName: "侦查", skillValue: 60 });
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1, tab: "tab-1" });
   });
 
   it("defaults to the caller's own card", async () => {
@@ -65,9 +65,9 @@ describe("upsertSkillAction", () => {
 
 describe("deleteSkillAction", () => {
   it("deletes on the target's card when allowed", async () => {
-    expect(await deleteSkillAction(5, 9, 3)).toEqual({ success: true });
+    expect(await deleteSkillAction(5, 9, 3, "tab-1")).toEqual({ success: true });
     expect(deleted).toHaveBeenCalledTimes(1);
-    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1 });
+    expect(broadcastCharacterUpdate).toHaveBeenCalledWith(5, 3, { by: 1, tab: "tab-1" });
   });
 
   it("does nothing when refused", async () => {

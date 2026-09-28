@@ -26,6 +26,8 @@ import type { Room, PlayerEntry, MentionTarget, CheckMode, PendingSkillCheck } f
 import type { ThemeId, StoredThemeMode } from "@/themes/types";
 import type { CompletionSummary } from "@/lib/character/completion";
 
+const NO_ONE_ONLINE: ReadonlySet<number> = new Set();
+
 interface RoomOverlaysProps {
   room: Room;
   userId: number;
@@ -186,6 +188,7 @@ export function RoomOverlays(props: RoomOverlaysProps) {
         <HostSheetOverview
           roomId={room.id}
           refreshKey={sheetsRefreshKey}
+          onlineUserIds={onlineUserIds ?? NO_ONE_ONLINE}
           onClose={() => setShowHostSheets(false)}
           onOpenCard={onViewPlayerCard}
         />

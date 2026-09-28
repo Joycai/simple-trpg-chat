@@ -12,7 +12,13 @@ import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibi
 import type { Room } from "@/components/room/types";
 import type { CheckMenuMode } from "@/lib/rules";
 import { ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
-import { useHostLabel } from "@/components/shared/host-label";
+import { useHostLabel, useRoomRule } from "@/components/shared/host-label";
+import { useFieldLabel } from "@/components/room/character/useFieldLabel";
+import type { MissingField } from "@/lib/character/completion";
+
+const NO_MISSING: ReadonlyArray<MissingField> = [];
+/** How many missing field names the character button's tooltip lists. */
+const MISSING_TOOLTIP_MAX = 8;
 
 type CheckMode = null | "check" | "psychology" | "sancheck";
 
@@ -66,8 +72,8 @@ interface RoomTopBarProps {
   setRoomNameDraft: Dispatch<SetStateAction<string>>;
   setEditingRoomName: Dispatch<SetStateAction<boolean>>;
   onSaveRoomName: () => void;
-  /** Required fields of the viewer's own sheet still unset (badge; 0 = none). */
-  characterMissing?: number;
+  /** Required fields of the viewer's own sheet still unset (badge count, tooltip names; empty = none). */
+  characterMissing?: ReadonlyArray<MissingField>;
   /** Host only: members whose required fields aren't all set (overview badge). */
   incompleteMembers?: number;
   unreadItems: number;
@@ -131,7 +137,7 @@ export function RoomTopBar({
   setRoomNameDraft,
   setEditingRoomName,
   onSaveRoomName,
-  characterMissing = 0,
+  characterMissing = NO_MISSING,
   incompleteMembers = 0,
   unreadItems,
   onToggleInventory,
@@ -160,6 +166,15 @@ export function RoomTopBar({
   } = overlays;
   const t = useTranslations("room");
   const tChar = useTranslations("character");
+  // The character button's tooltip names what's missing — the first few, so
+  // a fresh COC card doesn't produce a tooltip wider than the screen.
+  const fieldLabel = useFieldLabel(useRoomRule());
+  const missingCount = characterMissing.length;
+  const shownMissing = characterMissing.slice(0, MISSING_TOOLTIP_MAX).map((m) => fieldLabel(m.kind, m.key));
+  const missingTooltip = tChar("missingList", {
+    count: missingCount,
+    fields: shownMissing.join(tChar("listSeparator")) + (missingCount > MISSING_TOOLTIP_MAX ? "…" : ""),
+  });
   const tn = useTranslations("nav");
   const ts = useTranslations("userSettings");
   const tb = useTranslations("roomBackground");
@@ -261,15 +276,15 @@ export function RoomTopBar({
           <button
             onClick={() => setShowCharacter(!showCharacter)}
             className={`${iconBtn} ${showCharacter ? iconNavActive : iconNavIdle}`}
-            title={`${t("tooltipCharacter")} · ${nickname}${characterMissing > 0 ? ` · ${tChar("missingBadge", { count: characterMissing })}` : ""} (${formatHotkey("KeyC")})`}
-            aria-label={`${t("tooltipCharacter")}${characterMissing > 0 ? ` · ${tChar("missingBadge", { count: characterMissing })}` : ""}`}
+            title={`${t("tooltipCharacter")} · ${nickname}${missingCount > 0 ? ` · ${missingTooltip}` : ""} (${formatHotkey("KeyC")})`}
+            aria-label={`${t("tooltipCharacter")}${missingCount > 0 ? ` · ${missingTooltip}` : ""}`}
             aria-pressed={showCharacter}
           >
             <Icons.User className="w-[18px] h-[18px]" />
-            {characterMissing > 0 && (
-              <span key={characterMissing} className="absolute -top-1 -right-1 bg-danger text-bg text-[9px] font-bold min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center badge-in shadow-md"
+            {missingCount > 0 && (
+              <span key={missingCount} className="absolute -top-1 -right-1 bg-danger text-bg text-[9px] font-bold min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center badge-in shadow-md"
                 aria-hidden="true">
-                {characterMissing > 9 ? "9+" : characterMissing}
+                {missingCount > 9 ? "9+" : missingCount}
               </span>
             )}
           </button>

@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { roomMembers } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { serializeSheet } from "./sheet-store";
+import { serializeSheet, storedRevision } from "./sheet-store";
 import type { CharacterData } from "./types";
 
 /** What a step decides for the locked row: the sheet to store (or none), plus a result for the caller. */
@@ -13,7 +13,7 @@ export interface SheetRowStep<R> {
 }
 
 export type SheetRowOutcome<R> =
-  /** `sheet` is what was written, or null when the step wrote nothing. */
+  /** `sheet` is what was written (with its new `rev`), or null when the step wrote nothing. */
   | { status: "ok"; result: R; sheet: CharacterData | null }
   | { status: "notMember" }
   | { status: "tooLarge"; result: R };
@@ -30,6 +30,10 @@ export type SheetRowOutcome<R> =
  *
  * `step` gets the raw column value (parse it with the room rule) and must stay
  * synchronous and free of other I/O: it runs while the row is locked.
+ *
+ * Every write bumps the sheet's `rev` from the stored row's, whatever the
+ * step returned (a rebuilt sheet starts without one), so a client can order
+ * two copies of the same sheet.
  */
 export async function updateSheetRow<R>(
   roomId: number,
@@ -44,8 +48,9 @@ export async function updateSheetRow<R>(
       .for("update");
     if (!row) return { status: "notMember" } as const;
 
-    const { sheet, result } = step(row.characterData);
-    if (!sheet) return { status: "ok", result, sheet: null } as const;
+    const { sheet: stepSheet, result } = step(row.characterData);
+    if (!stepSheet) return { status: "ok", result, sheet: null } as const;
+    const sheet: CharacterData = { ...stepSheet, rev: storedRevision(row.characterData) + 1 };
     const json = serializeSheet(sheet);
     if (json === null) return { status: "tooLarge", result } as const;
     await tx.update(roomMembers).set({ characterData: json }).where(eq(roomMembers.id, row.id));
