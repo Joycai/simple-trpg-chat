@@ -1,6 +1,6 @@
 # 规则模版系统：现状分析报告
 
-> ⚠️ **历史文档**：本文记录的是规则模块化（`RuleModule` 注册表）之前的状态，正文中的字段、函数与路径均已不存在。当前实现见 `.claude/skills/simple-trpg-chat-rules/SKILL.md`（规则模块）与 [`character-system.md`](./character-system.md)（角色卡 schema、v2 存储）。
+> ⚠️ **历史文档**：本文记录的是规则模块化（`RuleModule` 注册表）之前的状态，正文中的字段、函数与路径均已不存在。当前实现见 `.agents/skills/simple-trpg-chat-rules/SKILL.md`（规则模块）与 [`character-system.md`](./character-system.md)（角色卡 schema、v2 存储）。
 
 > 分析对象：房间的"规则模版"功能（hoster 可为房间选择一套规则，房间内部分配置随之变动）。
 > 设计初衷：**可插拔、模块化**。

@@ -5,9 +5,9 @@
  * bump level, it only applies the one you pass.
  *
  * Usage (from the repo root):
- *   node .claude/skills/version-bump/scripts/bump.mjs --level minor
- *   node .claude/skills/version-bump/scripts/bump.mjs --set 1.0.0
- *   node .claude/skills/version-bump/scripts/bump.mjs --level patch --dry-run
+ *   node .agents/skills/version-bump/scripts/bump.mjs --level minor
+ *   node .agents/skills/version-bump/scripts/bump.mjs --set 1.0.0
+ *   node .agents/skills/version-bump/scripts/bump.mjs --level patch --dry-run
  *
  * Edits are surgical regex replacements, not JSON re-serialization, so
  * package.json keeps its exact formatting and the diff stays one line.

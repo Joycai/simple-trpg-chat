@@ -60,7 +60,7 @@ diceAnnouncerBotId: integer('dice_announcer_bot_id')
   .references(() => users.id, { onDelete: 'set null' }),
 ```
 
-无需新表。迁移：`pnpm db:push`（交互模式若出现 ai_token_usages truncate 提示答 No，见 CLAUDE.md）。
+无需新表。迁移：`pnpm db:push`（交互模式若出现 ai_token_usages truncate 提示答 No，见 AGENTS.md）。
 
 ## 4. 服务端：注入点
 
@@ -131,7 +131,7 @@ null 条件（任一）：
 
 ### 5.3 熔断器
 
-照 CLAUDE.md 的 globalThis 强制约定（多 worker 共享，同 `agentCooldowns`/EventEmitter 模式）：
+照 AGENTS.md 的 globalThis 强制约定（多 worker 共享，同 `agentCooldowns`/EventEmitter 模式）：
 
 ```ts
 declare global { var __quipBreaker: Map<number, { fails: number; openUntil: number }> | undefined; }
@@ -141,7 +141,7 @@ Key = botUserId。连续 **3** 次 LLM 失败 → open **5 分钟**（期间纯�
 
 ### 5.4 限流（成本控制，非冷却）
 
-Key = roomId，globalThis 令牌桶：容量 **3**，回填 **1 枚/2 秒**。群体检定 5 人齐投时前 3 个走 LLM、其余走语料池，不排队不丢播报。常量放在 `dice-announcer.ts` 顶部（CLAUDE.md：长度/上限常量与 feature 常量同住 `src/lib/`）。
+Key = roomId，globalThis 令牌桶：容量 **3**，回填 **1 枚/2 秒**。群体检定 5 人齐投时前 3 个走 LLM、其余走语料池，不排队不丢播报。常量放在 `dice-announcer.ts` 顶部（AGENTS.md：长度/上限常量与 feature 常量同住 `src/lib/`）。
 
 ### 5.5 语料池
 
@@ -181,7 +181,7 @@ dice 气泡解析 `diceDetail` 处（~L1629 附近已解析 `proxiedByNickname`�
 - **玩家名**：卡片内容区首行显著展示投掷者昵称（消息自身的 `nickname` 就是玩家昵称，直接用），如「**阿岚** 的检定」。
 - **骚话**：卡片底部一行斜体/弱化样式；`quipPending` 时渲染一个轻量占位（三个点的呼吸动画即可，不要 spinner），收到补丁后替换。极端情况下补丁丢失（SSE 断线错过、进程崩溃），占位不能永久呼吸——挂载 8 秒后自动隐去占位，仅当后续收到补丁或重进房时再显示 quip。
 - **不变项**：气泡左右对齐、「自己的消息」判定、检定响应按钮禁用逻辑等一切基于 `msg.userId` 的行为保持原样（归属仍是玩家）。
-- 全部用语义 Tailwind token（`bg-surface` / `text-text` / `border-border` 系），禁止硬编码颜色（CLAUDE.md 约定）。
+- 全部用语义 Tailwind token（`bg-surface` / `text-text` / `border-border` 系），禁止硬编码颜色（AGENTS.md 约定）。
 
 ## 8. 设置入口
 
@@ -189,7 +189,7 @@ dice 气泡解析 `diceDetail` 处（~L1629 附近已解析 `proxiedByNickname`�
 
 新增 `setDiceAnnouncerAction(roomId: number, botUserId: number | null)`：
 
-- 权限：房主。按 CLAUDE.md 错误约定：**不要裸 throw**，用 `tryRoomAccess(roomId, true)`，返回 null 时报「非房主」，返回 `{ success: true } | { success: false, error }`，error 用服务端 `getTranslations` 本地化。
+- 权限：房主。按 AGENTS.md 错误约定：**不要裸 throw**，用 `tryRoomAccess(roomId, true)`，返回 null 时报「非房主」，返回 `{ success: true } | { success: false, error }`，error 用服务端 `getTranslations` 本地化。
 - 校验（zod 或手写均可，按约定放 action 边界）：`botUserId !== null` 时——目标 users 行存在且 `isBot === true`，且是本房 `roomMembers` 成员；否则拒绝。
 - 写 `rooms.diceAnnouncerBotId`，广播 `room_settings_updated`（现有事件，客户端已处理刷新），`revalidatePath`。
 

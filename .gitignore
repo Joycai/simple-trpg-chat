@@ -62,3 +62,9 @@ ds-bundle/
 
 # dev-workflow task artifacts
 .claude/tasks/
+
+# Local agent state (shared skills remain tracked)
+.claude/settings.local.json
+.claude/worktrees/
+.codex/tasks/
+.codex/worktrees/

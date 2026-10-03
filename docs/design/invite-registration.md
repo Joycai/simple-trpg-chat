@@ -81,7 +81,7 @@ inviteQuota: integer('invite_quota').notNull().default(4),
 
 列级 default 4 仅作兜底;运行时以配置值为准。
 
-迁移:`pnpm db:push` 即可(新表 + 带默认值的新列,无破坏性;沿用 CLAUDE.md 中对 `ai_token_usages` truncate 提示答 No 的注意事项)。
+迁移:`pnpm db:push` 即可(新表 + 带默认值的新列,无破坏性;沿用 AGENTS.md 中对 `ai_token_usages` truncate 提示答 No 的注意事项)。
 
 ### 2.4 过期处理:惰性失效,不引入定时任务
 
