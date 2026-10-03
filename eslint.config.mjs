@@ -19,7 +19,7 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // Layering rules (CLAUDE.md › Layering). Each block owns a disjoint file set:
+  // Layering rules (AGENTS.md › Layering). Each block owns a disjoint file set:
   // a later entry for the same rule replaces, not merges, an earlier one.
   // R2–R4 use import/no-restricted-paths because it resolves the real file, so
   // a relative specifier (`../../db`) can't slip past an alias-only pattern.
@@ -37,7 +37,7 @@ const eslintConfig = defineConfig([
               from: "./src",
               except: ["./db/schema.ts", "./lib/messaging/audience.ts", "./themes/types.ts"],
               message:
-                "schema.ts may only import dependency-free, client-safe modules (see CLAUDE.md › Layering).",
+                "schema.ts may only import dependency-free, client-safe modules (see AGENTS.md › Layering).",
             },
           ],
         },
@@ -127,8 +127,10 @@ const eslintConfig = defineConfig([
     // Local-only tooling (gitignored): vendored bundles / design-sync scratch.
     ".ds-sync/**",
     "ds-bundle/**",
-    // Claude Code metadata, including full git worktrees under .claude/worktrees/.
+    // Agent metadata, including local worktrees and skill scripts.
     ".claude/**",
+    ".codex/**",
+    ".agents/**",
   ]),
 ]);
 

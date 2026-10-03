@@ -28,13 +28,16 @@ prevents is a repo where the footer says `v0.2.0`, the release tarball says
 | `src/lib/version.ts` → `APP_VERSION` | `import { version } from "package.json"` | **No** — never hardcode here |
 | Home footer, login, register, admin sidebar | render `APP_VERSION` | **No** — follows automatically |
 | `docs/guides/*.md` → `**Version**: X.Y.Z \| **Last Updated**: …` | header line per guide | Yes — the script syncs them |
-| GitHub Release tag `vX.Y.Z` | `release.yml` reads `package.json` at release time | No — but you push the tag |
+| GitHub Release tag `vX.Y.Z` | `release.yml` reads `package.json` at release time | No — the release workflow creates it |
 
 If someone ever adds a *new* place that prints a version, it must import
 `APP_VERSION`, not repeat the literal. A second literal is a second thing to
 forget.
 
 ## Picking the bump level
+
+For `codex/<task>` branches, infer the level from the actual task or diff;
+`codex/` identifies the coding tool, not the kind of release.
 
 Infer it from the branch name, then **say what you inferred and why** before
 applying it — the user can override with one word, and that is cheaper than a
@@ -92,7 +95,7 @@ rebase onto `main` first, then re-derive the target from the new base.
 **4. Apply the bump.**
 
 ```bash
-node .claude/skills/version-bump/scripts/bump.mjs --level minor
+node .agents/skills/version-bump/scripts/bump.mjs --level minor
 ```
 
 `--set X.Y.Z` forces an exact version; `--dry-run` prints the plan without

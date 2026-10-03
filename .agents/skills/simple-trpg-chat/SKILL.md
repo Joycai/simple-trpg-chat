@@ -1,12 +1,12 @@
 ---
 name: simple-trpg-chat
 description: >-
-  Expert knowledge for the Simple TRPG Chat project — a lightweight web-based TRPG tool built with Next.js 16, Drizzle ORM (PostgreSQL), SSE real-time chat, AI Bot Agent, dice system, inventory, clue cards, character sheets, and multi-theme support. Use this skill whenever working on this project's codebase, adding features, fixing bugs, understanding the data model (16 tables), following development conventions (feature branches, PR workflow, pnpm, CI), or navigating the architecture (message audience router, Bot-as-User pattern, Server Actions, i18n with next-intl). Also use for questions about core concepts (Room, Bot, Dice, Character, Inventory, Clue, Private Chat, Markdown, Theme) or when troubleshooting common pitfalls.
+  Expert knowledge for the Simple TRPG Chat project — a lightweight web-based TRPG tool built with Next.js 16, Drizzle ORM (PostgreSQL), SSE real-time chat, AI Bot Agent, dice system, inventory, clue cards, character sheets, and multi-theme support. Use this skill whenever working on this project's codebase, adding features, fixing bugs, understanding the data model, following development conventions (feature branches, PR workflow, pnpm, CI), or navigating the architecture (message audience router, Bot-as-User pattern, Server Actions, i18n with next-intl). Also use for questions about core concepts (Room, Bot, Dice, Character, Inventory, Clue, Private Chat, Markdown, Theme) or when troubleshooting common pitfalls.
 ---
 
 # Simple TRPG Chat — Project Knowledge
 
-> Tech stack, commands, and project structure are in `CLAUDE.md`. This skill covers non-obvious concepts, conventions, and gotchas.
+> Tech stack, commands, and project structure are in `AGENTS.md`. This skill covers non-obvious concepts, conventions, and gotchas.
 
 ## Core Concepts (Non-obvious only)
 
@@ -25,14 +25,12 @@ description: >-
 
 ### Git Workflow
 - `main` = release branch, **no direct push**
-- Feature branches: `feature/<name>` → push → PR → CI → review → merge
+- Feature branches: `codex/<task>` (Codex default) → push → PR → CI → review → merge
 
-### Role Assignments
-- **@Anela (Angela)** — PM: requirements, task breakdown, assignment, acceptance
-- **@Shizuku** — All development (backend + frontend)
-- **@nagisa** — Code review only (no direct code changes)
-- **@水月** — UI/UX design
-- **@Janney** — Documentation + progress tracking
+### Agent Workflow
+- Codex handles implementation, verification, and handoff using `AGENTS.md`.
+- Historical named-agent assignments do not apply to new Codex work.
+- Keep durable implementation context in `docs/` or `plans/` so later sessions can continue.
 
 ---
 
@@ -40,7 +38,7 @@ description: >-
 
 | File | Purpose |
 |------|---------|
-| `src/db/schema.ts` | All 16 table definitions |
+| `src/db/schema.ts` | Table definitions (source of truth) |
 | `src/lib/ai/agent.ts` | Bot Agent engine (13 tools) |
 | `src/lib/commands/engine.ts` | `.st` / `.rc` / `.sc` / `.rd` parser |
 | `src/lib/messaging/audience.ts` | Pure visibility predicates (`canSee`/`channelOf`/`countsAsDmUnread`) — shared client+server |
@@ -64,6 +62,6 @@ description: >-
 
 Read on demand — not auto-loaded:
 
-- **`references/data-model.md`** — 16-table schema with columns and extension points. Read when working on schema changes or understanding data relationships.
+- **`references/data-model.md`** — Schema reference with columns and extension points. Read when working on schema changes or understanding data relationships.
 - **`references/core-flows.md`** — Step-by-step flows: Room creation, SSE messaging, Bot activation, Dice rolls, Item distribution, AI Smart Import.
 - **`references/pitfalls.md`** — 10 recurring issues with root causes and fixes. Read when troubleshooting SSE, database, or environment issues.

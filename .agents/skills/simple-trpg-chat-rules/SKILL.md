@@ -1,20 +1,10 @@
 ---
 name: simple-trpg-chat-rules
-description: >
-  Complete reference for the pluggable rule-template module system in simple-trpg-chat
-  (RuleModule interface + declarative character-sheet schema + capability-driven UI +
-  registry). USE THIS SKILL whenever the user asks to add a new TRPG ruleset (DnD 5e /
-  d20 / PbtA / 骰池 / WoD / FATE …), modify rule-template behavior, debug rule-gated
-  commands (.rc / .sc / .st / .r), reason about why a check resolved a certain way,
-  change a character sheet's fields or 完成度 (角色卡 schema / completion), or change how
-  rule capabilities drive UI (TopBar check menu / character-sheet bars / attribute grid /
-  avatar hover card / member list / host check dialog). Also trigger when the user says
-  "规则模板" / "规则模块" / "rule template" / "RuleModule" / "capabilities" /
-  "resolveCheck" / "getRuleForRoom" / "角色卡 schema" / "SheetSchema" / "完成度", or names
-  a rule id like coc7th / basic / dnd5e / triangle / shouhun / 狩魂者 in an implementation
-  context. Even if the user just says "加一套规则" without specifying which system,
-  consult this skill — the registry/capability/schema pattern is the same for every
-  ruleset.
+description: >-
+  Add or modify TRPG rulesets, dice/check commands, character-sheet schemas and
+  completion, or capability-driven UI in Simple TRPG Chat. Use for RuleModule,
+  SheetSchema, quick-check panels, and rule-specific behavior (coc7th, dnd5e,
+  basic, triangle, shouhun / 狩魂者 / 规则模板 / 角色卡).
 ---
 
 # Simple TRPG Chat — 规则模板模块系统
@@ -367,6 +357,6 @@ COC / d20 的导出 .txt 属性标签是翻译名(`力量: 70`),不是大写 key
 - `src/lib/rules/shouhun/index.ts` — 用到最多可选钩子(`parseQuickCheckArgs`、`checkRequestOptions`、`resolveCheck` 里的逐骰渲染)
 - `src/lib/rules/sheet-schema.ts` + `src/lib/character/sheet-model.ts` — 角色卡的两份核心契约,改 schema 前先读这两个文件
 - `src/lib/rules/__tests__/{sheet-schema,rule-sheets,legacy-migration,rules}.test.ts` + `src/lib/character/__tests__/*.test.ts` — 规则与角色卡的完整测试面,新规则请覆盖等量边界
-- `.claude/tasks/character-sheet-framework/02-design.md` — 角色卡声明式 schema 这轮重构的设计文档(§4 schema 定义,§5 各规则 schema 草案)
+- `docs/arch/character-system.md` — 角色卡声明式 schema、v2 存储与写入流程的共享架构文档
 - `docs/arch/rule-template-coupling-audit.md` — PR #176 的耦合审计(历史)
 - `docs/arch/rule-template-system.md` / `docs/arch/rule-template-refactor.md` — 更早的分析与方案(历史)

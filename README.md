@@ -138,6 +138,17 @@ src/
 
 ## 📝 开发者注意事项
 
+### Codex 开发
+
+项目级开发约定统一维护在 [`AGENTS.md`](AGENTS.md)，项目技能位于
+[`.agents/skills/`](.agents/skills/)。在 Codex 中打开本仓库即可继续开发；
+也可显式使用 `$simple-trpg-chat`、`$simple-trpg-chat-rules`、
+`$simple-trpg-chat-theme` 和 `$version-bump`。技能未显示时重启 Codex。
+
+开发服务器使用 `pnpm dev`，默认端口为 3000；使用仓库现有的本地数据库与环境配置。
+`CLAUDE.md` 与 `.claude/skills/` 保留兼容入口，共享同一份开发约定与技能。
+Claude 的本地权限配置、会话和 worktree 不属于 Codex 配置，也不作为共享项目上下文。
+
 ### ⚠️ 生产环境 SSE 单例
 因为 Next.js 在生产构建运行时会利用多个 Worker 并发处理请求，因此 `src/lib/server/events.ts` 中的 `EventEmitter` 必须被持久化在 `globalThis` 上以确保不同 Worker 间能够同步消息：
 
