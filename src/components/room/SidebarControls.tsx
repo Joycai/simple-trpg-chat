@@ -23,21 +23,24 @@ export function SidebarResizeHandle({
   onResetWidth,
   onCollapse,
 }: {
-  onResizeStart: (e: React.MouseEvent) => void;
+  onResizeStart: (e: React.PointerEvent) => void;
   onResetWidth: () => void;
   onCollapse: () => void;
 }) {
   const t = useTranslations("room");
   return (
     <div
-      onMouseDown={onResizeStart}
-      className="w-1 hover:w-1.5 active:w-1.5 h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-colors duration-150 shrink-0 relative z-10 group"
+      onPointerDown={onResizeStart}
+      className="w-1 hover:w-1.5 active:w-1.5 [@media(pointer:coarse)]:w-6 touch-none h-full bg-border hover:bg-primary/50 active:bg-primary cursor-col-resize select-none transition-colors duration-150 shrink-0 relative z-10 group"
       title={t("tooltipResize")}
       onDoubleClick={onResetWidth}
     >
       {/* Collapse toggle button on the handle (like VS Code or Notion) */}
-      <div
-        className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-4 h-8 bg-surface border border-border hover:border-primary/50 rounded flex items-center justify-center shadow-md cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-20"
+      <button
+        type="button"
+        aria-label={t("tooltipCollapseSidebar")}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-4 h-8 [@media(pointer:coarse)]:left-0 [@media(pointer:coarse)]:w-6 [@media(pointer:coarse)]:h-11 bg-surface border border-border hover:border-primary/50 rounded flex items-center justify-center shadow-md cursor-pointer hover-reveal transition-opacity z-20"
         onClick={(e) => {
           e.stopPropagation();
           onCollapse();
@@ -45,7 +48,7 @@ export function SidebarResizeHandle({
         title={t("tooltipCollapseSidebar")}
       >
         <span className="text-[9px] text-text-muted hover:text-primary select-none">◀</span>
-      </div>
+      </button>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useRef, useState, useSyncExternalStore, type Dispatch, type SetStateAct
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
-import { useClickOutside } from "@/lib/ui/useClickOutside";
+import { ViewportPopover } from "@/components/shared/ViewportPopover";
 import { useRoomBgIntensity, setRoomBgIntensity } from "@/components/room/hooks/useRoomBgIntensity";
 import { formatHotkey } from "@/lib/ui/hotkeys";
 import type { OverlayVisibility } from "@/components/room/hooks/useOverlayVisibility";
@@ -201,8 +201,7 @@ export function RoomTopBar({
   const iconAiActive = "bg-ai/15 text-ai border-ai/50";
   const iconAiIdle = "text-ai/80 hover:text-ai hover:bg-ai/10 border-transparent";
 
-  // Outside-click close for the top-bar dropdowns. A document listener works
-  // even though the rainglass header's backdrop-filter clips `fixed` backdrops.
+  // Popovers anchor here but portal outside the frosted header.
   const checkRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLDivElement>(null);
   const sysRef = useRef<HTMLDivElement>(null);
@@ -216,10 +215,7 @@ export function RoomTopBar({
     eventBadgeStore.getServerSnapshot,
   );
   const markEventBadgeSeen = () => eventBadgeStore.markSeen();
-  useClickOutside(checkRef, () => setShowCheckMenu(false), showCheckMenu);
-  useClickOutside(aiRef, () => setShowAiMenu(false), showAiMenu);
-  useClickOutside(sysRef, () => setShowSystemMenu(false), showSystemMenu);
-  useClickOutside(itemMenuRef, () => setShowItemMenu(false), showItemMenu);
+
 
   return (
     <header className="bg-header-bg border-b border-header-border shadow-sm px-4 py-2 sm:py-3 shrink-0 z-20 relative">
@@ -348,9 +344,7 @@ export function RoomTopBar({
               <Icons.Settings className="w-[18px] h-[18px]" />
             </button>
             {showSystemMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[160px] z-30 overlay-pop"
-                style={{ transformOrigin: "top right" }}
-                onClick={() => setShowSystemMenu(false)}>
+              <ViewportPopover anchorRef={sysRef} onClose={() => setShowSystemMenu(false)} className="bg-surface border border-border rounded-lg shadow-xl py-1.5 overlay-pop" onClick={() => setShowSystemMenu(false)}>
                 <button onClick={() => { setShowMembers(true); }}
                   className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-text hover:bg-surface-alt transition">
                   <Icons.Users className="w-4 h-4" /> {t("menuMembers")} <span className="ml-auto text-xs text-text-muted">{playerCount + botCount}</span>
@@ -409,7 +403,7 @@ export function RoomTopBar({
                     </div>
                   )}
                 </div>
-              </div>
+              </ViewportPopover>
             )}
           </div>
 
@@ -449,9 +443,7 @@ export function RoomTopBar({
                     <Icons.Crosshair className="w-[18px] h-[18px]" />
                   </button>
                   {showCheckMenu && (
-                      <div className="absolute right-0 top-full mt-1 bg-surface theme-border rounded-theme shadow-xl p-1.5 w-72 z-30 overlay-pop"
-                        style={{ transformOrigin: "top right" }}
-                        onClick={() => setShowCheckMenu(false)}>
+                      <ViewportPopover anchorRef={checkRef} onClose={() => setShowCheckMenu(false)} className="bg-surface theme-border rounded-theme shadow-xl p-1.5 overlay-pop" onClick={() => setShowCheckMenu(false)}>
                         <div className="px-2.5 pt-1.5 pb-2 text-[11px] font-bold text-text-dim uppercase tracking-wider select-none">
                           {t("checkMenuTitle")}
                         </div>
@@ -476,7 +468,7 @@ export function RoomTopBar({
                             );
                           })}
                         </div>
-                      </div>
+                      </ViewportPopover>
                   )}
                 </div>
               ) : checkMenuModes.length === 1 ? (
@@ -504,9 +496,7 @@ export function RoomTopBar({
                   )}
                 </button>
                 {showItemMenu && (
-                  <div className="absolute right-0 top-full mt-1 bg-surface theme-border rounded-theme shadow-xl p-1.5 w-72 z-30 overlay-pop"
-                    style={{ transformOrigin: "top right" }}
-                    onClick={() => setShowItemMenu(false)}>
+                  <ViewportPopover anchorRef={itemMenuRef} onClose={() => setShowItemMenu(false)} className="bg-surface theme-border rounded-theme shadow-xl p-1.5 overlay-pop" onClick={() => setShowItemMenu(false)}>
                     <button onClick={() => setShowItemManager(true)}
                       className="group w-full text-left flex items-center gap-3 px-2.5 py-2.5 rounded-theme hover:bg-surface-alt transition cursor-pointer">
                       <span className="flex items-center justify-center w-10 h-10 rounded-theme shrink-0 bg-primary/12 text-primary">
@@ -532,7 +522,7 @@ export function RoomTopBar({
                         <span className="block text-xs text-text-muted truncate">{t("menuEventManageDesc")}</span>
                       </span>
                     </button>
-                  </div>
+                  </ViewportPopover>
                 )}
               </div>
               <button
@@ -553,9 +543,7 @@ export function RoomTopBar({
                   <Icons.Bot className="w-[18px] h-[18px]" />
                 </button>
                 {showAiMenu && (
-                    <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-xl py-1.5 min-w-[180px] z-30 overlay-pop"
-                      style={{ transformOrigin: "top right" }}
-                      onClick={() => setShowAiMenu(false)}>
+                    <ViewportPopover anchorRef={aiRef} onClose={() => setShowAiMenu(false)} className="bg-surface border border-border rounded-lg shadow-xl py-1.5 overlay-pop" onClick={() => setShowAiMenu(false)}>
                       <button onClick={() => setShowAiImport(true)}
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
                         <Icons.Download className="w-4 h-4" /> {t("btnImport")}
@@ -564,7 +552,7 @@ export function RoomTopBar({
                         className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-ai hover:bg-surface-alt transition">
                         <Icons.Bot className="w-4 h-4" /> {t("btnBot")}
                       </button>
-                    </div>
+                    </ViewportPopover>
                 )}
               </div>
             </>

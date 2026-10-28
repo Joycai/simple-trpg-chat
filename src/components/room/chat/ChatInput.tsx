@@ -326,6 +326,11 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
 
   return (
     <div className="relative">
+      {showStickers && (
+        <div className="absolute bottom-full left-0 mb-2 z-30">
+          <StickerPicker onPick={handleStickerPick} onClose={() => setShowStickers(false)} />
+        </div>
+      )}
       {/* Dice panel */}
       {showDice && (
         <div className="absolute bottom-full left-0 right-0 mb-2 z-10">
@@ -457,7 +462,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
       {/* Input row */}
       {/* Private-mode toggle recolors the border and ring — 200ms: a color
           change on a control this visible should track the toggle, not trail it. */}
-      <div className={`flex items-end gap-1.5 bg-input-bg border rounded-theme p-2 shadow-sm transition-[border-color,box-shadow] duration-200 ${
+      <div className={`grid grid-cols-[repeat(5,minmax(0,1fr))_auto] sm:flex items-end gap-1.5 bg-input-bg border rounded-theme p-2 shadow-sm transition-[border-color,box-shadow] duration-200 ${
         isPrivate ? "border-private-border ring-2 ring-private-border/20" : "border-input-border"
       }`}>
         {quickCheckSpec && (
@@ -479,7 +484,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={isPrivate ? t("whisperingPlaceholder") : t("inputPlaceholder")}
-          className="flex-1 px-2 py-2 border-0 outline-none text-sm bg-transparent text-text resize-none overflow-y-auto max-h-32 min-h-[36px]"
+          className="col-start-1 col-span-5 row-start-1 min-w-0 w-full sm:w-auto sm:flex-1 px-2 py-2 border-0 outline-none text-base sm:text-sm bg-transparent text-text resize-none overflow-y-auto max-h-32 min-h-[36px]"
           rows={1}
         />
 
@@ -513,9 +518,6 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           >
             <Icons.Smile className="w-[18px] h-[18px]" />
           </button>
-          {showStickers && (
-            <StickerPicker onPick={handleStickerPick} onClose={() => setShowStickers(false)} />
-          )}
         </div>
 
         <button
@@ -548,7 +550,7 @@ export function ChatInput({ onSendMessage, roomId, mentions = [], isPrivateLocke
           disabled={!message.trim() || (!isPrivateLocked && isPrivate && !privateTargetId)}
           title={t("send")}
           aria-label={t("send")}
-          className={`flex items-center justify-center w-10 h-10 rounded-theme font-bold transition active:scale-95 shrink-0 shadow-[var(--theme-glow)] ${
+          className={`col-start-6 row-start-1 flex items-center justify-center w-10 h-10 rounded-theme font-bold transition active:scale-95 shrink-0 shadow-[var(--theme-glow)] ${
             isPrivate
               ? "bg-accent hover:bg-accent-hover text-accent-foreground"
               : "bg-primary hover:bg-primary-hover disabled:bg-text-dim disabled:shadow-none text-primary-foreground"

@@ -35,7 +35,7 @@ export function SkillSetPrompt({ skillName, onConfirm, onClose }: Props) {
 
   return (
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4" onClick={close}>
-      <div ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
+      <div ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-4 sm:p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain w-full max-w-md ${panelClass}`}
         onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-3">
           <h3 className="font-bold text-xl text-text font-theme-display">{t("skillSetTitle")}</h3>

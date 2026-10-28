@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 
 // Run before the browser paints on the client, but fall back to useEffect during
 // SSR so React doesn't warn. Used to settle the sidebar's collapsed state ahead
@@ -21,6 +21,8 @@ export function useSidebar() {
   // so the initial collapsed state doesn't slide on page load.
   const [hydrated, setHydrated] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const stopResizeRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopResizeRef.current?.(), []);
 
   // Load saved width on mount.
   useEffect(() => {
@@ -74,13 +76,19 @@ export function useSidebar() {
     localStorage.setItem("trpg-sidebar-width", "200");
   }, []);
 
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
+    if (!e.isPrimary || e.button !== 0) return;
     e.preventDefault();
+    stopResizeRef.current?.();
+    const handle = e.currentTarget;
+    const pointerId = e.pointerId;
+    handle.setPointerCapture(pointerId);
     const startX = e.clientX;
     const startWidth = width;
     setResizing(true);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
       const deltaX = moveEvent.clientX - startX;
       // Constraint width between 160px and 360px
       const newWidth = Math.max(160, Math.min(360, startWidth + deltaX));
@@ -88,14 +96,24 @@ export function useSidebar() {
       localStorage.setItem("trpg-sidebar-width", String(newWidth));
     };
 
-    const handleMouseUp = () => {
+    const stop = () => {
       setResizing(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerEnd);
+      document.removeEventListener("pointercancel", handlePointerEnd);
+      handle.removeEventListener("lostpointercapture", stop);
+      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      stopResizeRef.current = null;
+    };
+    const handlePointerEnd = (event: PointerEvent) => {
+      if (event.pointerId === pointerId) stop();
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    stopResizeRef.current = stop;
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerEnd);
+    document.addEventListener("pointercancel", handlePointerEnd);
+    handle.addEventListener("lostpointercapture", stop);
   }, [width]);
 
   return { width, collapsed, resizing, hydrated, isMobile, setCollapsed, toggleCollapsed, resetWidth, handleResizeStart };

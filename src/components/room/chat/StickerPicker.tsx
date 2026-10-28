@@ -80,7 +80,7 @@ export function StickerPicker({ onPick, onClose }: StickerPickerProps) {
   return (
     <div
       ref={setRoot}
-      className="absolute bottom-12 right-0 origin-bottom-right z-30 w-60 sm:w-72 max-w-[calc(100vw-1rem)] max-h-80 flex flex-col rounded-theme border border-border bg-surface shadow-lg overflow-hidden"
+      className="origin-bottom-left w-60 sm:w-72 max-w-[calc(100vw-2rem)] max-h-[min(20rem,50dvh)] flex flex-col rounded-theme border border-border bg-surface shadow-lg overflow-hidden"
       role="dialog"
       aria-label={t("stickerPanelTitle")}
     >

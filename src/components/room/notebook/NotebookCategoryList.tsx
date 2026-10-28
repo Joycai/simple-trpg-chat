@@ -142,7 +142,7 @@ export function NotebookCategoryList({
         <button
           onClick={() => onSelect(filter)}
           aria-pressed={isActive}
-          className={`notebook-cat w-full flex items-center gap-2.5 px-3 py-2 rounded-theme text-sm transition cursor-pointer border-l-2 ${
+          className={`notebook-cat w-full flex items-center gap-2.5 px-3 py-2 rounded-theme text-sm transition cursor-pointer border-l-2 ${trailingEdit ? "pr-12" : ""} ${
             isActive
               ? "bg-accent/10 text-accent font-bold border-accent"
               : "text-text-muted hover:text-text hover:bg-surface-alt border-transparent"
@@ -150,13 +150,13 @@ export function NotebookCategoryList({
         >
           {leading}
           <span className="flex-1 text-left truncate">{label}</span>
-          <span className={`text-xs font-theme-mono opacity-70 ${trailingEdit ? "group-hover:opacity-0" : ""}`}>{count}</span>
+          <span className="text-xs font-theme-mono opacity-70">{count}</span>
         </button>
         {trailingEdit && (
           <button
             onClick={trailingEdit}
             title={t("editCategory")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-theme text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 transition cursor-pointer"
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-theme text-text-dim hover:text-accent hover-reveal transition cursor-pointer"
           >
             <Icons.Pencil className="w-3.5 h-3.5" />
           </button>
