@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "node",
     exclude: [
       "tests/e2e/**",
+      "tests/responsive/**",
       ".next/**",
       "node_modules/**",
       "**/.claude/**",

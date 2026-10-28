@@ -18,7 +18,7 @@ interface Props {
 
 /**
  * In-channel "timeline divider" — a gold, centered date separator. For the host
- * a 撤回 (withdraw) control appears on hover and opens a double-confirm dialog.
+ * a 撤回 (withdraw) control is always visible on touch and opens a confirmation.
  */
 export function TimelineDivider({ data, fallback, isHost, onWithdraw }: Props) {
   const t = useTranslations("timeline");
@@ -50,11 +50,11 @@ export function TimelineDivider({ data, fallback, isHost, onWithdraw }: Props) {
         {t("subtitle", { host: hostLabel })}
       </span>
 
-      {/* Host-only withdraw affordance — revealed on hover of the divider row. */}
+      {/* Host-only withdraw affordance — stays in flow on touch so it cannot cover the label. */}
       {isHost && onWithdraw && (
         <button
           onClick={() => setConfirming(true)}
-          className="absolute right-1 top-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-theme border border-danger/40 bg-danger/5 text-danger text-xs font-bold opacity-0 group-hover:opacity-100 focus:opacity-100 transition cursor-pointer"
+          className="timeline-withdraw hover-reveal self-end inline-flex items-center gap-1 px-2.5 py-1 min-h-10 rounded-theme border border-danger/40 bg-danger/5 text-danger text-xs font-bold transition cursor-pointer"
           title={t("withdraw")}
         >
           <Icons.Undo2 className="w-3.5 h-3.5" />
@@ -103,7 +103,7 @@ function WithdrawConfirm({
   return (
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4" onClick={close}>
       <div
-        ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-sm ${panelClass}`}
+        ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-4 sm:p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain w-full max-w-sm ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-3">

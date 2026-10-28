@@ -25,6 +25,7 @@
     "test": "vitest run",
     "i18n:check": "tsx scripts/check-i18n.ts",
     "test:e2e": "playwright test",
+    "test:responsive": "playwright test --config playwright.responsive.config.ts",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
@@ -57,6 +58,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
+    "vite": "8.0.16",
     "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@10.34.5",

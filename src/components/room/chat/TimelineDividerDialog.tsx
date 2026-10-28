@@ -93,7 +93,7 @@ export function TimelineDividerDialog({ roomId, onClose }: Props) {
   return (
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 p-4" onClick={close}>
       <div
-        ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-md ${panelClass}`}
+        ref={panelRef} className={`bg-surface theme-border rounded-theme shadow-2xl p-4 sm:p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain w-full max-w-md ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

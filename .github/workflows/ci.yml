@@ -8,6 +8,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  responsive:
+    name: Phone & iPad layouts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm test:responsive
+
   build:
     name: Test & Build
     runs-on: ubuntu-24.04

@@ -11,6 +11,17 @@
 @import "../themes/rainglass/theme.css";
 @import "../themes/aether/theme.css";
 
+/* Touch controls must be discoverable without hover, including wide iPads.
+   Only a fine pointer with hover support gets the quieter desktop treatment. */
+.hover-reveal { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .hover-reveal { opacity: 0; }
+  .group:hover .hover-reveal,
+  .group:focus-within .hover-reveal,
+  .hover-reveal:focus-visible { opacity: 1; }
+  .timeline-withdraw { position: absolute; right: 0.25rem; top: 0.25rem; }
+}
+
 /* ============================================================
    Theme-Specific Component Styles
    ============================================================ */

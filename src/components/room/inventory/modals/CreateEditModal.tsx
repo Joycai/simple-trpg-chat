@@ -127,7 +127,7 @@ export function CreateEditModal({
   return (
     <>
     <OverlayShell portal onClose={onCancel} layerClassName="z-[60]" scrimClassName="bg-scrim/50" rootClassName="p-4"
-      panelClassName={`bg-surface rounded-theme theme-border p-6 max-w-lg w-full ${contentExpanded ? "h-[86vh] max-h-[720px] min-h-[560px]" : "max-h-[88vh]"} flex flex-col overflow-hidden shadow-2xl border border-border overlay-modal`}>
+      panelClassName={`bg-surface rounded-theme theme-border p-4 sm:p-6 max-w-lg w-full min-h-0 ${contentExpanded ? "h-[min(720px,calc(100dvh-2rem))]" : "max-h-[calc(100dvh-2rem)]"} flex flex-col overflow-hidden shadow-2xl border border-border overlay-modal`}>
       {(close) => (
         <>
           <div className="flex justify-between items-center mb-4 shrink-0">
