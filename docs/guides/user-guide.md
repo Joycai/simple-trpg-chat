@@ -1,6 +1,6 @@
 # Simple TRPG Chat — 用户手册
 
-**Version**: 0.25.3 | **Last Updated**: 2026-10-04
+**Version**: 0.25.4 | **Last Updated**: 2026-10-28
 
 ---
 
