@@ -11,11 +11,12 @@ export interface ProviderConnection {
 /** All existing features keep their own policy, but use the same wire and accounting path. */
 export async function completeForProvider(provider: ProviderConnection, apiKey: string, userId: number, request: CompletionRequest) {
   const config = parseProtocolConfig(provider.protocolConfig);
-  const streaming = request.stream ?? config.stream ?? false;
+  const streaming = config.stream === false ? false : request.stream ?? config.stream ?? false;
+  const maxOutputTokens = config.maxOutputTokens === undefined ? request.maxOutputTokens : Math.min(request.maxOutputTokens ?? config.maxOutputTokens, config.maxOutputTokens);
   const connection = resolveConnection(provider.apiEndpoint, apiKey, request.model, config, provider.id, streaming);
   const day = new Date().toISOString().slice(0, 10);
   const rates = { input: provider.tokenRateInput ?? 0, cached: provider.tokenRateCached ?? 0, output: provider.tokenRateOutput ?? 0 };
-  return complete(connection, { ...request, stream: streaming }, async attempt => {
+  return complete(connection, { ...request, stream: streaming, maxOutputTokens }, async attempt => {
     const receipt: UsageReceipt = { ...attempt, rates, day };
     for (let retry = 0; retry < 3; retry++) {
       try {

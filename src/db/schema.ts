@@ -526,6 +526,17 @@ export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
 // AI Providers (#118)
 // ============================================================
 
+export const aiVendors = pgTable('ai_vendors', {
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+  ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  platform: text('platform').notNull(),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  apiKeyHint: text('api_key_hint'),
+  routes: jsonb('routes').notNull(),
+  legacyProviderId: integer('legacy_provider_id').unique(),
+});
+
 export const aiProviders = pgTable('ai_providers', {
   id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -533,6 +544,8 @@ export const aiProviders = pgTable('ai_providers', {
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
+  vendorId: integer('vendor_id').references(() => aiVendors.id, { onDelete: 'restrict' }),
+  protocolSettings: jsonb('protocol_settings'),
   protocolConfig: jsonb('protocol_config'), // versioned server-side protocol settings; null preserves Chat
   vendor: text('vendor').notNull().default('openai-compatible'),  // ids from src/lib/ai/provider-presets.ts AI_VENDORS
   model: text('model').notNull().default('gpt-4o'),

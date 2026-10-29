@@ -72,7 +72,8 @@ describe("vendor registry", () => {
     for (const v of AI_VENDORS) {
       if (v.id === COMPAT_VENDOR_ID) continue;
       expect(v.endpoint).toMatch(/^https:\/\//);
-      expect(v.models.length).toBeGreaterThan(0);
+      // Model lists may be fetched dynamically (for example OpenRouter).
+      expect(Array.isArray(v.models)).toBe(true);
     }
   });
 

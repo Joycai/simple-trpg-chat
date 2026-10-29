@@ -8,6 +8,8 @@ export const protocolConfigSchema = z.object({
   auth: z.enum(['bearer', 'api-key', 'google-key', 'none']).optional(),
   model: z.string().min(1).optional(),
   stream: z.boolean().optional(),
+  contextWindow: z.number().int().positive().max(100_000_000).optional(),
+  multimodalInput: z.boolean().optional(),
   maxOutputTokens: z.number().int().positive().max(1_000_000).optional(),
   outputTokenField: z.enum(['max_tokens', 'max_completion_tokens']).optional(),
   reasoning: z.object({ effort: effort.optional(), enabled: z.boolean().optional(), budgetTokens: z.number().int().positive().optional(), summary: z.enum(['auto', 'concise', 'detailed']).optional(), includeThoughts: z.boolean().optional(), display: z.enum(['summarized', 'omitted']).optional() }).strict().optional(),
@@ -88,7 +90,7 @@ export function reasoningBody(config: ProtocolConfig, request: CompletionRequest
     if (r.display && !dialect) throw new ProtocolError('request', 'Thinking display requires a declared dialect');
     const thinking = enabled === false ? { type: 'disabled' } : dialect === 'budget' ? { type: 'enabled', budget_tokens: r.budgetTokens ?? mapped } : dialect === 'thinking' ? { type: 'enabled' } : { type: 'adaptive' };
     if (dialect === 'budget' && enabled !== false && !(Number(thinking.budget_tokens) > 0)) throw new ProtocolError('request', 'Thinking budget is required');
-    return { ...(dialect ? { thinking: { ...thinking, ...(r.display && enabled !== false ? { display: r.display } : {}) } } : {}), ...(mapped !== undefined && dialect !== 'budget' ? { output_config: { effort: mapped } } : {}) };
+    return { ...(dialect ? { thinking: { ...thinking, ...(r.display && enabled !== false ? { display: r.display } : {}) } } : {}), ...(mapped !== undefined && dialect !== 'budget' && enabled !== false ? { output_config: { effort: mapped } } : {}) };
   }
   if (r.includeThoughts !== undefined && r.effort === undefined && r.enabled === undefined && r.budgetTokens === undefined) return { thinkingConfig: { includeThoughts: r.includeThoughts } };
   const thinkingConfig = dialect === 'budget' ? { thinkingBudget: enabled === false ? 0 : r.budgetTokens ?? mapped } : { thinkingLevel: mapped };

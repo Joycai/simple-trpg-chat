@@ -10,6 +10,7 @@ async function main() {
   const config = parseProtocolConfig(JSON.parse(await readFile(file, 'utf8')));
   const [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
   if (!provider) throw new Error('Provider not found');
+  if (provider.vendorId) throw new Error('Use the Vendor/Model editor for migrated models');
   // Binding is explicit: changing the configured model requires revalidation.
   config.model ??= provider.model;
   const connection = resolveConnection(provider.apiEndpoint, 'validation-only', provider.model, config, provider.id, config.stream);
