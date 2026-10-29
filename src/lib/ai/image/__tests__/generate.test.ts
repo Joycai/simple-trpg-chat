@@ -22,6 +22,18 @@ beforeEach(() => {
   mocks.select.mockReturnValue({ from: () => ({ where: async () => [] }) });
 });
 describe('imageGen tool', () => {
+  it('persists usage from an HTTP-successful but unusable response without delivering or retrying', async () => {
+    const { ImageResponseError } = await import('../transport');
+    const writes: Record<string, unknown>[] = [];
+    mocks.update.mockReturnValue({ set: (data: Record<string, unknown>) => ({ where: async () => { writes.push(data); } }) });
+    mocks.request.mockRejectedValue(new ImageResponseError(200, { totalTokenCount: 123 }, 'req-empty', null));
+    const ctx = context();
+    expect(await generateImageTool({ prompt: 'Portrait' }, ctx)).toMatchObject({ success: false });
+    expect(writes).toContainEqual({ rawUsage: { totalTokenCount: 123 }, upstreamError: { status: 200, requestId: 'req-empty', code: null } });
+    await generateImageTool({ prompt: 'Again' }, ctx);
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
   it('delivers only in the triggering DM and prevents another paid attempt in the same turn', async () => {
     const ctx = context();
     expect(await generateImageTool({ prompt: 'Portrait' }, ctx)).toMatchObject({ success: true });

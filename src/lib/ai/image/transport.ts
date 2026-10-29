@@ -8,6 +8,23 @@ export class ImageHttpError extends Error {
     super(`Image HTTP ${status}`);
   }
 }
+/** A completed HTTP response can still fail the provider/result contract. */
+export class ImageResponseError extends ImageHttpError {
+  constructor(status: number, rawUsage: unknown, requestId: string | null, providerCode: string | null) {
+    super(status, rawUsage, requestId, providerCode);
+    this.message = 'Invalid image provider response';
+  }
+}
+function responseMetadata(value: unknown, response: Response) {
+  const body = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const error = body.error as Record<string, unknown> | undefined;
+  const output = body.output as Record<string, unknown> | undefined;
+  return {
+    rawUsage: body.usage ?? body.usageMetadata ?? null,
+    requestId: response.headers.get('x-request-id') ?? (typeof body.request_id === 'string' ? body.request_id : null),
+    providerCode: typeof error?.code === 'string' ? error.code : typeof body.code === 'string' ? body.code : typeof output?.code === 'string' ? output.code : null,
+  };
+}
 const MAX_BYTES = 32 * 1024 * 1024;
 export async function readImageBytes(response: Response, signal: AbortSignal) {
   if (!response.body) throw new Error('Empty image response');
@@ -34,17 +51,22 @@ async function safeFetch(url: string, init: RequestInit, signal: AbortSignal) {
   if (!response.ok) {
     let body: Record<string, unknown> = {};
     try { body = JSON.parse((await readImageBytes(response, signal)).toString('utf8')) ?? {}; } catch { /* Preserve HTTP status even for malformed/oversized error bodies. */ }
-    const error = body.error as Record<string, unknown> | undefined;
-    throw new ImageHttpError(response.status, body.usage ?? body.usageMetadata ?? null,
-      response.headers.get('x-request-id') ?? (typeof body.request_id === 'string' ? body.request_id : null),
-      typeof error?.code === 'string' ? error.code : typeof body.code === 'string' ? body.code : null);
+    const meta = responseMetadata(body, response);
+    throw new ImageHttpError(response.status, meta.rawUsage, meta.requestId, meta.providerCode);
   }
   return response;
 }
 export async function requestImage(config: ImageProviderData, prompt: string, key: string, signal: AbortSignal) {
   const request = buildImageRequest(config, prompt, key);
   const response = await safeFetch(request.url, { method: 'POST', headers: request.headers, body: JSON.stringify(request.body) }, signal);
-  return parseImageResponse(config.protocol, JSON.parse((await readImageBytes(response, signal)).toString('utf8')));
+  let body: unknown;
+  try {
+    body = JSON.parse((await readImageBytes(response, signal)).toString('utf8'));
+    return parseImageResponse(config.protocol, body);
+  } catch {
+    const meta = responseMetadata(body, response);
+    throw new ImageResponseError(response.status, meta.rawUsage, meta.requestId, meta.providerCode);
+  }
 }
 export async function downloadImage(source: ImageSource, signal: AbortSignal) {
   if (source.base64) {

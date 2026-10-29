@@ -5,6 +5,17 @@ import { downloadImage, requestImage } from '../transport';
 import { ImageProviderInput } from '../config';
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe('paid image transport boundaries', () => {
+  it.each([
+    { body: { code: 'DataInspectionFailed', request_id: 'req-body', usage: { image_count: 1 } }, code: 'DataInspectionFailed', usage: { image_count: 1 } },
+    { body: { candidates: [], usageMetadata: { totalTokenCount: 123 } }, code: null, usage: { totalTokenCount: 123 } },
+    { body: { output: { code: 'InvalidResult' }, usage: { output_tokens: 12 } }, code: 'InvalidResult', usage: { output_tokens: 12 } },
+  ])('retains metadata when HTTP 200 has no usable image: $code', async ({ body, code, usage }) => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify(body), { headers: { 'x-request-id': 'req-header' } }));
+    vi.stubGlobal('fetch', fetch);
+    const config = ImageProviderInput.parse({ name: 'test', modelType: 'gpt-image-2', model: 'gpt-image-2', protocol: 'openai-images', apiEndpoint: 'https://example.com/v1', size: '1024x1024', ratePerImage: 0 });
+    await expect(requestImage(config, 'portrait', 'secret', AbortSignal.timeout(1000))).rejects.toMatchObject({ status: 200, rawUsage: usage, requestId: 'req-header', providerCode: code });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
   it('does not retry an ambiguous upstream failure', async () => {
     const fetch = vi.fn(async () => new Response('upstream unavailable', { status: 503 })); vi.stubGlobal('fetch', fetch);
     const config = ImageProviderInput.parse({ name: 'test', modelType: 'gpt-image-2', model: 'gpt-image-2', protocol: 'openai-images', apiEndpoint: 'https://example.com/v1', size: '1024x1024', ratePerImage: 0 });
