@@ -362,3 +362,7 @@ AGPL-3.0 with dual licensing — commercial closed-source use requires a separat
 | ----------------- | -------- | ------------------------------------------------------------------------ |
 | `AUTH_SECRET`     | Yes      | NextAuth JWT signing secret                                              |
 | `AI_ENCRYPTION_KEY` | Prod   | AES-256-GCM key for AI API keys (dev falls back to `dev-secret-key`)    |
+
+## Imported Claude Cowork project instructions
+
+a online website for playing TRPG like DND,COC and etc.
