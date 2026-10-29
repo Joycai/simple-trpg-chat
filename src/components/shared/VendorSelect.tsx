@@ -1,8 +1,9 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { SlidersHorizontal } from "lucide-react";
 import { BadgeDropdown, type BadgeDropdownItem } from "./BadgeDropdown";
-import { AI_VENDORS, COMPAT_VENDOR_ID, shortHost } from "@/lib/ai/provider-presets";
+import { vendorOptions, vendorLabel, COMPAT_VENDOR_ID, shortHost } from "@/lib/ai/provider-presets";
 
 interface VendorSelectProps {
   id?: string;
@@ -18,7 +19,8 @@ interface VendorSelectProps {
 }
 
 export function VendorSelect({ id, name, value, onChange, t, disabled }: VendorSelectProps) {
-  const items: BadgeDropdownItem[] = AI_VENDORS.map((v) =>
+  const locale = useLocale();
+  const items: BadgeDropdownItem[] = vendorOptions(value).map((v) =>
     v.id === COMPAT_VENDOR_ID
       ? {
           id: v.id,
@@ -28,7 +30,7 @@ export function VendorSelect({ id, name, value, onChange, t, disabled }: VendorS
         }
       : {
           id: v.id,
-          label: v.name,
+          label: vendorLabel(v, locale),
           description: `${v.models[0]?.id ?? ""} · ${shortHost(v.endpoint)}`,
           descriptionMono: true,
           badge: { letters: v.badgeLetters },

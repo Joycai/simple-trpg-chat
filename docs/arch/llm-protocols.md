@@ -1,6 +1,6 @@
 # LLM protocol foundation
 
-Implemented 2026-10-29. The UI and room SSE contract are unchanged. Existing provider rows with a null `protocol_config` still use non-streaming Chat Completions; selecting a vendor does **not** silently change protocol.
+Implemented 2026-10-29. The room SSE contract is unchanged. Configuration now uses the shared [Vendor / Model editor](ai-vendor-model-settings.md). Existing provider rows with a null `protocol_config` still use non-streaming Chat Completions; selecting a vendor does **not** silently change protocol.
 
 ## Entry points and boundaries
 
@@ -23,7 +23,7 @@ Continuation is scoped to provider ID, endpoint, protocol and actual requested m
 
 Apply [the additive SQL migration](../migrations/2026-10-29-llm-protocol.sql) before deploying this code, or use the repository schema deployment process. It adds `ai_providers.protocol_config` and `ai_usage_attempts`. Existing data and aggregate rows are retained. For rollback, deploy the previous application while retaining the additive objects and evidence; do not erase settled receipts.
 
-No new UI controls were added. A host/admin backend action can supply `protocolConfig` to the existing provider create/update action. A local operator can also use:
+Use the Admin or Host Vendor / Model editor for migrated models. The separate [Vendor migration](../migrations/2026-10-29-ai-vendors.sql) is required for that UI. The old flat create/update actions reject writes to linked models. For **unmigrated legacy rows only**, a local operator can use:
 
 ```sh
 pnpm db:configure-ai-protocol <provider-id> <config.json>          # dry run
@@ -75,7 +75,7 @@ Normalized usage separates input total, uncached input, cache reads/writes, outp
 
 `ai_usage_attempts` records a unique logical-generation ID, actual model/protocol, terminal status, normalized/raw usage and request-time rate snapshot. Pre-generation HTTP status retries are one logical generation; a tool loop has one receipt per generation. The receipt, daily aggregate and point deduction are transactional. Duplicate receipt IDs cannot deduct twice. Missing usage records evidence but makes no aggregate/point entry; partial usage records the known counts with its status retained. If only cached input is known, that count also contributes to the daily input total. Receipt values are authoritative for settlement. Point-log amounts equal the actual balance change, including when the nonnegative balance floor limits a deduction.
 
-The existing three rates and UI remain unchanged: non-cache-read input (including cache writes), cache reads and total output. These are the app's configured rates, not a claim of exact vendor billing. Usage persistence retries the same ID three times. If the database remains unavailable, a sanitized reconciliation receipt is logged; generation results are still delivered. Save that receipt JSON and replay it after recovery:
+The three rate meanings remain unchanged; they are edited per model: non-cache-read input (including cache writes), cache reads and total output. These are the app's configured rates, not a claim of exact vendor billing. Usage persistence retries the same ID three times. If the database remains unavailable, a sanitized reconciliation receipt is logged; generation results are still delivered. Save that receipt JSON and replay it after recovery:
 
 ```sh
 pnpm db:reconcile-ai-usage receipt.json            # dry run

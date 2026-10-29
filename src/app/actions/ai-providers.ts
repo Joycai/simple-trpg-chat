@@ -31,46 +31,10 @@ export interface ProviderData {
 // CRUD
 // ============================================================
 
-/** Create a new AI provider (host or admin) */
+/** Retired flat-form action: stale clients must refresh into the Vendor/Model editor. */
 export async function createProvider(data: ProviderData): Promise<{ error: string } | { id: number }> {
-  const session = await auth();
-  if (!session) return { error: (await getTranslations("adminProviders"))("errorNotAuthenticated") };
-
-  const userId = parseInt(session.user.id);
-  const isAdmin = session.user.role === "admin";
-
-  if (!data.name?.trim() || !data.apiEndpoint?.trim() || !data.apiKey?.trim()) {
-    const t = await getTranslations("adminProviders");
-    return { error: t("msgRequireFields") };
-  }
-
-  const endpointCheck = await validateApiEndpoint(data.apiEndpoint.trim());
-  if (!endpointCheck.valid) return { error: endpointCheck.error! };
-
-  try {
-    const protocolConfig = data.protocolConfig == null ? null : parseProtocolConfig(data.protocolConfig);
-    resolveConnection(data.apiEndpoint.trim(), data.apiKey.trim(), data.model || "gpt-4o", protocolConfig);
-    const [provider] = await db.insert(aiProviders).values({
-      protocolConfig,
-      ownerId: userId,
-      name: data.name.trim(),
-      apiEndpoint: data.apiEndpoint.trim(),
-      apiKeyEncrypted: encrypt(data.apiKey.trim()),
-      apiKeyHint: data.apiKey.trim().slice(-4),
-      vendor: normalizeVendorId(data.vendor),
-      model: data.model || "gpt-4o",
-      isShared: isAdmin && !!data.isShared,
-      tokenRateInput: Math.max(0, Number(data.tokenRateInput) || 0.0),
-      tokenRateCached: Math.max(0, Number(data.tokenRateCached) || 0.0),
-      tokenRateOutput: Math.max(0, Number(data.tokenRateOutput) || 0.0),
-      updatedAt: sqlNow(),
-    }).returning();
-
-    revalidatePath("/");
-    return { id: provider.id };
-  } catch (e: unknown) {
-    return { error: e instanceof Error ? e.message : "Failed to save provider" };
-  }
+  void data;
+  return { error: (await getTranslations('aiCatalog'))('useCatalog') };
 }
 
 /** Update an existing provider (owner or admin) */
@@ -85,6 +49,9 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   const [existing] = await db.select().from(aiProviders).where(eq(aiProviders.id, providerId));
   if (!existing) return { error: t("errorProviderNotFound") };
   if (existing.ownerId !== userId && !isAdmin) return { error: t("errorNotAuthorized") };
+
+  // Linked models must be edited through the Vendor/Model transaction.
+  if (existing.vendorId) return { error: (await getTranslations('aiCatalog'))('useCatalog') };
 
   const values: Record<string, unknown> = { updatedAt: sqlNow() };
   if (data.name?.trim()) values.name = data.name.trim();

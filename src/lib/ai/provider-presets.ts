@@ -1,17 +1,6 @@
-/**
- * AI vendor registry — single source of truth for the two-level
- * "vendor → model" picker shown in the admin AI page and the user-side
- * AI providers tab.
- *
- * Every vendor here speaks the OpenAI-compatible chat protocol
- * (`{endpoint}/chat/completions` with a Bearer key), which remains the
- * default for rows without an explicit backend protocolConfig. Google and Anthropic are wired
- * through their official OpenAI-compatibility endpoints so the chat path
- * needs no per-vendor branching; only model *listing* differs (see
- * `modelListAuth` and `src/lib/ai/model-fetch.ts`).
- *
- * Adding a vendor or a model preset here automatically surfaces it in both
- * call sites (AdminProviderManager + AiProvidersTab).
+/** Platform labels and legacy model suggestions shared by provider controls.
+ * Native protocol endpoint presets live in vendor-config.ts. Model capability
+ * settings are explicit per configured model, never inferred from these labels.
  */
 
 export interface VendorModelPreset {
@@ -28,6 +17,9 @@ export interface VendorModelPreset {
 export interface AiVendor {
   id: string;
   name: string;
+  nameEn?: string;
+  /** Explains which credentials/region this preset expects. */
+  hintKey?: string;
   /** Default OpenAI-compatible base endpoint; empty for the generic compat vendor. */
   endpoint: string;
   /** Two-letter abbreviation displayed in the dropdown badge. */
@@ -57,7 +49,7 @@ export const AI_VENDORS: AiVendor[] = [
   },
   {
     id: "google",
-    name: "Google GenAI",
+    name: "Gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/openai",
     badgeLetters: "GG",
     modelListAuth: "bearer",
@@ -77,6 +69,10 @@ export const AI_VENDORS: AiVendor[] = [
       { id: "claude-haiku-4-5", tokenRateInput: 1, tokenRateCached: 0.1, tokenRateOutput: 5 },
     ],
   },
+  { id: "qwen", name: "阿里千问", nameEn: "Alibaba Qwen", endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1", badgeLetters: "QW", modelListAuth: "bearer", models: [], hintKey: "presetChina" },
+  { id: "qwen-token-plan", name: "阿里千问（Plan）", nameEn: "Alibaba Qwen (Plan)", endpoint: "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1", badgeLetters: "QP", modelListAuth: "bearer", models: [], hintKey: "presetQwenPlan" },
+  { id: "volcengine", name: "字节火山", nameEn: "ByteDance Volcano", endpoint: "https://ark.cn-beijing.volces.com/api/v3", badgeLetters: "VE", modelListAuth: "bearer", models: [], hintKey: "presetChina" },
+  { id: "volcengine-agent-plan", name: "字节火山（Agent Plan）", nameEn: "ByteDance Volcano (Agent Plan)", endpoint: "https://ark.cn-beijing.volces.com/api/plan/v3", badgeLetters: "VP", modelListAuth: "bearer", models: [], hintKey: "presetArkPlan" },
   {
     id: "deepseek",
     name: "DeepSeek",
@@ -90,7 +86,8 @@ export const AI_VENDORS: AiVendor[] = [
   },
   {
     id: COMPAT_VENDOR_ID,
-    name: "OpenAI Compatible",
+    name: "自定义",
+    nameEn: "Custom",
     endpoint: "",
     badgeLetters: "OC",
     modelListAuth: "bearer",
@@ -98,8 +95,20 @@ export const AI_VENDORS: AiVendor[] = [
   },
 ];
 
+// Retired presets remain recognizable for existing saved configurations.
+const LEGACY_VENDORS: AiVendor[] = [
+  { id: "openrouter", name: "OpenRouter", endpoint: "https://openrouter.ai/api/v1", badgeLetters: "OR", modelListAuth: "bearer", models: [] },
+];
+export function vendorOptions(current?: string): AiVendor[] {
+  const legacy = LEGACY_VENDORS.find(v => v.id === current);
+  return legacy ? [...AI_VENDORS, legacy] : AI_VENDORS;
+}
+export function vendorLabel(vendor: AiVendor, locale: string): string {
+  return locale.startsWith('zh') ? vendor.name : vendor.nameEn ?? vendor.name;
+}
+
 export function getVendor(id: string | null | undefined): AiVendor | undefined {
-  return AI_VENDORS.find((v) => v.id === id);
+  return [...AI_VENDORS, ...LEGACY_VENDORS].find((v) => v.id === id);
 }
 
 /** Coerce an arbitrary stored/submitted value to a known vendor id. */
