@@ -2108,6 +2108,8 @@
     "presetArkPlan": "Agent Plan（北京）：请使用 Agent Plan 专属 API 密钥；普通 API 与 Coding Plan 使用不同配置。"
   },
   "imageGeneration": {
+    "jobFailed": "图片生成任务 {id} 未能完成，请查看图片用量记录。不会自动重试。",
+    "jobPartial": "图片生成任务 {id} 仅完成部分交付，已发送的图片可以正常使用。不会自动重试。",
     "title": "图片生成服务",
     "add": "添加图片服务",
     "description": "选择图片模型，配置入口、密钥与费率后，即可在房间的 Bot 设置中启用 imageGen 并分配服务。",

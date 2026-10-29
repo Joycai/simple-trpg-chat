@@ -92,12 +92,18 @@ describe("updateBotAction", () => {
 });
 
 describe("triggerBotAction", () => {
+  it("rejects a bot from another room", async () => {
+    selectQueue = [[{ id: 9, isBot: true }], []];
+    expect(await triggerBotAction(5, 9)).toEqual({ success: false, error: "bots.errorBotNotMember" });
+    expect(runAgent).not.toHaveBeenCalled();
+  });
   it("rejects a caller who is not the host", async () => {
     tryRoomAccess.mockResolvedValue(null);
     expect(await triggerBotAction(5, 9)).toEqual({ success: false, error: "roomActions.errorNoAccess" });
   });
 
   it("starts the agent for the host", async () => {
+    selectQueue = [[{ id: 9, isBot: true }], [{ id: 1 }]];
     expect(await triggerBotAction(5, 9)).toEqual({ success: true });
   });
 });

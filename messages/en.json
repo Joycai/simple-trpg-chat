@@ -2108,6 +2108,8 @@
     "presetArkPlan": "Agent Plan (Beijing): use its dedicated API key. Pay-as-you-go and Coding Plan use different configurations."
   },
   "imageGeneration": {
+    "jobFailed": "Image task {id} could not complete. Check your image usage records. It will not retry automatically.",
+    "jobPartial": "Image task {id} delivered only part of its output. Delivered images remain available. It will not retry automatically.",
     "title": "Image generation services",
     "add": "Add image service",
     "description": "Choose an image model, endpoint, key and rate, then enable imageGen and assign the service in a room’s bot settings.",

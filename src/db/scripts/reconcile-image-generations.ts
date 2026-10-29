@@ -1,7 +1,7 @@
 /** Reconcile interrupted image attempts against persisted chat delivery. Dry run by default. */
 import { db } from '@/db';
 import { imageGenerations, messages } from '@/db/schema';
-import { and, eq, inArray, lt } from 'drizzle-orm';
+import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import { settleImageGeneration } from '@/lib/ai/image/generate';
 async function main() {
   const args = process.argv.slice(2);
@@ -9,7 +9,7 @@ async function main() {
   const apply = args.includes('--apply');
   // Exceeds the ten-minute generation deadline. Never race an active request.
   const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-  const rows = await db.select().from(imageGenerations).where(and(inArray(imageGenerations.status, ['pending', 'generated']), lt(imageGenerations.createdAt, cutoff)));
+  const rows = await db.select().from(imageGenerations).where(and(inArray(imageGenerations.status, ['pending', 'generated']), lt(sql`coalesce(${imageGenerations.startedAt}, ${imageGenerations.createdAt})`, cutoff)));
   for (const row of rows) {
     const urls = Array.isArray(row.images) ? row.images.filter((v): v is string => typeof v === 'string') : [];
     const delivered = row.roomId && urls.length ? await db.select({ content: messages.content }).from(messages).where(and(eq(messages.roomId, row.roomId), eq(messages.type, 'image'), inArray(messages.content, urls))) : [];

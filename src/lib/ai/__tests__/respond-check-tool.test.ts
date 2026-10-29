@@ -4,14 +4,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // same command a player's response gets (actions/checks.ts).
 
 let candidates: unknown[] = [];
+let transactionTail: Promise<unknown> = Promise.resolve();
+function transaction(fn: (tx: unknown) => Promise<unknown>) {
+  const result = transactionTail.then(() => fn({
+    select: () => chain(() => candidates),
+    update: () => ({ set: (values: object) => ({ where: async () => { Object.assign(candidates[0] as object, values); } }) }),
+  }));
+  transactionTail = result.catch(() => {});
+  return result;
+}
 function chain(rows: () => unknown[]) {
   const c: Record<string, unknown> = {};
-  for (const m of ["from", "where", "orderBy", "limit", "set"]) c[m] = () => c;
+  for (const m of ["from", "where", "orderBy", "limit", "set", "for"]) c[m] = () => c;
   c.then = (resolve: (r: unknown[]) => unknown, reject: (e: unknown) => unknown) => Promise.resolve(rows()).then(resolve, reject);
   return c;
 }
 vi.mock("@/db", () => ({
-  db: { select: () => chain(() => candidates), update: () => chain(() => []) },
+  db: { transaction, select: () => chain(() => candidates), update: () => chain(() => []) },
   sqlNow: vi.fn(),
 }));
 vi.mock("@/lib/messaging/router", () => ({ dispatchMessage: vi.fn(), messageVisibilityWhere: vi.fn() }));
@@ -29,7 +38,7 @@ const HOST_ID = 1;
 
 function request(checkRequest: Record<string, unknown>) {
   candidates = [{
-    id: 900, isPrivate: false, audience: "everyone", userId: HOST_ID, targetUserId: null,
+    id: 900, type: "check_request", isPrivate: false, audience: "everyone", userId: HOST_ID, targetUserId: null,
     diceDetail: JSON.stringify({ checkRequest: { targetUserIds: [BOT_ID], respondedUserIds: [], hostNick: "KP", ...checkRequest } }),
   }];
 }
@@ -69,5 +78,27 @@ describe("respond_check tool", () => {
     request({ skillName: "侦查", diceType: "d100" });
     await respond({ bonusDice: 3 }, "coc7th");
     expect(sentCommand()).toBe(".rc 侦查");
+  });
+});
+
+import { dispatchMessage } from "@/lib/messaging/router";
+describe("concurrent and private tools", () => {
+  it("claims a pending check only once across overlapping runs", async () => {
+    request({ skillName: "侦查", diceType: "d100" });
+    const results = await Promise.all([respond({}, "coc7th"), respond({}, "coc7th")]);
+    expect(executeCommand).toHaveBeenCalledTimes(1);
+    expect(results).toContainEqual(expect.objectContaining({ success: false }));
+  });
+  it("keeps another responder when claiming a check", async () => {
+    request({ skillName: "侦查", diceType: "d100", respondedUserIds: [7] });
+    await respond({}, "coc7th");
+    expect(JSON.parse((candidates[0] as { diceDetail: string }).diceDetail).checkRequest.respondedUserIds).toEqual([7, BOT_ID]);
+  });
+  it.each(["send_image", "roll_dice"])("%s defaults to the triggering DM", async name => {
+    vi.mocked(dispatchMessage).mockClear();
+    await AGENT_TOOL_HANDLERS.get(name)!({ imageUrl: "https://example.com/private.png", faces: 6, count: 1 }, {
+      roomId: 10, botUserId: BOT_ID, botNickname: "Bot", replyIsPrivate: true, targetUserId: 7, room: { hostId: HOST_ID },
+    } as AgentToolContext);
+    expect(dispatchMessage).toHaveBeenCalledWith(expect.objectContaining({ audience: "dm", targetUserId: 7 }));
   });
 });

@@ -1,3 +1,4 @@
+import { saveSummary } from "./bot-summary";
 import { db } from "@/db";
 import { completeForProvider } from "@/lib/ai/protocol/provider";
 import type { Message, Status } from "@/lib/ai/protocol/types";
@@ -156,12 +157,10 @@ export async function buildAgentContext(
   return { context, model: config.model || "gpt-4o" };
 }
 
-// Cooldown map is process-wide intentionally — in production Next.js spawns
-// multiple workers and a module-level Map would let a bot fire `workers ×`
-// times per cooldown window. Pinning to globalThis collapses them onto one
-// shared map. (Same pattern as the SSE EventEmitter — see CLAUDE.md.)
+// These maps survive module reloads within one Node process; they are not cross-process locks.
 declare global {
   var __agentCooldowns: Map<number, number> | undefined;
+  var __agentTypingRuns: Map<string, number> | undefined;
 }
 const agentCooldowns: Map<number, number> = globalThis.__agentCooldowns ?? new Map<number, number>();
 globalThis.__agentCooldowns = agentCooldowns;
@@ -178,6 +177,7 @@ const MAX_AGENT_ITERATIONS = 5;
 /** How a run was triggered. Every current caller passes one; without it, the reply channel is inferred from recent history. */
 interface AgentTrigger {
   triggeringUserId: number;
+  messageId?: number;
   isPrivate: boolean;
   /**
    * Explicit host acts (check requests, the manual trigger button) must not
@@ -229,7 +229,7 @@ async function loadAgentRunContext(roomId: number, botUserId: number) {
   const botUser = botUserResult[0];
   const member = memberResult[0];
 
-  if (!room || !botUser) return null;
+  if (!room || !botUser?.isBot || !member) return null;
   return { room, botUser, member };
 }
 
@@ -366,6 +366,12 @@ function makeSayAsBot({ roomId, botUserId, botNickname, replyIsPrivate, targetUs
 
 /** Start or stop the bot's typing indicator in the reply channel. */
 function emitAgentTyping({ roomId, botUserId, botNickname, replyIsPrivate, targetUserId }: AgentReplyTarget, hostId: number, typing: boolean) {
+  const runs = globalThis.__agentTypingRuns ??= new Map<string, number>();
+  const key = `${roomId}:${botUserId}:${replyIsPrivate ? targetUserId : 'public'}`;
+  const before = runs.get(key) ?? 0;
+  const after = Math.max(0, before + (typing ? 1 : -1));
+  if (after) runs.set(key, after); else runs.delete(key);
+  if ((typing && before > 0) || (!typing && after > 0)) return;
   const typingEvent = {
     type: "typing",
     botUserId,
@@ -549,7 +555,8 @@ export async function runAgent(
   roomId: number,
   triggeringInfo?: AgentTrigger
 ) {
-  if (!checkAndConsumeCooldown(botUserId, triggeringInfo?.bypassCooldown)) return;
+  // Persisted chat messages are distinct requests, even inside the legacy manual cooldown.
+  if (!triggeringInfo?.messageId && !checkAndConsumeCooldown(botUserId, triggeringInfo?.bypassCooldown)) return;
 
   const loaded = await loadAgentRunContext(roomId, botUserId);
   if (!loaded) return;
@@ -640,8 +647,7 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
   // stickers): advance the cursor without paying for an LLM call so the next
   // scan starts past these rows.
   if (summarizable.length === 0) {
-    config.lastSummarizedMsgId = newMsgs[newMsgs.length - 1].id;
-    await db.update(users).set({ botConfigJson: JSON.stringify(config) }).where(eq(users.id, botUserId));
+    await saveSummary(botUserId, config, config.historicalSummary, newMsgs[newMsgs.length - 1].id);
     return;
   }
 
@@ -659,6 +665,8 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
     console.error(`[summarizeHistoryAction] Configured AI Provider (ID: ${config.providerId}) not found for bot ${botUserId}`);
     return;
   }
+
+  if (aiConfig.ownerId !== room.hostId && !aiConfig.isShared) return;
 
   // Verify quota for shared provider
   if (aiConfig.isShared) {
@@ -689,9 +697,7 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
       ],
     });
     if (response.status !== "completed" || !response.message.content?.trim()) return;
-    config.historicalSummary = response.message.content;
-    config.lastSummarizedMsgId = newMsgs[newMsgs.length - 1].id;
-    await db.update(users).set({ botConfigJson: JSON.stringify(config) }).where(eq(users.id, botUserId));
+    await saveSummary(botUserId, config, response.message.content, newMsgs[newMsgs.length - 1].id);
   } catch {
     console.error("[summarizeHistoryAction] AI request failed; retaining previous summary");
   }

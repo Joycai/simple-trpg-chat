@@ -142,7 +142,7 @@ export async function updateBotAction(
 
   await db.update(users).set({
     displayName: data.name,
-    botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools || existingConfig.enableTools, providerId: data.providerId, imageProviderId }),
+    botConfigJson: sql`((coalesce(${users.botConfigJson}, '{}')::jsonb - 'providerId') || ${JSON.stringify({ systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools ?? existingConfig.enableTools, providerId: data.providerId, imageProviderId })}::jsonb)::text`,
   }).where(eq(users.id, botUserId));
 
   await db.update(roomMembers).set({
@@ -167,6 +167,12 @@ export async function triggerBotAction(roomId: number, botUserId: number): Promi
   const access = await tryRoomAccess(roomId, true);
   if (!access) return noRoomAccess();
   const { userId } = access;
+
+  const t = await getTranslations("bots");
+  const [bot] = await db.select().from(users).where(eq(users.id, botUserId));
+  if (!bot?.isBot) return { success: false, error: t("errorBotNotFound") };
+  const [member] = await db.select().from(roomMembers).where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
+  if (!member) return { success: false, error: t("errorBotNotMember") };
 
   // Async trigger — bot responds in the background
   import("@/lib/ai/agent").then(({ runAgent }) => runAgent(botUserId, roomId, { triggeringUserId: userId, isPrivate: false, bypassCooldown: true })).catch(console.error);

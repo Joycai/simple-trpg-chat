@@ -690,8 +690,10 @@ export const imageGenerations = pgTable('image_generations', {
   imageCount: integer('image_count'),
   rawUsage: jsonb('raw_usage'),
   receiptEncrypted: text('receipt_encrypted'),
+  requestEncrypted: text('request_encrypted'),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }),
   upstreamError: jsonb('upstream_error'),
   reservedPoints: numeric('reserved_points', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
   images: jsonb('images'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-});
+}, (table) => [index('image_generations_queue_idx').on(table.status, table.createdAt)]);

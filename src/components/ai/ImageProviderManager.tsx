@@ -68,6 +68,6 @@ export function ImageProviderManager({ admin = false }: { admin?: boolean }) {
     {save.error && <Notice variant="error">{save.error}</Notice>}
     {remove.error && <Notice variant="error">{remove.error}</Notice>}
     {deleting !== null && <ConfirmDialog title={t('delete')} description={t('deleteHint')} confirmLabel={t('delete')} busy={remove.pending} onConfirm={() => void remove.run()} onCancel={() => setDeleting(null)} />}
-    {usage.length > 0 && <details><summary className="cursor-pointer text-sm text-text">{t('usage')}</summary><div className="overflow-x-auto"><table className="w-full text-sm text-text-muted"><thead><tr><th>{t('time')}</th><th>{t('status')}</th><th>{t('count')}</th><th>{t('points')}</th></tr></thead><tbody>{usage.map(u => <tr key={u.id}><td>{new Date(u.createdAt).toLocaleString()}</td><td>{t(`statuses.${u.status === 'generated' ? 'pending' : u.status}`)}</td><td>{u.imageCount ?? '—'}</td><td>{u.points}</td></tr>)}</tbody></table></div></details>}
+    {usage.length > 0 && <details><summary className="cursor-pointer text-sm text-text">{t('usage')}</summary><div className="overflow-x-auto"><table className="w-full text-sm text-text-muted"><thead><tr><th>{t('time')}</th><th>{t('status')}</th><th>{t('count')}</th><th>{t('points')}</th></tr></thead><tbody>{usage.map(u => <tr key={u.id}><td>{new Date(u.createdAt).toLocaleString()}</td><td>{t(`statuses.${['queued', 'generated'].includes(u.status) ? 'pending' : u.status}`)}</td><td>{u.imageCount ?? '—'}</td><td>{u.points}</td></tr>)}</tbody></table></div></details>}
   </section>;
 }
