@@ -25,6 +25,7 @@ export interface BadgeDropdownItem {
   id: string;
   label: string;
   description?: string;
+  disabled?: boolean;
   badge: { letters?: string; Icon?: LucideIcon };
   /** Render the description line in the theme's monospace stack (e.g. endpoint+model). */
   descriptionMono?: boolean;
@@ -207,8 +208,9 @@ export function BadgeDropdown({
                     type="button"
                     role="option"
                     aria-selected={active}
+                    disabled={disabled || item.disabled}
                     onClick={() => pick(item.id)}
-                    className={`relative w-full flex items-center gap-3 px-3 py-2.5 text-left transition cursor-pointer ${
+                    className={`relative w-full flex items-center gap-3 px-3 py-2.5 text-left transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       active ? T.rowActive : "hover:bg-surface-alt"
                     }`}
                   >
