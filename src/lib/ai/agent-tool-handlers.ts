@@ -1,3 +1,4 @@
+import { claimBotCheck, releaseBotCheck } from "./check-claim";
 import { db, sqlNow } from "@/db";
 import { users, messages, inventoryDistributions, inventoryItems, rooms, roomMembers, roomSkills, clueCards, clueVisibility } from "@/db/schema";
 import { eq, and, desc, sql, or, isNull, inArray } from "drizzle-orm";
@@ -27,6 +28,8 @@ import type { ParsedToolArgs } from "@/lib/ai/agent-tool-guard";
  */
 
 export interface AgentToolContext {
+  imageProviderId?: number;
+  imageGenerationAttempted?: boolean;
   roomId: number;
   botUserId: number;
   botNickname: string;
@@ -41,6 +44,7 @@ export type AgentToolHandler = (args: ParsedToolArgs, ctx: AgentToolContext) => 
 
 async function rollDiceTool(args: ParsedToolArgs, ctx: AgentToolContext): Promise<unknown> {
   const { roomId, botUserId, botNickname, room, targetUserId } = ctx;
+  const isPrivate = typeof args.isPrivate === "boolean" ? args.isPrivate : ctx.replyIsPrivate;
   const count = Math.max(1, Math.min(args.count || 1, 20));
   const faces = Math.max(1, Math.min(args.faces || 6, 1000));
   const { results: rollResults, sum } = rollDice(faces, count);
@@ -51,9 +55,9 @@ async function rollDiceTool(args: ParsedToolArgs, ctx: AgentToolContext): Promis
     actorUserId: botUserId,
     nickname: botNickname,
     type: "dice",
-    audience: args.isPrivate ? "dm" : "everyone",
-    targetUserId: args.isPrivate ? targetUserId : null,
-    content: args.isPrivate ? `🔒 ${content}` : content,
+    audience: isPrivate ? "dm" : "everyone",
+    targetUserId: isPrivate ? targetUserId : null,
+    content: isPrivate ? `🔒 ${content}` : content,
     diceDetail: detail,
   });
 
@@ -114,7 +118,9 @@ async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Pr
   if (!chosen) {
     return { success: false, error: "No pending check request is awaiting your response." };
   } else {
-    const { row, cr } = chosen;
+    const claim = await claimBotCheck(roomId, chosen.row.id, botUserId);
+    if (!claim) return { success: false, error: "This check has already been claimed or is no longer available." };
+    const { row, cr } = claim;
     // Roll in the same channel the request was issued in.
     const ctxIsPrivate = row.isPrivate;
     const ctxTargetId = row.isPrivate ? row.userId : undefined;
@@ -138,7 +144,10 @@ async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Pr
         dc: typeof cr.shCheck.dc === "number" ? cr.shCheck.dc : 10,
         hidden: false,
       });
-      if (!built) return { success: false, error: "This check request can't be rolled under the room's current rule." };
+      if (!built) {
+        await releaseBotCheck(row.id, botUserId);
+        return { success: false, error: "This check request can't be rolled under the room's current rule." };
+      }
       cmdResult = await executeCommand(roomId, botUserId, built.command, ctx);
     } else if ((cr.diceType || "d100") === "d100") {
       cmdResult = await executeCommand(roomId, botUserId, `.rc ${cr.skillName}`, ctx);
@@ -148,6 +157,7 @@ async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Pr
     }
 
     if (!cmdResult.success) {
+      await releaseBotCheck(row.id, botUserId);
       // STAT_NOT_SET: the bot has no value for this skill/stat yet.
       return {
         success: false,
@@ -158,38 +168,17 @@ async function respondCheckTool(args: ParsedToolArgs, ctx: AgentToolContext): Pr
           : undefined,
       };
     } else {
-      // Record the response and broadcast the completion update so the
-      // host's check bubble marks the bot as done (same as a click).
-      // Re-parse the row defensively — the original parse happened in
-      // the candidates scan above, but the row could have been rewritten
-      // by another responder between then and now; without this guard a
-      // malformed payload throws a TypeError that the outer catch turns
-      // into an opaque error message in the tool result.
-      let detail: { checkRequest?: { respondedUserIds?: number[]; proxiedUserIds?: number[] } } | null = null;
-      try {
-        detail = JSON.parse(row.diceDetail || "{}");
-      } catch {
-        detail = null;
-      }
-      if (!detail?.checkRequest) {
-        return { success: false, error: "Check request payload malformed; refresh and try again." };
-      } else {
-        const responded: number[] = detail.checkRequest.respondedUserIds || [];
-        const newResponded = [...responded, botUserId];
-        detail.checkRequest.respondedUserIds = newResponded;
-        await db.update(messages).set({ diceDetail: JSON.stringify(detail) }).where(eq(messages.id, row.id));
-        broadcastToRoom(roomId, {
-          type: "check_update",
-          checkRequestId: row.id,
-          respondedUserIds: newResponded,
-          proxiedUserIds: detail.checkRequest.proxiedUserIds,
-          audience: row.audience,
-          userId: row.userId,
-          targetUserId: row.targetUserId,
-        });
-        const outcome = (cmdResult.message as { content?: string } | undefined)?.content;
-        return { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck, ...(outcome ? { outcome } : {}) };
-      }
+      // Never write the stale candidate snapshot back over other responders.
+      const [fresh] = await db.select({ diceDetail: messages.diceDetail }).from(messages).where(eq(messages.id, row.id));
+      const latest = JSON.parse(fresh?.diceDetail ?? '{}').checkRequest;
+      broadcastToRoom(roomId, {
+        type: "check_update", checkRequestId: row.id,
+        respondedUserIds: latest?.respondedUserIds ?? cr.respondedUserIds,
+        proxiedUserIds: latest?.proxiedUserIds,
+        audience: row.audience, userId: row.userId, targetUserId: row.targetUserId,
+      });
+      const outcome = (cmdResult.message as { content?: string } | undefined)?.content;
+      return { success: true, skillName: cr.skillName, sanityCheck: !!cr.sanCheck, ...(outcome ? { outcome } : {}) };
     }
   }
 }
@@ -360,6 +349,7 @@ async function revealClueTool(args: ParsedToolArgs, ctx: AgentToolContext): Prom
 
 async function sendImageTool(args: ParsedToolArgs, ctx: AgentToolContext): Promise<unknown> {
   const { roomId, botUserId, botNickname, targetUserId } = ctx;
+  const isPrivate = typeof args.isPrivate === "boolean" ? args.isPrivate : ctx.replyIsPrivate;
   const imageUrl = String(args.imageUrl || "").trim();
   // Internal images are pinned to THIS room so other members can
   // actually load them (the image route authorizes by the room id in
@@ -375,8 +365,8 @@ async function sendImageTool(args: ParsedToolArgs, ctx: AgentToolContext): Promi
       actorUserId: botUserId,
       nickname: botNickname,
       type: "image",
-      audience: args.isPrivate ? "dm" : "everyone",
-      targetUserId: args.isPrivate ? targetUserId : null,
+      audience: isPrivate ? "dm" : "everyone",
+      targetUserId: isPrivate ? targetUserId : null,
       content: imageUrl,
     });
     return { success: true };
@@ -579,6 +569,7 @@ export const AGENT_TOOL_HANDLERS: ReadonlyMap<string, AgentToolHandler> = new Ma
   ["give_item", giveItemTool],
   ["reveal_clue", revealClueTool],
   ["send_image", sendImageTool],
+  ["imageGen", async (args, ctx) => (await import("./image/generate")).generateImageTool(args, ctx)],
   ["inspect_item", inspectItemTool],
   ["search_history", searchHistoryTool],
   ["my_inventory", myInventoryTool],

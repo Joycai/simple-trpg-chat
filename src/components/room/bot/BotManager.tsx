@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createBotAction, getRoomBotsAction, updateBotAction, triggerBotAction } from "@/app/actions/bot";
+import { getImageProviders } from "@/app/actions/image-providers";
 import { getMyProviders } from "@/app/actions/ai-providers";
 import { getBotPresetsAction } from "@/app/actions/bot-presets";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ interface BotInfo {
   avatarColor?: string | null;
   config: {
     name?: string; systemPrompt?: string; model?: string;
-    activation?: string; enableTools?: string[]; providerId?: number;
+    activation?: string; enableTools?: string[]; providerId?: number; imageProviderId?: number;
   };
 }
 
@@ -55,7 +56,14 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
   const [botColor, setBotColor] = useState<string>("#f43f5e");
   const [providers, setProviders] = useState<{ id: number; name: string; model: string; isShared: boolean }[]>([]);
+  const [imageProviders, setImageProviders] = useState<{ id: number; name: string }[]>([]);
+  const [imageProviderId, setImageProviderId] = useState<number | null>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const [providerId, setProviderId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isHost) getImageProviders(roomId).then(setImageProviders).catch(() => setImageLoadError(true));
+  }, [roomId, isHost]);
 
   // Preset State
   const [presets, setPresets] = useState<{ id: number; name: string; defaultNickname: string; systemPrompt: string; allowEditPrompt: boolean }[]>([]);
@@ -125,6 +133,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   };
 
   const resetForm = () => {
+    setImageProviderId(null);
     setBotName("");
     setBotNickname("");
     setSystemPrompt("");
@@ -145,6 +154,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       activation,
       enableTools,
       providerId: providerId ?? undefined,
+      imageProviderId: imageProviderId ?? undefined,
       avatarColor: botColor,
     }).catch(() => ({ success: false as const, error: tCommon("error") }));
     setSubmitting(false);
@@ -169,6 +179,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       activation,
       enableTools,
       providerId: providerId ?? undefined,
+      imageProviderId: imageProviderId ?? undefined,
       avatarColor: botColor,
     }).catch(() => ({ success: false as const, error: tCommon("error") }));
     setSubmitting(false);
@@ -199,6 +210,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const startEdit = (bot: BotInfo) => {
     setFormError(null);
     setEditingBot(bot);
+    setImageProviderId(bot.config.imageProviderId ?? null);
     setBotName(bot.config.name || "");
     setBotNickname(bot.nickname || "");
     setSystemPrompt(bot.config.systemPrompt || "");
@@ -241,6 +253,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     { key: "give_item", label: "toolGiveItem" },
     { key: "reveal_clue", label: "toolRevealClue" },
     { key: "send_image", label: "toolSendImage" },
+    { key: "imageGen", label: "toolImageGen" },
     { key: "inspect_item", label: "toolInspectItem" },
     { key: "my_inventory", label: "toolMyInventory" },
     { key: "my_clues", label: "toolMyClues" },
@@ -447,6 +460,15 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
 
                 {/* Tools as toggle pills */}
                 <div>
+                  {enableTools.includes("imageGen") && <div className="mb-4">
+                    <label className={labelCls} htmlFor="bot-image-provider">{t("imageProvider")}</label>
+                    <select id="bot-image-provider" className={`${fieldCls} min-w-0 max-w-full`} value={imageProviderId ?? ""} onChange={e => setImageProviderId(e.target.value ? Number(e.target.value) : null)}>
+                      <option value="">{t("chooseImageProvider")}</option>
+                      {imageProviderId && !imageProviders.some(p => p.id === imageProviderId) && <option value={imageProviderId} disabled>{t("imageProviderMissing")}</option>}
+                      {imageProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <p className="text-xs text-text-muted mt-1">{imageLoadError ? t("imageLoadFailed") : t("imageProviderHint")}</p>
+                  </div>}
                   <label className={labelCls}>{t("tools")}</label>
                   <div className="flex flex-wrap gap-2">
                     {TOOLS.map(tool => {

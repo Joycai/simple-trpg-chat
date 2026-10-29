@@ -143,7 +143,7 @@ export async function sendMessageAction(
   // (rollDiceAction, commands/engine.ts) attach one. Hard-null it so a client can't
   // smuggle a fake check payload onto a text message that would still flip
   // ChatMessage into the dice-bubble renderer.
-  await dispatchMessage({
+  const sentMessage = await dispatchMessage({
     roomId,
     actorUserId: userId,
     nickname: sender.nickname,
@@ -163,7 +163,7 @@ export async function sendMessageAction(
       if (targetUser && targetUser.isBot && botActivationMode(targetUser.botConfigJson) !== "manual") {
         // Trigger Agent (async)
         import("@/lib/ai/agent")
-          .then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true }))
+          .then(({ runAgent }) => runAgent(targetUserId, roomId, { triggeringUserId: userId, isPrivate: true, messageId: sentMessage.id }))
           .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (private DM):", err));
       }
     } else if (!isPrivate) {
@@ -177,10 +177,13 @@ export async function sendMessageAction(
             where: eq(roomMembers.roomId, capturedRoomId),
             with: { user: true }
           });
-          for (const m of roomBots) {
+          const runs = await Promise.allSettled(roomBots.map(async (m) => {
             if (m.user.isBot && botActivationMode(m.user.botConfigJson) !== "manual" && (capturedContent.includes(`@${m.user.displayName}`) || capturedContent.includes(`@${m.nickname}`))) {
-              await runAgent(m.userId, capturedRoomId, { triggeringUserId: capturedUserId, isPrivate: false });
+              await runAgent(m.userId, capturedRoomId, { triggeringUserId: capturedUserId, isPrivate: false, messageId: sentMessage.id });
             }
+          }));
+          for (const run of runs) {
+            if (run.status === "rejected") console.error("[sendMessageAction] Mentioned bot failed:", run.reason);
           }
         })
         .catch((err) => console.error("[sendMessageAction] Failed to trigger AI agent (mention):", err));

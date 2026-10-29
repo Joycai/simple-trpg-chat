@@ -1319,7 +1319,13 @@
     "submitCreate": "创建",
     "submitSave": "保存",
     "errorBotNotFound": "机器人不存在",
-    "errorBotNotMember": "该机器人不在此房间"
+    "errorBotNotMember": "该机器人不在此房间",
+    "toolImageGen": "AI 生成图片",
+    "imageProvider": "图片生成服务",
+    "chooseImageProvider": "请选择图片服务",
+    "imageProviderMissing": "原服务不可用，请重新选择",
+    "imageLoadFailed": "图片服务加载失败，请关闭面板后重试。",
+    "imageProviderHint": "先在个人 AI 设置或管理后台添加图片服务。"
   },
   "aiImport": {
     "title": "AI 导入",
@@ -2100,5 +2106,68 @@
     "presetChina": "默认使用中国北京地域的普通 API 端点。其他地域或业务空间可编辑端点地址。",
     "presetQwenPlan": "Token Plan 个人版（北京）：请使用套餐专属 API 密钥，不要混用普通 API 或 Coding Plan 密钥。",
     "presetArkPlan": "Agent Plan（北京）：请使用 Agent Plan 专属 API 密钥；普通 API 与 Coding Plan 使用不同配置。"
+  },
+  "imageGeneration": {
+    "jobFailed": "图片生成任务 {id} 未能完成，请查看图片用量记录。不会自动重试。",
+    "jobPartial": "图片生成任务 {id} 仅完成部分交付，已发送的图片可以正常使用。不会自动重试。",
+    "title": "图片生成服务",
+    "add": "添加图片服务",
+    "description": "选择图片模型，配置入口、密钥与费率后，即可在房间的 Bot 设置中启用 imageGen 并分配服务。",
+    "loading": "加载中…",
+    "loadFailed": "图片服务加载失败，请确认数据库已升级。",
+    "retry": "重试",
+    "empty": "尚无可用的图片服务。",
+    "shared": "全站共享",
+    "private": "个人私有",
+    "edit": "编辑",
+    "delete": "删除图片服务",
+    "name": "服务名称",
+    "type": "模型类型",
+    "protocol": "协议",
+    "model": "模型 ID / 部署 ID",
+    "endpoint": "API 基础地址",
+    "key": "API Key",
+    "keyKeep": "API Key（留空保持不变）",
+    "size": "生成尺寸",
+    "rate": "每张图片费率（AI 点数）",
+    "rateValue": "{rate} 点 / 张",
+    "quality": "质量",
+    "aspect": "宽高比",
+    "watermark": "启用水印",
+    "share": "全站共享",
+    "save": "保存",
+    "saving": "保存中…",
+    "deleteHint": "删除后，使用此服务的 Bot 将无法继续生成图片。历史图片及用量记录会保留。",
+    "gatewayHint": "原生协议使用对应厂商的基础地址。OpenAI Images 兼容协议仅适用于明确支持该模型的中转服务；请填写中转地址和实际模型 ID，不会自动切换协议重试。",
+    "billingHint": "每次请求一张图片。共享服务从房主点数中预留费率，成功交付后结算；未交付则退回站点点数（不代表上游免费）。管理员和个人服务不扣站点点数。上游意外多返回的图片不额外扣点。",
+    "unauthorized": "没有权限操作此图片服务。",
+    "invalid": "请检查图片服务的模型、协议、尺寸及费率。",
+    "invalidEndpoint": "请输入可公开访问的 HTTPS API 基础地址。",
+    "keyRequired": "请输入 API Key。",
+    "failed": "图片服务操作失败，请稍后重试。",
+    "invalidAssignment": "请为 imageGen 选择房主可用的图片服务。",
+    "usage": "最近 30 次图片生成记录",
+    "time": "时间",
+    "status": "状态",
+    "count": "上游返回张数",
+    "points": "扣除 / 预留点数",
+    "protocols": {
+      "openai-images": "OpenAI Images（含兼容中转）",
+      "gemini": "Gemini generateContent",
+      "seedream": "火山方舟 Seedream",
+      "dashscope": "百炼 DashScope（同步）"
+    },
+    "qualities": {
+      "auto": "自动",
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    },
+    "statuses": {
+      "pending": "处理中 / 待核对",
+      "succeeded": "已完成",
+      "partial": "部分交付",
+      "failed": "未交付（已退点）"
+    }
   }
 }

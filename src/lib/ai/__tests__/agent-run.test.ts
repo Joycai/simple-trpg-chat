@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { rooms, users, roomMembers, systemConfig, aiProviders, messages } from "@/db/schema";
 
 // Characterization of runAgent's control flow: the guard clauses that skip a
@@ -253,7 +254,9 @@ describe("summary completion contract", () => {
     queueCompletions({ content: "updated summary" });
     await summarizeHistoryAction(BOT_ID, ROOM_ID);
     expect(updateSpy).toHaveBeenCalledOnce();
-    expect(JSON.parse(updateSpy.mock.calls[0][0].botConfigJson)).toMatchObject({ historicalSummary: "updated summary", lastSummarizedMsgId: 30 });
+    const query = new PgDialect().sqlToQuery(updateSpy.mock.calls[0][0].botConfigJson);
+    expect(query.sql).toContain('||');
+    expect(JSON.parse(query.params[0] as string)).toEqual({ historicalSummary: "updated summary", lastSummarizedMsgId: 30 });
   });
 });
 
@@ -263,4 +266,26 @@ it("keeps tools declared but refuses side effects in the fifth round", async () 
   expect(fetchMock).toHaveBeenCalledTimes(5); expect(rollDiceHandler).toHaveBeenCalledTimes(4);
   const lastBody = JSON.parse(fetchMock.mock.calls[4][1].body);
   expect(lastBody.tool_choice).toBe("none"); expect(lastBody.tools).toHaveLength(1);
+});
+
+describe("runtime authorization and overlapping requests", () => {
+  it("refuses a bot that is not a room member", async () => {
+    tableRows.set(roomMembers, []);
+    await runAgent(BOT_ID, ROOM_ID, { triggeringUserId: HOST_ID, isPrivate: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("accepts another distinct chat message while the first request is waiting", async () => {
+    let release!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(resolve => { release = resolve; }));
+    const first = runAgent(BOT_ID, ROOM_ID, { triggeringUserId: HOST_ID, isPrivate: false, messageId: 101 });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    tableQueue.clear();
+    queueCompletions({ content: "second finished" });
+    await runAgent(BOT_ID, ROOM_ID, { triggeringUserId: HOST_ID, isPrivate: false, messageId: 102 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(typingEvents(broadcastToRoom).map(e => e.typing)).toEqual([true]);
+    release(new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "first finished" }, finish_reason: "stop" }] })));
+    await first;
+    expect(typingEvents(broadcastToRoom).map(e => e.typing)).toEqual([true, false]);
+  });
 });
