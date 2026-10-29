@@ -662,3 +662,36 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
   creator: one(users, { fields: [inviteCodes.creatorId], references: [users.id], relationName: 'createdInvites' }),
   usedBy: one(users, { fields: [inviteCodes.usedByUserId], references: [users.id], relationName: 'usedInvite' }),
 }));
+
+// Image services are independent of conversational model providers.
+export const imageProviders = pgTable('image_providers', {
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+  ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  modelType: text('model_type').notNull(),
+  model: text('model').notNull(),
+  protocol: text('protocol').notNull(),
+  apiEndpoint: text('api_endpoint').notNull(),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  apiKeyHint: text('api_key_hint').notNull(),
+  settings: jsonb('settings').notNull(),
+  ratePerImage: numeric('rate_per_image', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  isShared: boolean('is_shared').notNull().default(false),
+});
+
+/** Durable attempts retain price/usage even after a provider is removed. */
+export const imageGenerations = pgTable('image_generations', {
+  id: text('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  roomId: integer('room_id').references(() => rooms.id, { onDelete: 'set null' }),
+  providerId: integer('provider_id').references(() => imageProviders.id, { onDelete: 'set null' }),
+  snapshot: jsonb('snapshot').notNull(),
+  status: text('status').notNull().default('pending'),
+  imageCount: integer('image_count'),
+  rawUsage: jsonb('raw_usage'),
+  receiptEncrypted: text('receipt_encrypted'),
+  upstreamError: jsonb('upstream_error'),
+  reservedPoints: numeric('reserved_points', { precision: 20, scale: 10, mode: 'number' }).notNull().default(0),
+  images: jsonb('images'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});

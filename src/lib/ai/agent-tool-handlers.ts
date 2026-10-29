@@ -27,6 +27,8 @@ import type { ParsedToolArgs } from "@/lib/ai/agent-tool-guard";
  */
 
 export interface AgentToolContext {
+  imageProviderId?: number;
+  imageGenerationAttempted?: boolean;
   roomId: number;
   botUserId: number;
   botNickname: string;
@@ -579,6 +581,7 @@ export const AGENT_TOOL_HANDLERS: ReadonlyMap<string, AgentToolHandler> = new Ma
   ["give_item", giveItemTool],
   ["reveal_clue", revealClueTool],
   ["send_image", sendImageTool],
+  ["imageGen", async (args, ctx) => (await import("./image/generate")).generateImageTool(args, ctx)],
   ["inspect_item", inspectItemTool],
   ["search_history", searchHistoryTool],
   ["my_inventory", myInventoryTool],

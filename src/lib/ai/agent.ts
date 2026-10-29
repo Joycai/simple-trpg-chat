@@ -24,6 +24,7 @@ const BotConfigSchema = z.object({
   enableTools: z.array(z.string()).optional().default(["roll_dice", "respond_check"]),
   lastSummarizedMsgId: z.number().optional().default(0),
   providerId: z.number().optional(),
+  imageProviderId: z.number().int().positive().optional(),
 });
 
 type BotConfig = z.infer<typeof BotConfigSchema>;
@@ -586,7 +587,7 @@ export async function runAgent(
 
   emitAgentTyping(replyTarget, room.hostId, true);
 
-  const toolCtx: AgentToolContext = { roomId, botUserId, botNickname, room, replyIsPrivate, targetUserId };
+  const toolCtx: AgentToolContext = { roomId, botUserId, botNickname, room, replyIsPrivate, targetUserId, imageProviderId: botCfg.imageProviderId };
 
   try {
     await runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, provider: aiConfig, apiKey, userId: room.hostId });

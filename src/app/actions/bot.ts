@@ -2,6 +2,7 @@
 
 import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import { emptySheet } from "@/lib/character/sheet-v2";
+import { validImageAssignment } from "@/lib/ai/image/providers";
 import { db } from "@/db";
 import { users, roomMembers, rooms } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -28,13 +29,17 @@ export async function createBotAction(
     model: string;
     activation: string;
     enableTools?: string[];
-    providerId?: number;
+    providerId?: number; imageProviderId?: number;
     avatarColor?: string;
   }
 ): Promise<{ success: true } | Fail> {
   // Only room hosts can create bots in the room
   if (!(await tryRoomAccess(roomId, true))) {
     return noRoomAccess();
+  }
+
+  if (!(await validImageAssignment(roomId, data.imageProviderId, data.enableTools?.includes("imageGen") ?? false))) {
+    return { success: false, error: (await getTranslations("imageGeneration"))("invalidAssignment") };
   }
 
   // 1. Create a "Shadow User" for the bot (atomic transaction)
@@ -58,6 +63,7 @@ export async function createBotAction(
         activation: data.activation,
         enableTools: data.enableTools || ["roll_dice", "respond_check"],
         providerId: data.providerId,
+        imageProviderId: data.imageProviderId,
         historicalSummary: "",
         lastSummarizedMsgId: 0
       }),
@@ -112,7 +118,7 @@ export async function getRoomBotsAction(roomId: number) {
 export async function updateBotAction(
   roomId: number,
   botUserId: number,
-  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number; avatarColor?: string }
+  data: { name: string; nickname: string; systemPrompt: string; model: string; activation: string; enableTools?: string[]; providerId?: number; imageProviderId?: number; avatarColor?: string }
 ): Promise<{ success: true } | Fail> {
   // Only room hosts can edit bots
   if (!(await tryRoomAccess(roomId, true))) {
@@ -129,10 +135,14 @@ export async function updateBotAction(
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, botUserId)));
   if (!botMember) return { success: false, error: t("errorBotNotMember") };
   const existingConfig = JSON.parse(botUser.botConfigJson || "{}");
+  const imageProviderId = data.imageProviderId ?? existingConfig.imageProviderId;
+  if (!(await validImageAssignment(roomId, imageProviderId, (data.enableTools ?? existingConfig.enableTools ?? []).includes("imageGen")))) {
+    return { success: false, error: (await getTranslations("imageGeneration"))("invalidAssignment") };
+  }
 
   await db.update(users).set({
     displayName: data.name,
-    botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools || existingConfig.enableTools, providerId: data.providerId }),
+    botConfigJson: JSON.stringify({ ...existingConfig, systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools || existingConfig.enableTools, providerId: data.providerId, imageProviderId }),
   }).where(eq(users.id, botUserId));
 
   await db.update(roomMembers).set({

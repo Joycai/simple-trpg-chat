@@ -1319,7 +1319,13 @@
     "submitCreate": "Create",
     "submitSave": "Save",
     "errorBotNotFound": "Bot not found",
-    "errorBotNotMember": "That bot is not in this room"
+    "errorBotNotMember": "That bot is not in this room",
+    "toolImageGen": "Generate images",
+    "imageProvider": "Image generation service",
+    "chooseImageProvider": "Select an image service",
+    "imageProviderMissing": "Service unavailable; choose another",
+    "imageLoadFailed": "Image services could not load. Close and reopen this panel.",
+    "imageProviderHint": "Add an image service in personal AI settings or the admin panel first."
   },
   "aiImport": {
     "title": "AI Import",
@@ -2100,5 +2106,66 @@
     "presetChina": "Defaults to the China (Beijing) pay-as-you-go API. Edit endpoints for other regions or workspaces.",
     "presetQwenPlan": "Token Plan Personal Edition (Beijing): use its dedicated API key, not a pay-as-you-go or Coding Plan key.",
     "presetArkPlan": "Agent Plan (Beijing): use its dedicated API key. Pay-as-you-go and Coding Plan use different configurations."
+  },
+  "imageGeneration": {
+    "title": "Image generation services",
+    "add": "Add image service",
+    "description": "Choose an image model, endpoint, key and rate, then enable imageGen and assign the service in a room’s bot settings.",
+    "loading": "Loading…",
+    "loadFailed": "Could not load image services. Check that the database schema is up to date.",
+    "retry": "Retry",
+    "empty": "No image services available.",
+    "shared": "Shared",
+    "private": "Private",
+    "edit": "Edit",
+    "delete": "Delete image service",
+    "name": "Service name",
+    "type": "Model type",
+    "protocol": "Protocol",
+    "model": "Model / deployment ID",
+    "endpoint": "API base URL",
+    "key": "API key",
+    "keyKeep": "API key (leave empty to keep)",
+    "size": "Image size",
+    "rate": "Rate per image (AI points)",
+    "rateValue": "{rate} points / image",
+    "quality": "Quality",
+    "aspect": "Aspect ratio",
+    "watermark": "Enable watermark",
+    "share": "Share with all users",
+    "save": "Save",
+    "saving": "Saving…",
+    "deleteHint": "Bots assigned to this service will no longer generate images. Existing images and usage records are retained.",
+    "gatewayHint": "Use the vendor base URL for native protocols. OpenAI Images compatibility requires a gateway that explicitly supports the selected model; enter its endpoint and actual model ID. Requests never fall back to another protocol automatically.",
+    "billingHint": "Each request asks for one image. Shared services reserve the room host’s points and settle on delivery; undelivered requests refund site points (this does not imply an upstream refund). Admins and private services do not spend site points. Unexpected extra images incur no additional site charge.",
+    "unauthorized": "You cannot manage this image service.",
+    "invalid": "Check the model, protocol, size and rate.",
+    "invalidEndpoint": "Enter a publicly reachable HTTPS API base URL.",
+    "keyRequired": "Enter an API key.",
+    "failed": "Could not update the image service. Please try again.",
+    "invalidAssignment": "Select an image service available to the room host for imageGen.",
+    "usage": "Last 30 image generation attempts",
+    "time": "Time",
+    "status": "Status",
+    "count": "Returned image count",
+    "points": "Charged / reserved points",
+    "protocols": {
+      "openai-images": "OpenAI Images (including compatible gateways)",
+      "gemini": "Gemini generateContent",
+      "seedream": "Volcengine Seedream",
+      "dashscope": "DashScope (synchronous)"
+    },
+    "qualities": {
+      "auto": "Auto",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "statuses": {
+      "pending": "Processing / needs reconciliation",
+      "succeeded": "Completed",
+      "partial": "Partially delivered",
+      "failed": "Undelivered (points refunded)"
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { ImageProviderManager } from "@/components/ai/ImageProviderManager";
 import { db } from "@/db";
 import { systemConfig } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -29,6 +30,7 @@ export default async function AdminAiFeaturesPage() {
 
       {/* Shared providers */}
       <AdminProviderManager />
+      <ImageProviderManager admin />
 
       {/* Bot presets */}
       <AdminBotPresets presets={presets} />

@@ -10,6 +10,11 @@ import { sheetToolSchema } from "@/lib/character/sheet-ai";
  */
 export function buildAgentToolDefinitions(roomId: number, ruleId?: string | null): Tool[] {
   return [
+    { type: "function", function: {
+      name: "imageGen",
+      description: "Generate one new image from a detailed prompt using your assigned image model, and send it to the current conversation. Use only when the user asks for an image. One attempt per turn; never retry a failure automatically. Do not use send_image for the generated image: delivery is automatic.",
+      parameters: { type: "object", properties: { prompt: { type: "string", minLength: 1, maxLength: 8000 } }, required: ["prompt"], additionalProperties: false },
+    } },
     {
       type: "function",
       function: {
