@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { rooms, users, roomMembers, systemConfig, aiProviders } from "@/db/schema";
+import { rooms, users, roomMembers, systemConfig, aiProviders, messages } from "@/db/schema";
 
 // Characterization of runAgent's control flow: the guard clauses that skip a
 // run, the reply channel, the typing events, and token accounting across the
@@ -12,6 +12,7 @@ import { rooms, users, roomMembers, systemConfig, aiProviders } from "@/db/schem
 const tableRows = new Map<unknown, unknown[]>();
 const tableQueue = new Map<unknown, unknown[][]>();
 const selectSpy = vi.fn();
+const updateSpy = vi.fn();
 function chain(table?: unknown) {
   const c: Record<string, unknown> = {};
   for (const m of ["where", "orderBy", "limit"]) c[m] = () => c;
@@ -24,7 +25,7 @@ vi.mock("@/db", () => ({
   db: {
     select: (...args: unknown[]) => { selectSpy(...args); return chain(); },
     query: { inventoryDistributions: { findMany: vi.fn(async () => []) } },
-    update: vi.fn(),
+    update: () => ({ set: (value: unknown) => { updateSpy(value); return { where: async () => {} }; } }),
   },
 }));
 
@@ -57,7 +58,7 @@ vi.mock("@/lib/ai/agent-tool-handlers", () => ({
   AGENT_TOOL_HANDLERS: new Map([["roll_dice", (...a: unknown[]) => rollDiceHandler(...a)]]),
 }));
 
-import { runAgent } from "../agent";
+import { runAgent, summarizeHistoryAction } from "../agent";
 
 const ROOM_ID = 10;
 const BOT_ID = 50;
@@ -123,7 +124,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   fetchMock.mockReset();
-  for (const spy of [selectSpy, dispatchMessage, broadcastToRoom, emitToUser, recordTokenUsage, rollDiceHandler]) spy.mockClear();
+  for (const spy of [selectSpy, updateSpy, dispatchMessage, broadcastToRoom, emitToUser, recordTokenUsage, rollDiceHandler]) spy.mockClear();
 });
 
 describe("runAgent", () => {
@@ -172,7 +173,7 @@ describe("runAgent", () => {
     expect(dispatchMessage.mock.calls[0][0]).toMatchObject({
       roomId: ROOM_ID, actorUserId: BOT_ID, nickname: "阿尔法", type: "text", audience: "everyone", targetUserId: null, content: "你好",
     });
-    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 10, 2, 5);
+    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 10, 2, 5, expect.objectContaining({ protocol: "chat", status: "completed" }));
     expect(typingEvents(broadcastToRoom).map((e) => e.typing)).toEqual([true, false]);
     expect(emitToUser).not.toHaveBeenCalled();
   });
@@ -191,8 +192,9 @@ describe("runAgent", () => {
     expect(secondBody.messages.at(-1)).toMatchObject({ role: "tool", tool_call_id: "c1", content: JSON.stringify({ success: true, total: 7 }) });
     expect(dispatchMessage).toHaveBeenCalledTimes(1);
     expect(dispatchMessage.mock.calls[0][0]).toMatchObject({ content: "掷出了 7" });
-    expect(recordTokenUsage).toHaveBeenCalledTimes(1);
-    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 30, 4, 12);
+    expect(recordTokenUsage).toHaveBeenCalledTimes(2);
+    expect(recordTokenUsage).toHaveBeenNthCalledWith(1, HOST_ID, PROVIDER_ID, 10, 0, 5, expect.objectContaining({ status: "tool_calls" }));
+    expect(recordTokenUsage).toHaveBeenNthCalledWith(2, HOST_ID, PROVIDER_ID, 20, 4, 7, expect.objectContaining({ status: "completed" }));
   });
 
   it("T7: a failed second round posts an error and still bills the first round", async () => {
@@ -206,7 +208,7 @@ describe("runAgent", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(dispatchMessage).toHaveBeenCalledTimes(1);
     expect(dispatchMessage.mock.calls[0][0].content).toMatch(/^\(阿尔法\) encountered an error connecting to AI: AI API error \(400\)/);
-    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 10, 0, 5);
+    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 10, 0, 5, expect.objectContaining({ status: "tool_calls" }));
     expect(typingEvents(broadcastToRoom).map((e) => e.typing)).toEqual([true, false]);
   });
 
@@ -219,7 +221,8 @@ describe("runAgent", () => {
     dispatchMessage.mockRejectedValueOnce(new Error("db down"));
     await expect(runAgent(BOT_ID, ROOM_ID, { triggeringUserId: PLAYER_ID, isPrivate: false })).rejects.toThrow("db down");
 
-    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 30, 0, 12);
+    expect(recordTokenUsage).toHaveBeenNthCalledWith(1, HOST_ID, PROVIDER_ID, 10, 0, 5, expect.any(Object));
+    expect(recordTokenUsage).toHaveBeenNthCalledWith(2, HOST_ID, PROVIDER_ID, 20, 0, 7, expect.any(Object));
     expect(typingEvents(broadcastToRoom).map((e) => e.typing)).toEqual([true, false]);
   });
 
@@ -233,4 +236,31 @@ describe("runAgent", () => {
     expect(emitToUser.mock.calls[0][2]).toMatchObject({ type: "typing", botUserId: BOT_ID, nickname: "阿尔法", isPrivate: true, targetUserId: PLAYER_ID, userId: BOT_ID });
     expect(dispatchMessage.mock.calls[0][0]).toMatchObject({ audience: "dm", targetUserId: PLAYER_ID, content: "悄悄话" });
   });
+});
+
+
+describe("summary completion contract", () => {
+  beforeEach(() => {
+    tableRows.set(messages, Array.from({ length: 30 }, (_, i) => ({ id: i + 1, userId: PLAYER_ID, audience: "everyone", type: "text", nickname: "Player", content: "story" })));
+  });
+  it("does not overwrite or advance a truncated summary", async () => {
+    queueCompletions({ content: "cut short", finish_reason: "length", usage: { prompt_tokens: 10, completion_tokens: 3 } });
+    await summarizeHistoryAction(BOT_ID, ROOM_ID);
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(recordTokenUsage).toHaveBeenCalledWith(HOST_ID, PROVIDER_ID, 10, 0, 3, expect.objectContaining({ status: "truncated" }));
+  });
+  it("advances only after a complete nonempty summary", async () => {
+    queueCompletions({ content: "updated summary" });
+    await summarizeHistoryAction(BOT_ID, ROOM_ID);
+    expect(updateSpy).toHaveBeenCalledOnce();
+    expect(JSON.parse(updateSpy.mock.calls[0][0].botConfigJson)).toMatchObject({ historicalSummary: "updated summary", lastSummarizedMsgId: 30 });
+  });
+});
+
+it("keeps tools declared but refuses side effects in the fifth round", async () => {
+  queueCompletions(...Array.from({ length: 5 }, (_, i) => ({ tool_calls: [{ id: `c${i}`, type: "function", function: { name: "roll_dice", arguments: "{}" } }], finish_reason: "tool_calls" })));
+  await runAgent(BOT_ID, ROOM_ID, { triggeringUserId: PLAYER_ID, isPrivate: false });
+  expect(fetchMock).toHaveBeenCalledTimes(5); expect(rollDiceHandler).toHaveBeenCalledTimes(4);
+  const lastBody = JSON.parse(fetchMock.mock.calls[4][1].body);
+  expect(lastBody.tool_choice).toBe("none"); expect(lastBody.tools).toHaveLength(1);
 });

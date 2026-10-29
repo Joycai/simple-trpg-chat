@@ -1,5 +1,7 @@
 import { db, sqlNow } from "@/db";
-import { aiTokenUsages, aiProviders, users, aiPointLogs } from "@/db/schema";
+import { aiTokenUsages, aiProviders, users, aiPointLogs, aiUsageAttempts } from "@/db/schema";
+import type { Attempt } from './protocol/client';
+export interface UsageReceipt extends Attempt { rates: { input: number; cached: number; output: number }; day: string }
 import { sql, eq } from "drizzle-orm";
 
 /**
@@ -10,7 +12,8 @@ export async function recordTokenUsage(
   providerId: number,
   inputTokens: number,
   cachedInputTokens: number,
-  outputTokens: number
+  outputTokens: number,
+  receipt?: UsageReceipt
 ) {
   try {
     // Generate YYYY-MM-DD string in UTC timezone to keep consistency with points history query
@@ -18,9 +21,24 @@ export async function recordTokenUsage(
     const year = today.getUTCFullYear();
     const month = String(today.getUTCMonth() + 1).padStart(2, '0');
     const date = String(today.getUTCDate()).padStart(2, '0');
-    const dayStr = `${year}-${month}-${date}`;
+    const dayStr = receipt?.day ?? `${year}-${month}-${date}`;
 
     await db.transaction(async (tx) => {
+      if (receipt) {
+        const inserted = await tx.insert(aiUsageAttempts).values({
+          attemptId: receipt.attemptId, userId, providerId, model: receipt.model,
+          protocol: receipt.protocol, status: receipt.status, usage: receipt.usage,
+          rates: receipt.rates, settlement: receipt.usage.status === 'reported' ? 'settled' : receipt.usage.status,
+        }).onConflictDoNothing().returning({ id: aiUsageAttempts.attemptId });
+        if (!inserted.length) return;
+        if (receipt.usage.status === 'missing') return;
+        // The receipt is authoritative, including partial evidence. A reported
+        // cache bucket is still input even when the upstream omitted its total.
+        const usage = receipt.usage;
+        inputTokens = usage.inputTotal ?? ((usage.inputUncached ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0));
+        cachedInputTokens = Math.min(inputTokens, usage.cacheRead ?? 0);
+        outputTokens = usage.outputTotal ?? 0;
+      }
       await tx.insert(aiTokenUsages).values({
         userId,
         providerId,
@@ -44,9 +62,9 @@ export async function recordTokenUsage(
       if (provider && provider.isShared) {
         const [user] = await tx.select().from(users).where(eq(users.id, userId)).limit(1).for('update');
         if (user && user.role !== "admin") {
-          const rateInput = Number(provider.tokenRateInput || 0);
-          const rateCached = Number(provider.tokenRateCached || 0);
-          const rateOutput = Number(provider.tokenRateOutput || 0);
+          const rateInput = Number(receipt?.rates.input ?? provider.tokenRateInput ?? 0);
+          const rateCached = Number(receipt?.rates.cached ?? provider.tokenRateCached ?? 0);
+          const rateOutput = Number(receipt?.rates.output ?? provider.tokenRateOutput ?? 0);
 
           const netInputTokens = Math.max(0, inputTokens - cachedInputTokens);
           const inputRate = isNaN(rateInput) ? 0 : rateInput;
@@ -62,6 +80,7 @@ export async function recordTokenUsage(
           if (pointsToDeduct > 0) {
             const beforePoints = Number(user.aiPoints || 0);
             const afterPoints = Math.max(0, Number((beforePoints - pointsToDeduct).toFixed(6)));
+            const deductedPoints = Number((beforePoints - afterPoints).toFixed(6));
 
             await tx.update(users)
               .set({
@@ -72,19 +91,20 @@ export async function recordTokenUsage(
             // Log point deduction
             await tx.insert(aiPointLogs).values({
               userId,
-              amount: -pointsToDeduct,
+              amount: -deductedPoints,
               beforePoints,
               afterPoints,
               type: "usage",
-              description: `${provider.name} (${provider.model})`,
+              description: `${provider.name} (${receipt?.model ?? provider.model})`,
             });
 
-            console.log(`[recordTokenUsage] Billed user ${userId} for shared provider: ${pointsToDeduct.toFixed(4)} points deducted.`);
+            console.log(`[recordTokenUsage] Billed user ${userId} for shared provider: ${deductedPoints.toFixed(4)} points deducted.`);
           }
         }
       }
     });
   } catch (error) {
-    console.error("[recordTokenUsage] Failed to record token usage:", error);
+    if (receipt) throw error; // caller retries the same idempotency key
+    console.error("[recordTokenUsage] Failed to record token usage");
   }
 }

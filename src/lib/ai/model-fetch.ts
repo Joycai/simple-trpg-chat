@@ -4,6 +4,7 @@
  * the action; this module only builds the request and parses the response.
  */
 
+import { parseProtocolConfig, resolveConnection } from "./protocol/config";
 import { getVendor } from "@/lib/ai/provider-presets";
 
 export interface ModelsRequest {
@@ -19,7 +20,15 @@ export interface ModelsRequest {
  * native list lives at the same path but wants `x-api-key` +
  * `anthropic-version` headers instead.
  */
-export function buildModelsRequest(vendorId: string, endpoint: string, apiKey: string): ModelsRequest {
+export function buildModelsRequest(vendorId: string, endpoint: string, apiKey: string, protocolConfig?: unknown): ModelsRequest {
+  if (protocolConfig != null) {
+    const config = parseProtocolConfig(protocolConfig);
+    const c = resolveConnection(endpoint, apiKey, config.model ?? "model-list", config);
+    const url = new URL(c.url);
+    url.pathname = config.protocol === "gemini" ? url.pathname.replace(/\/models\/[^/]+:[^/]+$/, "/models") : url.pathname.replace(/\/(chat\/completions|responses|messages)$/, "/models");
+    url.search = config.protocol === "messages" ? "?limit=1000" : "";
+    return { url: url.toString(), headers: c.headers };
+  }
   const base = endpoint.replace(/\/+$/, "");
   if (getVendor(vendorId)?.modelListAuth === "anthropic") {
     return {

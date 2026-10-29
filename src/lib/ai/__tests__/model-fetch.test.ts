@@ -90,3 +90,15 @@ describe("vendor registry", () => {
     expect(getVendorModelPreset("nope", "x")).toBeUndefined();
   });
 });
+
+
+describe("native protocol model listing", () => {
+  it("uses the Gemini models endpoint and key header", () => {
+    expect(buildModelsRequest("google", "https://generativelanguage.googleapis.com/v1beta", "test", { version: 1, protocol: "gemini" })).toMatchObject({
+      url: "https://generativelanguage.googleapis.com/v1beta/models", headers: { "x-goog-api-key": "test" },
+    });
+  });
+  it("strips a full Responses endpoint before listing models", () => {
+    expect(buildModelsRequest("openai", "https://api.openai.com/v1/responses", "test", { version: 1, protocol: "responses", endpointMode: "full" }).url).toBe("https://api.openai.com/v1/models");
+  });
+});

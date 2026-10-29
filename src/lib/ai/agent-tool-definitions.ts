@@ -1,3 +1,4 @@
+import type { Tool } from "./protocol/types";
 import { getRule } from "@/lib/rules";
 import { sheetToolSchema } from "@/lib/character/sheet-ai";
 
@@ -7,7 +8,7 @@ import { sheetToolSchema } from "@/lib/character/sheet-ai";
  * interpolated into send_image's description so the model sees this room's
  * internal image path.
  */
-export function buildAgentToolDefinitions(roomId: number, ruleId?: string | null) {
+export function buildAgentToolDefinitions(roomId: number, ruleId?: string | null): Tool[] {
   return [
     {
       type: "function",

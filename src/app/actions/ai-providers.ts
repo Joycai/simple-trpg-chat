@@ -6,6 +6,8 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { encrypt, decrypt } from "@/lib/security/encryption";
 import { validateApiEndpoint } from "@/lib/security/url-guard";
+import { parseProtocolConfig, resolveConnection } from "@/lib/ai/protocol/config";
+import { readJson, requestHttp } from "@/lib/ai/protocol/transport";
 import { normalizeVendorId } from "@/lib/ai/provider-presets";
 import { buildModelsRequest, parseModelsResponse } from "@/lib/ai/model-fetch";
 import { revalidatePath } from "next/cache";
@@ -22,6 +24,7 @@ export interface ProviderData {
   tokenRateInput?: number;
   tokenRateCached?: number;
   tokenRateOutput?: number;
+  protocolConfig?: unknown;
 }
 
 // ============================================================
@@ -45,7 +48,10 @@ export async function createProvider(data: ProviderData): Promise<{ error: strin
   if (!endpointCheck.valid) return { error: endpointCheck.error! };
 
   try {
+    const protocolConfig = data.protocolConfig == null ? null : parseProtocolConfig(data.protocolConfig);
+    resolveConnection(data.apiEndpoint.trim(), data.apiKey.trim(), data.model || "gpt-4o", protocolConfig);
     const [provider] = await db.insert(aiProviders).values({
+      protocolConfig,
       ownerId: userId,
       name: data.name.trim(),
       apiEndpoint: data.apiEndpoint.trim(),
@@ -103,6 +109,9 @@ export async function updateProvider(providerId: number, data: Partial<ProviderD
   }
 
   try {
+    const config = data.protocolConfig === undefined ? existing.protocolConfig : data.protocolConfig;
+    if (data.protocolConfig !== undefined) values.protocolConfig = config == null ? null : parseProtocolConfig(config);
+    resolveConnection(String(values.apiEndpoint ?? existing.apiEndpoint), "validation-only", String(values.model ?? existing.model), config);
     await db.update(aiProviders).set(values).where(eq(aiProviders.id, providerId));
     revalidatePath("/");
   } catch (e: unknown) {
@@ -207,29 +216,24 @@ export async function fetchProviderModels(input: {
   const endpointCheck = await validateApiEndpoint(endpoint);
   if (!endpointCheck.valid) return { error: endpointCheck.error! };
 
-  // Masked placeholders ("••••1234" / "***") mean "use the stored key".
   let apiKey = input.apiKey?.trim() ?? "";
-  if (!apiKey || apiKey.includes("***") || apiKey.includes("••")) {
-    if (!input.providerId) return { error: t("msgNeedKeyForFetch") };
+  let protocolConfig: unknown;
+  if (input.providerId) {
     const [provider] = await db.select().from(aiProviders).where(eq(aiProviders.id, input.providerId));
     if (!provider) return { error: "Provider not found" };
-    const userId = parseInt(session.user.id);
-    if (provider.ownerId !== userId && role !== "admin") return { error: "Not authorized" };
-    try {
-      apiKey = decrypt(provider.apiKeyEncrypted);
-    } catch {
-      return { error: t("msgNeedKeyForFetch") };
+    if (provider.ownerId !== parseInt(session.user.id) && role !== "admin") return { error: "Not authorized" };
+    protocolConfig = provider.protocolConfig;
+    if (!apiKey || apiKey.includes("***") || apiKey.includes("••")) {
+      try { apiKey = decrypt(provider.apiKeyEncrypted); } catch { return { error: t("msgNeedKeyForFetch") }; }
     }
   }
+  if (!apiKey || apiKey.includes("***") || apiKey.includes("••")) return { error: t("msgNeedKeyForFetch") };
 
-  const { url, headers } = buildModelsRequest(input.vendor, endpoint, apiKey);
   try {
-    const response = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      return { error: `HTTP ${response.status}: ${body.slice(0, 100)}` };
-    }
-    const models = parseModelsResponse(await response.json());
+    const { url, headers } = buildModelsRequest(input.vendor, endpoint, apiKey, protocolConfig);
+    const signal = AbortSignal.timeout(10000);
+    const response = await requestHttp(url, { headers, method: "GET" }, signal);
+    const models = parseModelsResponse(await readJson(response, signal));
     if (models.length === 0) return { error: t("msgFetchFailed") };
     return { models };
   } catch (e: unknown) {

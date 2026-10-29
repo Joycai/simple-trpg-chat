@@ -25,7 +25,7 @@
  * and passes on 14/15/16; BY DEFAULT passes on all of them.
  */
 
-import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, serial, boolean, timestamp, unique, index, numeric, jsonb, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { Audience } from '@/lib/messaging/audience';
 
@@ -533,6 +533,7 @@ export const aiProviders = pgTable('ai_providers', {
   apiEndpoint: text('api_endpoint').notNull().default('https://api.openai.com/v1'),
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   apiKeyHint: text('api_key_hint'),  // last 4 chars of plaintext key, for UI masking without decrypt
+  protocolConfig: jsonb('protocol_config'), // versioned server-side protocol settings; null preserves Chat
   vendor: text('vendor').notNull().default('openai-compatible'),  // ids from src/lib/ai/provider-presets.ts AI_VENDORS
   model: text('model').notNull().default('gpt-4o'),
   isShared: boolean('is_shared').notNull().default(false),
@@ -564,6 +565,20 @@ export const aiTokenUsages = pgTable('ai_token_usages', {
 }, (t) => ({
   unq: unique().on(t.day, t.userId, t.providerId),
 }));
+
+/** Per-request evidence. No prompts, keys or reasoning content are stored. */
+export const aiUsageAttempts = pgTable('ai_usage_attempts', {
+  attemptId: text('attempt_id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  providerId: integer('provider_id').notNull().references(() => aiProviders.id, { onDelete: 'cascade' }),
+  model: text('model').notNull(),
+  protocol: text('protocol').notNull(),
+  status: text('status').notNull(),
+  usage: jsonb('usage').notNull(),
+  rates: jsonb('rates').notNull(),
+  settlement: text('settlement').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});
 
 export const aiTokenUsagesRelations = relations(aiTokenUsages, ({ one }) => ({
   user: one(users, { fields: [aiTokenUsages.userId], references: [users.id] }),

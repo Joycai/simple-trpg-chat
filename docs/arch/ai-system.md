@@ -6,14 +6,14 @@ Bots are regular `users` rows with `isBot: true` and `botConfigJson` holding the
 
 ## Agent Loop (`src/lib/ai/agent.ts`)
 
-Runs an OpenAI-compatible tool-use loop triggered when a message is sent in a room that has an active bot.
+Runs a protocol-independent tool-use loop triggered when a message is sent in a room that has an active bot. Four protocol adapters and their backend configuration are documented in [LLM protocol foundation](llm-protocols.md).
 
 Loop mechanics (each is a deliberate guard — don't undo casually):
 
 - **Max 5 iterations, final one forced to prose**: the last round keeps the tool definitions but sends `tool_choice: "none"` (definitions must stay — some backends, including Claude's OpenAI-compat endpoint, reject tool history with no declared tools). Effective budget: 4 tool rounds + 1 wrap-up narration.
 - **`finish_reason` is checked**: `"length"` stops the loop (tool-call JSON may be half-emitted; the truncation is flagged inside the broadcast message, or as a notice if no text arrived); any other unexpected terminal reason is logged, and an empty turn always posts a notice instead of ending silently.
 - **Message visibility** everywhere the bot reads history (context builder, summarizer, `search_history`, `respond_check` scan) is `messageVisibilityWhere(roomId, botUserId, false)` — the audience model's single SQL predicate. Never hand-roll a predicate on the legacy `isPrivate` column.
-- **Reasoning fields** (`reasoning_content`, `reasoning`) are stripped before an assistant message is echoed back into the context — DeepSeek reasoner-style models 400 on their own reasoning as input.
+- **Reasoning continuation** is preserved by the protocol adapter, bound to the provider route and actual model. It is never displayed as chat prose. DeepSeek thinking/tool rounds retain their required reasoning fields.
 - **History summarization** fires after every 30 new room messages (raw count; the cursor always advances), but only bot-visible rows of readable types — plus all of the bot's own messages — feed the LLM and the persisted summary.
 
 ### Activation & cooldown
@@ -56,7 +56,7 @@ A bot can only do this if the host enabled `send_image` in its `enableTools` arr
 
 Each host configures their own provider via the `aiProviders` table:
 - A provider is one **vendor + model** pair. The create/edit form is two-level: pick a vendor first (OpenAI / Google GenAI / Claude / DeepSeek / OpenAI-compatible third party), then a model. The vendor registry lives in `src/lib/ai/provider-presets.ts` (`AI_VENDORS`): default endpoint, badge, model presets with per-1M token rates, and how to list models. `aiProviders.vendor` stores the chosen vendor id (legacy rows default to `openai-compatible`).
-- The chat path is uniformly OpenAI-compatible (`{endpoint}/chat/completions` + Bearer key) for every vendor — Google and Claude go through their official OpenAI-compatibility endpoints (`…/v1beta/openai`, `api.anthropic.com/v1`), so `src/lib/ai/agent.ts` needs no per-vendor branching.
+- Existing providers default to OpenAI-compatible Chat. Optional backend `protocolConfig` enables Chat, Messages, Responses or Gemini with explicit endpoint/auth/reasoning settings; vendor selection alone never changes the protocol. All features use the shared protocol client, with no vendor branching in the Agent.
 - Model listing is vendor-aware: `fetchProviderModels` (server action in `ai-providers.ts`) GETs `{endpoint}/models` with Bearer auth, except the Claude vendor which uses `x-api-key` + `anthropic-version`. Request building and response parsing are pure functions in `src/lib/ai/model-fetch.ts`. The form's `ModelPicker.tsx` combobox shows vendor preset models and can pull the live list (using the typed key, or the stored key when editing).
 - API endpoint + model are stored in plaintext; API keys are AES-256-GCM encrypted (`src/lib/security/encryption.ts`).
 - `AI_ENCRYPTION_KEY` env var is the encryption key (falls back to `dev-secret-key` in dev).
@@ -65,7 +65,7 @@ Each host configures their own provider via the `aiProviders` table:
 
 ## Token Usage & Points
 
-- Every AI call records token counts in `aiTokenUsages` (daily aggregation per user/provider) via `src/lib/ai/usage.ts`.
+- Each generation records a sanitized `aiUsageAttempts` receipt and updates `aiTokenUsages` daily aggregates transactionally via `src/lib/ai/usage.ts`. Receipt IDs prevent duplicate settlement; snapshots retain the applied rates and unknown/partial usage is distinguishable from zero. Unsaved-provider connection tests have no provider row to bill.
 - When a non-admin user invokes a **shared** provider, `aiPoints` are deducted from their balance (`users.aiPoints`).
 - Deduction is logged in `aiPointLogs` for auditing.
 - Users can view their own usage and point balance via `UserSettingsPanel.tsx`.

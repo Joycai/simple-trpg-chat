@@ -5,11 +5,11 @@ import { aiProviders, inventoryItems, inventoryDistributions, users } from "@/db
 import { eq, or } from "drizzle-orm";
 import { decrypt } from "@/lib/security/encryption";
 import { revalidatePath } from "next/cache";
-import { recordTokenUsage } from "@/lib/ai/usage";
+import { completeForProvider } from "@/lib/ai/protocol/provider";
+import { ProtocolError } from "@/lib/ai/protocol/errors";
 import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
 import { emitToUser } from "@/lib/server/events";
-import { validateApiEndpoint } from "@/lib/security/url-guard";
 
 type Translator = Awaited<ReturnType<typeof getTranslations>>;
 type Provider = typeof aiProviders.$inferSelect;
@@ -133,14 +133,6 @@ async function runAnalysis(
     emitToUser(roomId, userId, { type: "ai_import_result", jobId, ...data });
 
   try {
-    const endpoint = provider.apiEndpoint;
-
-    const endpointCheck = await validateApiEndpoint(endpoint);
-    if (!endpointCheck.valid) {
-      emit({ success: false, error: t("errRequestFailed", { status: 0, error: endpointCheck.error || "" }) });
-      return;
-    }
-
     const systemPrompt = `你是一个 TRPG 内容结构化助手。分析用户输入的文本，将其拆解为结构化的物品/线索条目。
 
 输出格式（纯 JSON 数组，不要 markdown 代码块）：
@@ -157,43 +149,13 @@ async function runAnalysis(
 - content 可以是字符串或对象
 - 只输出相关的内容，不要编造`;
 
-    // Abort on either user cancellation or a 60s timeout — keeps a hung provider
-    // from leaking a request forever (mirrors the timeout in src/app/actions/ai.ts).
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]);
-
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: rawText.slice(0, 5000) },
-        ],
-        temperature: 0.3,
-      }),
-      signal,
+    const result = await completeForProvider(provider, apiKey, userId, {
+      model: provider.model,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: rawText.slice(0, 5000) }],
+      defaultTemperature: 0.3, signal: controller.signal, timeoutMs: 60_000,
     });
-
-    if (!response.ok) {
-      const err = await response.text().catch(() => "");
-      emit({ success: false, error: t("errRequestFailed", { status: response.status, error: err.slice(0, 200) }) });
-      return;
-    }
-
-    const data = await response.json();
-
-    // Record token usage
-    const usage = data.usage || {};
-    const inputTokens = usage.prompt_tokens || 0;
-    const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
-    const outputTokens = usage.completion_tokens || 0;
-    await recordTokenUsage(userId, provider.id, inputTokens, cachedInputTokens, outputTokens);
-
-    const raw = data.choices?.[0]?.message?.content || "";
+    if (result.status !== "completed") throw new ProtocolError("response", "AI import did not complete");
+    const raw = result.message.content || "";
 
     // Try to parse JSON from response
     let items: AnalyzedItem[];
@@ -235,9 +197,9 @@ async function runAnalysis(
   } catch (e: unknown) {
     // Distinguish user cancellation / timeout from genuine failures.
     const err = e as { name?: string; message?: string } | null;
-    if (err?.name === "TimeoutError") {
+    if (err?.name === "TimeoutError" || (e instanceof ProtocolError && e.code === "timeout")) {
       emit({ success: false, error: t("errTimeout") });
-    } else if (err?.name === "AbortError") {
+    } else if (err?.name === "AbortError" || (e instanceof ProtocolError && e.code === "cancelled")) {
       emit({ success: false, error: t("errCancelled"), cancelled: true });
     } else {
       emit({ success: false, error: err?.message || t("errRequestFailGeneral") });
