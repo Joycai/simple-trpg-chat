@@ -2023,6 +2023,7 @@
     "apiKey": "API key",
     "keepKey": "Leave blank to keep the key (ending {hint})",
     "showKey": "Show key",
+    "hideKey": "Hide key",
     "routes": "Protocols and endpoints",
     "routeHint": "One endpoint per protocol. Presets are starting points; adjust to actual vendor support.",
     "endpoint": "Endpoint URL",

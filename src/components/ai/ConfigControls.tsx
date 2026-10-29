@@ -2,9 +2,9 @@
 import { useId, type InputHTMLAttributes, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { BadgeDropdown } from '@/components/shared/BadgeDropdown';
-export function Field({ label, hint, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string }) {
+export function Field({ label, hint, trailing, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; trailing?: ReactNode }) {
   const id = useId();
-  return <div className="flex min-w-0 flex-col gap-1.5"><label htmlFor={id} className="text-xs font-medium text-text-muted">{label}</label><input {...props} id={id} className="w-full min-w-0 appearance-none rounded-theme border border-input-border bg-input-bg px-3 py-2.5 text-sm text-text placeholder:text-text-dim outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50" />{hint && <p className="text-xs leading-5 text-text-dim">{hint}</p>}</div>;
+  return <div className="flex min-w-0 flex-col gap-1.5"><label htmlFor={id} className="text-xs font-medium text-text-muted">{label}</label><div className="relative"><input {...props} id={id} className={`w-full min-w-0 appearance-none rounded-theme border border-input-border bg-input-bg px-3 py-2.5 text-sm text-text placeholder:text-text-dim outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50 ${trailing ? 'pr-12' : ''}`} />{trailing && <div className="absolute inset-y-0 right-1 flex items-center">{trailing}</div>}</div>{hint && <p className="text-xs leading-5 text-text-dim">{hint}</p>}</div>;
 }
 export function Choice({ label, value, options, onChange, disabled }: { label: string; value: string; options: { id: string; label: string }[]; onChange: (v: string) => void; disabled?: boolean }) {
   const id = useId();
