@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { OverlayShell } from '@/components/shared/OverlayShell';
 import { Notice } from '@/components/shared/Notice';
@@ -31,8 +32,11 @@ export function VendorEditor({ vendor, used, onClose, onSaved }: { vendor?: Vend
       <Choice label={t('platform')} value={platform} options={vendorOptions(vendor?.platform).map(v => ({ id: v.id, label: vendorLabel(v, locale) }))} onChange={value => { setPlatform(value); if (!vendor) { setName(value === COMPAT_VENDOR_ID ? '' : vendorLabel(getVendor(value)!, locale)); setRoutes(presetRoutes(value)); } }} />
       {getVendor(platform)?.hintKey && <p className="text-xs leading-5 text-text-muted">{t(getVendor(platform)!.hintKey!)}</p>}
       <Field label={t('vendorName')} value={name} maxLength={120} onChange={e => setName(e.target.value)} />
-      <Field label={t('apiKey')} type={showKey ? 'text' : 'password'} autoComplete="new-password" value={key} onChange={e => setKey(e.target.value)} hint={vendor ? t('keepKey', { hint: vendor.keyHint ?? '' }) : undefined} />
-      <Toggle label={t('showKey')} checked={showKey} onChange={setShowKey} />
+      <Field label={t('apiKey')} type={showKey ? 'text' : 'password'} autoComplete="new-password" value={key} onChange={e => setKey(e.target.value)} hint={vendor ? t('keepKey', { hint: vendor.keyHint ?? '' }) : undefined} trailing={
+        <button type="button" aria-label={t(showKey ? 'hideKey' : 'showKey')} title={t(showKey ? 'hideKey' : 'showKey')} onClick={() => setShowKey(value => !value)} className="flex h-9 w-9 items-center justify-center rounded-theme text-text-muted transition-colors hover:bg-surface-alt hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          {showKey ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+        </button>
+      } />
       <div className="space-y-3"><h4 className="font-bold text-text">{t('routes')}</h4><p className="text-xs text-text-dim">{t('routeHint')}</p>
         {PROTOCOLS.map(protocol => { const route = routes.find(r => r.protocol === protocol); return <div key={protocol} className="space-y-3 rounded-theme border border-border bg-surface-alt/40 p-3">
           <Toggle label={PROTOCOL_LABELS[protocol]} checked={!!route} disabled={!!route && (used.includes(protocol) || routes.length === 1)} onChange={enabled => setRoutes(rs => enabled ? [...rs, { protocol, endpoint: '', endpointMode: 'base' }] : rs.filter(r => r.protocol !== protocol))} />

@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import postgres from 'postgres';
+import { hash } from 'bcryptjs';
 
 test('Admin Vendor/model editor persists protocol settings without native controls', async ({ page }) => {
   const name = `catalog-e2e-${Date.now()}`;
@@ -86,3 +89,70 @@ test('Vendor presets expose the nine requested services and isolated Plan endpoi
   await expect(page.getByRole('textbox', { name: '端点地址', exact: true }).first()).toHaveValue('https://ark.cn-beijing.volces.com/api/v3');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
 });
+
+// A dedicated host fixture avoids depending on a developer's existing account.
+const hostName = `key-eye-host-${Date.now()}`;
+const hostPassword = 'test-key-eye-host-password';
+let hostDb: ReturnType<typeof postgres> | undefined;
+test.beforeAll(async () => {
+  const url = process.env.DATABASE_URL || JSON.parse(readFileSync('db.config.json', 'utf8')).url;
+  hostDb = postgres(url, { max: 1 });
+  const passwordHash = await hash(hostPassword, 10);
+  await hostDb`INSERT INTO users (username, password_hash, display_name, role) VALUES (${hostName}, ${passwordHash}, ${hostName}, 'host')`;
+});
+test.afterAll(async () => {
+  if (hostDb) {
+    try { await hostDb`DELETE FROM users WHERE username = ${hostName}`; }
+    finally { await hostDb.end(); }
+  }
+});
+
+for (const entry of ['admin', 'personal'] as const) {
+  test(`${entry} key field toggles inline without losing input across themes`, async ({ page }) => {
+    if (entry === 'personal') {
+      await page.context().clearCookies();
+      await page.goto('/login');
+      await page.locator('#username').fill(hostName);
+      await page.locator('#password').fill(hostPassword);
+      await page.locator('button[type="submit"]').click();
+      await page.waitForURL(url => !url.pathname.startsWith('/login'));
+      await page.getByTitle(hostName, { exact: true }).click();
+      await page.getByRole('button', { name: '个人设置', exact: true }).click();
+      await page.getByRole('button', { name: 'AI 服务', exact: true }).click();
+    } else {
+      await page.goto('/admin/ai');
+    }
+    await page.getByRole('button', { name: '添加 Vendor', exact: true }).click();
+    const key = page.getByLabel('API 密钥', { exact: true });
+    await expect(key).toHaveAttribute('type', 'password');
+    await key.fill('test-visibility-only');
+    await key.press('Tab');
+    await expect(page.getByRole('button', { name: '显示密钥', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(key).toHaveAttribute('type', 'text');
+    await expect(key).toHaveValue('test-visibility-only');
+    await page.getByRole('button', { name: '隐藏密钥', exact: true }).click();
+    await expect(key).toHaveAttribute('type', 'password');
+    await expect(key).toHaveValue('test-visibility-only');
+    await expect(page.getByRole('switch', { name: '显示密钥', exact: true })).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const theme of ['default', 'parchment', 'cthulhu', 'shrine', 'rainglass', 'aether']) {
+      for (const mode of ['light', 'dark']) {
+        await page.evaluate(({ theme, mode }) => {
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.dataset.mode = mode;
+        }, { theme, mode });
+        const input = (await key.boundingBox())!;
+        const toggle = (await page.getByRole('button', { name: '显示密钥', exact: true }).boundingBox())!;
+        expect(toggle.x).toBeGreaterThan(input.x + input.width / 2);
+        expect(toggle.x + toggle.width).toBeLessThanOrEqual(input.x + input.width);
+        expect(Math.abs(toggle.y + toggle.height / 2 - input.y - input.height / 2)).toBeLessThan(2);
+        expect(input.x + input.width).toBeLessThanOrEqual(390);
+      }
+    }
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
+    await page.getByRole('button', { name: '添加 Vendor', exact: true }).click();
+    await expect(key).toHaveValue('');
+    await expect(key).toHaveAttribute('type', 'password');
+  });
+}

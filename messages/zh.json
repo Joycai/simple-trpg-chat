@@ -2023,6 +2023,7 @@
     "apiKey": "API 密钥",
     "keepKey": "留空保留现有密钥（尾号 {hint}）",
     "showKey": "显示密钥",
+    "hideKey": "隐藏密钥",
     "routes": "协议与端点",
     "routeHint": "每种协议可配置一个端点。预设仅为起点，请按服务商实际支持情况调整。",
     "endpoint": "端点地址",
