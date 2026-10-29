@@ -19,8 +19,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { broadcastToRoom } from "@/lib/server/events";
 import { decrypt } from "@/lib/security/encryption";
 import { checkSensitiveWords } from "@/lib/security/sensitive-words";
-import { recordTokenUsage } from "@/lib/ai/usage";
-import { validateApiEndpoint } from "@/lib/security/url-guard";
+import { completeForProvider } from "@/lib/ai/protocol/provider";
 import { getTranslations } from "next-intl/server";
 import type { VisualGrade } from "@/lib/rules";
 
@@ -266,10 +265,6 @@ async function tryLlmQuip(announcer: AnnouncerInfo, roomId: number, roll: RollSu
     return null;
   }
 
-  const url = `${provider.apiEndpoint}/chat/completions`;
-  const endpointCheck = await validateApiEndpoint(url);
-  if (!endpointCheck.valid) return null;
-
   const systemPrompt =
     `${cfg.systemPrompt}\n\n你是掷骰播报员。用一句话（≤40字）点评这次掷骰结果，符合你的人设。` +
     `只输出这一句话，不要复述数字以外的编造内容。使用与玩家相同的语言。`;
@@ -282,32 +277,13 @@ async function tryLlmQuip(announcer: AnnouncerInfo, roomId: number, roll: RollSu
   const timer = setTimeout(() => controller.abort(), QUIP_LLM_TIMEOUT_MS);
   let ok = false;
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: QUIP_MAX_TOKENS,
-      }),
-      signal: controller.signal,
+    const result = await completeForProvider(provider, apiKey, room.hostId, {
+      model: cfg.model,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      maxOutputTokens: QUIP_MAX_TOKENS, signal: controller.signal, timeoutMs: QUIP_LLM_TIMEOUT_MS,
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) return null;
-
-    const usage = data?.usage || {};
-    recordTokenUsage(
-      room.hostId,
-      provider.id,
-      usage.prompt_tokens || 0,
-      usage.prompt_tokens_details?.cached_tokens || 0,
-      usage.completion_tokens || 0
-    ).catch((err) => console.error("[dice-announcer] recordTokenUsage failed:", err));
+    const content = result.message.content;
+    if (result.status !== "completed" || !content?.trim()) return null;
 
     const cleaned = content.trim().slice(0, QUIP_MAX_CHARS);
     const hit = await checkSensitiveWords(cleaned);

@@ -4,8 +4,8 @@
  * AI providers tab.
  *
  * Every vendor here speaks the OpenAI-compatible chat protocol
- * (`{endpoint}/chat/completions` with a Bearer key), which is the only
- * protocol the rest of the app implements. Google and Anthropic are wired
+ * (`{endpoint}/chat/completions` with a Bearer key), which remains the
+ * default for rows without an explicit backend protocolConfig. Google and Anthropic are wired
  * through their official OpenAI-compatibility endpoints so the chat path
  * needs no per-vendor branching; only model *listing* differs (see
  * `modelListAuth` and `src/lib/ai/model-fetch.ts`).
@@ -33,7 +33,7 @@ export interface AiVendor {
   /** Two-letter abbreviation displayed in the dropdown badge. */
   badgeLetters: string;
   /**
-   * Auth style for GET {endpoint}/models. Chat always uses Bearer;
+   * Auth style for GET {endpoint}/models. Legacy Chat uses Bearer;
    * Anthropic's native models endpoint wants x-api-key + anthropic-version.
    */
   modelListAuth: "bearer" | "anthropic";

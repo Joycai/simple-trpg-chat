@@ -1,12 +1,15 @@
 "use server";
 
 import { db, sqlNow } from "@/db";
-import { systemConfig } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { systemConfig, aiProviders } from "@/db/schema";
+import { sql, eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { validateApiEndpoint } from "@/lib/security/url-guard";
+import { complete } from "@/lib/ai/protocol/client";
+import { completeForProvider } from "@/lib/ai/protocol/provider";
+import { parseProtocolConfig, resolveConnection } from "@/lib/ai/protocol/config";
+import { decrypt } from "@/lib/security/encryption";
 
 /**
  * System Config (Admin Only)
@@ -68,31 +71,28 @@ export async function testAiConnection(endpoint: string, apiKey: string, model: 
   const role = session.user.role;
   if (role !== "host" && role !== "admin") return { success: false, error: "Unauthorized" };
 
-  const endpointCheck = await validateApiEndpoint(endpoint);
-  if (!endpointCheck.valid) return { success: false, error: endpointCheck.error };
-
   try {
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: "ping" }],
-        max_tokens: 5,
-      }),
-      signal: AbortSignal.timeout(10000),
+    // Old forms have no protocol field. Resolve an owned, unambiguous saved
+    // configuration without changing the UI or using another user's credentials.
+    const candidates = await db.select().from(aiProviders).where(and(
+      eq(aiProviders.ownerId, parseInt(session.user.id)), eq(aiProviders.model, model),
+    ));
+    const matches = candidates.filter(p => {
+      if (p.apiEndpoint.replace(/\/+$/, "") !== endpoint.replace(/\/+$/, "")) return false;
+      try { return decrypt(p.apiKeyEncrypted) === apiKey; } catch { return false; }
     });
-
-    if (!response.ok) {
-      const error = await response.text().catch(() => "");
-      return { success: false, error: `HTTP ${response.status}: ${error.slice(0, 100)}` };
-    }
-
-    return { success: true };
+    if (matches.length > 1 && new Set(matches.map(p => JSON.stringify(p.protocolConfig))).size > 1) return { success: false, error: "Ambiguous protocol configuration" };
+    const config = parseProtocolConfig(matches[0]?.protocolConfig);
+    // A five-token probe cannot satisfy a saved thinking budget. Test the
+    // configured generation limits; keep the small legacy probe otherwise.
+    const usesConfiguredBudget = config.reasoning !== undefined || config.maxOutputTokens !== undefined;
+    const request = { model, messages: [{ role: "user" as const, content: "ping" }], ...(usesConfiguredBudget ? {} : { maxOutputTokens: 5 }), timeoutMs: 10000 };
+    const result = matches[0]
+      ? await completeForProvider(matches[0], apiKey, parseInt(session.user.id), request)
+      : await complete(resolveConnection(endpoint, apiKey, model), request);
+    return result.status === "completed" && !!result.message.content?.trim()
+      ? { success: true } : { success: false, error: `AI test did not complete (${result.status})` };
   } catch (e: unknown) {
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
+    return { success: false, error: e instanceof Error ? e.message : "AI connection failed" };
   }
 }

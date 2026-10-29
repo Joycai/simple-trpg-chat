@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { recordTokenUsage } from "@/lib/ai/usage";
+import { completeForProvider } from "@/lib/ai/protocol/provider";
+import type { Message, Status } from "@/lib/ai/protocol/types";
 import { users, messages, inventoryDistributions, rooms, aiProviders, roomMembers, systemConfig, type MessageType } from "@/db/schema";
 import { eq, and, asc, desc, gt } from "drizzle-orm";
 import { decrypt } from "@/lib/security/encryption";
@@ -9,7 +10,6 @@ import { canSee } from "@/lib/messaging/audience";
 import { checkSensitiveWords } from "@/lib/security/sensitive-words";
 import { z } from "zod";
 import { getRuleForRoom } from "@/lib/rules";
-import { validateApiEndpoint } from "@/lib/security/url-guard";
 import { resolveToolCall } from "@/lib/ai/agent-tool-guard";
 import { buildAgentToolDefinitions } from "@/lib/ai/agent-tool-definitions";
 import { AGENT_TOOL_HANDLERS, type AgentToolContext } from "@/lib/ai/agent-tool-handlers";
@@ -57,63 +57,6 @@ const TOOL_RESULT_MAX_BYTES = 4 * 1024;
 function capToolContent(content: string): string {
   if (content.length <= TOOL_RESULT_MAX_BYTES) return content;
   return content.slice(0, TOOL_RESULT_MAX_BYTES) + "…[truncated]";
-}
-
-/**
- * Fetch helper with exponential backoff (R9) — only retries when retrying
- * could actually help:
- *  - 2xx → done.
- *  - 4xx (except 429) → client error (bad key, malformed request, etc).
- *    Retrying just burns the shared-provider quota and re-bills the host,
- *    so we return the response as-is and let the caller surface it.
- *  - 429 → honor `Retry-After` if present, else use the backoff schedule.
- *  - 5xx / network errors → retry up to `maxRetries`.
- *
- * Delay is doubled each attempt and capped at MAX_DELAY_MS so a long
- * `Retry-After` can't park a worker for minutes.
- */
-const MAX_BACKOFF_DELAY_MS = 16_000;
-async function fetchWithBackoff(url: string, options: RequestInit, maxRetries = 3, initialDelay = 1000): Promise<Response> {
-  // Re-validate at call time (not just when the provider was saved): DNS can
-  // change after the fact, and this closes that TOCTOU window before every
-  // outbound request to a host-configured endpoint.
-  const endpointCheck = await validateApiEndpoint(url);
-  if (!endpointCheck.valid) {
-    throw new Error(`Blocked outbound AI request: ${endpointCheck.error}`);
-  }
-
-  let delay = initialDelay;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-
-      const isClientError = response.status >= 400 && response.status < 500 && response.status !== 429;
-      if (isClientError) {
-        // No point retrying — let the caller decode the body and report.
-        return response;
-      }
-
-      if (response.status === 429) {
-        const retryAfter = response.headers.get("Retry-After");
-        if (retryAfter) {
-          const seconds = Number(retryAfter);
-          if (Number.isFinite(seconds) && seconds > 0) {
-            delay = Math.min(seconds * 1000, MAX_BACKOFF_DELAY_MS);
-          }
-        }
-      }
-
-      if (attempt === maxRetries) return response;
-      console.warn(`[AI API] Attempt ${attempt} failed with status ${response.status}. Retrying in ${delay}ms...`);
-    } catch (error) {
-      if (attempt === maxRetries) throw error;
-      console.warn(`[AI API] Attempt ${attempt} encountered error: ${error}. Retrying in ${delay}ms...`);
-    }
-    await new Promise(resolve => setTimeout(resolve, delay));
-    delay = Math.min(delay * 2, MAX_BACKOFF_DELAY_MS);
-  }
-  throw new Error("Failed after maximum retries");
 }
 
 /**
@@ -192,7 +135,7 @@ export async function buildAgentContext(
   const rule = getRuleForRoom(room || {});
   const rulesExplanation = rule.describeForAI().rulesPrompt;
 
-  const context: { role: string; name?: string; content: string; tool_calls?: unknown; tool_call_id?: string }[] = [
+  const context: Message[] = [
     {
       role: "system",
       content: `${sysPrompt}\n\n[Room Rules]:\n- Rule: ${rule.id}\n- Rule Note: ${rulesExplanation}\n\n[Your Current Knowledge/Items]:\n${JSON.stringify(knowledgeBase)}\n\n[Historical Summary]:\n${summary || "No history yet."}\n\nYou can use 'inspect_item(itemId)' to see details of any item you possess.`
@@ -245,7 +188,7 @@ interface AgentTrigger {
   bypassCooldown?: boolean;
 }
 
-type AgentChatMessage = { role: string; name?: string; content?: string | null; tool_calls?: unknown; tool_call_id?: string; function_call?: unknown };
+type AgentChatMessage = Message;
 
 /** Where the bot's replies and typing indicator go for this run. */
 interface AgentReplyTarget {
@@ -254,13 +197,6 @@ interface AgentReplyTarget {
   botNickname: string;
   replyIsPrivate: boolean;
   targetUserId: number | null;
-}
-
-/** Token counts summed across the loop's completions; billed once in runAgent's finally. */
-interface TokenTally {
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
 }
 
 /** Anti-storm gate: false when the bot ran inside the cooldown window and the trigger doesn't bypass it. */
@@ -448,11 +384,10 @@ function emitAgentTyping({ roomId, botUserId, botNickname, replyIsPrivate, targe
 }
 
 /**
- * The model↔tool loop. Appends to `currentContext` and adds each completion's
- * usage to `tokens` in place, so runAgent's finally bills whatever was spent
- * even if this throws partway.
+ * The model↔tool loop. The shared provider client accounts for each request,
+ * including failures, before the next tool round starts.
  */
-async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, endpoint, apiKey, tokens }: {
+async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, provider, apiKey, userId }: {
   model: string;
   tools: ReturnType<typeof buildAgentToolDefinitions>;
   enabledTools: string[];
@@ -460,73 +395,35 @@ async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, cu
   currentContext: AgentChatMessage[];
   toolCtx: AgentToolContext;
   sayAsBot: ReturnType<typeof makeSayAsBot>;
-  endpoint: string;
+  provider: typeof aiProviders.$inferSelect;
   apiKey: string;
-  tokens: TokenTally;
+  userId: number;
 }) {
   const { botUserId, botNickname } = toolCtx;
   let iterations = 0;
+  const deadlineMs = Date.now() + 300_000;
 
   // Fetch the LLM completion
   while (iterations < MAX_AGENT_ITERATIONS) {
     iterations++;
     const isLastIteration = iterations === MAX_AGENT_ITERATIONS;
 
-    let assistantMessage;
-    let finishReason: string | undefined;
+    let assistantMessage: Message;
+    let finishReason: string;
+    let completionStatus: Status;
     try {
-      const bodyPayload = {
-        model,
-        messages: currentContext,
-        // Force-text on the final iteration: keep the tool definitions —
-        // several backends (including Claude's OpenAI-compat endpoint)
-        // reject requests whose history contains tool calls when no tools
-        // are declared — but forbid new calls via tool_choice so the model
-        // must wrap up in prose. Without this, tools called on the last
-        // round produce side effects (dice broadcasts, item transfers)
-        // whose results the model never sees and never gets to describe.
-        ...(tools.length > 0
-          ? { tools, ...(isLastIteration ? { tool_choice: "none" } : {}) }
-          : {})
-      };
-
-      const response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(bodyPayload)
+      const completion = await completeForProvider(provider, apiKey, userId, {
+        model, messages: currentContext, deadlineMs,
+        ...(tools.length > 0 ? { tools, ...(isLastIteration ? { toolChoice: "none" as const } : {}) } : {}),
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`AI API error (${response.status}): ${errText}`);
-      }
-
-      const data = await response.json();
-      
-      // Record token usage (accumulated here, saved in runAgent's finally block)
-      const usage = data.usage || {};
-      tokens.inputTokens += usage.prompt_tokens || 0;
-      tokens.cachedInputTokens += usage.prompt_tokens_details?.cached_tokens || 0;
-      tokens.outputTokens += usage.completion_tokens || 0;
-
-      assistantMessage = data.choices[0].message;
-      finishReason = data.choices[0].finish_reason;
+      assistantMessage = completion.message;
+      finishReason = completion.stopReason;
+      completionStatus = completion.status;
     } catch (err: unknown) {
       console.error(`[runAgent] completion error:`, err);
       await sayAsBot(`(${botNickname}) encountered an error connecting to AI: ${err instanceof Error ? err.message : String(err)}`, { lock: true });
       break;
     }
-
-    // Strip known chain-of-thought fields before echoing the message back:
-    // DeepSeek reasoner-style models reject requests whose input contains
-    // their own reasoning_content (400), which would kill the second round
-    // of any tool loop. Only these named fields are removed — everything
-    // else is preserved verbatim.
-    delete assistantMessage.reasoning_content;
-    delete assistantMessage.reasoning;
 
     // Add assistant response to context
     currentContext.push(assistantMessage);
@@ -535,7 +432,7 @@ async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, cu
     // no max_tokens in the request, so the cap is the provider's default):
     // the prose is cut short and any tool_calls are likely half-emitted
     // JSON. An HTTP 200 with finish_reason "length" is not a success.
-    const truncated = finishReason === "length";
+    const truncated = completionStatus === "truncated";
 
     // If there is message text, broadcast it (R3) (filtered with sensitive words check)
     if (assistantMessage.content) {
@@ -569,12 +466,12 @@ async function runAgentToolLoop({ model, tools, enabledTools, knownToolNames, cu
     // Any other terminal reason the loop doesn't model (content_filter,
     // relay-specific values) is not a success either: log it, and if the
     // turn produced nothing at all, say so instead of ending silently.
-    if (finishReason && !["stop", "tool_calls"].includes(finishReason)) {
+    if (completionStatus === "blocked" || completionStatus === "incomplete") {
       console.warn(`[runAgent] Bot ${botUserId} completion ended with unexpected finish_reason=${finishReason}.`);
-      if (!assistantMessage.content && !assistantMessage.tool_calls?.length) {
+      if (!assistantMessage.content) {
         await sayAsBot(`(${botNickname}) the model returned no reply (finish_reason: ${finishReason}).`, { lock: true });
-        break;
       }
+      break;
     }
 
     // If no tool calls, we are finished
@@ -664,7 +561,7 @@ export async function runAgent(
 
   const provider = await resolveAgentProvider(botUserId, room, botCfg);
   if (!provider) return;
-  const { aiConfig, apiKey, endpoint } = provider;
+  const { aiConfig, apiKey } = provider;
 
   const { context, model } = await buildAgentContext(botUser, room, roomId, botUserId, botCfg);
   const enabledTools: string[] = botCfg.enableTools || ["roll_dice", "respond_check"];
@@ -691,17 +588,9 @@ export async function runAgent(
 
   const toolCtx: AgentToolContext = { roomId, botUserId, botNickname, room, replyIsPrivate, targetUserId };
 
-  // Created outside the try and filled in place by the loop, so the finally
-  // bills tokens already spent even when the loop throws.
-  const tokens: TokenTally = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
-
   try {
-    await runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, endpoint, apiKey, tokens });
+    await runAgentToolLoop({ model, tools, enabledTools, knownToolNames, currentContext, toolCtx, sayAsBot, provider: aiConfig, apiKey, userId: room.hostId });
   } finally {
-    if (tokens.inputTokens > 0 || tokens.outputTokens > 0) {
-      recordTokenUsage(room.hostId, aiConfig.id, tokens.inputTokens, tokens.cachedInputTokens, tokens.outputTokens)
-        .catch(err => console.error("[runAgent] Error saving accumulated token usage:", err));
-    }
     emitAgentTyping(replyTarget, room.hostId, false);
   }
 
@@ -786,45 +675,23 @@ export async function summarizeHistoryAction(botUserId: number, roomId: number) 
     console.error(`[summarizeHistoryAction] Provider API key cannot be decrypted (key mismatch) — delete and re-create the provider.`);
     return;
   }
-  const endpoint = aiConfig.apiEndpoint;
 
   const msgText = summarizable.map(m => `[${m.nickname}]: ${m.content}`).join("\n");
   const oldSummary = config.historicalSummary || "";
 
-  let response;
   try {
-    response = await fetchWithBackoff(`${endpoint}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: config.model || "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a TRPG chronicler. Update the existing summary with the new chat log provided. Keep it concise, capturing key events, plot points, and character state changes." },
-          { role: "user", content: `Existing Summary:\n${oldSummary}\n\nNew Chat Log:\n${msgText}\n\nProvide the updated summary:` }
-        ]
-      })
+    const response = await completeForProvider(aiConfig, apiKey, room.hostId, {
+      model: config.model || "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a TRPG chronicler. Update the existing summary with the new chat log provided. Keep it concise, capturing key events, plot points, and character state changes." },
+        { role: "user", content: `Existing Summary:\n${oldSummary}\n\nNew Chat Log:\n${msgText}\n\nProvide the updated summary:` },
+      ],
     });
-  } catch (err) {
-    console.error("[summarizeHistoryAction] AI API request failed after retries:", err);
-    return;
-  }
-
-  if (response.ok) {
-    const data = await response.json();
-
-    // Record token usage (always billed to the room host who manages/owns the bot in this room)
-    const usage = data.usage || {};
-    const inputTokens = usage.prompt_tokens || 0;
-    const cachedInputTokens = usage.prompt_tokens_details?.cached_tokens || 0;
-    const outputTokens = usage.completion_tokens || 0;
-    await recordTokenUsage(room.hostId, aiConfig.id, inputTokens, cachedInputTokens, outputTokens);
-
-    const newSummary = data.choices[0].message.content;
-    
-    // Save back to Bot Config
-    config.historicalSummary = newSummary;
+    if (response.status !== "completed" || !response.message.content?.trim()) return;
+    config.historicalSummary = response.message.content;
     config.lastSummarizedMsgId = newMsgs[newMsgs.length - 1].id;
-    
     await db.update(users).set({ botConfigJson: JSON.stringify(config) }).where(eq(users.id, botUserId));
+  } catch {
+    console.error("[summarizeHistoryAction] AI request failed; retaining previous summary");
   }
 }
