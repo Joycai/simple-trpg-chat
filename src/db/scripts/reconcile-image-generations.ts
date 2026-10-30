@@ -1,6 +1,6 @@
 /** Reconcile interrupted image attempts against persisted chat delivery. Dry run by default. */
 import { db } from '@/db';
-import { imageGenerations, messages } from '@/db/schema';
+import { imageGenerations, messages, generatedAssets } from '@/db/schema';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import { settleImageGeneration } from '@/lib/ai/image/generate';
 async function main() {
@@ -12,7 +12,8 @@ async function main() {
   const rows = await db.select().from(imageGenerations).where(and(inArray(imageGenerations.status, ['pending', 'generated']), lt(sql`coalesce(${imageGenerations.startedAt}, ${imageGenerations.createdAt})`, cutoff)));
   for (const row of rows) {
     const urls = Array.isArray(row.images) ? row.images.filter((v): v is string => typeof v === 'string') : [];
-    const delivered = row.roomId && urls.length ? await db.select({ content: messages.content }).from(messages).where(and(eq(messages.roomId, row.roomId), eq(messages.type, 'image'), inArray(messages.content, urls))) : [];
+    const assetPurpose = (row.snapshot as { purpose?: string }).purpose === 'user_asset';
+    const delivered = assetPurpose ? await db.select({ id: generatedAssets.id }).from(generatedAssets).where(eq(generatedAssets.jobId, row.id)) : row.roomId && urls.length ? await db.select({ content: messages.content }).from(messages).where(and(eq(messages.roomId, row.roomId), eq(messages.type, 'image'), inArray(messages.content, urls))) : [];
     const status = delivered.length ? 'partial' : 'failed';
     console.log(JSON.stringify({ id: row.id, status, delivered: delivered.length, refund: delivered.length ? 0 : row.reservedPoints, apply }));
     if (apply) await settleImageGeneration(row.id, status, urls, row.rawUsage, row.imageCount);

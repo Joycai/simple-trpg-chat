@@ -50,7 +50,7 @@ interface BadgeDropdownProps {
 /** Below this much room under the trigger, the menu flips above it. */
 const MIN_MENU_SPACE = 180;
 const LIST_MAX_HEIGHT = 288; // matches the previous `max-h-72`
-const MIN_LIST_HEIGHT = 120;
+const MIN_LIST_HEIGHT = 0;
 const MENU_HEADER_HEIGHT = 44;
 const VIEWPORT_GUTTER = 8;
 
@@ -116,13 +116,20 @@ export function BadgeDropdown({
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - r.bottom - VIEWPORT_GUTTER;
-      const spaceAbove = r.top - VIEWPORT_GUTTER;
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      if (r.bottom <= viewportTop || r.top >= viewportTop + viewportHeight) { setOpen(false); return; }
+      const spaceBelow = viewportTop + viewportHeight - r.bottom - VIEWPORT_GUTTER;
+      const spaceAbove = r.top - viewportTop - VIEWPORT_GUTTER;
+      const width = Math.min(r.width, Math.max(0, viewportWidth - VIEWPORT_GUTTER * 2));
       const dropUp = spaceBelow < MIN_MENU_SPACE && spaceAbove > spaceBelow;
       const available = dropUp ? spaceAbove : spaceBelow;
       setPos({
-        left: r.left,
-        width: r.width,
+        left: Math.max(viewportLeft + VIEWPORT_GUTTER, Math.min(r.left, viewportLeft + viewportWidth - VIEWPORT_GUTTER - width)),
+        width,
         top: dropUp ? undefined : r.bottom,
         bottom: dropUp ? window.innerHeight - r.top : undefined,
         listMaxHeight: Math.max(MIN_LIST_HEIGHT, Math.min(LIST_MAX_HEIGHT, available - MENU_HEADER_HEIGHT)),
@@ -132,9 +139,13 @@ export function BadgeDropdown({
     measure();
     window.addEventListener("scroll", measure, { capture: true, passive: true });
     window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("scroll", measure);
     return () => {
       window.removeEventListener("scroll", measure, { capture: true });
       window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("scroll", measure);
     };
   }, [open]);
 
@@ -153,15 +164,24 @@ export function BadgeDropdown({
     };
   }, [open]);
 
+  const positioned = !!pos;
+  useEffect(() => {
+    if (open && positioned) {
+      const current = menuRef.current?.querySelector<HTMLElement>('[aria-selected="true"]:not(:disabled)');
+      (current ?? menuRef.current?.querySelector<HTMLElement>('[role="option"]:not(:disabled)'))?.focus();
+    }
+  }, [open, positioned]); // Position follows scrolling without resetting keyboard focus.
+
   // Escape closes just this dropdown while it's the topmost overlay — via the
   // shared stack, so a host modal doesn't close on the same keypress.
-  useEscapeToClose(() => setOpen(false), open);
+  useEscapeToClose(() => { setOpen(false); triggerRef.current?.focus(); }, open);
 
   if (!selected) return null;
 
   const pick = (next: string) => {
     onChange(next);
     setOpen(false);
+    triggerRef.current?.focus();
   };
 
   return (
@@ -173,6 +193,7 @@ export function BadgeDropdown({
         id={id}
         type="button"
         disabled={disabled}
+        onKeyDown={e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); } }}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => !disabled && setOpen((v) => !v)}
@@ -191,6 +212,18 @@ export function BadgeDropdown({
         <div
           ref={menuRef}
           role="listbox"
+          aria-label={headerText}
+          onKeyDown={e => {
+            const options = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []);
+            const current = options.indexOf(document.activeElement as HTMLButtonElement);
+            let next: number | undefined;
+            if (e.key === 'ArrowDown') next = (current + 1) % options.length;
+            if (e.key === 'ArrowUp') next = (current - 1 + options.length) % options.length;
+            if (e.key === 'Home') next = 0;
+            if (e.key === 'End') next = options.length - 1;
+            if (next !== undefined) { e.preventDefault(); options[next]?.focus(); }
+            if (e.key === 'Tab') { e.preventDefault(); setOpen(false); triggerRef.current?.focus(); }
+          }}
           style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom }}
           className={`fixed z-[110] bg-surface border ${T.menuBorder} ${
             pos.dropUp ? "border-b-0 rounded-t-theme" : "border-t-0 rounded-b-theme"

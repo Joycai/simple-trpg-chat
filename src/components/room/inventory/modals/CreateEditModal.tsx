@@ -1,10 +1,12 @@
 "use client";
 
+import { AssetStudioEntry } from "@/components/ai/AssetStudioEntry";
+import { describeAsset } from "@/lib/ai/assets/types";
+import { BadgeDropdown } from "@/components/shared/BadgeDropdown";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
 import { OverlayShell } from "@/components/shared/OverlayShell";
-import { ThemedSelect } from "@/components/shared/ThemedSelect";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { Notice } from "@/components/shared/Notice";
 import { useHostLabel, usePlayerLabel } from "@/components/shared/host-label";
@@ -55,6 +57,8 @@ export function CreateEditModal({
   error, busy = false,
 }: CreateEditModalProps) {
   const t = useTranslations("inventory");
+  const ta = useTranslations("assetStudio");
+  const [draftKey] = useState(() => crypto.randomUUID());
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
   const playerLabel = usePlayerLabel();
@@ -166,7 +170,7 @@ export function CreateEditModal({
 
                 {/* Title / Name (+ Identity for character) */}
                 {itemType === "character" ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("charNameLabel")}</label>
                       <input value={title} onChange={e => onTitleChange(e.target.value)} placeholder={t("charNamePlaceholder")} className={fieldCls} />
@@ -261,7 +265,7 @@ export function CreateEditModal({
                 {itemType === "info" && (
                   <div>
                     <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("visibilityLabel")}</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {([["all", t("visibilityAll"), Icons.Eye], ["kp", t("visibilityKp", { host: hostLabel }), Icons.Lock]] as const).map(([v, label, Ico]) => (
                         <button key={v} type="button" onClick={() => onMetaChange({ ...meta, visibility: v })}
                           className={`flex items-center justify-center gap-2 py-2.5 rounded-theme border text-sm font-bold transition cursor-pointer ${
@@ -298,6 +302,11 @@ export function CreateEditModal({
                           onChange={e => { handlePick(e.target.files?.[0]); e.target.value = ""; }} />
                       </label>
                     )}
+                    {imageUrl && <label className="mt-2 min-h-11 inline-flex items-center gap-2 px-3 py-2 rounded-theme border border-border text-text text-sm cursor-pointer hover:bg-surface-alt">
+                      {ta("upload")}
+                      <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="sr-only" onChange={e => { handlePick(e.target.files?.[0]); e.target.value = ""; }} />
+                    </label>}
+                    <AssetStudioEntry roomId={roomId} kind={itemType} targetKey={editingItemId ? `item:${editingItemId}` : draftKey} prompt={describeAsset([[ta("name"), title], [ta("evidence"), itemType === "clue" ? contentFields.text : itemType === "character" ? [contentFields.basicInfo, contentFields.detail].filter(Boolean).join("\n") : [contentFields.appearance, contentFields.extra].filter(Boolean).join("\n")]])} onSelect={onImageChange} />
                     <p className="mt-1.5 text-[11px] text-text-dim">{t("uploadConstraintHint")}</p>
                     {uploadError && (
                       <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-theme border border-danger/40 bg-danger/10 text-xs text-danger">
@@ -310,18 +319,14 @@ export function CreateEditModal({
 
                 {/* Item — quantity + initial holder */}
                 {itemType === "item" && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("quantityLabel")}</label>
-                      <ThemedSelect value={quantity} onChange={e => onMetaChange({ ...meta, quantity: Number(e.target.value) })}>
-                        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                      </ThemedSelect>
+                      <BadgeDropdown value={String(quantity)} onChange={v => onMetaChange({ ...meta, quantity: Number(v) })} headerText={t("quantityLabel")} items={Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1), label: String(i + 1), badge: { letters: String(i + 1) } }))} />
                     </div>
                     <div>
                       <label className="text-xs text-text-dim font-medium mb-1.5 block">{t("holderLabel")}</label>
-                      <ThemedSelect value={holder} onChange={e => setHolder(e.target.value)}>
-                        <option value="">{t("holderPlaceholder")}</option>
-                      </ThemedSelect>
+                      <BadgeDropdown value={holder} onChange={setHolder} headerText={t("holderLabel")} items={[{ id: "", label: t("holderPlaceholder"), badge: { letters: "—" } }]} />
                     </div>
                   </div>
                 )}

@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { useOverlayTransition } from "@/lib/ui/useOverlayTransition";
 import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 import { Icons } from "@/components/shared/icons";
+import { AssetStudioEntry } from "@/components/ai/AssetStudioEntry";
+import { describeAsset } from "@/lib/ai/assets/types";
 import { ImageCropper } from "@/components/shared/ImageCropper";
 import { Notice } from "@/components/shared/Notice";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -85,6 +87,7 @@ export function CharacterPanel({
   onSkillsChanged,
 }: CharacterPanelProps) {
   const t = useTranslations("character");
+  const ta = useTranslations("assetStudio");
   const tCommon = useTranslations("common");
   const hostLabel = useHostLabel();
   const ruleLabel = useRuleLabelResolver();
@@ -279,6 +282,7 @@ export function CharacterPanel({
         {/* Profile band — avatar + colour, own card only. Sits above the tab
             bar and stays mounted across tabs so the layout doesn't jump. */}
         {mode === "self" && !readOnly && (
+          <div className="shrink-0 max-h-[35dvh] overflow-y-auto">
           <AvatarColorBand
             nickname={nickname}
             selectedColor={selectedColor}
@@ -286,6 +290,14 @@ export function CharacterPanel({
             onPickFile={setCropFile}
             onColorChange={handleColorChange}
           />
+          <div className="px-4 pb-3">
+            <AssetStudioEntry roomId={roomId} kind="portrait" targetKey={`member:${userId}`} prompt={describeAsset([
+              [ta("name"), profile.name || nickname], [ta("occupation"), profile.occupation || profile.role],
+              [ta("bio"), profile.bio], [ta("age"), profile.age],
+              ...rule.sheet.attributes.map(f => [t(f.labelKey), profile.attributes[f.key]] as [string, number | undefined]),
+            ])} />
+          </div>
+          </div>
         )}
 
         {mode === "host" && <div className="pt-3"><HostEditBanner hostLabel={hostLabel} memberName={nickname} /></div>}

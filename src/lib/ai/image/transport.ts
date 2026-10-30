@@ -3,6 +3,8 @@ import { validateApiEndpoint } from '@/lib/security/url-guard';
 import { abortable } from '@/lib/ai/protocol/transport';
 import { buildImageRequest, parseImageResponse, type ImageSource } from './protocol';
 import type { ImageProviderData } from './config';
+/** Validation failed before fetch was invoked: no paid request was sent. */
+export class ImagePreflightError extends Error {}
 export class ImageHttpError extends Error {
   constructor(public readonly status: number, public readonly rawUsage: unknown, public readonly requestId: string | null, public readonly providerCode: string | null) {
     super(`Image HTTP ${status}`);
@@ -42,10 +44,13 @@ export async function readImageBytes(response: Response, signal: AbortSignal) {
   } finally { void reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 async function safeFetch(url: string, init: RequestInit, signal: AbortSignal) {
-  const parsed = new URL(url);
-  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error('Invalid image URL');
-  const check = await abortable(validateApiEndpoint(url), signal);
-  if (!check.valid) throw new Error('Blocked image endpoint');
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error('Invalid image URL');
+    const check = await abortable(validateApiEndpoint(url), signal);
+    if (!check.valid) throw new Error('Blocked image endpoint');
+    signal.throwIfAborted();
+  } catch { throw new ImagePreflightError('Blocked or invalid image endpoint before request'); }
   // A timed-out paid POST must never be automatically retried or downgraded.
   const response = await abortable(fetch(url, { ...init, signal, redirect: 'error' }), signal);
   if (!response.ok) {

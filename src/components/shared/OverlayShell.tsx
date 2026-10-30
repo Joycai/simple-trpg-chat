@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, useCallback, type ReactNode } from "react";
+import { useModalFocus } from "@/lib/ui/useModalFocus";
 import { createPortal } from "react-dom";
 import { useOverlayTransition, type OverlayVariant } from "@/lib/ui/useOverlayTransition";
 import { useEscapeToClose } from "@/lib/ui/overlay-esc";
 
 interface OverlayShellProps {
+  ariaLabel?: string;
+  ariaLabelledBy?: string;
   /** Real close handler — invoked after the exit animation finishes. */
   onClose: () => void;
   /** `modal` centers + scales; `drawer` slides in from the right edge. */
@@ -61,6 +64,8 @@ interface OverlayShellProps {
  * Used for the lightweight modals declared inline in RoomClient.
  */
 export function OverlayShell({
+  ariaLabel,
+  ariaLabelledBy,
   onClose,
   variant = "modal",
   panelClassName,
@@ -79,6 +84,12 @@ export function OverlayShell({
     variant,
     { closeOnEscape: closeOnEscape && !onDismiss },
   );
+  const focusRef = useRef<HTMLDivElement | null>(null);
+  const attachPanel = useCallback((node: HTMLDivElement | null) => {
+    focusRef.current = node;
+    panelRef(node);
+  }, [panelRef]);
+  useModalFocus(focusRef);
   const dismiss = onDismiss ? () => onDismiss(close) : close;
   // With a guard, Escape is registered here so it goes through `dismiss`.
   useEscapeToClose(dismiss, closeOnEscape && !!onDismiss);
@@ -100,7 +111,12 @@ export function OverlayShell({
       <div className={`fixed inset-0 ${layerClassName} flex`} onClick={closeOnBackdrop ? dismiss : undefined}>
         <div ref={backdropRef} className="absolute inset-0 bg-scrim/30" />
         <div
-          ref={panelRef}
+          ref={attachPanel}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           className={`relative ml-auto ${panelClassName} ${panelClass}`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -116,7 +132,12 @@ export function OverlayShell({
         onClick={closeOnBackdrop ? dismiss : undefined}
       >
         <div
-          ref={panelRef}
+          ref={attachPanel}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           className={`${panelClassName} ${panelClass}`}
           onClick={(e) => e.stopPropagation()}
         >

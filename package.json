@@ -1,6 +1,6 @@
 {
   "name": "simple-trpg-chat",
-  "version": "0.26.2",
+  "version": "0.27.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "engines": {
@@ -29,6 +29,7 @@
     "test:e2e": "playwright test",
     "test:responsive": "playwright test --config playwright.responsive.config.ts",
     "test:e2e:ui": "playwright test --ui",
+    "db:cleanup-assets": "tsx --conditions=react-server src/db/scripts/cleanup-assets.ts",
     "db:reconcile-images": "tsx --conditions=react-server src/db/scripts/reconcile-image-generations.ts"
   },
   "dependencies": {

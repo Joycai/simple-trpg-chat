@@ -186,6 +186,7 @@ export const roomMembers = pgTable('room_members', {
   characterData: text('character_data'),
   avatarColor: text('avatar_color'),
   avatar: text('avatar'),
+  portraitUrl: text('portrait_url'),
 }, (t) => ({
   // A user has exactly one membership per room. The unique index also serves the
   // hot (roomId)-prefixed lookups (player list, membership checks). Existing rows
@@ -697,3 +698,28 @@ export const imageGenerations = pgTable('image_generations', {
   images: jsonb('images'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (table) => [index('image_generations_queue_idx').on(table.status, table.createdAt)]);
+
+/** Private authoring sessions are independent of bot/chat delivery. */
+export const assetSessions = pgTable('asset_sessions', {
+  id: text('id').primaryKey(),
+  ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  targetKey: text('target_key').notNull(),
+  prompt: text('prompt').notNull().default(''),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, table => [index('asset_sessions_owner_idx').on(table.ownerId, table.roomId)]);
+
+export const generatedAssets = pgTable('generated_assets', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => assetSessions.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => imageGenerations.id, { onDelete: 'cascade' }),
+  ownerId: integer('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  roomId: integer('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  prompt: text('prompt').notNull(),
+  retained: boolean('retained').notNull().default(false),
+  hidden: boolean('hidden').notNull().default(false),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, table => [index('generated_assets_session_idx').on(table.sessionId), index('generated_assets_job_idx').on(table.jobId)]);
