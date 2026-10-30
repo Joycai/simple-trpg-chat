@@ -1,16 +1,19 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useId } from 'react';
 import { useTranslations } from 'next-intl';
 import { IMAGE_MODELS, imageModel, imageSizes, type ImageProviderData, type ImageProviderView, type ImageProtocol } from '@/lib/ai/image/config';
 import { getImageProviders, saveImageProvider, deleteImageProvider, getMyImageUsage } from '@/app/actions/image-providers';
 import { useAsyncAction } from '@/lib/ui/useAsyncAction';
 import { Notice } from '@/components/shared/Notice';
+import { BadgeDropdown } from '@/components/shared/BadgeDropdown';
+import { Sparkles } from 'lucide-react';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 const initial = (): ImageProviderData => ({ name: '', modelType: IMAGE_MODELS[0].id, model: IMAGE_MODELS[0].model, protocol: 'openai-images', apiEndpoint: IMAGE_MODELS[0].endpoint, apiKey: '', size: '1024x1024', quality: 'auto', aspectRatio: '1:1', watermark: false, ratePerImage: 0, isShared: false });
 const field = 'min-w-0 max-w-full w-full rounded-theme border border-input-border bg-input-bg px-3 py-2 text-text';
 const button = 'rounded-theme border border-border px-3 py-2 text-sm text-text hover:bg-surface-alt disabled:opacity-50';
 export function ImageProviderManager({ admin = false }: { admin?: boolean }) {
+  const editorId = useId();
   const t = useTranslations('imageGeneration');
   const c = useTranslations('common');
   const [rows, setRows] = useState<ImageProviderView[]>([]);
@@ -49,16 +52,16 @@ export function ImageProviderManager({ admin = false }: { admin?: boolean }) {
     {editing !== undefined && <form className="grid gap-3 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); void save.run(); }}>
       <fieldset disabled={save.pending} className="contents">
       <label className="min-w-0 text-sm text-text-muted">{t('name')}<input required maxLength={100} className={field} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label>
-      <label className="min-w-0 text-sm text-text-muted">{t('type')}<select aria-label={t('type')} className={field} value={draft.modelType} onChange={e => selectType(e.target.value)}>{IMAGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
-      <label className="min-w-0 text-sm text-text-muted">{t('protocol')}<select aria-label={t('protocol')} className={field} value={draft.protocol} onChange={e => { const protocol = e.target.value as ImageProtocol; setDraft({ ...draft, protocol, size: imageSizes(draft.modelType, protocol)[0] }); }}>{imageModel(draft.modelType)!.protocols.map(p => <option key={p} value={p}>{t(`protocols.${p}`)}</option>)}</select></label>
+      <div className="min-w-0 text-sm text-text-muted"><label htmlFor={`${editorId}-type`}>{t('type')}</label><BadgeDropdown id={`${editorId}-type`} value={draft.modelType} onChange={selectType} headerText={t('type')} disabled={save.pending} items={IMAGE_MODELS.map(m => ({ id: m.id, label: m.label, badge: { Icon: Sparkles } }))} /></div>
+      <div className="min-w-0 text-sm text-text-muted"><label htmlFor={`${editorId}-protocol`}>{t('protocol')}</label><BadgeDropdown id={`${editorId}-protocol`} value={draft.protocol} onChange={value => { const protocol = value as ImageProtocol; setDraft({ ...draft, protocol, size: imageSizes(draft.modelType, protocol)[0] }); }} headerText={t('protocol')} disabled={save.pending} items={imageModel(draft.modelType)!.protocols.map(p => ({ id: p, label: t(`protocols.${p}`), badge: { Icon: Sparkles } }))} /></div>
       <label className="min-w-0 text-sm text-text-muted">{t('model')}<input className={field} required value={draft.model} onChange={e => setDraft({ ...draft, model: e.target.value })} /></label>
       <p className="sm:col-span-2 text-xs text-text-muted">{t('gatewayHint')}</p>
       <label className="min-w-0 text-sm text-text-muted">{t('endpoint')}<input type="url" className={field} required value={draft.apiEndpoint} onChange={e => setDraft({ ...draft, apiEndpoint: e.target.value })} /></label>
       <label className="min-w-0 text-sm text-text-muted">{editing ? t('keyKeep') : t('key')}<input type="password" autoComplete="new-password" className={field} required={editing === null} value={draft.apiKey ?? ''} onChange={e => setDraft({ ...draft, apiKey: e.target.value })} /></label>
-      <label className="min-w-0 text-sm text-text-muted">{t('size')}<select aria-label={t('size')} className={field} value={draft.size} onChange={e => setDraft({ ...draft, size: e.target.value })}>{imageSizes(draft.modelType, draft.protocol).map(size => <option key={size}>{size}</option>)}</select></label>
+      <div className="min-w-0 text-sm text-text-muted"><label htmlFor={`${editorId}-size`}>{t('size')}</label><BadgeDropdown id={`${editorId}-size`} value={draft.size} onChange={value => setDraft({ ...draft, size: value })} headerText={t('size')} disabled={save.pending} items={imageSizes(draft.modelType, draft.protocol).map(size => ({ id: size, label: size, badge: { Icon: Sparkles } }))} /></div>
       <label className="min-w-0 text-sm text-text-muted">{t('rate')}<input type="number" min={0} max={1000000} step="0.000001" required className={field} value={draft.ratePerImage} onChange={e => setDraft({ ...draft, ratePerImage: Number(e.target.value) })} /></label>
-      {draft.protocol === 'openai-images' && <label className="min-w-0 text-sm text-text-muted">{t('quality')}<select aria-label={t('quality')} className={field} value={draft.quality} onChange={e => setDraft({ ...draft, quality: e.target.value as ImageProviderData['quality'] })}>{(['auto', 'low', 'medium', 'high'] as const).map(q => <option key={q} value={q}>{t(`qualities.${q}`)}</option>)}</select></label>}
-      {draft.protocol === 'gemini' && <label className="min-w-0 text-sm text-text-muted">{t('aspect')}<select aria-label={t('aspect')} className={field} value={draft.aspectRatio} onChange={e => setDraft({ ...draft, aspectRatio: e.target.value as ImageProviderData['aspectRatio'] })}>{['1:1', '16:9', '9:16', '4:3', '3:4'].map(a => <option key={a}>{a}</option>)}</select></label>}
+      {draft.protocol === 'openai-images' && <div className="min-w-0 text-sm text-text-muted"><label htmlFor={`${editorId}-quality`}>{t('quality')}</label><BadgeDropdown id={`${editorId}-quality`} value={draft.quality ?? 'auto'} onChange={value => setDraft({ ...draft, quality: value as ImageProviderData['quality'] })} headerText={t('quality')} disabled={save.pending} items={(['auto', 'low', 'medium', 'high'] as const).map(q => ({ id: q, label: t(`qualities.${q}`), badge: { Icon: Sparkles } }))} /></div>}
+      {draft.protocol === 'gemini' && <div className="min-w-0 text-sm text-text-muted"><label htmlFor={`${editorId}-aspect`}>{t('aspect')}</label><BadgeDropdown id={`${editorId}-aspect`} value={draft.aspectRatio ?? '1:1'} onChange={value => setDraft({ ...draft, aspectRatio: value as ImageProviderData['aspectRatio'] })} headerText={t('aspect')} disabled={save.pending} items={['1:1', '16:9', '9:16', '4:3', '3:4'].map(a => ({ id: a, label: a, badge: { Icon: Sparkles } }))} /></div>}
       {(draft.protocol === 'seedream' || draft.protocol === 'dashscope') && <label className="text-sm text-text"><input className="accent-primary" type="checkbox" checked={draft.watermark} onChange={e => setDraft({ ...draft, watermark: e.target.checked })} /> {t('watermark')}</label>}
       {admin && <label className="text-sm text-text"><input className="accent-primary" type="checkbox" checked={draft.isShared} onChange={e => setDraft({ ...draft, isShared: e.target.checked })} /> {t('share')}</label>}
       <p className="sm:col-span-2 text-xs text-text-muted">{t('billingHint')}</p>

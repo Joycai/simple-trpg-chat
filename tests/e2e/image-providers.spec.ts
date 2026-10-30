@@ -6,12 +6,14 @@ test('image service type, native parameters, key retention and deletion', async 
   const section = page.locator('section').filter({ has: page.getByRole('heading', { name: '图片生成服务', exact: true }) });
   await section.getByRole('button', { name: '添加图片服务', exact: true }).click();
   await section.getByLabel('服务名称', { exact: true }).fill(name);
-  await section.getByLabel('模型类型', { exact: true }).selectOption('wan2.7-image-pro');
-  await expect(section.getByLabel('协议', { exact: true })).toHaveValue('dashscope');
-  await expect(section.getByLabel('生成尺寸', { exact: true })).toHaveValue('1024x1024');
-  await section.getByLabel('模型类型', { exact: true }).selectOption('nano-banana-2.1');
-  await expect(section.getByLabel('协议', { exact: true })).toHaveValue('gemini');
-  await expect(section.getByLabel('生成尺寸', { exact: true })).toHaveValue('1K');
+  await section.getByLabel('模型类型', { exact: true }).click();
+  await page.getByRole('option', { name: 'wan2.7-image-pro', exact: true }).click();
+  await expect(section.getByLabel('协议', { exact: true })).toContainText('DashScope');
+  await expect(section.getByLabel('生成尺寸', { exact: true })).toContainText('1024x1024');
+  await section.getByLabel('模型类型', { exact: true }).click();
+  await page.getByRole('option', { name: 'Gemini Image · Nano Banana 2.1', exact: true }).click();
+  await expect(section.getByLabel('协议', { exact: true })).toContainText('Gemini');
+  await expect(section.getByLabel('生成尺寸', { exact: true })).toContainText('1K');
   await expect(section.getByLabel('宽高比', { exact: true })).toBeVisible();
   await section.getByLabel('API Key', { exact: true }).fill('unused-e2e-key');
   await section.getByLabel('每张图片费率（AI 点数）', { exact: true }).fill('2');
@@ -49,6 +51,21 @@ test('image editor follows all theme palettes and fits narrow screens', async ({
           document.documentElement.dataset.mode = mode;
         }, { theme, mode });
         await expect(section.getByLabel('模型类型', { exact: true })).toBeVisible();
+        await section.getByLabel('模型类型', { exact: true }).click();
+        const menu = page.getByRole('listbox');
+        await expect(menu).toBeVisible();
+        expect(await menu.evaluate(element => {
+          const probe = document.createElement('span');
+          probe.style.backgroundColor = 'rgb(var(--theme-surface))';
+          element.appendChild(probe);
+          const themed = getComputedStyle(element).backgroundColor === getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return themed;
+        })).toBe(true);
+        const bounds = await menu.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+        await page.keyboard.press('Escape');
         const result = await section.evaluate(element => {
           const controls = [...element.querySelectorAll('input:not([type=checkbox]), select, button')];
           const overflow = controls.some(control => {

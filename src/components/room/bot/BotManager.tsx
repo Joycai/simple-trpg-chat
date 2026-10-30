@@ -462,11 +462,19 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                 <div>
                   {enableTools.includes("imageGen") && <div className="mb-4">
                     <label className={labelCls} htmlFor="bot-image-provider">{t("imageProvider")}</label>
-                    <select id="bot-image-provider" className={`${fieldCls} min-w-0 max-w-full`} value={imageProviderId ?? ""} onChange={e => setImageProviderId(e.target.value ? Number(e.target.value) : null)}>
-                      <option value="">{t("chooseImageProvider")}</option>
-                      {imageProviderId && !imageProviders.some(p => p.id === imageProviderId) && <option value={imageProviderId} disabled>{t("imageProviderMissing")}</option>}
-                      {imageProviders.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    <BadgeDropdown
+                      id="bot-image-provider"
+                      className="min-w-0 max-w-full"
+                      value={String(imageProviderId ?? "")}
+                      onChange={id => setImageProviderId(id ? Number(id) : null)}
+                      headerText={t("imageProvider")}
+                      items={[
+                        { id: "", label: t("chooseImageProvider"), badge: { Icon: Sparkles } },
+                        ...(imageProviderId && !imageProviders.some(p => p.id === imageProviderId)
+                          ? [{ id: String(imageProviderId), label: t("imageProviderMissing"), disabled: true, badge: { Icon: Sparkles } }] : []),
+                        ...imageProviders.map(p => ({ id: String(p.id), label: p.name, badge: { Icon: Sparkles } })),
+                      ]}
+                    />
                     <p className="text-xs text-text-muted mt-1">{imageLoadError ? t("imageLoadFailed") : t("imageProviderHint")}</p>
                   </div>}
                   <label className={labelCls}>{t("tools")}</label>
