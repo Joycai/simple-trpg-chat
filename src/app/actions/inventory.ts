@@ -1,5 +1,6 @@
 "use server";
 
+import { retainAsset } from "@/lib/ai/assets/storage";
 import { db } from "@/db";
 import { inventoryItems, inventoryDistributions, roomMembers, users } from "@/db/schema";
 import { eq, and, not, desc, inArray, sql } from "drizzle-orm";
@@ -40,20 +41,24 @@ export async function createInventoryItemAction(
   if (!access) return noRoomAccess();
   const { userId } = access;
 
-  await db.insert(inventoryItems).values({
-    roomId,
-    creatorId: userId,
-    type: data.type,
-    title: data.title,
-    contentJson: JSON.stringify(data.content),
-    imageUrl: data.imageUrl || null,
-    source: data.source ?? null,
-    visibility: data.visibility ?? null,
-    relation: data.relation ?? null,
-    category: data.category ?? null,
-    quantity: data.quantity ?? null,
-  });
-
+  try {
+    await db.transaction(async tx => {
+      await retainAsset(tx, data.imageUrl, roomId, userId);
+      await tx.insert(inventoryItems).values({
+        roomId,
+        creatorId: userId,
+        type: data.type,
+        title: data.title,
+        contentJson: JSON.stringify(data.content),
+        imageUrl: data.imageUrl || null,
+        source: data.source ?? null,
+        visibility: data.visibility ?? null,
+        relation: data.relation ?? null,
+        category: data.category ?? null,
+        quantity: data.quantity ?? null,
+      });
+    });
+  } catch { return { success: false, error: (await getTranslations("assetStudio"))("error") }; }
   revalidatePath(`/rooms/${roomId}`);
   return { success: true };
 }
@@ -92,22 +97,28 @@ export async function updateInventoryItemAction(
   const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, itemId));
   if (!item || item.roomId !== roomId) return itemNotFound();
 
-  const [updated] = await db
-    .update(inventoryItems)
-    .set({
-      ...(data.type ? { type: data.type } : {}),
-      title: data.title,
-      contentJson: JSON.stringify(data.content),
-      // Only overwrite imageUrl when explicitly provided (undefined = leave as-is)
-      ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
-      ...(data.source !== undefined ? { source: data.source } : {}),
-      ...(data.visibility !== undefined ? { visibility: data.visibility } : {}),
-      ...(data.relation !== undefined ? { relation: data.relation } : {}),
-      ...(data.category !== undefined ? { category: data.category } : {}),
-      ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
-    })
-    .where(eq(inventoryItems.id, itemId))
-    .returning();
+  let updated: typeof item | undefined;
+  try {
+    [updated] = await db.transaction(async tx => {
+      await retainAsset(tx, data.imageUrl, roomId, hostId);
+      return tx
+      .update(inventoryItems)
+      .set({
+        ...(data.type ? { type: data.type } : {}),
+        title: data.title,
+        contentJson: JSON.stringify(data.content),
+        // Only overwrite imageUrl when explicitly provided (undefined = leave as-is)
+        ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+        ...(data.source !== undefined ? { source: data.source } : {}),
+        ...(data.visibility !== undefined ? { visibility: data.visibility } : {}),
+        ...(data.relation !== undefined ? { relation: data.relation } : {}),
+        ...(data.category !== undefined ? { category: data.category } : {}),
+        ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+      })
+      .where(eq(inventoryItems.id, itemId))
+      .returning();
+    });
+  } catch { return { success: false, error: (await getTranslations("assetStudio"))("error") }; }
 
   // Re-flag already-viewed recipient copies as "updated" (excluding the editing host
   // and public clue rows). Unviewed copies stay "new" and aren't re-notified.
@@ -219,7 +230,7 @@ export async function distributeItemAction(
     if (!recipientMember) {
       return { success: false, error: (await getTranslations("inventoryActions"))("errorRecipientNotMember") };
     }
-    
+
     targetUserIds = [toUserId];
   }
 

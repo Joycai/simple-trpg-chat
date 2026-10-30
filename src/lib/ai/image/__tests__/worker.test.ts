@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ transaction: vi.fn(), execute: vi.fn(), settle: vi.fn(), decrypt: vi.fn() }));
+const mocks = vi.hoisted(() => ({ transaction: vi.fn(), execute: vi.fn(), assetExecute: vi.fn(), settle: vi.fn(), decrypt: vi.fn() }));
 vi.mock('@/db', () => ({ db: { transaction: mocks.transaction } }));
 vi.mock('@/lib/security/encryption', () => ({ decrypt: mocks.decrypt }));
 vi.mock('../generate', () => ({ executeImageJob: mocks.execute, settleImageGeneration: mocks.settle }));
+vi.mock('@/lib/ai/assets/jobs', () => ({ executeAssetJob: mocks.assetExecute }));
 import { runNextImageJob, startImageWorker } from '../worker';
 let rows: { id: string; status: string; requestEncrypted: string }[];
 let lock: Promise<unknown>;
@@ -37,6 +38,12 @@ describe('durable image worker', () => {
   it('recovers queued work without the original agent invocation', async () => {
     expect(await runNextImageJob()).toBe(true);
     expect(mocks.execute).toHaveBeenCalledWith('job-1', expect.objectContaining({ ctx: { roomId: 1, targetUserId: 7 } }));
+  });
+  it('routes private authoring tasks to asset delivery, never bot chat', async () => {
+    mocks.decrypt.mockReturnValueOnce(JSON.stringify({ purpose: 'user_asset', sessionId: 'session', userId: 2 }));
+    expect(await runNextImageJob()).toBe(true);
+    expect(mocks.assetExecute).toHaveBeenCalledWith('job-1', expect.objectContaining({ purpose: 'user_asset', userId: 2 }));
+    expect(mocks.execute).not.toHaveBeenCalled();
   });
   it('refunds an unreadable job without making a generation call', async () => {
     mocks.decrypt.mockImplementationOnce(() => { throw new Error('key changed'); });

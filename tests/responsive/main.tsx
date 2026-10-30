@@ -1,3 +1,4 @@
+import { AiAssetStudio } from "@/components/ai/AiAssetStudio";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { NextIntlClientProvider } from "next-intl";
@@ -41,6 +42,7 @@ function Harness() {
   const close = () => setOpen(false);
   const closed = <output data-testid="closed">closed</output>;
 
+  if (scenario === "asset") return open ? <AiAssetStudio roomId={1} kind="item" targetKey="test" initialPrompt="一枚刻有古老文字的铜币" onClose={close} onSelect={setSent} /> : <>{closed}<output data-testid="sent">{sent}</output></>;
   if (scenario === "chat") return <div className="flex flex-col h-dvh">
     <div className="flex-1" /><div className="px-4 py-3"><ChatInput roomId={1} onSendMessage={setSent}
       quickCommands={[".r d100", ".r d20"]} isPrivateLocked={params.get("dm") === "1"} /></div>

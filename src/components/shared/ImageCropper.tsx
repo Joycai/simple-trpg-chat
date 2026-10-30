@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useModalFocus } from "@/lib/ui/useModalFocus";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Icons } from "@/components/shared/icons";
@@ -14,6 +15,8 @@ interface ImageCropperProps {
   aspectRatio?: number;
   /** Modal title; defaults to the i18n `cropper.title` value. */
   title?: string;
+  confirmLabel?: string;
+  layerClassName?: string;
   /** Longest output side in pixels; the cropped image is downscaled to fit. */
   maxOutputSize?: number;
   /** Hard cap on output bytes; quality is auto-reduced to fit. */
@@ -46,6 +49,8 @@ export function ImageCropper({
   file,
   aspectRatio,
   title,
+  confirmLabel,
+  layerClassName = "z-[70]",
   maxOutputSize = 1280,
   maxOutputBytes = 1024 * 1024,
   onCancel,
@@ -55,6 +60,9 @@ export function ImageCropper({
   const tCommon = useTranslations("common");
   const { close, panelRef, backdropRef, panelClass } = useOverlayTransition(onCancel);
 
+  const focusRef = useRef<HTMLDivElement | null>(null);
+  const attachPanel = useCallback((node: HTMLDivElement | null) => { focusRef.current = node; panelRef(node); }, [panelRef]);
+  useModalFocus(focusRef);
   const [src, setSrc] = useState<string | null>(null);
   const [geom, setGeom] = useState<ImgGeom | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
@@ -121,23 +129,27 @@ export function ImageCropper({
     if (!ctx) return;
     const { ox, oy, dw, dh } = geom;
 
-    ctx.fillStyle = "#0a0a0a";
+    const theme = getComputedStyle(canvas);
+    const surface = theme.getPropertyValue('--theme-surface-alt').trim() || '24 24 24';
+    const scrim = theme.getPropertyValue('--theme-overlay-scrim').trim() || '0 0 0';
+    const onScrim = theme.getPropertyValue('--theme-on-scrim').trim() || '255 255 255';
+    ctx.fillStyle = `rgb(${surface})`;
     ctx.fillRect(0, 0, DISPLAY_W, DISPLAY_H);
     ctx.drawImage(img, ox, oy, dw, dh);
 
     /* Dim the area outside the crop. */
-    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillStyle = `rgb(${scrim} / 0.55)`;
     if (crop.y > 0) ctx.fillRect(0, 0, DISPLAY_W, crop.y);
     if (crop.x > 0) ctx.fillRect(0, crop.y, crop.x, crop.h);
     if (crop.x + crop.w < DISPLAY_W) ctx.fillRect(crop.x + crop.w, crop.y, DISPLAY_W - (crop.x + crop.w), crop.h);
     if (crop.y + crop.h < DISPLAY_H) ctx.fillRect(0, crop.y + crop.h, DISPLAY_W, DISPLAY_H - (crop.y + crop.h));
 
     /* Crop border + thirds grid + corner handles. */
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = `rgb(${onScrim})`;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(crop.x + 0.5, crop.y + 0.5, crop.w - 1, crop.h - 1);
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.strokeStyle = `rgb(${onScrim} / 0.35)`;
     ctx.lineWidth = 1;
     for (let i = 1; i < 3; i++) {
       const x = crop.x + (crop.w * i) / 3;
@@ -152,7 +164,7 @@ export function ImageCropper({
       ctx.stroke();
     }
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = `rgb(${onScrim})`;
     const corners: Array<[number, number]> = [
       [crop.x - HANDLE / 2, crop.y - HANDLE / 2],
       [crop.x + crop.w - HANDLE / 2, crop.y - HANDLE / 2],
@@ -335,14 +347,14 @@ export function ImageCropper({
 
   return createPortal(
     <div
-      ref={backdropRef} className="fixed inset-0 z-[70] flex items-center justify-center bg-scrim/50 p-4"
+      ref={backdropRef} className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-scrim/50 p-2 sm:p-4`}
       onClick={close}
     >
       <div
-        ref={panelRef} className={`bg-surface rounded-theme theme-border p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border ${panelClass}`}
+        ref={attachPanel} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title ?? t("title")} className={`bg-surface rounded-theme theme-border p-3 sm:p-6 max-w-md w-full max-h-[90dvh] min-h-0 flex flex-col overflow-hidden shadow-2xl border border-border ${panelClass}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex shrink-0 justify-between items-center mb-4">
           <h3 className="font-bold text-xl text-text font-theme-display">{title ?? t("title")}</h3>
           <button onClick={close} aria-label={tCommon("close")}
             className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
@@ -350,11 +362,31 @@ export function ImageCropper({
           </button>
         </div>
 
-        <p className="text-xs text-text-muted mb-3">{t("dragHint")}</p>
+        <div className="min-h-0 overflow-y-auto">
+        <p className="text-xs text-text-muted mb-3">{t("dragHint")} {t("keyboardHint")}</p>
 
         <div className="relative bg-scrim/40 rounded-theme overflow-hidden border border-border">
           <canvas
             ref={canvasRef}
+            tabIndex={0}
+            aria-label={t("keyboardHint")}
+            onKeyDown={e => {
+              if (!geom) return;
+              if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                e.preventDefault();
+                const dx = e.key === 'ArrowLeft' ? -4 : e.key === 'ArrowRight' ? 4 : 0;
+                const dy = e.key === 'ArrowUp' ? -4 : e.key === 'ArrowDown' ? 4 : 0;
+                setCrop(c => ({ ...c, x: Math.max(geom.ox, Math.min(geom.ox + geom.dw - c.w, c.x + dx)), y: Math.max(geom.oy, Math.min(geom.oy + geom.dh - c.h, c.y + dy)) }));
+              } else if (e.key === '+' || e.key === '-' || e.key === '=') {
+                e.preventDefault();
+                const factor = e.key === '-' ? 1.1 : 0.9;
+                setCrop(c => {
+                  const scale = Math.min(Math.max(factor, MIN_CROP / Math.min(c.w, c.h)), geom.dw / c.w, geom.dh / c.h);
+                  const w = c.w * scale, h = c.h * scale;
+                  return { w, h, x: Math.max(geom.ox, Math.min(geom.ox + geom.dw - w, c.x + (c.w - w) / 2)), y: Math.max(geom.oy, Math.min(geom.oy + geom.dh - h, c.y + (c.h - h) / 2)) };
+                });
+              }
+            }}
             width={DISPLAY_W}
             height={DISPLAY_H}
             className="w-full h-auto block touch-none select-none"
@@ -377,7 +409,8 @@ export function ImageCropper({
           </div>
         )}
 
-        <div className="mt-5 flex gap-3 justify-end">
+        </div>
+        <div className="mt-5 flex shrink-0 flex-wrap gap-3 justify-end">
           <button onClick={close}
             className="px-5 py-2.5 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt text-sm font-bold cursor-pointer transition">
             {tCommon("cancel")}
@@ -385,7 +418,7 @@ export function ImageCropper({
           <button onClick={handleConfirm} disabled={!src || submitting}
             className="btn-primary px-6 py-2.5 rounded-theme bg-gradient-to-b from-primary to-primary/80 text-primary-foreground font-bold text-sm cursor-pointer transition hover:brightness-110 disabled:opacity-40 shadow-[var(--theme-glow)] inline-flex items-center gap-2">
             {submitting ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Check className="w-4 h-4" />}
-            {submitting ? t("uploading") : t("confirm")}
+            {submitting ? t("uploading") : (confirmLabel ?? t("confirm"))}
           </button>
         </div>
       </div>

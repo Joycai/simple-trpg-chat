@@ -58,6 +58,7 @@ export function ConfirmDialog({
 
   return (
     <OverlayShell
+      ariaLabel={title}
       onClose={onCancel}
       portal
       layerClassName={layerClassName}

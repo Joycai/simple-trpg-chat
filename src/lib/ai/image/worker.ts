@@ -2,6 +2,7 @@ import 'server-only';
 import { db } from '@/db';
 import { imageGenerations } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
+import { executeAssetJob, type AssetJob } from '@/lib/ai/assets/jobs';
 import { decrypt } from '@/lib/security/encryption';
 import { executeImageJob, settleImageGeneration, type ImageJob } from './generate';
 
@@ -19,14 +20,15 @@ export async function claimImageJob() {
 export async function runNextImageJob() {
   const row = await claimImageJob();
   if (!row) return false;
-  let job: ImageJob;
+  let job: ImageJob | AssetJob;
   try { job = JSON.parse(decrypt(row.requestEncrypted!)); }
   catch {
     await settleImageGeneration(row.id, 'failed', [], null, null);
     return true;
   }
   // No retries after claim: interruption may have happened after an upstream charge.
-  await executeImageJob(row.id, job);
+  if ('purpose' in job && job.purpose === 'user_asset') await executeAssetJob(row.id, job);
+  else await executeImageJob(row.id, job as ImageJob);
   return true;
 }
 

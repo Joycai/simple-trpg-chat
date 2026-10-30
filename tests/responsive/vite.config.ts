@@ -7,6 +7,8 @@ export default defineConfig({
   root,
   resolve: {
     alias: [
+      { find: "@/app/actions/asset-studio", replacement: path.join(root, "tests/responsive/asset-actions.ts") },
+      { find: "next/navigation", replacement: path.join(root, "tests/responsive/navigation.ts") },
       ...["checks", "sticker", "skills", "character", "messages"].map((name) => ({
         find: `@/app/actions/${name}`,
         replacement: path.join(root, "tests/responsive/server-actions.ts"),

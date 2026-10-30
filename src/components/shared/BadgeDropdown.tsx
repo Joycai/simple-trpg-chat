@@ -50,7 +50,7 @@ interface BadgeDropdownProps {
 /** Below this much room under the trigger, the menu flips above it. */
 const MIN_MENU_SPACE = 180;
 const LIST_MAX_HEIGHT = 288; // matches the previous `max-h-72`
-const MIN_LIST_HEIGHT = 120;
+const MIN_LIST_HEIGHT = 0;
 const MENU_HEADER_HEIGHT = 44;
 const VIEWPORT_GUTTER = 8;
 
@@ -153,15 +153,21 @@ export function BadgeDropdown({
     };
   }, [open]);
 
+  const positioned = !!pos;
+  useEffect(() => {
+    if (open && positioned) menuRef.current?.querySelector<HTMLElement>('[aria-selected="true"]:not(:disabled),[role="option"]:not(:disabled)')?.focus();
+  }, [open, positioned]); // Position follows scrolling without resetting keyboard focus.
+
   // Escape closes just this dropdown while it's the topmost overlay — via the
   // shared stack, so a host modal doesn't close on the same keypress.
-  useEscapeToClose(() => setOpen(false), open);
+  useEscapeToClose(() => { setOpen(false); triggerRef.current?.focus(); }, open);
 
   if (!selected) return null;
 
   const pick = (next: string) => {
     onChange(next);
     setOpen(false);
+    triggerRef.current?.focus();
   };
 
   return (
@@ -173,6 +179,7 @@ export function BadgeDropdown({
         id={id}
         type="button"
         disabled={disabled}
+        onKeyDown={e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); } }}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => !disabled && setOpen((v) => !v)}
@@ -191,6 +198,18 @@ export function BadgeDropdown({
         <div
           ref={menuRef}
           role="listbox"
+          aria-label={headerText}
+          onKeyDown={e => {
+            const options = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []);
+            const current = options.indexOf(document.activeElement as HTMLButtonElement);
+            let next: number | undefined;
+            if (e.key === 'ArrowDown') next = (current + 1) % options.length;
+            if (e.key === 'ArrowUp') next = (current - 1 + options.length) % options.length;
+            if (e.key === 'Home') next = 0;
+            if (e.key === 'End') next = options.length - 1;
+            if (next !== undefined) { e.preventDefault(); options[next]?.focus(); }
+            if (e.key === 'Tab') { e.preventDefault(); setOpen(false); triggerRef.current?.focus(); }
+          }}
           style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom }}
           className={`fixed z-[110] bg-surface border ${T.menuBorder} ${
             pos.dropUp ? "border-b-0 rounded-t-theme" : "border-t-0 rounded-b-theme"

@@ -35,6 +35,10 @@ vi.mock("@/db", () => ({
     insert: () => insert(),
     update: () => chain(() => []),
     delete: () => del(),
+    transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      insert: () => insert(), update: () => chain(() => []),
+      select: () => chain(() => selectQueue.shift() ?? []),
+    }),
   },
 }));
 
