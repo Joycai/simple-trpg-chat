@@ -19,10 +19,10 @@ interface BotInfo {
   id: number;
   nickname: string;
   memberId: number;
-  name?: string;
+  name: string | null;
   avatarColor?: string | null;
   config: {
-    name?: string; systemPrompt?: string; model?: string;
+    systemPrompt?: string; model?: string;
     activation?: string; enableTools?: string[]; providerId?: number; imageProviderId?: number;
   };
 }
@@ -211,7 +211,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     setFormError(null);
     setEditingBot(bot);
     setImageProviderId(bot.config.imageProviderId ?? null);
-    setBotName(bot.config.name || "");
+    setBotName(bot.name ?? bot.nickname);
     setBotNickname(bot.nickname || "");
     setSystemPrompt(bot.config.systemPrompt || "");
     setModel(bot.config.model || "gpt-4o-mini");
@@ -266,11 +266,11 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     <OverlayShell
       onClose={onClose}
       rootClassName="p-4"
-      panelClassName="bg-surface theme-border rounded-theme shadow-2xl p-6 w-full max-w-lg max-h-[88vh] overflow-y-auto"
+      panelClassName="bg-surface theme-border rounded-theme shadow-2xl w-full max-w-lg max-h-[88dvh] flex flex-col overflow-hidden"
     >
       {(close) => (
         <>
-        <div className="flex justify-between items-center mb-5">
+        <div className="flex shrink-0 justify-between items-center gap-3 p-4 sm:p-6 border-b border-border">
           <h3 className="font-bold text-xl text-text font-theme-display">{t("title")}</h3>
           <button onClick={close} aria-label={tCommon("close")}
             className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
@@ -278,6 +278,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
           </button>
         </div>
 
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
         {loading ? (
           <div className="text-center text-text-muted py-8">{t("loading")}</div>
         ) : (
@@ -296,7 +297,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                   const botProviderId = bot.config.providerId;
                   const isProviderError = !botProviderId || !validProviderIds.includes(botProviderId);
                   const color = bot.avatarColor || getRandomColorForUser(bot.id);
-                  const initial = (bot.config.name || bot.nickname || "?").trim().charAt(0) || "?";
+                  const initial = (bot.name || bot.nickname || "?").trim().charAt(0) || "?";
                   const activationLabel = bot.config.activation === "manual" ? t("activationManual") : t("activationMention");
 
                   return (
@@ -372,7 +373,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                 </div>
 
                 {/* Name + nickname */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className={labelCls}>{t("name")}</label>
                     <input value={botName} onChange={e => setBotName(e.target.value)} placeholder={t("namePlaceholder")} className={fieldCls} />
@@ -518,6 +519,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
             )}
           </div>
         )}
+        </div>
         </>
       )}
     </OverlayShell>
