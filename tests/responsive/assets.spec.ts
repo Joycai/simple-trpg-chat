@@ -37,8 +37,43 @@ test('asset studio preserves candidates, uses themed menus and keeps controls in
   await page.getByLabel('风格', { exact: true }).click();
   await page.keyboard.press('End'); await page.keyboard.press('Enter');
   await expect(page.getByLabel('风格', { exact: true })).toContainText('像素');
+  await page.getByLabel('风格', { exact: true }).click();
+  await expect(page.getByRole('option', { name: '像素', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
   if (small) await page.getByRole('button', { name: '候选图片 (2)', exact: true }).click();
   await page.getByRole('button', { name: '使用此图', exact: true }).click();
   await expect(page.getByTestId('closed')).toBeVisible();
   await expect(page.getByTestId('sent')).toContainText('data:image');
+});
+
+
+test('service price changes require consent and removal never selects a replacement silently', async ({ page }) => {
+  await page.goto('./?scenario=asset');
+  const generate = page.getByRole('button', { name: '生成一张', exact: true });
+  await expect(generate).toBeEnabled();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('asset-test-control', { detail: 'price' })));
+  await expect(generate).toBeDisabled({ timeout: 7000 });
+  const accept = page.getByRole('button', { name: /7/ });
+  await accept.click();
+  await expect(generate).toBeEnabled();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('asset-test-control', { detail: 'remove' })));
+  await expect(generate).toBeDisabled({ timeout: 7000 });
+  await expect(page.getByLabel('图片服务', { exact: true })).not.toContainText('Other service');
+  await page.getByLabel('图片服务', { exact: true }).click();
+  await page.getByRole('option', { name: /Other service/ }).click();
+  await expect(generate).toBeEnabled();
+});
+
+test('an old poll cannot erase a newly generated candidate', async ({ page }) => {
+  await page.goto('./?scenario=asset');
+  await page.getByRole('button', { name: '生成一张', exact: true }).click();
+  const again = page.getByRole('button', { name: '再生成一张', exact: true });
+  await expect(again).toBeEnabled();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('asset-test-control', { detail: 'hold' })));
+  await expect(page.locator('html')).toHaveAttribute('data-asset-read-held', 'true', { timeout: 7000 });
+  await again.click();
+  await expect(again).toBeEnabled();
+  await page.evaluate(() => window.dispatchEvent(new Event('asset-test-release')));
+  if (page.viewportSize()!.width < 768) await page.getByRole('button', { name: '候选图片 (2)', exact: true }).click();
+  await expect(page.getByRole('button', { name: '候选图片 2', exact: true })).toBeVisible();
 });

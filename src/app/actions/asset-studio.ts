@@ -26,7 +26,7 @@ export async function loadAssetStudio(roomId: number, kindInput: unknown, sessio
     const parsed = ImageProviderInput.safeParse({ ...row, ...(row.settings as object) });
     return parsed.success ? [{ id: row.id, name: row.name, model: row.model, size: parsed.data.size,
       shared: row.isShared, points: row.isShared && user.role !== 'admin' ? row.ratePerImage : 0,
-      quote: serviceQuote(parsed.data, row.isShared) }] : [];
+      quote: serviceQuote(parsed.data, row.isShared, row.isShared && user.role !== 'admin' ? row.ratePerImage : 0) }] : [];
   });
   const sessions = await db.select({ id: assetSessions.id, targetKey: assetSessions.targetKey, prompt: assetSessions.prompt, createdAt: assetSessions.createdAt }).from(assetSessions)
     .where(and(eq(assetSessions.ownerId, userId), eq(assetSessions.roomId, roomId), eq(assetSessions.kind, kind))).orderBy(desc(assetSessions.createdAt)).limit(30);
@@ -63,7 +63,6 @@ export async function submitAssetGeneration(roomId: number, input: unknown): Pro
     if (!session || !(await assetJobAllowed({ roomId, userId: access.userId, kind: AssetKind.parse(session.kind) }))) return { success: false, error: t('unavailable') };
     const provider = await resolveImageProvider(data.providerId, access.userId);
     if (!provider) return { success: false, error: t('unavailable') };
-    if (data.quote !== serviceQuote(provider.config, provider.row.isShared)) return { success: false, error: t('quoteChanged') };
     const job: AssetJob = { purpose: 'user_asset', sessionId: session.id, userId: access.userId, roomId,
       kind: AssetKind.parse(session.kind), providerId: provider.row.id, config: provider.config,
       key: decrypt(provider.row.apiKeyEncrypted), prompt: data.prompt };
@@ -72,17 +71,18 @@ export async function submitAssetGeneration(roomId: number, input: unknown): Pro
       const [user] = await tx.select().from(users).where(eq(users.id, access.userId)).for('update');
       const [existing] = await tx.select().from(imageGenerations).where(eq(imageGenerations.id, data.requestId));
       if (existing) return existing.userId === user.id && (existing.snapshot as { sessionId?: string }).sessionId === session.id ? null : 'invalid';
+      const points = provider.row.isShared && user.role !== 'admin' ? provider.config.ratePerImage : 0;
+      if (data.quote !== serviceQuote(provider.config, provider.row.isShared, points)) return 'quoteChanged';
       const pending = await tx.select({ id: imageGenerations.id }).from(imageGenerations).where(and(eq(imageGenerations.userId, user.id), inArray(imageGenerations.status, ['queued', 'pending', 'generated']), sql`${imageGenerations.snapshot}->>'purpose' = 'user_asset'`));
       if (pending.length) return 'busy';
       const recent = await tx.select({ id: imageGenerations.id }).from(imageGenerations).where(and(eq(imageGenerations.userId, user.id), gt(imageGenerations.createdAt, new Date(Date.now() - 60000).toISOString()), sql`${imageGenerations.snapshot}->>'purpose' = 'user_asset'`));
       if (recent.length >= 3) return 'rateLimit';
       const candidates = await tx.select({ id: generatedAssets.id }).from(generatedAssets).where(and(eq(generatedAssets.sessionId, session.id), eq(generatedAssets.hidden, false), availableAsset()));
       if (candidates.length >= ASSET_LIMIT) return 'limit';
-      const points = provider.row.isShared && user.role !== 'admin' ? provider.config.ratePerImage : 0;
       if (Number(user.aiPoints) < points) return 'insufficient';
       await tx.insert(imageGenerations).values({ id: data.requestId, userId: user.id, roomId, providerId: provider.row.id,
         status: 'queued', requestEncrypted: encrypt(JSON.stringify(job)), reservedPoints: points,
-        snapshot: { purpose: 'user_asset', sessionId: session.id, name: provider.row.name, model: provider.config.model, size: provider.config.size, protocol: provider.config.protocol, ratePerImage: provider.config.ratePerImage, isShared: provider.row.isShared } });
+        snapshot: { purpose: 'user_asset', sessionId: session.id, name: provider.row.name, model: provider.config.model, size: provider.config.size, protocol: provider.config.protocol, quality: provider.config.quality, aspectRatio: provider.config.aspectRatio, watermark: provider.config.watermark, chargedPoints: points, payerRole: user.role, ratePerImage: provider.config.ratePerImage, isShared: provider.row.isShared } });
       await tx.update(assetSessions).set({ prompt: data.draftPrompt }).where(eq(assetSessions.id, session.id));
       if (points > 0) {
         const after = Number((Number(user.aiPoints) - points).toFixed(10));

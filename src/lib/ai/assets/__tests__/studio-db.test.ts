@@ -139,4 +139,50 @@ describe.skipIf(process.env.TEST_RUNTIME_DATABASE !== '1')('asset studio Postgre
     await expect(db.transaction(tx => storage.retainAsset(tx, candidate.url, roomId, ids[0]))).rejects.toThrow('Unavailable asset');
   });
 
+  it('rejects an admin zero-price quote after demotion before reserving money', async () => {
+    state.userId = ids[2];
+    await db.update(users).set({ role: 'admin' }).where(eq(users.id, ids[2]));
+    const adminQuote = (await actions.loadAssetStudio(roomId, 'portrait')).services.find(s => s.id === providerId)!;
+    expect(adminQuote.points).toBe(0);
+    const session = await actions.createAssetSession(roomId, { kind: 'portrait', targetKey: 'demotion', prompt: '' });
+    if (!session.success) throw new Error(session.error);
+    await db.update(users).set({ role: 'player' }).where(eq(users.id, ids[2]));
+    const input = makeRequest({ sessionId: session.id, quote: adminQuote.quote });
+    expect(await actions.submitAssetGeneration(roomId, input)).toEqual({ success: false, error: 'quoteChanged' });
+    expect(await db.select().from(imageGenerations).where(eq(imageGenerations.id, input.requestId))).toHaveLength(0);
+    const [user] = await db.select().from(users).where(eq(users.id, ids[2]));
+    expect(user.aiPoints).toBe(20);
+  });
+  it('refunds a definitely-unsent blocked request instead of holding points indefinitely', async () => {
+    const { ImagePreflightError } = await import('@/lib/ai/image/transport');
+    const session = await actions.createAssetSession(roomId, { kind: 'portrait', targetKey: 'blocked', prompt: '' });
+    if (!session.success) throw new Error(session.error);
+    const input = makeRequest({ sessionId: session.id });
+    expect(await actions.submitAssetGeneration(roomId, input)).toEqual({ success: true });
+    const [row] = await db.select().from(imageGenerations).where(eq(imageGenerations.id, input.requestId));
+    expect(row.snapshot).toMatchObject({ chargedPoints: 2, quality: 'auto', aspectRatio: '1:1', watermark: false });
+    state.request.mockRejectedValueOnce(new ImagePreflightError('blocked'));
+    await jobs.executeAssetJob(row.id, JSON.parse(crypto.decrypt(row.requestEncrypted!)));
+    const [failed] = await db.select().from(imageGenerations).where(eq(imageGenerations.id, row.id));
+    expect(failed.status).toBe('failed'); expect(failed.reservedPoints).toBe(0);
+    const [user] = await db.select().from(users).where(eq(users.id, ids[2]));
+    expect(user.aiPoints).toBe(20);
+  });
+
+  it('refunds queued work without calling upstream when room membership is revoked', async () => {
+    const session = await actions.createAssetSession(roomId, { kind: 'portrait', targetKey: 'revoked', prompt: '' });
+    if (!session.success) throw new Error(session.error);
+    const input = makeRequest({ sessionId: session.id });
+    expect(await actions.submitAssetGeneration(roomId, input)).toEqual({ success: true });
+    const [row] = await db.select().from(imageGenerations).where(eq(imageGenerations.id, input.requestId));
+    await db.delete(roomMembers).where(eq(roomMembers.userId, ids[2]));
+    const calls = state.request.mock.calls.length;
+    await jobs.executeAssetJob(row.id, JSON.parse(crypto.decrypt(row.requestEncrypted!)));
+    expect(state.request.mock.calls.length).toBe(calls);
+    const [failed] = await db.select().from(imageGenerations).where(eq(imageGenerations.id, row.id));
+    expect(failed.status).toBe('failed'); expect(failed.reservedPoints).toBe(0);
+    const [user] = await db.select().from(users).where(eq(users.id, ids[2]));
+    expect(user.aiPoints).toBe(20);
+  });
+
 });

@@ -2254,6 +2254,7 @@
     "evidence": "描述",
     "appearance": "外观",
     "extra": "补充信息",
-    "upload": "上传图片"
+    "upload": "上传图片",
+    "confirmRate": "确认新报价：每次 {points} 点"
   }
 }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/security/url-guard', () => ({ validateApiEndpoint: vi.fn(async () => ({ valid: true })) }));
 import { validateApiEndpoint } from '@/lib/security/url-guard';
-import { downloadImage, requestImage } from '../transport';
+import { downloadImage, requestImage, ImagePreflightError } from '../transport';
 import { ImageProviderInput } from '../config';
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe('paid image transport boundaries', () => {
@@ -35,6 +35,13 @@ describe('paid image transport boundaries', () => {
     await downloadImage({ url: 'https://cdn.example.com/a.png' }, AbortSignal.timeout(1000));
     expect(fetch).toHaveBeenCalledWith('https://cdn.example.com/a.png', expect.objectContaining({ method: 'GET', redirect: 'error' }));
     expect(fetch.mock.calls[0][1]).not.toHaveProperty('headers');
+  });
+  it('identifies a blocked paid request as definitely not sent', async () => {
+    vi.mocked(validateApiEndpoint).mockResolvedValueOnce({ valid: false, error: 'blocked' });
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    const config = ImageProviderInput.parse({ name: 'test', modelType: 'gpt-image-2', model: 'gpt-image-2', protocol: 'openai-images', apiEndpoint: 'https://example.com/v1', size: '1024x1024', ratePerImage: 2 });
+    await expect(requestImage(config, 'portrait', 'secret', AbortSignal.timeout(1000))).rejects.toBeInstanceOf(ImagePreflightError);
+    expect(fetch).not.toHaveBeenCalled();
   });
   it('blocks private destinations before fetching', async () => {
     vi.mocked(validateApiEndpoint).mockResolvedValueOnce({ valid: false, error: 'blocked' });

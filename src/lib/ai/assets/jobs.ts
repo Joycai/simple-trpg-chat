@@ -6,7 +6,7 @@ import { generatedAssets, imageGenerations, rooms, roomMembers, users, systemCon
 import { and, eq } from 'drizzle-orm';
 import { encrypt } from '@/lib/security/encryption';
 import { resolveImageProvider } from '@/lib/ai/image/providers';
-import { requestImage, downloadImage, ImageHttpError } from '@/lib/ai/image/transport';
+import { requestImage, downloadImage, ImageHttpError, ImagePreflightError } from '@/lib/ai/image/transport';
 import { settleImageGeneration } from '@/lib/ai/image/generate';
 import type { ImageProviderData } from '@/lib/ai/image/config';
 import { writeAssetFile } from './storage';
@@ -15,8 +15,8 @@ export interface AssetJob {
   purpose: 'user_asset'; sessionId: string; userId: number; roomId: number; kind: AssetKind;
   providerId: number; config: ImageProviderData; key: string; prompt: string;
 }
-export function serviceQuote(config: ImageProviderData, shared: boolean) {
-  return createHash('sha256').update(JSON.stringify({ ...config, apiKey: undefined, isShared: shared })).digest('hex');
+export function serviceQuote(config: ImageProviderData, shared: boolean, chargedPoints: number) {
+  return createHash('sha256').update(JSON.stringify({ ...config, apiKey: undefined, isShared: shared, chargedPoints })).digest('hex');
 }
 export async function assetJobAllowed(job: Pick<AssetJob, 'roomId' | 'userId' | 'kind'>) {
   const [user] = await db.select().from(users).where(eq(users.id, job.userId));
@@ -59,7 +59,7 @@ export async function executeAssetJob(id: string, job: AssetJob) {
       await db.update(imageGenerations).set({ rawUsage, upstreamError: { status: error.status, requestId: error.requestId, code: error.providerCode } }).where(eq(imageGenerations.id, id));
     }
     if (delivered.length) await settleImageGeneration(id, 'succeeded', delivered.map(a => assetUrl(a.id)), rawUsage, count);
-    else if (!sent || error instanceof ImageHttpError) await settleImageGeneration(id, 'failed', [], rawUsage, count);
+    else if (!sent || error instanceof ImageHttpError || (count === null && error instanceof ImagePreflightError)) await settleImageGeneration(id, 'failed', [], rawUsage, count);
     // Unknown paid outcome or interrupted artifact delivery stays pending/generated
     // for explicit reconciliation. Never retry the upstream POST.
     else console.error(`[assetGen] Requires reconciliation: ${id}`);

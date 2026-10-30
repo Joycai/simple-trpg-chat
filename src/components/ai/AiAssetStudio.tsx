@@ -12,7 +12,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ImageCropper } from '@/components/shared/ImageCropper';
 import { useAsyncAction } from '@/lib/ui/useAsyncAction';
 import { loadAssetStudio, createAssetSession, submitAssetGeneration, deleteAssetCandidate, saveGeneratedPortrait } from '@/app/actions/asset-studio';
-import type { AssetKind, AssetView, StudioState } from '@/lib/ai/assets/types';
+import type { AssetKind, AssetView, AssetService, StudioState } from '@/lib/ai/assets/types';
 
 const field = 'w-full bg-input-bg border border-input-border rounded-theme p-3 text-text placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-primary/40';
 const secondary = 'px-3 py-2 min-h-11 rounded-theme border border-border text-text hover:bg-surface-alt focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50';
@@ -31,33 +31,39 @@ export function AiAssetStudio({ roomId, kind, targetKey, initialPrompt, onClose,
   const [loadError, setLoadError] = useState(false);
   const [sessionId, setSessionId] = useState<string>();
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [providerId, setProviderId] = useState('');
+  const [service, setService] = useState<AssetService | null>(null);
   const [style, setStyle] = useState('styles');
   const [purpose, setPurpose] = useState<string>(kind);
   const [selectedId, setSelectedId] = useState('');
   const [tab, setTab] = useState('description');
   const [confirm, setConfirm] = useState<'replace' | 'delete' | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [crop, setCrop] = useState<{ asset: AssetView; file: File } | null>(null);
   const closeAfterCrop = useRef<(() => void) | null>(null);
   const request = useRef<{ signature: string; id: string } | null>(null);
   const firstLoad = useRef(true);
+  const readVersion = useRef(0);
+  const mutating = useRef(false);
   const liveSession = useRef(sessionId);
   useLayoutEffect(() => { liveSession.current = sessionId; }, [sessionId]);
   const [refreshedAt, setRefreshedAt] = useState(() => Date.now());
   const refresh = useCallback(async () => {
+    if (mutating.current) return;
+    const version = ++readVersion.current;
     const requested = sessionId;
     try {
       const next = await loadAssetStudio(roomId, kind, requested);
-      if (liveSession.current !== requested) return;
+      if (liveSession.current !== requested || version !== readVersion.current) return;
       if (firstLoad.current) {
         firstLoad.current = false;
         const previous = next.sessions.find(s => s.targetKey === targetKey);
         if (!requested && previous) { liveSession.current = previous.id; setSessionId(previous.id); setPrompt(previous.prompt); return; }
       }
+      setService(current => current ?? next.services[0] ?? null);
       setState(next); setLoadError(false); setRefreshedAt(Date.now());
       setSelectedId(id => next.assets.some(a => a.id === id) ? id : next.assets[0]?.id ?? '');
-    } catch { setLoadError(true); }
+    } catch { if (version === readVersion.current) setLoadError(true); }
   }, [roomId, kind, sessionId, targetKey]);
   useEffect(() => {
     let mounted = true;
@@ -66,30 +72,40 @@ export function AiAssetStudio({ roomId, kind, targetKey, initialPrompt, onClose,
     const timer = setInterval(() => { void load(); }, 4000);
     return () => { mounted = false; clearInterval(timer); };
   }, [refresh]);
-  const service = state?.services.find(p => String(p.id) === providerId) ?? state?.services[0];
+  const currentService = state?.services.find(p => p.id === service?.id);
+  const serviceChanged = !!service && (!currentService || currentService.quote !== service.quote);
   const selected = state?.assets.find(a => a.id === selectedId);
   const active = state?.tasks.find(task => ['queued', 'pending', 'generated'].includes(task.status));
   const fullPrompt = [prompt.trim(), `${t('purpose')}: ${t(purpose)}`, style !== 'styles' ? `${t('style')}: ${t(style)}` : ''].filter(Boolean).join('\n');
   const submit = useAsyncAction(async () => {
+    if (mutating.current) return;
+    if (serviceChanged) return { success: false as const, error: t('quoteChanged') };
     if (!service || !prompt.trim()) return { success: false as const, error: t('invalid') };
-    let id = sessionId;
-    if (!id) {
-      const created = await createAssetSession(roomId, { kind, targetKey, prompt });
-      if (!created.success) return created;
-      id = created.id; setSessionId(id); liveSession.current = id;
-    }
-    const signature = JSON.stringify([id, service.id, service.quote, fullPrompt]);
-    if (request.current?.signature !== signature) request.current = { signature, id: crypto.randomUUID() };
-    const result = await submitAssetGeneration(roomId, { sessionId: id, requestId: request.current.id, providerId: service.id, quote: service.quote, draftPrompt: prompt, prompt: fullPrompt });
-    if (result.success) request.current = null;
-    const next = await loadAssetStudio(roomId, kind, id);
-    setState(next);
-    setSelectedId(current => next.assets.some(a => a.id === current) ? current : next.assets[0]?.id ?? '');
-    return result;
+    mutating.current = true;
+    readVersion.current++;
+    try {
+      let id = sessionId;
+      if (!id) {
+        const created = await createAssetSession(roomId, { kind, targetKey, prompt });
+        if (!created.success) return created;
+        id = created.id; setSessionId(id); liveSession.current = id;
+      }
+      const signature = JSON.stringify([id, service.id, service.quote, fullPrompt]);
+      if (request.current?.signature !== signature) request.current = { signature, id: crypto.randomUUID() };
+      const result = await submitAssetGeneration(roomId, { sessionId: id, requestId: request.current.id, providerId: service.id, quote: service.quote, draftPrompt: prompt, prompt: fullPrompt });
+      if (result.success) request.current = null;
+      const next = await loadAssetStudio(roomId, kind, id);
+      setState(next);
+      setSelectedId(current => next.assets.some(a => a.id === current) ? current : next.assets[0]?.id ?? '');
+      return result;
+    } finally { mutating.current = false; }
   }, { fallbackError: t('error') });
   const remove = useAsyncAction(async () => {
-    if (!selected) return;
-    const result = await deleteAssetCandidate(roomId, selected.id);
+    if (!deleteId || mutating.current) return;
+    mutating.current = true; readVersion.current++;
+    let result;
+    try { result = await deleteAssetCandidate(roomId, deleteId); }
+    finally { mutating.current = false; }
     if (result.success) { setConfirm(null); await refresh(); }
     return result;
   }, { fallbackError: t('error') });
@@ -105,6 +121,8 @@ export function AiAssetStudio({ roomId, kind, targetKey, initialPrompt, onClose,
   const purposes = kind === 'portrait' || kind === 'character' ? [kind, 'headshot'] : kind === 'clue' ? ['clue', 'document', 'scene'] : ['item', 'scene'];
   const options = (keys: string[]) => keys.map(id => ({ id, label: t(id), badge: { Icon: ImageIcon } }));
   const switchSession = async (id: string) => {
+    readVersion.current++;
+    liveSession.current = id === 'new' ? undefined : id;
     setSessionId(id === 'new' ? undefined : id);
     setSelectedId(''); request.current = null;
     setPrompt(id === 'new' ? initialPrompt : state?.sessions.find(s => s.id === id)?.prompt ?? '');
@@ -128,9 +146,10 @@ export function AiAssetStudio({ roomId, kind, targetKey, initialPrompt, onClose,
             {loadError && <Notice variant="error">{t('error')} <button type="button" className={secondary} onClick={() => void refresh()}>{t('retry')}</button></Notice>}
             {!state && !loadError && <p>{t('loading')}</p>}
             {state && !state.services.length && <Notice variant="info">{t('noService')}</Notice>}
-            {!!state?.services.length && <div><label htmlFor={`${promptId}-service`} className="block text-sm mb-2">{t('service')}</label><BadgeDropdown id={`${promptId}-service`} headerText={t('service')} value={String(service?.id ?? '')} onChange={setProviderId} items={state.services.map(s => ({ id: String(s.id), label: s.name, description: s.shared ? `${t('shared')} · ${s.points}` : t('personal'), badge: { Icon: Sparkles } }))} />
+            {(!!state?.services.length || !!service) && <div><label htmlFor={`${promptId}-service`} className="block text-sm mb-2">{t('service')}</label><BadgeDropdown id={`${promptId}-service`} headerText={t('service')} value={String(service?.id ?? '')} onChange={id => setService(state?.services.find(s => String(s.id) === id) ?? null)} items={[...(service && !currentService ? [{ id: String(service.id), label: service.name, description: t('unavailable'), disabled: true, badge: { Icon: Sparkles } }] : []), ...(state?.services ?? []).map(s => ({ id: String(s.id), label: s.name, description: s.shared ? `${t('shared')} · ${s.points}` : t('personal'), badge: { Icon: Sparkles } }))]} />
               {service && <p className="mt-2 text-xs text-text-muted break-words">{t('spec', { model: service.model, size: service.size })}</p>}</div>}
-            <div><label htmlFor={`${promptId}-recent`} className="block text-sm mb-2">{t('recent')}</label><BadgeDropdown id={`${promptId}-recent`} headerText={t('recent')} disabled={submit.pending} value={sessionId ?? 'new'} onChange={id => void switchSession(id)} items={[{ id: 'new', label: t('new'), badge: { Icon: Sparkles } }, ...(state?.sessions ?? []).map(s => ({ id: s.id, label: new Date(s.createdAt).toLocaleString(), description: s.prompt.slice(0, 80), badge: { Icon: ImageIcon } }))]} /></div>
+            {serviceChanged && <Notice variant="info">{t('quoteChanged')}{currentService && <button type="button" className={`${secondary} mt-2 w-full`} onClick={() => setService(currentService)}>{t('confirmRate', { points: currentService.points })}</button>}</Notice>}
+            <div><label htmlFor={`${promptId}-recent`} className="block text-sm mb-2">{t('recent')}</label><BadgeDropdown id={`${promptId}-recent`} headerText={t('recent')} disabled={submit.pending || remove.pending || apply.pending} value={sessionId ?? 'new'} onChange={id => void switchSession(id)} items={[{ id: 'new', label: t('new'), badge: { Icon: Sparkles } }, ...(state?.sessions ?? []).map(s => ({ id: s.id, label: new Date(s.createdAt).toLocaleString(), description: s.prompt.slice(0, 80), badge: { Icon: ImageIcon } }))]} /></div>
             <div><p className="text-sm mb-2">{t('purpose')}</p><div className="flex flex-wrap gap-2">{purposes.map(p => <button type="button" key={p} aria-pressed={purpose === p} onClick={() => setPurpose(p)} className={`${secondary} ${purpose === p ? 'border-primary bg-primary/10 text-primary' : ''}`}>{t(p)}</button>)}</div></div>
             <div><label htmlFor={promptId} className="block text-sm mb-2">{t('prompt')}</label><textarea id={promptId} value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={7500} rows={7} className={`${field} resize-y`} placeholder={t('placeholder')} /><p className="text-xs text-text-muted mt-2">{t('promptHint')}</p><button type="button" className={`${secondary} mt-2`} onClick={() => setConfirm('replace')}>{t('refresh')}</button></div>
             <div><label htmlFor={`${promptId}-style`} className="block text-sm mb-2">{t('style')}</label><BadgeDropdown id={`${promptId}-style`} headerText={t('style')} value={style} onChange={setStyle} items={options(['styles', 'realistic', 'illustration', 'watercolor', 'pixel'])} /></div>
@@ -148,7 +167,7 @@ export function AiAssetStudio({ roomId, kind, targetKey, initialPrompt, onClose,
               
               <img src={selected.url} alt={t('selected')} className="w-full max-h-[42dvh] object-contain rounded-theme bg-surface-alt border border-border" />
               <p className="text-xs text-text-muted">{selected.retained ? t('retained') : t('expires', { date: new Date(selected.expiresAt).toLocaleDateString() })}</p>
-              <div className="flex flex-wrap gap-2"><button type="button" className={secondary} onClick={() => setPreview(selected.url)}>{t('preview')}</button><button type="button" className={`${secondary} text-danger`} onClick={() => setConfirm('delete')}>{t('delete')}</button></div>
+              <div className="flex flex-wrap gap-2"><button type="button" className={secondary} onClick={() => setPreview(selected.url)}>{t('preview')}</button><button type="button" className={`${secondary} text-danger`} onClick={() => { setDeleteId(selected.id); setConfirm('delete'); }}>{t('delete')}</button></div>
               <details><summary className="text-sm text-text-muted cursor-pointer py-2 min-h-11">{t('imagePrompt')}</summary><p className="text-sm whitespace-pre-wrap break-words">{selected.prompt}</p></details>
             </>}
             <p className="text-xs text-text-muted">{t(kind === 'portrait' ? 'portraitHint' : 'draftHint')}</p>
@@ -161,7 +180,7 @@ export function AiAssetStudio({ roomId, kind, targetKey, initialPrompt, onClose,
           </div>
           {(submit.error || apply.error || remove.error) && <Notice variant="error">{submit.error || apply.error || remove.error}</Notice>}
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 gap-2 sm:flex sm:justify-end">
-            <button type="button" className={primary.replace('bg-primary text-primary-foreground', 'bg-ai text-ai-foreground')} disabled={!service || !prompt.trim() || !!active || submit.pending || fullPrompt.length > 8000} onClick={() => void submit.run()}>{submit.pending ? t('loading') : t(state?.assets.length ? 'again' : 'generate')}</button>
+            <button type="button" className={primary.replace('bg-primary text-primary-foreground', 'bg-ai text-ai-foreground')} disabled={!service || serviceChanged || !prompt.trim() || !!active || submit.pending || fullPrompt.length > 8000} onClick={() => void submit.run()}>{submit.pending ? t('loading') : t(state?.assets.length ? 'again' : 'generate')}</button>
             <button type="button" className={primary} disabled={!selected || apply.pending} onClick={() => void apply.run(close)}>{t(kind === 'portrait' ? 'crop' : 'use')}</button>
           </div>
         </footer>

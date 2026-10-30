@@ -15,8 +15,10 @@ export function useCharacterAvatarUpload(roomId: number, avatar: string | null |
   const tCommon = useTranslations("common");
   const router = useRouter();
   const [cropFile, setCropFile] = useState<File | null>(null);
-  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
-  const avatarSrc = avatarOverride ?? avatar ?? null;
+  const [avatarOverride, setAvatarOverride] = useState<{ source: typeof avatar; image: string } | null>(null);
+  // An optimistic upload only masks the prop it replaced. Later saves (including
+  // AI-generated avatars) must win when their new reference arrives.
+  const avatarSrc = avatarOverride && avatarOverride.source === avatar ? avatarOverride.image : avatar ?? null;
 
   const confirmCrop = async (dataUrl: string) => {
     const res = await uploadAvatarAction(roomId, dataUrl)
@@ -24,7 +26,7 @@ export function useCharacterAvatarUpload(roomId: number, avatar: string | null |
     // ImageCropper shows a thrown Error's message in its own error strip
     // and stays open — a local signal, not a server error crossing the wire.
     if (!res.success) throw new Error(res.error);
-    setAvatarOverride(dataUrl);
+    setAvatarOverride({ source: avatar, image: dataUrl });
     setCropFile(null);
     router.refresh();
   };

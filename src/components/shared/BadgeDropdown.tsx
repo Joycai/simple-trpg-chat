@@ -116,13 +116,20 @@ export function BadgeDropdown({
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - r.bottom - VIEWPORT_GUTTER;
-      const spaceAbove = r.top - VIEWPORT_GUTTER;
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      if (r.bottom <= viewportTop || r.top >= viewportTop + viewportHeight) { setOpen(false); return; }
+      const spaceBelow = viewportTop + viewportHeight - r.bottom - VIEWPORT_GUTTER;
+      const spaceAbove = r.top - viewportTop - VIEWPORT_GUTTER;
+      const width = Math.min(r.width, Math.max(0, viewportWidth - VIEWPORT_GUTTER * 2));
       const dropUp = spaceBelow < MIN_MENU_SPACE && spaceAbove > spaceBelow;
       const available = dropUp ? spaceAbove : spaceBelow;
       setPos({
-        left: r.left,
-        width: r.width,
+        left: Math.max(viewportLeft + VIEWPORT_GUTTER, Math.min(r.left, viewportLeft + viewportWidth - VIEWPORT_GUTTER - width)),
+        width,
         top: dropUp ? undefined : r.bottom,
         bottom: dropUp ? window.innerHeight - r.top : undefined,
         listMaxHeight: Math.max(MIN_LIST_HEIGHT, Math.min(LIST_MAX_HEIGHT, available - MENU_HEADER_HEIGHT)),
@@ -132,9 +139,13 @@ export function BadgeDropdown({
     measure();
     window.addEventListener("scroll", measure, { capture: true, passive: true });
     window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("scroll", measure);
     return () => {
       window.removeEventListener("scroll", measure, { capture: true });
       window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("scroll", measure);
     };
   }, [open]);
 
@@ -155,7 +166,10 @@ export function BadgeDropdown({
 
   const positioned = !!pos;
   useEffect(() => {
-    if (open && positioned) menuRef.current?.querySelector<HTMLElement>('[aria-selected="true"]:not(:disabled),[role="option"]:not(:disabled)')?.focus();
+    if (open && positioned) {
+      const current = menuRef.current?.querySelector<HTMLElement>('[aria-selected="true"]:not(:disabled)');
+      (current ?? menuRef.current?.querySelector<HTMLElement>('[role="option"]:not(:disabled)'))?.focus();
+    }
   }, [open, positioned]); // Position follows scrolling without resetting keyboard focus.
 
   // Escape closes just this dropdown while it's the topmost overlay — via the
