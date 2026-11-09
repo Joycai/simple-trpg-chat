@@ -17,7 +17,7 @@ import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, ty
 import { botActivationMode } from "@/lib/ai/bot-status";
 import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
 import { isDiceSpec } from "@/lib/commands/dice";
-import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
+import { MESSAGE_MAX_LENGTH, HISTORY_PAGE_LIMIT, HISTORY_PAGE_LIMIT_MAX, CATCH_UP_LIMIT, CATCH_UP_LIMIT_MAX } from "@/lib/room/limits";
 import type { Done, Fail } from "@/lib/actions/result";
 import { noRoomAccess } from "@/lib/actions/no-room-access";
 
@@ -344,36 +344,89 @@ export async function markDMReadAction(roomId: number, senderUserId: number): Pr
 // every exported "use server" function is callable by any authenticated
 // member with a crafted POST.)
 
-export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
+export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = HISTORY_PAGE_LIMIT) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
+  // Client-supplied paging values are untrusted: clamp instead of forwarding
+  // `limit: 1e9` (or a negative/NaN value) straight into the query.
+  const take = Number.isSafeInteger(limit) && limit > 0
+    ? Math.min(limit, HISTORY_PAGE_LIMIT_MAX)
+    : HISTORY_PAGE_LIMIT;
+  const before = Number.isSafeInteger(beforeMessageId) && beforeMessageId > 0 ? beforeMessageId : Number.MAX_SAFE_INTEGER;
 
   const results = await db
     .select()
     .from(messages)
-    .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, beforeMessageId)))
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, before)))
     .orderBy(desc(messages.id))
-    .limit(limit);
+    .limit(take);
 
   return results.reverse();
 }
 
 /**
  * Reconnect catch-up: everything visible to this user newer than the last
- * message the client saw before its SSE stream dropped. The server emits no
- * `id:` field on SSE frames, so Last-Event-ID replay can't work — the client
- * heals the gap itself (see useRoomEvents). Newest-first + reverse mirrors
- * the initial page query; the limit bounds a very long offline gap, in which
- * case the newest `limit` rows win (same trade-off as a fresh page load).
+ * message the client saw before its SSE stream dropped.
+ *
+ * Paging contract (a bounded response must not hide the hole):
+ * - Call 1: `sinceMessageId`, no upper bound → the NEWEST page of the gap.
+ * - If `truncated`, call 2 passes the previous page's oldest id as
+ *   `beforeMessageId`. The window becomes `(since, before)` — strictly OLDER —
+ *   so each call walks backwards until `truncated` is false. The old code
+ *   reused the oldest id as `since`, which re-fetched the same page forever.
  */
-export async function catchUpMessagesAction(roomId: number, sinceMessageId: number, limit = 300) {
+export interface CatchUpResult {
+  messages: typeof messages.$inferSelect[];
+  /** True when older visible messages remain inside the gap window. */
+  truncated: boolean;
+  /** Oldest id in this page — pass as `beforeMessageId` on the next call. */
+  gapBeforeMessageId: number | null;
+}
+
+export async function catchUpMessagesAction(
+  roomId: number,
+  sinceMessageId: number,
+  beforeMessageId?: number | null,
+  limit = CATCH_UP_LIMIT,
+): Promise<CatchUpResult> {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
+  const take = Number.isSafeInteger(limit) && limit > 0
+    ? Math.min(limit, CATCH_UP_LIMIT_MAX)
+    : CATCH_UP_LIMIT;
+  const safeSince = Number.isSafeInteger(sinceMessageId) && sinceMessageId > 0 ? sinceMessageId : 0;
+  const before = Number.isSafeInteger(beforeMessageId) && (beforeMessageId as number) > 0
+    ? (beforeMessageId as number)
+    : null;
+
+  const window = before != null
+    ? and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, safeSince), lt(messages.id, before))
+    : and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, safeSince));
 
   const results = await db
     .select()
     .from(messages)
-    .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, sinceMessageId)))
+    .where(window)
     .orderBy(desc(messages.id))
-    .limit(limit);
+    .limit(take);
 
-  return results.reverse();
+  const ordered = results.reverse();
+  // A full page does not prove a gap by itself; probe for one more visible row
+  // inside the same window so `truncated` is a fact, not a guess.
+  let truncated = false;
+  if (results.length === take) {
+    const oldest = ordered[0]?.id;
+    if (oldest != null) {
+      const [older] = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, safeSince), lt(messages.id, oldest)))
+        .limit(1);
+      truncated = !!older;
+    }
+  }
+
+  return {
+    messages: ordered,
+    truncated,
+    gapBeforeMessageId: truncated ? (ordered[0]?.id ?? null) : null,
+  };
 }

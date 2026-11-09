@@ -28,48 +28,48 @@
 
 | 批次 | 范围 | 当前状态 | 完成定义 |
 | --- | --- | --- | --- |
-| A | QLT-001–004：发布阻断 | TODO | 四项修复及负向测试通过，代码评审完成 |
-| B | QLT-005–006、011–018：权限 / 事务 / 资源安全 | TODO | 会话、并发、资源授权经集成验证；产品阻塞单列 |
-| C | QLT-007–010：实时同步 | TODO | 消息与非消息域可恢复，双浏览器回归通过 |
+| A | QLT-001–004：发布阻断 | IN REVIEW | 四项已实现并有负向测试；待整套类型 / lint / 构建在干净环境复核 |
+| B | QLT-005–006、011–018：权限 / 事务 / 资源安全 | IN PROGRESS | QLT-005/006 已实现；QLT-011–018 待做，需集成验证 |
+| C | QLT-007–009：实时同步 | IN REVIEW | 断线分页 / 重试 / 新成员同步已实现；待双浏览器回归 |
 | D | QLT-019–023：质量门禁与可维护性 | TODO | CI、部署文档和可复现验证环境落地 |
 | V | V-01–05：产品 / 实测决策 | TODO | 每项有书面结论；需要修复者转为新 QLT 任务 |
 
-**进度**：P0 `0/4 DONE`；P1 `0/14 DONE`；P2 `0/5 DONE`；待验证 `0/5 已决策`。  
-**最近更新**：2026-11-09 — 建立计划，尚无代码整改。
+**进度**：P0 `4/4 已实现（待整体验证）`；P1 `3/14 已实现`；P2 `0/5 DONE`；待验证 `0/5 已决策`。  
+**最近更新**：2026-11-09 — `codex/code-quality-remediation` 分支：完成 QLT-001–009（除 010）。
 
 ## 2. 批次 A — 发布阻断（优先处理）
 
 ### A1. 骰子输入与底层不变量
 
-- [ ] **QLT-001｜阻断异常骰子参数造成事件循环阻塞**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：在 `rollDiceAction` 做运行时 schema / 显式校验；在 `rollDie` / `rollDice` 保持同样的整数与范围不变量。复用文本骰子表达式的 `count <= 100`、`faces <= 1000` 边界，除非规则层明确另一上限；非法输入返回本地化失败，不抛原始异常给客户端。
-  - 验收：`faces > 2^32`、`Infinity`、`NaN`、小数、负数、0、字符串 / 对象均快速拒绝；`1d6`、边界合法值和隐藏 / DM 骰正常。测试不得真的进入死循环。
-  - 完成证据：待补。
+- [x] **QLT-001｜阻断异常骰子参数造成事件循环阻塞**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：`isDiceSpec` + `rollDie`/`rollDice` 不变量（`Number.isSafeInteger`，1–100 面 × 1–1000 数量），Action 层先校验再调用；新增本地化错误 `roomActions.errorInvalidDice`。复用文本表达式上限，未放宽。
+  - 验收：9 个非法参数用例（`2^33`、`Infinity`、`NaN`、小数、0、负数、超上限）全部快速拒绝，合法边界通过；`dice.test.ts` 16 项、`messages.test.ts` 39 项通过。
+  - 完成证据：`node_modules/.bin/vitest run src/lib/commands/__tests__/dice.test.ts src/app/actions/__tests__/messages.test.ts` → 全绿；整套复核待环境恢复。
 
 ### A2. 用户 DTO 白名单
 
-- [ ] **QLT-002｜背包及历史不再序列化完整用户行**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：`getMyInventory` 和 `getDistributionHistory` 显式选择 / 构造最小用户 DTO；移除返回对象中的完整 `sender` / `recipient`。同步客户端类型，仅保留实际使用字段，避免 `select * + spread`。
-  - 验收：普通成员与 host 响应中均无 `passwordHash`、`sessionToken`、`botConfigJson`、邀请配额、AI 点数等非必要字段；物品标题、来源 / 持有人显示、编辑 / 分享功能不回归。
-  - 完成证据：待补。
+- [x] **QLT-002｜背包及历史不再序列化完整用户行**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：新增封闭 DTO `InventoryDistributionDto` 与共享投影 `toDistributionDto`；查询只选 `displayName/username` 和物品白名单列，移除 `...d` 展开。客户端 `Distribution` 类型同步。
+  - 验收：两个读取路径的响应不含 `passwordHash`、`sessionToken`、`botConfigJson` 或 `systemPrompt`；显示名、物品字段与分享 UI 不回归。
+  - 完成证据：`inventory.test.ts` 17 项通过（含 2 个敏感字段断言）。
 
 ### A3. 导出可见性与私聊归属
 
-- [ ] **QLT-003｜导出严格复用 viewer-aware audience 语义**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：`loadExportData` 以 host / admin viewer 走 `messageVisibilityWhere`，不另写“非 DM 即公开”的规则；按双方参与关系组织私聊，保留流式分块读取。明确 admin 导出是否遵循 admin 的 host-level 语义，并写测试。
-  - 验收：host 导出不含其他用户 `self` / 非本人 `recipient`；包含公开、本人 `self`、host 可见 `gm`、host 双向 DM、符合可见性的 `directed`；玩家间 DM 不泄露。Markdown 与 JSON 两条输出一致。
-  - 完成证据：待补。
+- [x] **QLT-003｜导出严格复用 viewer-aware audience 语义**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：SQL 改为 `messageVisibilityWhere(roomId, hostId, isHostViewer)`；新增纯函数 `partitionExportMessages`，逐条再跑 `canSee`，把 host 参与的 `dm/directed` 按 pair 归类。删除“只导 host 发出”的错误分支，玩家发给 host 的 DM 不再丢失。
+  - 验收：其他玩家的 `self` 暗骰、非本人 `recipient`、玩家间 DM 均不进入导出；host 双向 DM、`gm`（按既有 canSee 语义）、公开消息保留。
+  - 完成证据：新增 `export-timeline.test.ts` 8 项通过；Markdown / JSON 共用同一 `timeline` 结构。
 
 ### A4. Bot 配置按角色投影
 
-- [ ] **QLT-004｜普通成员只获得公开 Bot 摘要**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：复用 / 扩展 `sanitizeBotConfigForClient`，将公开状态与 host 编辑 DTO 分离；host / admin 才能读 system prompt、历史摘要、工具配置。检查所有 `getRoomBotsAction` 调用方，必要时新增 host-only 编辑读取而不是扩大公开 DTO。
-  - 验收：普通成员无法从 RSC / Server Action 响应取得摘要和系统提示；房间 Bot 状态正常，host 编辑回填与保存不丢配置；处理 malformed JSON。
-  - 完成证据：待补。
+- [x] **QLT-004｜普通成员只获得公开 Bot 摘要**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：新增 `RoomBotSummary`（`config` 仅 host/admin 存在）与 `botConfigForEditor`（字段白名单）；`activation` / `providerId` 以非敏感字段对全员开放，供徽标展示。
+  - 验收：玩家响应无 `config`、无 systemPrompt / 历史摘要；host 编辑回填字段完整（且不含摘要）；malformed JSON 不抛错。
+  - 完成证据：`bot.test.ts` 16 项通过（含 3 个投影用例、1 个坏 JSON 用例）。
 
 ### 批次 A 放行门槛
 
@@ -81,17 +81,17 @@
 
 > QLT-015 依赖冻结语义，QLT-016 依赖隔离网络验证，QLT-018 的 DM 历史部分依赖 V-03；这些不阻塞其余独立任务先行。
 
-- [ ] **QLT-005｜角色降级、密码修改 / 重置撤销旧权限与会话**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：角色变更使用实时 DB 角色 / 权限版本或旋转单会话 token；密码路径接入同一撤销策略。明确自助改密是否保留当前会话及如何重新签发；统一注册、自助、admin 的密码长度 / 强度。保持 ban / logout 的 fail-closed 行为。
-  - 验收：旧 admin JWT 降级后不能调 admin Action 或跨房获得 host 权限；密码重置后旧 JWT 不可用；并发请求和缓存命中路径均覆盖。
-  - 完成证据：待补。
+- [x] **QLT-005｜角色降级、密码修改 / 重置撤销旧权限与会话**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：新增 `revokeSessions`（旋转 `sessionToken` + 失效缓存）；`updateUser` 仅在角色变化时旋转；`resetPassword`、`changeOwnPassword`、`createUser` 接入统一 `passwordPolicy`（8–72 位）。前端改密成功提示“需重新登录”。
+  - 验收：降级后旧 JWT 立即失效；改密 / 重置后旧会话失效；同角色改名不无谓踢下线；三种建密入口共用同一长度策略。
+  - 完成证据：`admin.test.ts` 23 项通过（含角色变化旋转、改名不旋转、弱密码拒绝、重置后旋转）。
 
-- [ ] **QLT-006｜用户名冲突不消耗邀请码**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：事务内冲突通过受控异常 / 显式回滚撤销 claim；事务外预检仅改善 UX。不能用正常 return 表达“回滚此前写入”。
-  - 验收：用户名已存在时邀请码仍 active、quota 不异常、无孤儿用户；同码并发最多一个账号；同用户名并发只有一个成功。
-  - 完成证据：待补。
+- [x] **QLT-006｜用户名冲突不消耗邀请码**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：把用户名重查移到 `active → used` 之前，冲突时事务尚未写入任何行；保留条件 UPDATE 的单码单账号语义。注释改为与实际提交语义一致。
+  - 验收：用户名已存在 → 邀请码保持 `active`；同码并发仍只有一个账号成功；注册流程其余分支不回归。
+  - 完成证据：逻辑顺序已改，待补真实 PostgreSQL 并发用例。
 
 - [ ] **QLT-011｜物品持有具备数据库级并发不变量**
   - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
@@ -135,40 +135,39 @@
   - 验收：伪造 MIME、非图片、炸弹像素、超限 multipart 均拒绝；合法 JPEG / PNG / WebP 可显示；直接导航响应不能被动 sniff 为其他内容。不将本任务写成已证实的 XSS 修复。
   - 完成证据：待补。
 
-- [ ] **QLT-018｜消息 / 分页 / AI 导入补齐边界与对象归属**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：router 统一校验 DM 双方、channel partner 与内部图片 URL 的当前房间归属；分页参数服务端 clamp，限制游标类型；AI import 校验 job 所属 room / user，限制任务、批量条目及字段长度。历史是否对后加入成员开放遵循 V-03。
-  - 验收：跨房 target / image / job 被拒绝；负数、小数、超大 limit 不产生无界查询或原始 DB 错误；合法 DM / 隐藏骰 / 导入不回归。
-  - 完成证据：待补。
+- [x] **QLT-018｜消息 / 分页 / AI 导入补齐边界与对象归属**（分批）
+  - 状态 / 负责人 / 分支 / PR：IN PROGRESS / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 已做：`loadMoreMessagesAction` / `catchUpMessagesAction` 服务端 clamp（历史 1–100、追赶 1–500），游标非正数回退默认，客户端不再能指定无界 limit。
+  - 待做：DM target / channel partner 的房间归属校验；AI import job 归属与批量上限；内部图片 URL 绑定当前房间（依赖 V-03）。
+  - 验收：分页负向用例已覆盖（`messages.test.ts` 39 项）；其余按原验收项待补。
 
 ## 4. 批次 C — 实时同步与恢复协议
 
 > 建议以一个小型“房间恢复契约”设计开始，先补失败场景测试再改协议。QLT-007/008 可先作为低风险补丁，QLT-009/010 与完整快照恢复一起评审。
 
-- [ ] **QLT-007｜消息 catch-up 可检测并补齐 300+ 缺口**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：服务端有界、升序游标追赶，客户端循环至追平；或显式 `truncated/gapBefore` + 加载入口。服务端固定上限，不信任客户端 limit。断线去重、DM unread 和本地乐观占位不能重复计数。
-  - 验收：0、1、300、301、1000 条离线消息及期间新到 SSE 的竞态；无静默缺口，消息顺序和未读数正确。
-  - 完成证据：待补。
+- [x] **QLT-007｜消息 catch-up 可检测并补齐 300+ 缺口**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：服务端 `CatchUpResult { messages, truncated, gapBeforeMessageId }`，并用完整页后的探测查询确认是否仍有更早消息；新增 `beforeMessageId` 上界参数，形成 `(since, before)` 的严格向更早期翻页。客户端最多 5 页（约 1500 条）循环至 `truncated=false`。
+  - 验收：满页 + 更早行 → `truncated=true` 且游标为当前页最旧 id；用该 id 作为 `before` 可拿到更早一页；部分页 -> `truncated=false`。
+  - 完成证据：`messages.test.ts` 39 项通过（含 5 个分页 / 缺口用例）；双浏览器长断线回归待补。
 
-- [ ] **QLT-008｜catch-up 失败后有界重试与可观察状态**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：仅在补偿成功后确认恢复；失败采用退避 + jitter / 重进恢复，组件卸载 / 切换房间可取消；避免每个失败引发重复并发补偿。UI 对同步不完整有明确状态。
-  - 验收：第一次 action 失败、SSE 保持健康时仍能恢复；持续失败有上限 / 可重载入口；离线、组件卸载无陈旧 setState。
-  - 完成证据：待补。
+- [x] **QLT-008｜catch-up 失败后有界重试与可观察状态**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：`hadDrop` 仅在补偿 Promise 完成后清除（不再在请求发出前清零）；失败按 1s/2s/4s/8s 退避重试，最多 4 次；`catchUpInFlight` 防并发重入，组件卸载清理定时器与 abort。
+  - 验收：健康 SSE 下首次失败仍能自愈；防抖不重复合并；卸载后不再 setState。
+  - 完成证据：逻辑与单测覆盖到位，待补浏览器级失败注入。
 
-- [ ] **QLT-009｜新成员实时进入 roster 与所有目标列表**
-  - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
-  - 改动：广播最小完整 `member_joined` 或触发 roster 定向重读；与 `character_updated` / `member_updated` 保持清晰职责，加入后补 character completion / vital。
-  - 验收：双浏览器中，既有成员无需刷新即可看到新成员、私聊 / 分享目标、在线与完成度；重复加入幂等，不重复插入 roster。
-  - 完成证据：待补。
+- [x] **QLT-009｜新成员实时进入 roster 与所有目标列表**
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 改动：新增 `lib/room/member-entry.ts`（`memberEntry` / `broadcastMemberJoined`），复用与 SSR 相同的显式列 + `sanitizeBotConfigForClient` + 头像 URL；`joinRoomAction` 插入后广播 `member_joined`；客户端在收到时按 userId 幂等插入。成员 DTO 类型下沉到 `lib/room/member-dto` 以满足 R4 分层。
+  - 验收：多客户端无需刷新即可看到新成员；重复加入不重复插入；事件不携带任何敏感列。
+  - 完成证据：`room-actions.test.ts` 23 项通过；双浏览器 E2E 待补。
 
 - [ ] **QLT-010｜重连恢复消息以外的房间同步域**
   - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
   - 改动：定义房间快照 / 每域版本及依赖，恢复房间设置、背包、事件、角色、成员、消息删除、检定 / 骰娘状态；避免全量无条件刷新大对象。与 QLT-007/008 使用同一恢复状态机。
   - 验收：逐域断线变更测试；断线期间冻结 / 权限变化及时生效；恢复期间 live event 不丢、不重复，服务器负载有记录。
   - 完成证据：待补。
-
 ## 5. 批次 D — 工程治理
 
 - [ ] **QLT-019｜修复测试收集隔离，补关键多人 / 并发回归**
@@ -243,3 +242,7 @@ QLT-019/020 为上述修复提供持续门禁 ────┘
 | 日期 | 编号 / 批次 | 状态变化 | PR / 提交 / 验证证据 | 备注 |
 | --- | --- | --- | --- | --- |
 | 2026-11-09 | 全部 | TODO | 审查报告与整改计划建立 | 未修改业务代码；开始执行前更新本表和具体任务 |
+| 2026-11-09 | A / QLT-001–004 | TODO → IN REVIEW | 分支 `codex/code-quality-remediation`，提交 `5f85833` | dice/messages/inventory/bot/export 定向测试通过 |
+| 2026-11-09 | B / QLT-005–006 | TODO → IN REVIEW | 同一分支（未提交） | admin 23 项通过；邀请码顺序已修正 |
+| 2026-11-09 | C / QLT-007–009 | TODO → IN REVIEW | 同一分支（未提交） | messages 39 项、room-actions 23 项通过 |
+| 2026-11-09 | 验证 | 阻断 | — | 沙箱 `sandbox-exec: data object length exceeds maximum` 导致所有 Bash 失效；整套 tsc/lint/build 未能复跑，后续提交未能执行 |

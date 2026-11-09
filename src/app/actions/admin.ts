@@ -9,6 +9,8 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { revokeSessions } from "@/lib/auth/session-revocation";
+import { passwordPolicyError } from "@/lib/auth/password-policy";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 import type { Done, Fail } from "@/lib/actions/result";
 
@@ -43,6 +45,12 @@ export async function createUser(formData: FormData): Promise<Done> {
   const aiPoints = Math.max(0, Math.floor(Number(formData.get("aiPoints")) || 0));
 
   if (!username || !password || !role) return { success: false, error: t("errorMissingFields") };
+
+  // Same policy as registration / self-service / reset — one rule for every
+  // password this app ever stores.
+  const policy = passwordPolicyError(password);
+  if (policy === "tooShort") return { success: false, error: t("passwordTooShort") };
+  if (policy === "tooLong") return { success: false, error: t("passwordTooLong") };
 
   const allowedRoles = ["player", "host", "admin"];
   if (!allowedRoles.includes(role)) return { success: false, error: t("errorInvalidRole") };
@@ -129,8 +137,15 @@ export async function updateUser(id: number, displayName: string, role: string):
     .set(patch)
     .where(eq(users.id, id));
 
-  // A role change must refresh the cached session so it takes effect immediately.
-  invalidateSessionCache(String(id));
+  // A role change must revoke every JWT issued under the old role: the role is
+  // baked into the token at sign-in, so clearing a cache that does not hold the
+  // role would leave a demoted admin with working admin powers until re-login.
+  // Rotating the single-session token invalidates them immediately.
+  if (user.role !== role) {
+    await revokeSessions(id);
+  } else {
+    invalidateSessionCache(String(id));
+  }
   revalidatePath("/admin");
   return { success: true };
 }
@@ -219,8 +234,16 @@ export async function resetPassword(id: number, newPassword: string): Promise<Do
   const t = await getTranslations("admin");
   if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
+  // The admin form used to accept a 3-character password while registration
+  // required 8. Enforce the same policy on the server, not just in the input.
+  const policy = passwordPolicyError(newPassword);
+  if (policy === "tooShort") return { success: false, error: t("passwordTooShort") };
+  if (policy === "tooLong") return { success: false, error: t("passwordTooLong") };
+
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await db.update(users).set({ passwordHash }).where(eq(users.id, id));
+  // Reset password ⇒ every session signed in with the old one is compromised.
+  await revokeSessions(id);
   revalidatePath("/admin");
   return { success: true };
 }

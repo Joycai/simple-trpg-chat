@@ -9,6 +9,12 @@ import type { StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
 import { invalidateCharacterCache } from "@/components/room/chat/message/character-cache";
 
+/** Bounded backfill: at 300 rows/page this covers ~1500 messages of downtime
+ *  before the UI is allowed to keep only what it fetched. */
+const CATCH_UP_MAX_PAGES = 5;
+/** Bounded retries for a failed catch-up while the SSE link stays healthy. */
+const CATCH_UP_MAX_RETRIES = 4;
+
 interface UseRoomEventsParams {
   roomId: number;
   userId: number;
@@ -74,32 +80,69 @@ export function useRoomEvents({
     // after every reconnect we fetch everything visible past the newest loaded
     // message and merge it in (dedup against both live-delivered rows and the
     // optimistic placeholders, which keep negative ids and stay at the tail).
-    const catchUpMissedMessages = async () => {
+    //
+    // The page is bounded, so a long gap comes back `truncated`: keep paging
+    // backwards from the oldest page until the server says the gap is fully
+    // covered. Without that loop the client would keep only the newest N rows
+    // and could never re-discover the hole (its catch-up cursor is the max id).
+    let catchUpInFlight = false;
+    let catchUpRetry: ReturnType<typeof setTimeout> | null = null;
+
+    const mergeMissed = (missed: Message[]) => {
+      if (missed.length === 0) return;
+      setMessages((prev) => {
+        const present = new Set(prev.map((m) => String(m.id)));
+        const fresh = missed.filter((m) => !present.has(String(m.id)));
+        if (fresh.length === 0) return prev;
+        for (const m of fresh) {
+          seenIdsRef.current.add(String(m.id));
+          // Caught-up messages are just as new to the user — let them animate in.
+          liveEnterRef.current.set(String(m.id), Date.now());
+          // Same DM-unread accounting the live path performs per event.
+          const view = { userId: m.userId, targetUserId: m.targetUserId ?? null, audience: m.audience };
+          if (countsAsDmUnread(view, userId) && activeTabRef.current !== m.userId) {
+            setUnreadCounts((c) => ({ ...c, [m.userId]: (c[m.userId] || 0) + 1 }));
+          }
+        }
+        const rank = (m: Message) =>
+          typeof m.id === "number" && m.id < 0 ? Number.POSITIVE_INFINITY : Number(m.id);
+        return [...prev, ...fresh].sort((a, b) => rank(a) - rank(b));
+      });
+    };
+
+    const catchUpMissedMessages = async (attempt = 0): Promise<void> => {
+      if (catchUpInFlight || abortController.signal.aborted) return;
+      catchUpInFlight = true;
       const sinceId = messagesRef.current.reduce(
         (max, m) => (typeof m.id === "number" && m.id > max ? m.id : max), 0);
       try {
-        const missed = (await catchUpMessagesAction(roomId, sinceId)) as unknown as Message[];
-        if (abortController.signal.aborted || missed.length === 0) return;
-        setMessages((prev) => {
-          const present = new Set(prev.map((m) => String(m.id)));
-          const fresh = missed.filter((m) => !present.has(String(m.id)));
-          if (fresh.length === 0) return prev;
-          for (const m of fresh) {
-            seenIdsRef.current.add(String(m.id));
-            // Caught-up messages are just as new to the user — let them animate in.
-            liveEnterRef.current.set(String(m.id), Date.now());
-            // Same DM-unread accounting the live path performs per event.
-            const view = { userId: m.userId, targetUserId: m.targetUserId ?? null, audience: m.audience };
-            if (countsAsDmUnread(view, userId) && activeTabRef.current !== m.userId) {
-              setUnreadCounts((c) => ({ ...c, [m.userId]: (c[m.userId] || 0) + 1 }));
-            }
-          }
-          const rank = (m: Message) =>
-            typeof m.id === "number" && m.id < 0 ? Number.POSITIVE_INFINITY : Number(m.id);
-          return [...prev, ...fresh].sort((a, b) => rank(a) - rank(b));
-        });
+        // Walk backwards through bounded pages until the server reports no older
+        // visible message left in the gap. `before` (not `since`) carries the
+        // cursor: each page is strictly older than the previous one.
+        let before: number | null = null;
+        for (let page = 0; page < CATCH_UP_MAX_PAGES; page++) {
+          const res = await catchUpMessagesAction(roomId, sinceId, before);
+          if (abortController.signal.aborted) return;
+          const rows = res.messages as unknown as Message[];
+          if (rows.length === 0) break;
+          mergeMissed(rows);
+          if (!res.truncated) break;
+          before = res.gapBeforeMessageId;
+          if (before == null) break;
+        }
       } catch {
-        // Leave hadDrop logic alone — the next reconnect retries the catch-up.
+        // A single transient failure must not silently drop the gap: retry with
+        // bounded backoff while the SSE link stays healthy.
+        if (!abortController.signal.aborted && attempt < CATCH_UP_MAX_RETRIES) {
+          const delay = Math.min(1000 * 2 ** attempt, 8000);
+          catchUpRetry = setTimeout(() => {
+            catchUpInFlight = false;
+            void catchUpMissedMessages(attempt + 1);
+          }, delay);
+          return;
+        }
+      } finally {
+        catchUpInFlight = false;
       }
     };
 
@@ -115,8 +158,11 @@ export function useRoomEvents({
         retryCount = 0; // Reset retry count on successful connection
         connected = true;
         if (hadDrop) {
-          hadDrop = false;
-          catchUpMissedMessages();
+          // Do NOT clear the flag here: only a completed catch-up proves the
+          // gap is closed. The retry path above keeps it armed until it is.
+          catchUpMissedMessages().then(() => {
+            if (!abortController.signal.aborted) hadDrop = false;
+          });
         }
       };
 
@@ -126,6 +172,22 @@ export function useRoomEvents({
           const data = JSON.parse(event.data);
           if (data.type === "room_settings_updated") {
             router.refresh();
+            return;
+          }
+          if (data.type === "member_joined") {
+            // A new player joined. `member_updated` only patches existing rows
+            // (and character_updated carries no identity), so without this event
+            // every already-connected client kept a roster, DM list and
+            // share-target picker that silently omitted the newcomer until a
+            // full reload.
+            const entry = data.player as PlayerEntry | undefined;
+            if (!entry) return;
+            const uid = entry.users?.id ?? entry.user?.id ?? entry.user_id;
+            if (uid == null) return;
+            setPlayers((prev) => (prev.some((p) => {
+              const pid = p.users?.id ?? p.user?.id ?? p.user_id;
+              return pid === uid;
+            }) ? prev : [...prev, entry]));
             return;
           }
           if (data.type === "member_updated") {
@@ -349,6 +411,7 @@ export function useRoomEvents({
       abortController.abort();
       if (sse) sse.close();
       clearTimeout(reconnectTimeout);
+      if (catchUpRetry) clearTimeout(catchUpRetry);
       window.removeEventListener("online", wakeUp);
       document.removeEventListener("visibilitychange", wakeUp);
     };

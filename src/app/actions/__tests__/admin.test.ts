@@ -37,13 +37,18 @@ vi.mock("@/db", () => ({
     delete: () => chain(() => []),
     transaction: (fn: (tx: unknown) => unknown) => transaction(fn),
   },
+  sqlNow: () => "NOW()",
 }));
 
 import {
   toggleBanUser, createUser, updateUser, updateUserAiPoints, deleteUser,
-  deleteRoom, adminSetRoomStatus,
+  deleteRoom, adminSetRoomStatus, resetPassword,
 } from "../admin";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
+
+/** Minimal password that satisfies the shared policy. */
+const VALID_PW = "longenough";
 
 function form(fields: Record<string, string>) {
   const fd = new FormData();
@@ -88,19 +93,19 @@ describe("createUser", () => {
   });
 
   it("rejects an over-long username", async () => {
-    const res = await createUser(form({ username: "a".repeat(USERNAME_MAX_LENGTH + 1), password: "pw", role: "player" }));
+    const res = await createUser(form({ username: "a".repeat(USERNAME_MAX_LENGTH + 1), password: VALID_PW, role: "player" }));
     expect(res).toEqual({ success: false, error: `admin.errorFieldTooLong:{"max":${USERNAME_MAX_LENGTH}}` });
     expect(transaction).not.toHaveBeenCalled();
   });
 
   it("rejects an over-long display name", async () => {
-    const res = await createUser(form({ username: "bob", displayName: "n".repeat(DISPLAY_NAME_MAX_LENGTH + 1), password: "pw", role: "player" }));
+    const res = await createUser(form({ username: "bob", displayName: "n".repeat(DISPLAY_NAME_MAX_LENGTH + 1), password: VALID_PW, role: "player" }));
     expect(res).toEqual({ success: false, error: `admin.errorFieldTooLong:{"max":${DISPLAY_NAME_MAX_LENGTH}}` });
   });
 
   it("reports a taken username from the register namespace", async () => {
     selectQueue = [[{ id: 9 }]];
-    expect(await createUser(form({ username: "bob", password: "pw", role: "player" })))
+    expect(await createUser(form({ username: "bob", password: VALID_PW, role: "player" })))
       .toEqual({ success: false, error: "register.errorUsernameTaken" });
   });
 });
@@ -174,5 +179,33 @@ describe("room actions", () => {
   it("adminSetRoomStatus rejects an unknown status", async () => {
     expect(await adminSetRoomStatus(5, "archived" as "closed")).toEqual({ success: false, error: "admin.errorInvalidStatus" });
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe("session revocation on privileged changes", () => {
+  // Regression: the JWT bakes the role in at sign-in. Clearing a cache that
+  // never held the role left a demoted admin with working admin rights.
+  it("rotates the session token when a role changes", async () => {
+    selectQueue = [[{ id: 2, username: "bob", role: "admin" }]];
+    expect(await updateUser(2, "Bob", "player")).toEqual({ success: true });
+    // One update for the user row, one for the rotated session token.
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not rotate the token for a display-name-only change", async () => {
+    selectQueue = [[{ id: 2, username: "bob", role: "player" }]];
+    expect(await updateUser(2, "Bobby", "player")).toEqual({ success: true });
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("enforces the password policy on admin reset", async () => {
+    expect(await resetPassword(2, "short")).toEqual({ success: false, error: "admin.passwordTooShort" });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("rotates the session token after a password reset", async () => {
+    expect(await resetPassword(2, VALID_PW)).toEqual({ success: true });
+    // passwordHash + rotated sessionToken
+    expect(update).toHaveBeenCalledTimes(2);
   });
 });

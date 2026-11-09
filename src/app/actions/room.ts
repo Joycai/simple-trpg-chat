@@ -1,6 +1,7 @@
 "use server";
 
 import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
+import { broadcastMemberJoined } from "@/lib/room/member-entry";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { db } from "@/db";
 import { rooms, roomMembers, users, THEMES, THEME_MODES, RULE_TEMPLATES, type Theme, type RuleTemplate } from "@/db/schema";
@@ -109,6 +110,9 @@ export async function joinRoomAction(formData: FormData) {
       });
       // The host's completion badges count the newcomer right away.
       await broadcastCharacterUpdate(roomId, userId);
+      // ...and every already-connected client adds them to the roster. Before
+      // this, the newcomer only appeared after a full page reload.
+      await broadcastMemberJoined(roomId, userId);
     }
 
     revalidatePath("/");
