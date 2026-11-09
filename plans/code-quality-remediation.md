@@ -28,21 +28,21 @@
 
 | 批次 | 范围 | 当前状态 | 完成定义 |
 | --- | --- | --- | --- |
-| A | QLT-001–004：发布阻断 | IN REVIEW | 四项已实现并有负向测试；类型 / lint / 相关测试已全绿，构建止于缺少数据库配置 |
-| B | QLT-005–006、011–018：权限 / 事务 / 资源安全 | IN PROGRESS | QLT-005/006 已实现；QLT-011–018 待做，需集成验证 |
-| C | QLT-007–009：实时同步 | IN REVIEW | 断线分页 / 重试 / 新成员同步已实现；待双浏览器回归 |
+| A | QLT-001–004：发布阻断 | IN REVIEW | 四项已实现并有负向测试；CI 全绿（含构建），等代码评审与合入 |
+| B | QLT-005–006、011–018：权限 / 事务 / 资源安全 | IN PROGRESS | QLT-005/006 已实现并通过 CI；QLT-011–018 待做 |
+| C | QLT-007–009：实时同步 | IN REVIEW | 断线分页 / 重试 / 新成员同步已实现并通过 CI；待双浏览器回归 |
 | D | QLT-019–023：质量门禁与可维护性 | TODO | CI、部署文档和可复现验证环境落地 |
 | V | V-01–05：产品 / 实测决策 | TODO | 每项有书面结论；需要修复者转为新 QLT 任务 |
 
 **进度**：P0 `4/4 已实现`；P1 `3/14 已实现`；P2 `0/5 DONE`；待验证 `0/5 已决策`。  
-**最近更新**：2026-11-09 — `241dcfa` 提交 QLT-005–009；QLT-001–009 的类型检查、lint、i18n 与 8 个相关测试文件（144 项）全绿。仍待：双浏览器回归、真实 PostgreSQL 并发验证、QLT-010 及批次 B 剩余项。
+**最近更新**：2026-11-09 — [PR #261](https://github.com/Joycai/simple-trpg-chat/pull/261)，QLT-001–009。CI 8/8 全绿：**88 个测试文件通过、1239 项通过 / 11 跳过、0 失败**，Node 22/24 的 Test & Build 与 ESLint、Phone & iPad 布局均通过，生产构建成功。本机无法跑的 4 个数据库测试文件与 `auth-config` 用例在 CI 环境下全部通过。仍待：双浏览器回归、QLT-010 及批次 B 剩余项。
 
 ## 2. 批次 A — 发布阻断（优先处理）
 
 ### A1. 骰子输入与底层不变量
 
 - [x] **QLT-001｜阻断异常骰子参数造成事件循环阻塞**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：`isDiceSpec` + `rollDie`/`rollDice` 不变量（`Number.isSafeInteger`，1–100 面 × 1–1000 数量），Action 层先校验再调用；新增本地化错误 `roomActions.errorInvalidDice`。复用文本表达式上限，未放宽。
   - 验收：9 个非法参数用例（`2^33`、`Infinity`、`NaN`、小数、0、负数、超上限）全部快速拒绝，合法边界通过；`dice.test.ts` 16 项、`messages.test.ts` 39 项通过。
   - 完成证据：`node_modules/.bin/vitest run src/lib/commands/__tests__/dice.test.ts src/app/actions/__tests__/messages.test.ts` → 全绿；整套复核待环境恢复。
@@ -50,7 +50,7 @@
 ### A2. 用户 DTO 白名单
 
 - [x] **QLT-002｜背包及历史不再序列化完整用户行**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：新增封闭 DTO `InventoryDistributionDto` 与共享投影 `toDistributionDto`；查询只选 `displayName/username` 和物品白名单列，移除 `...d` 展开。客户端 `Distribution` 类型同步。
   - 验收：两个读取路径的响应不含 `passwordHash`、`sessionToken`、`botConfigJson` 或 `systemPrompt`；显示名、物品字段与分享 UI 不回归。
   - 完成证据：`inventory.test.ts` 17 项通过（含 2 个敏感字段断言）。
@@ -58,7 +58,7 @@
 ### A3. 导出可见性与私聊归属
 
 - [x] **QLT-003｜导出严格复用 viewer-aware audience 语义**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：SQL 改为 `messageVisibilityWhere(roomId, hostId, isHostViewer)`；新增纯函数 `partitionExportMessages`，逐条再跑 `canSee`，把 host 参与的 `dm/directed` 按 pair 归类。删除“只导 host 发出”的错误分支，玩家发给 host 的 DM 不再丢失。
   - 验收：其他玩家的 `self` 暗骰、非本人 `recipient`、玩家间 DM 均不进入导出；host 双向 DM、`gm`（按既有 canSee 语义）、公开消息保留。
   - 完成证据：新增 `export-timeline.test.ts` 8 项通过；Markdown / JSON 共用同一 `timeline` 结构。
@@ -66,7 +66,7 @@
 ### A4. Bot 配置按角色投影
 
 - [x] **QLT-004｜普通成员只获得公开 Bot 摘要**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：新增 `RoomBotSummary`（`config` 仅 host/admin 存在）与 `botConfigForEditor`（字段白名单）；`activation` / `providerId` 以非敏感字段对全员开放，供徽标展示。
   - 验收：玩家响应无 `config`、无 systemPrompt / 历史摘要；host 编辑回填字段完整（且不含摘要）；malformed JSON 不抛错。
   - 完成证据：`bot.test.ts` 16 项通过（含 3 个投影用例、1 个坏 JSON 用例）。
@@ -75,20 +75,20 @@
 
 - [x] 四项均有代码评审和回归测试，不仅靠手工检查 UI。（回归测试已就位，合并到 `241dcfa` 前的分支；正式代码评审待 PR）
 - [x] 类型检查、lint、相关 Vitest 全绿。（`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、相关 8 个测试文件 144 项通过；敏感字段与私密消息的响应断言已写入 inventory/bot/export 测试）
-- [ ] 合并提交与 PR 链接回填后，才将发布阻断标为解除。（提交已回填 `241dcfa`，PR 尚未创建）
+- [x] 合并提交与 PR 链接回填后，才将发布阻断标为解除。（`241dcfa` + [PR #261](https://github.com/Joycai/simple-trpg-chat/pull/261)，8/8 CI 通过；合入前仍为 IN REVIEW）
 
 ## 3. 批次 B — 权限、事务与资源安全
 
 > QLT-015 依赖冻结语义，QLT-016 依赖隔离网络验证，QLT-018 的 DM 历史部分依赖 V-03；这些不阻塞其余独立任务先行。
 
 - [x] **QLT-005｜角色降级、密码修改 / 重置撤销旧权限与会话**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：新增 `revokeSessions`（旋转 `sessionToken` + 失效缓存）；`updateUser` 仅在角色变化时旋转；`resetPassword`、`changeOwnPassword`、`createUser` 接入统一 `passwordPolicy`（8–72 位）。前端改密成功提示“需重新登录”。
   - 验收：降级后旧 JWT 立即失效；改密 / 重置后旧会话失效；同角色改名不无谓踢下线；三种建密入口共用同一长度策略。
   - 完成证据：`admin.test.ts` 23 项通过（含角色变化旋转、改名不旋转、弱密码拒绝、重置后旋转）。整套复核：`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、`check-i18n` 通过。⚠️ 注意：原始 JWT 仍携带旧 role，本方案靠 token 校验把旧会话挡在 `authorized`，`getSessionStatus` 的 30s 缓存已同步失效；真实多 worker 下的缓存一致性尚未实测。
 
 - [x] **QLT-006｜用户名冲突不消耗邀请码**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：把用户名重查移到 `active → used` 之前，冲突时事务尚未写入任何行；保留条件 UPDATE 的单码单账号语义。注释改为与实际提交语义一致。
   - 验收：用户名已存在 → 邀请码保持 `active`；同码并发仍只有一个账号成功；注册流程其余分支不回归。
   - 完成证据：逻辑顺序已改，代码已提交（`241dcfa`）。待补真实 PostgreSQL 并发用例——本机无 `DATABASE_URL`，该并发语义无法在 mock 下证明。
@@ -146,19 +146,19 @@
 > 建议以一个小型“房间恢复契约”设计开始，先补失败场景测试再改协议。QLT-007/008 可先作为低风险补丁，QLT-009/010 与完整快照恢复一起评审。
 
 - [x] **QLT-007｜消息 catch-up 可检测并补齐 300+ 缺口**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：服务端 `CatchUpResult { messages, truncated, gapBeforeMessageId }`，并用完整页后的探测查询确认是否仍有更早消息；新增 `beforeMessageId` 上界参数，形成 `(since, before)` 的严格向更早期翻页。客户端最多 5 页（约 1500 条）循环至 `truncated=false`。
   - 验收：满页 + 更早行 → `truncated=true` 且游标为当前页最旧 id；用该 id 作为 `before` 可拿到更早一页；部分页 -> `truncated=false`。
   - 完成证据：`messages.test.ts` 39 项通过（含 5 个分页 / 缺口用例）。已随 `241dcfa` 提交。双浏览器长断线回归待补。
 
 - [x] **QLT-008｜catch-up 失败后有界重试与可观察状态**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：`hadDrop` 仅在补偿 Promise 完成后清除（不再在请求发出前清零）；失败按 1s/2s/4s/8s 退避重试，最多 4 次；`catchUpInFlight` 防并发重入，组件卸载清理定时器与 abort。
   - 验收：健康 SSE 下首次失败仍能自愈；防抖不重复合并；卸载后不再 setState。
   - 完成证据：逻辑与单测覆盖到位，已随 `241dcfa` 提交。待补浏览器级失败注入（需可运行的 SSE 环境）。
 
 - [x] **QLT-009｜新成员实时进入 roster 与所有目标列表**
-  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
+  - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
   - 改动：新增 `lib/room/member-entry.ts`（`memberEntry` / `broadcastMemberJoined`），复用与 SSR 相同的显式列 + `sanitizeBotConfigForClient` + 头像 URL；`joinRoomAction` 插入后广播 `member_joined`；客户端在收到时按 userId 幂等插入。成员 DTO 类型下沉到 `lib/room/member-dto` 以满足 R4 分层。
   - 验收：多客户端无需刷新即可看到新成员；重复加入不重复插入；事件不携带任何敏感列。
   - 完成证据：`room-actions.test.ts` 23 项通过，已随 `241dcfa` 提交。双浏览器 E2E 待补。
@@ -247,4 +247,5 @@ QLT-019/020 为上述修复提供持续门禁 ────┘
 | 2026-11-09 | C / QLT-007–009 | TODO → IN REVIEW | `241dcfa` | messages 39 项、room-actions 23 项通过 |
 | 2026-11-09 | 验证 | 解除阻断 | `241dcfa` | 沙箱 `sandbox-exec: data object length exceeds maximum` 一度导致所有 Bash 失效；恢复后已复跑：`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、`check-i18n` 通过、相关 8 个测试文件 144 项全绿 |
 | 2026-11-09 | 验证 | 已知基线缺陷 | — | 完整套件 1213 通过 / 1 失败 / 11 跳过。唯一失败为 `auth-config.test.ts` 超时；已用 `git stash` 在干净基线复现，确认与本次改动无关（属测试对动态 `import("./db")` mock 不生效的既有问题） |
-| 2026-11-09 | 构建 | 环境阻断 | — | `next build` 编译 + TypeScript 阶段通过（2.5s / 10.5s），止于收集页面数据时缺少 `DATABASE_URL`，非代码问题 |
+| 2026-11-09 | 构建 | 环境阻断 | — | 本机 `next build` 编译 + TypeScript 阶段通过（2.5s / 10.5s），止于收集页面数据时缺少 `DATABASE_URL`，非代码问题 |
+| 2026-11-09 | 全部 | IN REVIEW（已提 PR） | [PR #261](https://github.com/Joycai/simple-trpg-chat/pull/261) | **CI 8/8 通过**：88 个测试文件全通过、**1239 项通过 / 11 跳过 / 0 失败**、Node 22/24 Test & Build、ESLint、Phone & iPad 布局、生产构建 14.7s 全部成功。本机 4 个数据库测试文件与 `auth-config` 用例在 CI 下均通过 —— 证实前两条“本机失败”纯属环境缺库所致 |
