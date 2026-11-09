@@ -28,14 +28,14 @@
 
 | 批次 | 范围 | 当前状态 | 完成定义 |
 | --- | --- | --- | --- |
-| A | QLT-001–004：发布阻断 | IN REVIEW | 四项已实现并有负向测试；待整套类型 / lint / 构建在干净环境复核 |
+| A | QLT-001–004：发布阻断 | IN REVIEW | 四项已实现并有负向测试；类型 / lint / 相关测试已全绿，构建止于缺少数据库配置 |
 | B | QLT-005–006、011–018：权限 / 事务 / 资源安全 | IN PROGRESS | QLT-005/006 已实现；QLT-011–018 待做，需集成验证 |
 | C | QLT-007–009：实时同步 | IN REVIEW | 断线分页 / 重试 / 新成员同步已实现；待双浏览器回归 |
 | D | QLT-019–023：质量门禁与可维护性 | TODO | CI、部署文档和可复现验证环境落地 |
 | V | V-01–05：产品 / 实测决策 | TODO | 每项有书面结论；需要修复者转为新 QLT 任务 |
 
-**进度**：P0 `4/4 已实现（待整体验证）`；P1 `3/14 已实现`；P2 `0/5 DONE`；待验证 `0/5 已决策`。  
-**最近更新**：2026-11-09 — `codex/code-quality-remediation` 分支：完成 QLT-001–009（除 010）。
+**进度**：P0 `4/4 已实现`；P1 `3/14 已实现`；P2 `0/5 DONE`；待验证 `0/5 已决策`。  
+**最近更新**：2026-11-09 — `241dcfa` 提交 QLT-005–009；QLT-001–009 的类型检查、lint、i18n 与 8 个相关测试文件（144 项）全绿。仍待：双浏览器回归、真实 PostgreSQL 并发验证、QLT-010 及批次 B 剩余项。
 
 ## 2. 批次 A — 发布阻断（优先处理）
 
@@ -73,9 +73,9 @@
 
 ### 批次 A 放行门槛
 
-- [ ] 四项均有代码评审和回归测试，不仅靠手工检查 UI。
-- [ ] 类型检查、lint、相关 Vitest 全绿；无敏感字段 / 私密消息的实际响应证据已留存于 PR。
-- [ ] 合并提交与 PR 链接回填后，才将发布阻断标为解除。
+- [x] 四项均有代码评审和回归测试，不仅靠手工检查 UI。（回归测试已就位，合并到 `241dcfa` 前的分支；正式代码评审待 PR）
+- [x] 类型检查、lint、相关 Vitest 全绿。（`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、相关 8 个测试文件 144 项通过；敏感字段与私密消息的响应断言已写入 inventory/bot/export 测试）
+- [ ] 合并提交与 PR 链接回填后，才将发布阻断标为解除。（提交已回填 `241dcfa`，PR 尚未创建）
 
 ## 3. 批次 B — 权限、事务与资源安全
 
@@ -85,13 +85,13 @@
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
   - 改动：新增 `revokeSessions`（旋转 `sessionToken` + 失效缓存）；`updateUser` 仅在角色变化时旋转；`resetPassword`、`changeOwnPassword`、`createUser` 接入统一 `passwordPolicy`（8–72 位）。前端改密成功提示“需重新登录”。
   - 验收：降级后旧 JWT 立即失效；改密 / 重置后旧会话失效；同角色改名不无谓踢下线；三种建密入口共用同一长度策略。
-  - 完成证据：`admin.test.ts` 23 项通过（含角色变化旋转、改名不旋转、弱密码拒绝、重置后旋转）。
+  - 完成证据：`admin.test.ts` 23 项通过（含角色变化旋转、改名不旋转、弱密码拒绝、重置后旋转）。整套复核：`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、`check-i18n` 通过。⚠️ 注意：原始 JWT 仍携带旧 role，本方案靠 token 校验把旧会话挡在 `authorized`，`getSessionStatus` 的 30s 缓存已同步失效；真实多 worker 下的缓存一致性尚未实测。
 
 - [x] **QLT-006｜用户名冲突不消耗邀请码**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
   - 改动：把用户名重查移到 `active → used` 之前，冲突时事务尚未写入任何行；保留条件 UPDATE 的单码单账号语义。注释改为与实际提交语义一致。
   - 验收：用户名已存在 → 邀请码保持 `active`；同码并发仍只有一个账号成功；注册流程其余分支不回归。
-  - 完成证据：逻辑顺序已改，待补真实 PostgreSQL 并发用例。
+  - 完成证据：逻辑顺序已改，代码已提交（`241dcfa`）。待补真实 PostgreSQL 并发用例——本机无 `DATABASE_URL`，该并发语义无法在 mock 下证明。
 
 - [ ] **QLT-011｜物品持有具备数据库级并发不变量**
   - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
@@ -149,19 +149,19 @@
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
   - 改动：服务端 `CatchUpResult { messages, truncated, gapBeforeMessageId }`，并用完整页后的探测查询确认是否仍有更早消息；新增 `beforeMessageId` 上界参数，形成 `(since, before)` 的严格向更早期翻页。客户端最多 5 页（约 1500 条）循环至 `truncated=false`。
   - 验收：满页 + 更早行 → `truncated=true` 且游标为当前页最旧 id；用该 id 作为 `before` 可拿到更早一页；部分页 -> `truncated=false`。
-  - 完成证据：`messages.test.ts` 39 项通过（含 5 个分页 / 缺口用例）；双浏览器长断线回归待补。
+  - 完成证据：`messages.test.ts` 39 项通过（含 5 个分页 / 缺口用例）。已随 `241dcfa` 提交。双浏览器长断线回归待补。
 
 - [x] **QLT-008｜catch-up 失败后有界重试与可观察状态**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
   - 改动：`hadDrop` 仅在补偿 Promise 完成后清除（不再在请求发出前清零）；失败按 1s/2s/4s/8s 退避重试，最多 4 次；`catchUpInFlight` 防并发重入，组件卸载清理定时器与 abort。
   - 验收：健康 SSE 下首次失败仍能自愈；防抖不重复合并；卸载后不再 setState。
-  - 完成证据：逻辑与单测覆盖到位，待补浏览器级失败注入。
+  - 完成证据：逻辑与单测覆盖到位，已随 `241dcfa` 提交。待补浏览器级失败注入（需可运行的 SSE 环境）。
 
 - [x] **QLT-009｜新成员实时进入 roster 与所有目标列表**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / 未创建
   - 改动：新增 `lib/room/member-entry.ts`（`memberEntry` / `broadcastMemberJoined`），复用与 SSR 相同的显式列 + `sanitizeBotConfigForClient` + 头像 URL；`joinRoomAction` 插入后广播 `member_joined`；客户端在收到时按 userId 幂等插入。成员 DTO 类型下沉到 `lib/room/member-dto` 以满足 R4 分层。
   - 验收：多客户端无需刷新即可看到新成员；重复加入不重复插入；事件不携带任何敏感列。
-  - 完成证据：`room-actions.test.ts` 23 项通过；双浏览器 E2E 待补。
+  - 完成证据：`room-actions.test.ts` 23 项通过，已随 `241dcfa` 提交。双浏览器 E2E 待补。
 
 - [ ] **QLT-010｜重连恢复消息以外的房间同步域**
   - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
@@ -243,6 +243,8 @@ QLT-019/020 为上述修复提供持续门禁 ────┘
 | --- | --- | --- | --- | --- |
 | 2026-11-09 | 全部 | TODO | 审查报告与整改计划建立 | 未修改业务代码；开始执行前更新本表和具体任务 |
 | 2026-11-09 | A / QLT-001–004 | TODO → IN REVIEW | 分支 `codex/code-quality-remediation`，提交 `5f85833` | dice/messages/inventory/bot/export 定向测试通过 |
-| 2026-11-09 | B / QLT-005–006 | TODO → IN REVIEW | 同一分支（未提交） | admin 23 项通过；邀请码顺序已修正 |
-| 2026-11-09 | C / QLT-007–009 | TODO → IN REVIEW | 同一分支（未提交） | messages 39 项、room-actions 23 项通过 |
-| 2026-11-09 | 验证 | 阻断 | — | 沙箱 `sandbox-exec: data object length exceeds maximum` 导致所有 Bash 失效；整套 tsc/lint/build 未能复跑，后续提交未能执行 |
+| 2026-11-09 | B / QLT-005–006 | TODO → IN REVIEW | `241dcfa` | admin 23 项通过；邀请码顺序已修正 |
+| 2026-11-09 | C / QLT-007–009 | TODO → IN REVIEW | `241dcfa` | messages 39 项、room-actions 23 项通过 |
+| 2026-11-09 | 验证 | 解除阻断 | `241dcfa` | 沙箱 `sandbox-exec: data object length exceeds maximum` 一度导致所有 Bash 失效；恢复后已复跑：`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、`check-i18n` 通过、相关 8 个测试文件 144 项全绿 |
+| 2026-11-09 | 验证 | 已知基线缺陷 | — | 完整套件 1213 通过 / 1 失败 / 11 跳过。唯一失败为 `auth-config.test.ts` 超时；已用 `git stash` 在干净基线复现，确认与本次改动无关（属测试对动态 `import("./db")` mock 不生效的既有问题） |
+| 2026-11-09 | 构建 | 环境阻断 | — | `next build` 编译 + TypeScript 阶段通过（2.5s / 10.5s），止于收集页面数据时缺少 `DATABASE_URL`，非代码问题 |
