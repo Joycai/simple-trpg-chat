@@ -8,18 +8,8 @@ import { eq, asc, and, gt } from "drizzle-orm";
 import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
 import { getRule, getRuleForRoom } from "@/lib/rules";
-
-interface ExportTimelineItem {
-  time: string;
-  type: "message" | "dice" | "check_request" | "system" | "clue" | "status" | "image";
-  nickname?: string;
-  userId?: number;
-  content?: string;
-  diceDetail?: string;
-  isPrivate?: boolean;
-  targetUserId?: number | null;
-  targetNickname?: string;
-}
+import { messageVisibilityWhere } from "@/lib/messaging/router";
+import { partitionExportMessages, type ExportTimelineItem } from "@/lib/format/export-timeline";
 
 interface ExportCharacterSnapshot extends SheetSnapshot {
   nickname: string;
@@ -41,9 +31,17 @@ interface ExportRoomData {
 
 /**
  * E1: Query all room data and assemble structured export data.
+ *
+ * Visibility is NOT re-invented here: the WHERE clause is the same
+ * `messageVisibilityWhere` the room page and every history query use, and the
+ * per-row classification is `canSee`. Export must never widen what a host can
+ * read in the live UI (other players' self-rolls, recipient-only notices), nor
+ * drop a DM the host is actually part of.
  */
 async function loadExportData(roomId: number): Promise<ExportRoomData> {
-  const { userId: hostId } = await checkRoomAccess(roomId, true);
+  const access = await checkRoomAccess(roomId, true);
+  const hostId = access.userId;
+  const isHostViewer = access.isHost; // true for the host and for admins
 
   // Room info
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
@@ -57,6 +55,7 @@ async function loadExportData(roomId: number): Promise<ExportRoomData> {
   // Build timeline by streaming message chunks — never accumulate all messages in memory
   const timeline: ExportTimelineItem[] = [];
   const privateMap: Record<string, ExportTimelineItem[]> = {};
+  const nicknameFor = (uid: number) => memberMap.get(uid)?.nickname;
 
   const chunkSize = 5000;
   let lastId = 0;
@@ -64,45 +63,22 @@ async function loadExportData(roomId: number): Promise<ExportRoomData> {
 
   while (hasMore) {
     const chunk = await db.select().from(messages)
-      .where(and(eq(messages.roomId, roomId), gt(messages.id, lastId)))
+      .where(and(
+        messageVisibilityWhere(roomId, hostId, isHostViewer),
+        gt(messages.id, lastId),
+      ))
       .orderBy(asc(messages.id))
       .limit(chunkSize);
 
     if (chunk.length === 0) {
       hasMore = false;
     } else {
-      for (const msg of chunk) {
-        const item: ExportTimelineItem = {
-          time: msg.createdAt,
-          type: msg.type as ExportTimelineItem["type"],
-          nickname: msg.nickname,
-          userId: msg.userId,
-          content: msg.content,
-          isPrivate: msg.audience !== "everyone",
-          targetUserId: msg.targetUserId,
-        };
-
-        if (msg.diceDetail) {
-          item.diceDetail = msg.diceDetail;
-        }
-
-        // Group targeted host↔player content (dm whispers + directed notices) into
-        // the private section; everything else goes on the public timeline.
-        if ((msg.audience === "dm" || msg.audience === "directed") && msg.targetUserId) {
-          // Exclude player-to-player whispers — only include host-sent private messages
-          if (msg.userId !== hostId) {
-            continue;
-          }
-          // Group private messages by conversation pair
-          const pair = [Math.min(msg.userId, msg.targetUserId), Math.max(msg.userId, msg.targetUserId)];
-          const key = pair.join("-");
-          if (!privateMap[key]) privateMap[key] = [];
-          const targetMember = memberMap.get(msg.targetUserId);
-          item.targetNickname = targetMember?.nickname || `#${msg.targetUserId}`;
-          privateMap[key].push(item);
-        } else {
-          timeline.push(item);
-        }
+      // Same partition rule the unit test pins: `canSee` per row, host-involved
+      // dm/directed rows grouped by pair, everything else on the public timeline.
+      const partitioned = partitionExportMessages(chunk, hostId, isHostViewer, nicknameFor);
+      timeline.push(...partitioned.timeline);
+      for (const [key, items] of Object.entries(partitioned.privateConversations)) {
+        (privateMap[key] ??= []).push(...items);
       }
 
       lastId = chunk[chunk.length - 1].id;

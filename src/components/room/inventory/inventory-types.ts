@@ -28,13 +28,14 @@ export const DEFAULT_ITEM_META: ItemMeta = {
 
 export interface Distribution {
   id: number;
+  roomId?: number;
   itemId: number;
   fromUserId: number;
-  toUserId: number;
+  toUserId: number | null;
   createdAt: string;
   action: string;
-  viewed?: number | boolean | null;
-  updated?: number | boolean | null;
+  viewed?: boolean | null;
+  updated?: boolean | null;
   item?: InventoryItem;
   toUsername?: string;
   fromUsername?: string;

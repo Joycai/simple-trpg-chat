@@ -1,6 +1,7 @@
 import type { ThemeId, StoredThemeMode, ResolvedMode } from "@/themes/types";
 import type { Audience } from "@/lib/messaging/audience";
 import type { RoomMemberSnapshot } from "@/lib/room/initial-snapshot";
+import type { RoomMemberEntry } from "@/lib/room/member-dto";
 
 export interface Room {
   id: number;
@@ -55,12 +56,12 @@ export type TypingBots = Record<number, { nickname: string; typing: boolean; isP
 
 // Loose shape for a room member as delivered by the server query. The relation
 // keys vary (`users`/`user`/`user_id`) depending on the call site, so every
-// access path stays optional.
-export type PlayerEntry = {
-  users?: { id?: number; isBot?: boolean; displayName?: string; username?: string; botConfigJson?: string | null };
+// access path stays optional. The canonical member DTO lives in
+// `lib/room/member-dto` (lib cannot import components); this alias keeps
+// existing `PlayerEntry` imports working and adds the optional legacy keys.
+export type PlayerEntry = RoomMemberEntry & {
   user?: { id?: number; isBot?: boolean };
   user_id?: number;
-  room_members?: { nickname?: string; avatarColor?: string | null; avatar?: string | null; characterData?: string | null };
   nickname?: string;
 };
 

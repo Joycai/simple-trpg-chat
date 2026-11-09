@@ -20,7 +20,7 @@ vi.mock("next-intl/server", () => ({
 let selectQueue: unknown[][] = [];
 function chain(rows: () => unknown) {
   const c: Record<string, unknown> = {};
-  for (const m of ["from", "where", "set", "values", "returning"]) c[m] = () => c;
+  for (const m of ["from", "where", "set", "values", "returning", "innerJoin"]) c[m] = () => c;
   c.then = (resolve: (r: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(rows()).then(resolve, reject);
   return c;
@@ -40,6 +40,7 @@ import {
   joinRoomAction, createRoomAction,
 } from "../room";
 import { NICKNAME_MAX_LENGTH, ROOM_NAME_MAX_LENGTH } from "@/lib/room/limits";
+import { broadcastToRoom } from "@/lib/server/events";
 
 const NO_ACCESS = { success: false, error: "roomActions.errorNoAccess" };
 
@@ -177,5 +178,31 @@ describe("lobby actions", () => {
   it("createRoomAction refuses a player", async () => {
     expect(await createRoomAction(form({ name: "r" })))
       .toEqual({ success: false, error: "createRoom.errorHostOnly" });
+  });
+});
+
+describe("joinRoomAction roster broadcast", () => {
+  // Regression: joining only sent `character_updated`, which patches sheets but
+  // never adds a roster row — so other clients kept a member list without the
+  // newcomer until a reload. `memberEntry` reads the row back; when it is absent
+  // (as in this mock) the event is skipped rather than broadcast half-empty.
+  it("does not broadcast a half-empty join when the member row is unreadable", async () => {
+    selectQueue = [
+      [{ id: 5, secretKey: "abc", ruleTemplate: "basic" }],
+      [],
+    ];
+    expect(await joinRoomAction(form({ roomId: "5", key: "abc" }))).toEqual({ success: true });
+    const emitted = (broadcastToRoom as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(emitted.filter(([, p]) => (p as { type?: string })?.type === "member_joined")).toHaveLength(0);
+  });
+
+  it("does not broadcast a join when the member already existed", async () => {
+    selectQueue = [
+      [{ id: 5, secretKey: "abc", ruleTemplate: "basic" }],
+      [{ id: 9, roomId: 5, userId: 2 }],
+    ];
+    expect(await joinRoomAction(form({ roomId: "5", key: "abc" }))).toEqual({ success: true });
+    const emitted = (broadcastToRoom as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(emitted.filter(([, p]) => (p as { type?: string })?.type === "member_joined")).toHaveLength(0);
   });
 });

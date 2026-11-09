@@ -1,14 +1,15 @@
 "use server";
 
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { users, aiPointLogs, rooms } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { invalidateSessionCache } from "@/auth.config";
+import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { broadcastToRoom } from "@/lib/server/events";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { passwordPolicyError } from "@/lib/auth/password-policy";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 import type { Done, Fail } from "@/lib/actions/result";
 
@@ -43,6 +44,12 @@ export async function createUser(formData: FormData): Promise<Done> {
   const aiPoints = Math.max(0, Math.floor(Number(formData.get("aiPoints")) || 0));
 
   if (!username || !password || !role) return { success: false, error: t("errorMissingFields") };
+
+  // Same policy as registration / self-service / reset — one rule for every
+  // password this app ever stores.
+  const policy = passwordPolicyError(password);
+  if (policy === "tooShort") return { success: false, error: t("passwordTooShort") };
+  if (policy === "tooLong") return { success: false, error: t("passwordTooLong") };
 
   const allowedRoles = ["player", "host", "admin"];
   if (!allowedRoles.includes(role)) return { success: false, error: t("errorInvalidRole") };
@@ -111,26 +118,27 @@ export async function updateUser(id: number, displayName: string, role: string):
   // Never let the built-in admin be demoted out of the admin role (lockout guard).
   if (user.username === "admin" && role !== "admin") return { success: false, error: t("errorCannotDemoteDefaultAdmin") };
 
-  // Promotion to host grants the configured default invite quota; any other
-  // role change zeroes it (players/admins don't generate codes).
-  const patch: { displayName: string; role: string; updatedAt: string; inviteQuota?: number } = {
-    displayName: name,
-    role,
-    updatedAt: new Date().toISOString(),
-  };
+  // Apply role and session changes in the same write. Match the role we read
+  // so a concurrent admin edit cannot apply an obsolete transition.
+  let inviteQuota: number | undefined;
   if (role === "host" && user.role !== "host") {
     const { getInviteConfig } = await import("@/lib/auth/invites");
-    patch.inviteQuota = (await getInviteConfig()).defaultQuota;
+    inviteQuota = (await getInviteConfig()).defaultQuota;
   } else if (role !== "host" && user.role === "host") {
-    patch.inviteQuota = 0;
+    inviteQuota = 0;
   }
 
-  await db.update(users)
-    .set(patch)
-    .where(eq(users.id, id));
-
-  // A role change must refresh the cached session so it takes effect immediately.
-  invalidateSessionCache(String(id));
+  const [updated] = await db.update(users)
+    .set({
+      displayName: name,
+      role,
+      updatedAt: sqlNow(),
+      inviteQuota,
+      ...(user.role !== role ? { sessionToken: randomUUID() } : {}),
+    })
+    .where(and(eq(users.id, id), eq(users.role, user.role)))
+    .returning({ id: users.id });
+  if (!updated) return { success: false, error: t("errorUserChanged") };
   revalidatePath("/admin");
   return { success: true };
 }
@@ -219,8 +227,16 @@ export async function resetPassword(id: number, newPassword: string): Promise<Do
   const t = await getTranslations("admin");
   if (!(await adminGuard())) return { success: false, error: t("errorNotAdmin") };
 
+  // The admin form used to accept a 3-character password while registration
+  // required 8. Enforce the same policy on the server, not just in the input.
+  const policy = passwordPolicyError(newPassword);
+  if (policy === "tooShort") return { success: false, error: t("passwordTooShort") };
+  if (policy === "tooLong") return { success: false, error: t("passwordTooLong") };
+
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await db.update(users).set({ passwordHash }).where(eq(users.id, id));
+  await db.update(users)
+    .set({ passwordHash, sessionToken: randomUUID(), updatedAt: sqlNow() })
+    .where(eq(users.id, id));
   revalidatePath("/admin");
   return { success: true };
 }
@@ -241,9 +257,6 @@ export async function toggleBanUser(id: number): Promise<Done> {
       sessionToken: newBanStatus ? null : user.sessionToken,
     })
     .where(eq(users.id, id));
-
-  // Immediately invalidate the session cache so the ban takes effect without delay
-  invalidateSessionCache(String(id));
 
   revalidatePath("/admin");
   return { success: true };

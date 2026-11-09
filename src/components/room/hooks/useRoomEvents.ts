@@ -9,6 +9,9 @@ import type { StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
 import { invalidateCharacterCache } from "@/components/room/chat/message/character-cache";
 
+const CATCH_UP_PAGES_PER_BATCH = 5;
+const CATCH_UP_MAX_RETRY_DELAY = 30_000;
+
 interface UseRoomEventsParams {
   roomId: number;
   userId: number;
@@ -64,42 +67,61 @@ export function useRoomEvents({
     let retryCount = 0;
     const maxRetries = 5;
     let sse: EventSource | null = null;
-    // Set on the first error so the next successful open knows it must heal a
-    // gap; `connected` gates the online/visibility wake-up handlers below.
-    let hadDrop = false;
     let connected = false;
+    let latestSeenId = messagesRef.current.reduce(
+      (max, m) => typeof m.id === "number" ? Math.max(max, m.id) : max, 0);
+    // Only completed recovery pages advance this cursor. Live messages can
+    // arrive ahead of the gap, and a second disconnect must preserve it.
+    let recoveryCursor: number | null = null;
+    let catchUpTimer: ReturnType<typeof setTimeout> | undefined;
 
-    // The server emits no `id:` on SSE frames, so the browser's Last-Event-ID
-    // replay can't recover messages sent while the stream was down. Instead,
-    // after every reconnect we fetch everything visible past the newest loaded
-    // message and merge it in (dedup against both live-delivered rows and the
-    // optimistic placeholders, which keep negative ids and stay at the tail).
-    const catchUpMissedMessages = async () => {
-      const sinceId = messagesRef.current.reduce(
-        (max, m) => (typeof m.id === "number" && m.id > max ? m.id : max), 0);
-      try {
-        const missed = (await catchUpMessagesAction(roomId, sinceId)) as unknown as Message[];
-        if (abortController.signal.aborted || missed.length === 0) return;
-        setMessages((prev) => {
-          const present = new Set(prev.map((m) => String(m.id)));
-          const fresh = missed.filter((m) => !present.has(String(m.id)));
-          if (fresh.length === 0) return prev;
-          for (const m of fresh) {
-            seenIdsRef.current.add(String(m.id));
-            // Caught-up messages are just as new to the user — let them animate in.
-            liveEnterRef.current.set(String(m.id), Date.now());
-            // Same DM-unread accounting the live path performs per event.
-            const view = { userId: m.userId, targetUserId: m.targetUserId ?? null, audience: m.audience };
-            if (countsAsDmUnread(view, userId) && activeTabRef.current !== m.userId) {
-              setUnreadCounts((c) => ({ ...c, [m.userId]: (c[m.userId] || 0) + 1 }));
-            }
+    const mergeMissed = (missed: Message[]) => {
+      if (missed.length === 0) return;
+      setMessages((prev) => {
+        const present = new Set(prev.map((m) => String(m.id)));
+        const fresh = missed.filter((m) => !present.has(String(m.id)));
+        if (fresh.length === 0) return prev;
+        for (const m of fresh) {
+          seenIdsRef.current.add(String(m.id));
+          // Caught-up messages are just as new to the user — let them animate in.
+          liveEnterRef.current.set(String(m.id), Date.now());
+          // Same DM-unread accounting the live path performs per event.
+          const view = { userId: m.userId, targetUserId: m.targetUserId ?? null, audience: m.audience };
+          if (countsAsDmUnread(view, userId) && activeTabRef.current !== m.userId) {
+            setUnreadCounts((c) => ({ ...c, [m.userId]: (c[m.userId] || 0) + 1 }));
           }
-          const rank = (m: Message) =>
-            typeof m.id === "number" && m.id < 0 ? Number.POSITIVE_INFINITY : Number(m.id);
-          return [...prev, ...fresh].sort((a, b) => rank(a) - rank(b));
-        });
+        }
+        const rank = (m: Message) =>
+          typeof m.id === "number" && m.id < 0 ? Number.POSITIVE_INFINITY : Number(m.id);
+        return [...prev, ...fresh].sort((a, b) => rank(a) - rank(b));
+      });
+    };
+
+    const catchUpMissedMessages = async (stream: EventSource, retryDelay = 1000) => {
+      const isCurrent = () => connected && sse === stream && !abortController.signal.aborted;
+      if (!isCurrent()) return;
+      try {
+        for (let page = 0; page < CATCH_UP_PAGES_PER_BATCH; page++) {
+          if (recoveryCursor == null) return;
+          const { messages: rows, truncated } = await catchUpMessagesAction(roomId, recoveryCursor);
+          if (!isCurrent()) return;
+          const lastId = rows.at(-1)?.id;
+          if (lastId != null) {
+            recoveryCursor = lastId;
+            latestSeenId = Math.max(latestSeenId, lastId);
+            mergeMissed(rows as Message[]);
+          }
+          if (!truncated) {
+            recoveryCursor = null;
+            return;
+          }
+        }
+        // Yield between batches while retaining the unfinished gap.
+        catchUpTimer = setTimeout(() => void catchUpMissedMessages(stream), 0);
       } catch {
-        // Leave hadDrop logic alone — the next reconnect retries the catch-up.
+        if (!isCurrent()) return;
+        const nextDelay = Math.min(retryDelay * 2, CATCH_UP_MAX_RETRY_DELAY);
+        catchUpTimer = setTimeout(() => void catchUpMissedMessages(stream, nextDelay), retryDelay);
       }
     };
 
@@ -111,21 +133,35 @@ export function useRoomEvents({
       sse = es;
 
       es.onopen = () => {
+        if (abortController.signal.aborted || sse !== es) return;
         setStatus("connected");
         retryCount = 0; // Reset retry count on successful connection
         connected = true;
-        if (hadDrop) {
-          hadDrop = false;
-          catchUpMissedMessages();
-        }
+        if (recoveryCursor != null) void catchUpMissedMessages(es);
       };
 
       es.onmessage = (event) => {
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted || sse !== es || !connected) return;
         try {
           const data = JSON.parse(event.data);
           if (data.type === "room_settings_updated") {
             router.refresh();
+            return;
+          }
+          if (data.type === "member_joined") {
+            // A new player joined. `member_updated` only patches existing rows
+            // (and character_updated carries no identity), so without this event
+            // every already-connected client kept a roster, DM list and
+            // share-target picker that silently omitted the newcomer until a
+            // full reload.
+            const entry = data.player as PlayerEntry | undefined;
+            if (!entry) return;
+            const uid = entry.users?.id ?? entry.user?.id ?? entry.user_id;
+            if (uid == null) return;
+            setPlayers((prev) => (prev.some((p) => {
+              const pid = p.users?.id ?? p.user?.id ?? p.user_id;
+              return pid === uid;
+            }) ? prev : [...prev, entry]));
             return;
           }
           if (data.type === "member_updated") {
@@ -266,6 +302,7 @@ export function useRoomEvents({
             // Defensive: the SSE route already filtered by audience, but re-check
             // so a mis-targeted row never leaks into this client's state.
             if (isAudience(data.audience) && !canSee(view, userId, isHost)) return;
+            if (typeof data.id === "number") latestSeenId = Math.max(latestSeenId, data.id);
 
             // Bump the DM unread badge only for genuine inbound 1:1 DM turns —
             // inline notices (self/directed/gm) have their own indicators.
@@ -312,11 +349,12 @@ export function useRoomEvents({
       };
 
       es.onerror = () => {
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted || sse !== es) return;
         setStatus("error");
         es.close();
         connected = false;
-        hadDrop = true;
+        recoveryCursor ??= latestSeenId;
+        clearTimeout(catchUpTimer);
 
         // Never give up for good: fast exponential backoff first, then keep
         // probing on a slow interval — a room left open overnight must come
@@ -349,6 +387,7 @@ export function useRoomEvents({
       abortController.abort();
       if (sse) sse.close();
       clearTimeout(reconnectTimeout);
+      clearTimeout(catchUpTimer);
       window.removeEventListener("online", wakeUp);
       document.removeEventListener("visibilitychange", wakeUp);
     };

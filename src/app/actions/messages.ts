@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { roomMembers, messages, users, roomDmReads } from "@/db/schema";
-import { eq, and, desc, lt, gt } from "drizzle-orm";
+import { asc, eq, and, desc, lt, gt } from "drizzle-orm";
 import { auth } from "@/auth";
 import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
@@ -16,7 +16,8 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { botActivationMode } from "@/lib/ai/bot-status";
 import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
-import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
+import { isDiceSpec } from "@/lib/commands/dice";
+import { MESSAGE_MAX_LENGTH, HISTORY_PAGE_LIMIT, HISTORY_PAGE_LIMIT_MAX, CATCH_UP_LIMIT, CATCH_UP_LIMIT_MAX } from "@/lib/room/limits";
 import type { Done, Fail } from "@/lib/actions/result";
 import { noRoomAccess } from "@/lib/actions/no-room-access";
 
@@ -209,6 +210,13 @@ export async function rollDiceAction(
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!access) return noRoomAccess();
+  // Server Actions receive raw JSON: `faces`/`count` are not guaranteed to be
+  // the numbers the TS signature promises. Reject before touching the roller,
+  // where a hostile faces value (> 2^32) would spin the rejection loop forever.
+  if (!isDiceSpec(faces, count)) {
+    const t = await getTranslations("roomActions");
+    return { success: false, error: t("errorInvalidDice") };
+  }
   await dispatchDiceRoll(roomId, access.userId, faces, count, hidden, channelPartnerId);
   return { success: true };
 }
@@ -336,36 +344,43 @@ export async function markDMReadAction(roomId: number, senderUserId: number): Pr
 // every exported "use server" function is callable by any authenticated
 // member with a crafted POST.)
 
-export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = 50) {
+export async function loadMoreMessagesAction(roomId: number, beforeMessageId: number, limit = HISTORY_PAGE_LIMIT) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
+  // Client-supplied paging values are untrusted: clamp instead of forwarding
+  // `limit: 1e9` (or a negative/NaN value) straight into the query.
+  const take = Number.isSafeInteger(limit) && limit > 0
+    ? Math.min(limit, HISTORY_PAGE_LIMIT_MAX)
+    : HISTORY_PAGE_LIMIT;
+  const before = Number.isSafeInteger(beforeMessageId) && beforeMessageId > 0 ? beforeMessageId : Number.MAX_SAFE_INTEGER;
 
   const results = await db
     .select()
     .from(messages)
-    .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, beforeMessageId)))
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), lt(messages.id, before)))
     .orderBy(desc(messages.id))
-    .limit(limit);
+    .limit(take);
 
   return results.reverse();
 }
 
-/**
- * Reconnect catch-up: everything visible to this user newer than the last
- * message the client saw before its SSE stream dropped. The server emits no
- * `id:` field on SSE frames, so Last-Event-ID replay can't work — the client
- * heals the gap itself (see useRoomEvents). Newest-first + reverse mirrors
- * the initial page query; the limit bounds a very long offline gap, in which
- * case the newest `limit` rows win (same trade-off as a fresh page load).
- */
-export async function catchUpMessagesAction(roomId: number, sinceMessageId: number, limit = 300) {
+/** Read the oldest unseen page first so each completed page advances the recovery cursor. */
+export async function catchUpMessagesAction(
+  roomId: number,
+  sinceMessageId: number,
+  limit = CATCH_UP_LIMIT,
+) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
+  const take = Number.isSafeInteger(limit) && limit > 0
+    ? Math.min(limit, CATCH_UP_LIMIT_MAX)
+    : CATCH_UP_LIMIT;
+  const since = Number.isSafeInteger(sinceMessageId) && sinceMessageId > 0 ? sinceMessageId : 0;
 
-  const results = await db
+  const rows = await db
     .select()
     .from(messages)
-    .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, sinceMessageId)))
-    .orderBy(desc(messages.id))
-    .limit(limit);
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, since)))
+    .orderBy(asc(messages.id))
+    .limit(take + 1);
 
-  return results.reverse();
+  return { messages: rows.slice(0, take), truncated: rows.length > take };
 }

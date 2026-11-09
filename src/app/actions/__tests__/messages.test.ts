@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // instead of throwing (Next.js redacts thrown messages in production).
 
 const tryRoomAccess = vi.fn();
+const checkRoomAccess = vi.fn();
 vi.mock("@/lib/auth/room-access", () => ({
   tryRoomAccess: (...a: unknown[]) => tryRoomAccess(...a),
-  checkRoomAccess: vi.fn(),
+  checkRoomAccess: (...a: unknown[]) => checkRoomAccess(...a),
 }));
 let session: { user: { id: string; role: string } } | null = null;
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve(session) }));
@@ -32,7 +33,7 @@ vi.mock("next-intl/server", () => ({
 let selectQueue: unknown[][] = [];
 function chain(rows: () => unknown) {
   const c: Record<string, unknown> = {};
-  for (const m of ["from", "where", "innerJoin"]) c[m] = () => c;
+  for (const m of ["from", "where", "innerJoin", "orderBy", "limit", "returning"]) c[m] = () => c;
   c.then = (resolve: (r: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(rows()).then(resolve, reject);
   return c;
@@ -51,8 +52,9 @@ vi.mock("@/db", () => ({
 import {
   sendMessageAction, rollDiceAction, insertTimelineDividerAction,
   withdrawTimelineDividerAction, executeCommandAction, markDMReadAction,
+  loadMoreMessagesAction, catchUpMessagesAction,
 } from "../messages";
-import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
+import { MESSAGE_MAX_LENGTH, MAX_DICE_COUNT, MAX_DICE_FACES } from "@/lib/room/limits";
 
 const NO_ACCESS = { success: false, error: "roomActions.errorNoAccess" };
 
@@ -61,6 +63,7 @@ beforeEach(() => {
   selectQueue = [];
   session = { user: { id: "2", role: "player" } };
   tryRoomAccess.mockResolvedValue({ userId: 2, isHost: false, isAdmin: false });
+  checkRoomAccess.mockResolvedValue({ userId: 2, isHost: false, isAdmin: false });
 });
 
 describe("sendMessageAction", () => {
@@ -119,6 +122,29 @@ describe("rollDiceAction", () => {
 
   it("rolls for a member", async () => {
     expect(await rollDiceAction(5, 6, 1)).toEqual({ success: true });
+  });
+
+  // Server Actions receive raw JSON, so these are real attack shapes, not
+  // hypothetical ones. A hostile `faces` must be rejected BEFORE it reaches
+  // rollDie (whose rejection loop would never terminate above 2^32).
+  it.each([
+    ["faces above 2^32", 2 ** 33, 1],
+    ["faces Infinity", Number.POSITIVE_INFINITY, 1],
+    ["faces NaN", Number.NaN, 1],
+    ["fractional faces", 6.5, 1],
+    ["zero faces", 0, 1],
+    ["count Infinity", 6, Number.POSITIVE_INFINITY],
+    ["fractional count", 6, 2.5],
+    ["count zero", 6, 0],
+    ["count above cap", 6, MAX_DICE_COUNT + 1],
+  ] as const)("rejects %s", async (_label, faces, count) => {
+    expect(await rollDiceAction(5, faces as number, count as number))
+      .toEqual({ success: false, error: "roomActions.errorInvalidDice" });
+    expect(dispatchDiceRoll).not.toHaveBeenCalled();
+  });
+
+  it("accepts the documented cap edge", async () => {
+    expect(await rollDiceAction(5, MAX_DICE_FACES, MAX_DICE_COUNT)).toEqual({ success: true });
   });
 });
 
@@ -191,5 +217,44 @@ describe("markDMReadAction", () => {
   it("records the read marker", async () => {
     expect(await markDMReadAction(5, 3)).toEqual({ success: true });
     expect(insert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("bounded history paging", () => {
+  // Client-supplied paging values are raw JSON: a huge or malformed `limit`
+  // must never reach the query unbounded, and catch-up must report truncation
+  // so the client can keep advancing instead of dropping a hole.
+  const msg = (id: number) => ({
+    id, roomId: 5, userId: 2, targetUserId: null, nickname: "Ann", content: `m${id}`,
+    type: "text", systemKind: null, diceDetail: null, audience: "everyone",
+    isPrivate: false, createdAt: "2026-11-09T00:00:00.000Z",
+  });
+
+  it("clamps an oversized page instead of forwarding it", async () => {
+    // The query is `ORDER BY id DESC` + `.reverse()`, so the mock supplies DESC rows.
+    selectQueue = [[msg(3), msg(2), msg(1)]];
+    const rows = await loadMoreMessagesAction(5, 99, 10_000 as number);
+    expect(rows.map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it("falls back to the default when the limit is not a positive integer", async () => {
+    selectQueue = [[]];
+    expect(await loadMoreMessagesAction(5, 99, Number.NaN)).toEqual([]);
+    selectQueue = [[]];
+    expect(await loadMoreMessagesAction(5, 99, -5)).toEqual([]);
+  });
+
+  it("returns the oldest unseen messages first and reserves one row to detect truncation", async () => {
+    selectQueue = [[msg(11), msg(12), msg(13), msg(14)]];
+    const res = await catchUpMessagesAction(5, 10, 3);
+    expect(res.messages.map((m) => m.id)).toEqual([11, 12, 13]);
+    expect(res.truncated).toBe(true);
+  });
+
+  it("reports a complete catch-up when exactly one page remains", async () => {
+    selectQueue = [[msg(14), msg(15), msg(16)]];
+    const res = await catchUpMessagesAction(5, 13, 3);
+    expect(res.messages.map((m) => m.id)).toEqual([14, 15, 16]);
+    expect(res.truncated).toBe(false);
   });
 });

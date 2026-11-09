@@ -14,7 +14,9 @@ test("wrong credentials show error", async ({ page }) => {
   await page.fill("#username", "notauser");
   await page.fill("#password", "wrongpass");
   await page.click('button[type="submit"]');
-  await expect(page.locator("text=⚠️")).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByRole("alert").filter({
+    hasText: /用户名或密码错误|Invalid username or password/,
+  })).toBeVisible({ timeout: 8_000 });
 });
 
 test("valid credentials redirect to the lobby", async ({ page }) => {

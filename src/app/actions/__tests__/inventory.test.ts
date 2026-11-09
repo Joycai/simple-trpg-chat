@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // error instead of throwing (Next.js redacts thrown messages in production).
 
 const tryRoomAccess = vi.fn();
+const checkRoomAccess = vi.fn();
 vi.mock("@/lib/auth/room-access", () => ({
   tryRoomAccess: (...a: unknown[]) => tryRoomAccess(...a),
-  checkRoomAccess: vi.fn(),
+  checkRoomAccess: (...a: unknown[]) => checkRoomAccess(...a),
 }));
 vi.mock("@/auth", () => ({ auth: () => Promise.resolve({ user: { id: "2", name: "Ann" } }) }));
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn() }));
@@ -29,12 +30,16 @@ function chain(rows: () => unknown) {
 }
 const insert = vi.fn(() => chain(() => []));
 const del = vi.fn(() => chain(() => []));
+/** Rows the relation query (`db.query.inventoryDistributions.findMany`) returns. */
+let relationRows: unknown[] = [];
+const findMany = vi.fn(() => Promise.resolve(relationRows));
 vi.mock("@/db", () => ({
   db: {
     select: () => chain(() => selectQueue.shift() ?? []),
     insert: () => insert(),
     update: () => chain(() => []),
     delete: () => del(),
+    query: { inventoryDistributions: { findMany: () => findMany() } },
     transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
       insert: () => insert(), update: () => chain(() => []),
       select: () => chain(() => selectQueue.shift() ?? []),
@@ -45,6 +50,7 @@ vi.mock("@/db", () => ({
 import {
   createInventoryItemAction, updateInventoryItemAction, distributeItemAction,
   shareItemAction, deleteInventoryItemAction, markInventoryViewedAction,
+  getMyInventory, getDistributionHistory,
 } from "../inventory";
 
 const NO_ACCESS = { success: false, error: "roomActions.errorNoAccess" };
@@ -53,7 +59,9 @@ const item = { type: "clue" as const, title: "Key", content: {} };
 beforeEach(() => {
   vi.clearAllMocks();
   selectQueue = [];
+  relationRows = [];
   tryRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
+  checkRoomAccess.mockResolvedValue({ userId: 2, isHost: false, isAdmin: false });
 });
 
 describe("createInventoryItemAction", () => {
@@ -137,5 +145,105 @@ describe("markInventoryViewedAction", () => {
   it("rejects a non-member", async () => {
     tryRoomAccess.mockResolvedValue(null);
     expect(await markInventoryViewedAction(5)).toEqual(NO_ACCESS);
+  });
+});
+
+describe("inventory read DTOs", () => {
+  // Regression: these reads used to spread the Drizzle relation (`...d`), which
+  // shipped full `users` rows — password hash, session token, bot config — in
+  // the RSC response to every member. The projection must stay a closed shape.
+  const sensitiveUser = {
+    id: 3,
+    displayName: "Bo",
+    username: "bo",
+    passwordHash: "hash",
+    sessionToken: "token",
+    botConfigJson: "{\"systemPrompt\":\"secret\"}",
+  };
+  const row = {
+    id: 11,
+    roomId: 5,
+    itemId: 7,
+    fromUserId: 3,
+    toUserId: 2,
+    action: "shared",
+    viewed: true,
+    updated: false,
+    createdAt: "2026-11-09T00:00:00.000Z",
+    item: { id: 7, type: "item", title: "Key", contentJson: "{}", imageUrl: null, createdAt: "2026-11-09T00:00:00.000Z" },
+    sender: sensitiveUser,
+    recipient: { ...sensitiveUser, id: 2, displayName: "Ann", username: "ann" },
+  };
+
+  it("getMyInventory returns display names, not full user rows", async () => {
+    relationRows = [row];
+    const [dto] = await getMyInventory(5);
+
+    expect(dto.toUsername).toBe("Ann");
+    expect(dto.fromUsername).toBe("Bo");
+    expect(Object.keys(dto)).not.toContain("sender");
+    expect(Object.keys(dto)).not.toContain("recipient");
+    expect(JSON.stringify(dto)).not.toContain("hash");
+    expect(JSON.stringify(dto)).not.toContain("token");
+    expect(JSON.stringify(dto)).not.toContain("systemPrompt");
+  });
+
+  it("getDistributionHistory applies the same closed projection", async () => {
+    relationRows = [row];
+    const [dto] = await getDistributionHistory(5);
+
+    expect(dto.fromUsername).toBe("Bo");
+    expect(JSON.stringify(dto)).not.toContain("passwordHash");
+    expect(JSON.stringify(dto)).not.toContain("sessionToken");
+  });
+});
+
+describe("inventory read DTOs", () => {
+  // Regression: these reads used to spread the Drizzle relation (`...d`), which
+  // shipped full `users` rows — password hash, session token, bot config — in
+  // the RSC response to every member. The projection must stay a closed shape.
+  const sensitiveUser = {
+    id: 3,
+    displayName: "Bo",
+    username: "bo",
+    passwordHash: "hash",
+    sessionToken: "token",
+    botConfigJson: "{\"systemPrompt\":\"secret\"}",
+  };
+  const row = {
+    id: 11,
+    roomId: 5,
+    itemId: 7,
+    fromUserId: 3,
+    toUserId: 2,
+    action: "shared",
+    viewed: true,
+    updated: false,
+    createdAt: "2026-11-09T00:00:00.000Z",
+    item: { id: 7, type: "item", title: "Key", contentJson: "{}", imageUrl: null, createdAt: "2026-11-09T00:00:00.000Z" },
+    sender: sensitiveUser,
+    recipient: { ...sensitiveUser, id: 2, displayName: "Ann", username: "ann" },
+  };
+
+  it("getMyInventory returns display names, not full user rows", async () => {
+    relationRows = [row];
+    const [dto] = await getMyInventory(5);
+
+    expect(dto.toUsername).toBe("Ann");
+    expect(dto.fromUsername).toBe("Bo");
+    expect(Object.keys(dto)).not.toContain("sender");
+    expect(Object.keys(dto)).not.toContain("recipient");
+    expect(JSON.stringify(dto)).not.toContain("hash");
+    expect(JSON.stringify(dto)).not.toContain("token");
+    expect(JSON.stringify(dto)).not.toContain("systemPrompt");
+  });
+
+  it("getDistributionHistory applies the same closed projection", async () => {
+    relationRows = [row];
+    const [dto] = await getDistributionHistory(5);
+
+    expect(dto.fromUsername).toBe("Bo");
+    expect(JSON.stringify(dto)).not.toContain("passwordHash");
+    expect(JSON.stringify(dto)).not.toContain("sessionToken");
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { rollDie, rollDice } from "../dice";
+import { rollDie, rollDice, isDiceSpec } from "../dice";
+import { MAX_DICE_COUNT, MAX_DICE_FACES } from "@/lib/room/limits";
 
 describe("dice rolling", () => {
   it("should roll a single die within bounds", () => {
@@ -50,5 +51,36 @@ describe("dice rolling", () => {
     expect(seen.has(1)).toBe(true);
     expect(seen.has(100)).toBe(true);
     expect(seen.size).toBe(100);
+  });
+});
+
+describe("dice spec guards", () => {
+  // Regression for the event-loop hang: above 2^32 the rejection limit becomes
+  // 0 and rollDie would spin synchronously forever. The guard must reject the
+  // input without ever entering the loop.
+  it.each([
+    [2 ** 33, 1],
+    [Number.POSITIVE_INFINITY, 1],
+    [Number.NaN, 1],
+    [6.5, 1],
+    [0, 1],
+    [-6, 1],
+    [6, Number.POSITIVE_INFINITY],
+    [6, 2.5],
+    [6, 0],
+    [6, MAX_DICE_COUNT + 1],
+  ])("rejects spec %s d%s", (faces, count) => {
+    expect(isDiceSpec(faces, count)).toBe(false);
+    expect(() => rollDice(faces, count)).toThrow(RangeError);
+    // `rollDie` only owns the faces invariant; a legal face with an illegal
+    // count is rejected one level up in `rollDice`.
+    if (!Number.isSafeInteger(faces) || faces < 1 || faces > MAX_DICE_FACES) {
+      expect(() => rollDie(faces)).toThrow(RangeError);
+    }
+  });
+
+  it("accepts the inclusive caps", () => {
+    expect(isDiceSpec(MAX_DICE_FACES, MAX_DICE_COUNT)).toBe(true);
+    expect(rollDice(MAX_DICE_FACES, 1).results[0]).toBeGreaterThanOrEqual(1);
   });
 });

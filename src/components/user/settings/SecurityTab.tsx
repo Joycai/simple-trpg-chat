@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Shield } from "lucide-react";
 import { changeOwnPassword } from "@/app/actions/user";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 import { Notice } from "@/components/shared/Notice";
 
 const FIELD_CLS =
@@ -20,13 +21,15 @@ export function SecurityTab() {
 
   const handleChangePwd = async () => {
     if (!oldPwd || !newPwd) return;
-    if (newPwd.length < 3) { setPwdOk(false); setPwdMsg(t("passwordTooShort")); return; }
+    if (newPwd.length < PASSWORD_MIN_LENGTH) { setPwdOk(false); setPwdMsg(t("passwordTooShort")); return; }
     if (newPwd !== confirmPwd) { setPwdOk(false); setPwdMsg(ts("passwordMismatch")); return; }
     try {
       const res = await changeOwnPassword(oldPwd, newPwd);
       if (!res.success) { setPwdOk(false); setPwdMsg(res.error); return; }
       setPwdOk(true);
-      setPwdMsg(t("passwordResetOk"));
+      // The server rotated the single-session token, so this tab is no longer
+      // authenticated. Say so instead of leaving a stale "success" page behind.
+      setPwdMsg(ts("passwordChangedSignInAgain"));
       setOldPwd(""); setNewPwd(""); setConfirmPwd("");
     } catch {
       setPwdMsg(t("passwordResetFail"));

@@ -688,9 +688,9 @@
     "bots": "Bots",
     "botsCount": "",
     "resetPassword": "Reset Password",
-    "newPassword": "Enter new password (min 3 chars)",
+    "newPassword": "Enter new password (min 8 chars)",
     "confirm": "Confirm",
-    "passwordTooShort": "Password must be at least 3 characters",
+    "passwordTooShort": "Password must be at least 8 characters",
     "passwordResetOk": "Password reset successfully",
     "passwordResetFail": "Password reset failed",
     "exportTitle": "Export Replay",
@@ -746,6 +746,7 @@
     "errorFieldTooLong": "Username and nickname must be at most {max} characters",
     "errorMissingDisplayName": "Nickname is required",
     "errorUserNotFound": "User not found",
+    "errorUserChanged": "This user changed. Reload and try again.",
     "errorCannotDemoteDefaultAdmin": "Cannot change the default admin's role",
     "errorQuotaHostsOnly": "Invite quota only applies to hosts",
     "errorInvalidStatus": "Invalid room status",
@@ -759,7 +760,8 @@
     "deleteRoomTitle": "Delete room",
     "imageCacheConfirmTitle": "Clean image cache",
     "confirmDeletePresetTitle": "Delete preset",
-    "confirmDeletePreset": "Delete preset \"{name}\"? This cannot be undone."
+    "confirmDeletePreset": "Delete preset \"{name}\"? This cannot be undone.",
+    "passwordTooLong": "Password must be at most 72 UTF-8 bytes"
   },
   "theme": {
     "switch": "Switch Theme",
@@ -802,7 +804,7 @@
     "newPassword": "New Password",
     "confirmNewPassword": "Confirm New Password",
     "oldPasswordHint": "Enter your current sign-in password",
-    "newPasswordHint": "New password (min 3 chars)",
+    "newPasswordHint": "New password (min 8 chars)",
     "confirmNewPasswordHint": "Re-enter the new password",
     "passwordMismatch": "The new passwords do not match.",
     "confirmUpdate": "Confirm Update",
@@ -827,7 +829,8 @@
     "language": "Language",
     "roleAdmin": "Admin",
     "roleHost": "Host",
-    "rolePlayer": "Player"
+    "rolePlayer": "Player",
+    "passwordChangedSignInAgain": "Password changed. Please sign in again with your new password."
   },
   "device": {
     "desktop": "PC",
@@ -1506,7 +1509,8 @@
     "errorInvalidImageRef": "Invalid image reference",
     "errorInvalidStickerRef": "Invalid sticker reference",
     "sendFailed": "Failed to send: {error}",
-    "withdrawFailed": "Failed to withdraw: {error}"
+    "withdrawFailed": "Failed to withdraw: {error}",
+    "errorInvalidDice": "Invalid dice parameters"
   },
   "commands": {
     "helpTitle": "Command Help",
@@ -1977,6 +1981,7 @@
     "errorEmpty": "Invite code, username and password are required",
     "errorPasswordMismatch": "Passwords do not match",
     "errorPasswordTooShort": "Password must be at least 8 characters",
+    "errorPasswordTooLong": "Password must be at most 72 UTF-8 bytes",
     "errorUsernameFormat": "Username must be 3–20 letters, digits, _ or -",
     "errorInvalidCode": "Invalid or expired invite code",
     "errorInvalidFields": "Please check your input",

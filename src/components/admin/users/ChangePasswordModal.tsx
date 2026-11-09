@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ShieldCheck, X } from "lucide-react";
 import { changeOwnPassword } from "@/app/actions/user";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 import { OverlayShell } from "@/components/shared/OverlayShell";
 import { Notice } from "@/components/shared/Notice";
 
 export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const t = useTranslations("admin");
+  const ts = useTranslations("userSettings");
 
   const [oldPwd, setOldPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -17,11 +19,12 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
   const handleChangePwd = async () => {
     if (!oldPwd || !newPwd) return;
-    if (newPwd.length < 3) { setMsg(t("passwordTooShort")); setStatus("error"); return; }
+    if (newPwd.length < PASSWORD_MIN_LENGTH) { setMsg(t("passwordTooShort")); setStatus("error"); return; }
     try {
       const res = await changeOwnPassword(oldPwd, newPwd);
       if (!res.success) { setMsg(res.error); setStatus("error"); return; }
-      setMsg(t("passwordResetOk"));
+      // Rotation invalidated this session as well — tell the user to sign in again.
+      setMsg(ts("passwordChangedSignInAgain"));
       setStatus("success");
       setOldPwd(""); setNewPwd("");
     } catch {

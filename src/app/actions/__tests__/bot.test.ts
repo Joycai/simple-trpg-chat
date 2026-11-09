@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // instead of throwing (Next.js redacts thrown messages in production).
 
 const tryRoomAccess = vi.fn();
+const checkRoomAccess = vi.fn();
 vi.mock("@/lib/auth/room-access", () => ({
   tryRoomAccess: (...a: unknown[]) => tryRoomAccess(...a),
-  checkRoomAccess: vi.fn(),
+  checkRoomAccess: (...a: unknown[]) => checkRoomAccess(...a),
 }));
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -21,14 +22,17 @@ vi.mock("next-intl/server", () => ({
 let selectQueue: unknown[][] = [];
 function chain(rows: () => unknown) {
   const c: Record<string, unknown> = {};
-  for (const m of ["from", "where", "set", "values", "returning"]) c[m] = () => c;
+  for (const m of ["from", "where", "set", "values", "returning", "innerJoin"]) c[m] = () => c;
   c.then = (resolve: (r: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(rows()).then(resolve, reject);
   return c;
 }
 const update = vi.fn(() => chain(() => []));
 const insert = vi.fn(() => chain(() => [{ id: 42 }]));
-const transaction = vi.fn(async (fn: (tx: unknown) => unknown) => fn({ insert }));
+const transaction = vi.fn(async (fn: (tx: unknown) => unknown) => fn({
+  insert,
+  select: () => chain(() => selectQueue.shift() ?? []),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => chain(() => selectQueue.shift() ?? []),
@@ -37,7 +41,7 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { createBotAction, updateBotAction, triggerBotAction } from "../bot";
+import { createBotAction, updateBotAction, triggerBotAction, getRoomBotsAction } from "../bot";
 
 const data = { name: "KP", nickname: "kp", systemPrompt: "p", model: "m", activation: "@mention" };
 
@@ -105,5 +109,115 @@ describe("triggerBotAction", () => {
   it("starts the agent for the host", async () => {
     selectQueue = [[{ id: 9, isBot: true }], [{ id: 1 }]];
     expect(await triggerBotAction(5, 9)).toEqual({ success: true });
+  });
+});
+
+describe("getRoomBotsAction", () => {
+  // Regression: this used to return `JSON.parse(botConfigJson)` to EVERY member,
+  // leaking the host-private system prompt and the conversation summary that
+  // lives in the same JSON. Members must receive a closed summary only.
+  const botConfig = JSON.stringify({
+    systemPrompt: "you are the secret NPC",
+    model: "gpt-4o-mini",
+    activation: "manual",
+    enableTools: ["roll_dice"],
+    providerId: 5,
+    imageProviderId: 6,
+    historySummary: "private player DM summary",
+  });
+  const row = {
+    users: { id: 9, displayName: "Bot", botConfigJson: botConfig },
+    room_members: { id: 12, nickname: "kp", avatarColor: "#fff" },
+  };
+
+  it("gives a player the public summary without config", async () => {
+    checkRoomAccess.mockResolvedValue({ userId: 2, isHost: false, isAdmin: false });
+    selectQueue = [[row]];
+
+    const [bot] = await getRoomBotsAction(5);
+    expect(bot).toMatchObject({ id: 9, memberId: 12, nickname: "kp", activation: "manual", providerId: 5 });
+    expect(bot).not.toHaveProperty("config");
+    expect(JSON.stringify(bot)).not.toContain("you are the secret NPC");
+    expect(JSON.stringify(bot)).not.toContain("private player DM summary");
+  });
+
+  it("gives the host the editor projection, still without the summary", async () => {
+    checkRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
+    selectQueue = [[row]];
+
+    const [bot] = await getRoomBotsAction(5);
+    expect(bot.config).toEqual({
+      systemPrompt: "you are the secret NPC",
+      model: "gpt-4o-mini",
+      activation: "manual",
+      enableTools: ["roll_dice"],
+      providerId: 5,
+      imageProviderId: 6,
+    });
+    expect(JSON.stringify(bot)).not.toContain("private player DM summary");
+  });
+
+  it("survives a malformed config without leaking or throwing", async () => {
+    checkRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
+    selectQueue = [[{ ...row, users: { ...row.users, botConfigJson: "{not json" } }]];
+
+    const [bot] = await getRoomBotsAction(5);
+    expect(bot.config).toEqual({});
+    expect(bot.providerId).toBeNull();
+  });
+});
+
+describe("getRoomBotsAction", () => {
+  // Regression: this used to return `JSON.parse(botConfigJson)` to EVERY member,
+  // leaking the host-private system prompt and the conversation summary that
+  // lives in the same JSON. Members must receive a closed summary only.
+  const botConfig = JSON.stringify({
+    systemPrompt: "you are the secret NPC",
+    model: "gpt-4o-mini",
+    activation: "manual",
+    enableTools: ["roll_dice"],
+    providerId: 5,
+    imageProviderId: 6,
+    historySummary: "private player DM summary",
+  });
+  const row = {
+    users: { id: 9, displayName: "Bot", botConfigJson: botConfig },
+    room_members: { id: 12, nickname: "kp", avatarColor: "#fff" },
+  };
+
+  it("gives a player the public summary without config", async () => {
+    checkRoomAccess.mockResolvedValue({ userId: 2, isHost: false, isAdmin: false });
+    selectQueue = [[row]];
+
+    const [bot] = await getRoomBotsAction(5);
+    expect(bot).toMatchObject({ id: 9, memberId: 12, nickname: "kp", activation: "manual", providerId: 5 });
+    expect(bot).not.toHaveProperty("config");
+    expect(JSON.stringify(bot)).not.toContain("you are the secret NPC");
+    expect(JSON.stringify(bot)).not.toContain("private player DM summary");
+  });
+
+  it("gives the host the editor projection, still without the summary", async () => {
+    checkRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
+    selectQueue = [[row]];
+
+    const [bot] = await getRoomBotsAction(5);
+    expect(bot.config).toEqual({
+      systemPrompt: "you are the secret NPC",
+      model: "gpt-4o-mini",
+      activation: "manual",
+      enableTools: ["roll_dice"],
+      providerId: 5,
+      imageProviderId: 6,
+    });
+    expect(JSON.stringify(bot)).not.toContain("private player DM summary");
+  });
+
+  it("survives a malformed config without leaking or throwing", async () => {
+    checkRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
+    selectQueue = [[{ ...row, users: { ...row.users, botConfigJson: "{not json" } }]];
+
+    const [bot] = await getRoomBotsAction(5);
+    expect(bot.config).toEqual({});
+    expect(bot.providerId).toBeNull();
   });
 });
