@@ -52,7 +52,7 @@ import {
   sendMessageAction, rollDiceAction, insertTimelineDividerAction,
   withdrawTimelineDividerAction, executeCommandAction, markDMReadAction,
 } from "../messages";
-import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
+import { MESSAGE_MAX_LENGTH, MAX_DICE_COUNT, MAX_DICE_FACES } from "@/lib/room/limits";
 
 const NO_ACCESS = { success: false, error: "roomActions.errorNoAccess" };
 
@@ -119,6 +119,29 @@ describe("rollDiceAction", () => {
 
   it("rolls for a member", async () => {
     expect(await rollDiceAction(5, 6, 1)).toEqual({ success: true });
+  });
+
+  // Server Actions receive raw JSON, so these are real attack shapes, not
+  // hypothetical ones. A hostile `faces` must be rejected BEFORE it reaches
+  // rollDie (whose rejection loop would never terminate above 2^32).
+  it.each([
+    ["faces above 2^32", 2 ** 33, 1],
+    ["faces Infinity", Number.POSITIVE_INFINITY, 1],
+    ["faces NaN", Number.NaN, 1],
+    ["fractional faces", 6.5, 1],
+    ["zero faces", 0, 1],
+    ["count Infinity", 6, Number.POSITIVE_INFINITY],
+    ["fractional count", 6, 2.5],
+    ["count zero", 6, 0],
+    ["count above cap", 6, MAX_DICE_COUNT + 1],
+  ] as const)("rejects %s", async (_label, faces, count) => {
+    expect(await rollDiceAction(5, faces as number, count as number))
+      .toEqual({ success: false, error: "roomActions.errorInvalidDice" });
+    expect(dispatchDiceRoll).not.toHaveBeenCalled();
+  });
+
+  it("accepts the documented cap edge", async () => {
+    expect(await rollDiceAction(5, MAX_DICE_FACES, MAX_DICE_COUNT)).toEqual({ success: true });
   });
 });
 

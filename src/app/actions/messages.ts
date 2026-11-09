@@ -16,6 +16,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { buildTimelinePayload, composeTimelineLabel, sanitizeTimelineDivider, type TimelineDividerData } from "@/lib/messaging/timeline-payload";
 import { botActivationMode } from "@/lib/ai/bot-status";
 import { dispatchDiceRoll } from "@/lib/messaging/dice-roll";
+import { isDiceSpec } from "@/lib/commands/dice";
 import { MESSAGE_MAX_LENGTH } from "@/lib/room/limits";
 import type { Done, Fail } from "@/lib/actions/result";
 import { noRoomAccess } from "@/lib/actions/no-room-access";
@@ -209,6 +210,13 @@ export async function rollDiceAction(
 ): Promise<Done> {
   const access = await tryRoomAccess(roomId, false, { requireWritable: true });
   if (!access) return noRoomAccess();
+  // Server Actions receive raw JSON: `faces`/`count` are not guaranteed to be
+  // the numbers the TS signature promises. Reject before touching the roller,
+  // where a hostile faces value (> 2^32) would spin the rejection loop forever.
+  if (!isDiceSpec(faces, count)) {
+    const t = await getTranslations("roomActions");
+    return { success: false, error: t("errorInvalidDice") };
+  }
   await dispatchDiceRoll(roomId, access.userId, faces, count, hidden, channelPartnerId);
   return { success: true };
 }

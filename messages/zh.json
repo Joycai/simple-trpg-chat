@@ -1506,7 +1506,8 @@
     "errorInvalidImageRef": "无效的图片引用",
     "errorInvalidStickerRef": "无效的贴纸引用",
     "sendFailed": "发送失败：{error}",
-    "withdrawFailed": "撤回失败：{error}"
+    "withdrawFailed": "撤回失败：{error}",
+    "errorInvalidDice": "无效的骰子参数"
   },
   "commands": {
     "helpTitle": "指令帮助",

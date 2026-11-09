@@ -1506,7 +1506,8 @@
     "errorInvalidImageRef": "Invalid image reference",
     "errorInvalidStickerRef": "Invalid sticker reference",
     "sendFailed": "Failed to send: {error}",
-    "withdrawFailed": "Failed to withdraw: {error}"
+    "withdrawFailed": "Failed to withdraw: {error}",
+    "errorInvalidDice": "Invalid dice parameters"
   },
   "commands": {
     "helpTitle": "Command Help",

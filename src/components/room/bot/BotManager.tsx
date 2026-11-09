@@ -14,18 +14,9 @@ import { Icons } from "@/components/shared/icons";
 import { BadgeDropdown, type BadgeDropdownItem } from "@/components/shared/BadgeDropdown";
 import { SlidersHorizontal, AtSign, MousePointerClick, Sparkles } from "lucide-react";
 import { BUILTIN_BOT_PRESETS } from "@/lib/ai/bot-preset-defaults";
+import type { RoomBotSummary } from "@/lib/ai/bot-status";
 
-interface BotInfo {
-  id: number;
-  nickname: string;
-  memberId: number;
-  name: string | null;
-  avatarColor?: string | null;
-  config: {
-    systemPrompt?: string; model?: string;
-    activation?: string; enableTools?: string[]; providerId?: number; imageProviderId?: number;
-  };
-}
+const EMPTY_BOT_CONFIG: NonNullable<RoomBotSummary["config"]> = {};
 
 interface BotManagerProps {
   roomId: number;
@@ -42,7 +33,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const tChar = useTranslations("character");
   const tRoom = useTranslations("room");
 
-  const [bots, setBots] = useState<BotInfo[]>([]);
+  const [bots, setBots] = useState<RoomBotSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -53,7 +44,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const [model, setModel] = useState("");
   const [activation, setActivation] = useState("@mention");
   const [enableTools, setEnableTools] = useState<string[]>(["roll_dice", "respond_check"]);
-  const [editingBot, setEditingBot] = useState<BotInfo | null>(null);
+  const [editingBot, setEditingBot] = useState<RoomBotSummary | null>(null);
   const [botColor, setBotColor] = useState<string>("#f43f5e");
   const [providers, setProviders] = useState<{ id: number; name: string; model: string; isShared: boolean }[]>([]);
   const [imageProviders, setImageProviders] = useState<{ id: number; name: string }[]>([]);
@@ -98,7 +89,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
   const loadBots = useCallback(async () => {
     try {
       const data = await getRoomBotsAction(roomId);
-      setBots(data as BotInfo[]);
+      setBots(data);
     } catch { /* */ }
     setLoading(false);
   }, [roomId]);
@@ -207,23 +198,24 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     router.refresh();
   };
 
-  const startEdit = (bot: BotInfo) => {
+  const startEdit = (bot: RoomBotSummary) => {
+    const cfg = bot.config ?? EMPTY_BOT_CONFIG;
     setFormError(null);
     setEditingBot(bot);
-    setImageProviderId(bot.config.imageProviderId ?? null);
+    setImageProviderId(cfg.imageProviderId ?? null);
     setBotName(bot.name ?? bot.nickname);
     setBotNickname(bot.nickname || "");
-    setSystemPrompt(bot.config.systemPrompt || "");
-    setModel(bot.config.model || "gpt-4o-mini");
-    setActivation(bot.config.activation || "@mention");
-    setEnableTools(bot.config.enableTools || ["roll_dice", "respond_check"]);
+    setSystemPrompt(cfg.systemPrompt || "");
+    setModel(cfg.model || "gpt-4o-mini");
+    setActivation(cfg.activation || "@mention");
+    setEnableTools(cfg.enableTools || ["roll_dice", "respond_check"]);
     // Restore the saved provider only if it still exists in the available list.
     // A stale id (e.g. the shared provider was deleted/recreated by an admin) would
     // leave the <select> showing the first option while state keeps the dead id —
     // a Save would then re-persist the broken provider. Fall back to the first
     // available provider so state matches what the dropdown actually displays.
-    const savedProvider = bot.config.providerId
-      ? providers.find(p => p.id === bot.config.providerId)
+    const savedProvider = cfg.providerId
+      ? providers.find(p => p.id === cfg.providerId)
       : undefined;
     if (savedProvider) {
       setProviderId(savedProvider.id);
@@ -294,11 +286,11 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                 )}
                 {bots.map(bot => {
                   const isBotDisabled = !aiEnabled;
-                  const botProviderId = bot.config.providerId;
+                  const botProviderId = bot.providerId;
                   const isProviderError = !botProviderId || !validProviderIds.includes(botProviderId);
                   const color = bot.avatarColor || getRandomColorForUser(bot.id);
                   const initial = (bot.name || bot.nickname || "?").trim().charAt(0) || "?";
-                  const activationLabel = bot.config.activation === "manual" ? t("activationManual") : t("activationMention");
+                  const activationLabel = bot.activation === "manual" ? t("activationManual") : t("activationMention");
 
                   return (
                     <div key={bot.id} className="bg-surface-alt/40 rounded-theme p-3 border border-border flex items-center gap-3">
@@ -324,7 +316,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
                           )}
                         </div>
                         <div className="text-xs text-text-muted truncate mt-0.5 font-theme-mono">
-                          @{bot.nickname} · {bot.config.model || "gpt-4o-mini"} · {activationLabel}
+                          @{bot.nickname} · {bot.config?.model || "gpt-4o-mini"} · {activationLabel}
                         </div>
                       </div>
                       {isHost && (

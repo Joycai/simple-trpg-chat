@@ -13,6 +13,12 @@ import { getTranslations } from "next-intl/server";
 import { getRandomColorForUser } from "@/lib/ui/avatar-colors";
 import { broadcastToRoom } from "@/lib/server/events";
 import { getRuleForRoom } from "@/lib/rules";
+import {
+  botActivationMode,
+  botConfigForEditor,
+  botConfigProviderId,
+  type RoomBotSummary,
+} from "@/lib/ai/bot-status";
 import type { Fail } from "@/lib/actions/result";
 import { noRoomAccess } from "@/lib/actions/no-room-access";
 
@@ -89,11 +95,14 @@ export async function createBotAction(
 
 /**
  * getRoomBotsAction
- * Lists all bots in a room.
+ * Lists all bots in a room. Members get the public summary only; the system
+ * prompt / tool set / historical summary are host-private and are returned to
+ * the host (or an admin) alone. The client type is a single shape with
+ * `config` optional, so a member can never receive host-private fields just
+ * because the editor form is rendered for hosts elsewhere.
  */
-export async function getRoomBotsAction(roomId: number) {
-  // Verify that the user is at least a member of the room to list bots
-  await checkRoomAccess(roomId, false);
+export async function getRoomBotsAction(roomId: number): Promise<RoomBotSummary[]> {
+  const access = await checkRoomAccess(roomId, false);
 
   const results = await db
     .select()
@@ -101,13 +110,20 @@ export async function getRoomBotsAction(roomId: number) {
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(and(eq(roomMembers.roomId, roomId), sql`${users.isBot} = ${true}`));
 
-  return results.map((r: { users: { id: number; displayName: string | null; botConfigJson: string | null }; room_members: { id: number; nickname: string; avatarColor: string | null } }) => ({
+  return results.map((r: {
+    users: { id: number; displayName: string | null; botConfigJson: string | null };
+    room_members: { id: number; nickname: string; avatarColor: string | null };
+  }) => ({
     id: r.users.id,
     memberId: r.room_members.id,
     nickname: r.room_members.nickname,
     name: r.users.displayName,
-    config: JSON.parse(r.users.botConfigJson || "{}"),
     avatarColor: r.room_members.avatarColor,
+    // Provider presence + activation are needed by every viewer to render the
+    // "disabled / provider error" badges; both are non-sensitive.
+    activation: botActivationMode(r.users.botConfigJson),
+    providerId: botConfigProviderId(r.users.botConfigJson),
+    ...(access.isHost ? { config: botConfigForEditor(r.users.botConfigJson) } : {}),
   }));
 }
 

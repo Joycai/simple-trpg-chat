@@ -12,3 +12,8 @@ export const NICKNAME_MAX_LENGTH = 50;
 
 /** Max chat message length — enforced by sendMessageAction. */
 export const MESSAGE_MAX_LENGTH = 10000;
+
+/** Dice panel bounds — shared by `rollDiceAction` and the pure rolling helpers.
+ *  They match the `.r` expression parser's limits (100 dice, 1000 faces). */
+export const MAX_DICE_COUNT = 100;
+export const MAX_DICE_FACES = 1000;

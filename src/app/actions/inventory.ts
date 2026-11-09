@@ -386,10 +386,76 @@ export async function shareItemAction(
   return { success: true };
 }
 
+/** A distribution row serialized for the client. Deliberately a closed shape:
+ *  the Drizzle relations carry full `users` rows (password hash, session token,
+ *  bot config); spreading the relation leaked those into every member's RSC
+ *  response. Only business fields (and the two display names) leave the server. */
+export interface InventoryDistributionDto {
+  id: number;
+  roomId: number;
+  itemId: number;
+  fromUserId: number;
+  toUserId: number | null;
+  action: string;
+  viewed: boolean;
+  updated: boolean;
+  createdAt: string;
+  item: InventoryItemDto | undefined;
+  toUsername?: string;
+  fromUsername?: string;
+}
+
+type InventoryItemDto = Pick<
+  typeof inventoryItems.$inferSelect,
+  "id" | "type" | "title" | "contentJson" | "imageUrl" | "source" | "visibility" | "relation" | "category" | "quantity" | "createdAt"
+>;
+
+/** Display name for a distribution's endpoint, never the whole user row. */
+function distributionNames(
+  sender: { displayName: string | null; username: string } | null | undefined,
+  recipient: { displayName: string | null; username: string } | null | undefined,
+) {
+  return {
+    toUsername: recipient ? recipient.displayName || recipient.username : undefined,
+    fromUsername: sender ? sender.displayName || sender.username : undefined,
+  };
+}
+
+/**
+ * Shared projection for both the member's backpack and the host's history —
+ * one shape so neither path can re-introduce a full user row.
+ */
+function toDistributionDto(
+  d: {
+    id: number; roomId: number; itemId: number; fromUserId: number; toUserId: number | null;
+    action: string; viewed: boolean; updated: boolean; createdAt: string;
+    item?: InventoryItemDto | null;
+    sender?: { displayName: string | null; username: string } | null;
+    recipient?: { displayName: string | null; username: string } | null;
+  },
+): InventoryDistributionDto {
+  return {
+    id: d.id,
+    roomId: d.roomId,
+    itemId: d.itemId,
+    fromUserId: d.fromUserId,
+    toUserId: d.toUserId,
+    action: d.action,
+    viewed: d.viewed,
+    updated: d.updated,
+    createdAt: d.createdAt,
+    item: d.item ?? undefined,
+    ...distributionNames(d.sender, d.recipient),
+  };
+}
+
+/** User fields the client needs from either end of a distribution. */
+const distributionUserColumns = { displayName: true, username: true } as const;
+
 /**
  * getMyInventory
  */
-export async function getMyInventory(roomId: number) {
+export async function getMyInventory(roomId: number): Promise<InventoryDistributionDto[]> {
   const { userId } = await checkRoomAccess(roomId, false);
 
   const raw = await db.query.inventoryDistributions.findMany({
@@ -398,20 +464,22 @@ export async function getMyInventory(roomId: number) {
         eq(inventoryDistributions.toUserId, userId)
     ),
     with: {
-        item: true,
-        sender: true,
-        recipient: true
+        item: {
+          columns: {
+            id: true, type: true, title: true, contentJson: true, imageUrl: true,
+            source: true, visibility: true, relation: true, category: true,
+            quantity: true, createdAt: true,
+          },
+        },
+        sender: { columns: distributionUserColumns },
+        recipient: { columns: distributionUserColumns },
     },
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
   // toUsername (the player themselves) feeds the 持有 fallback in DetailModal —
   // players get no distribution history, so this is their only holder source.
-  return raw.map((d) => ({
-    ...d,
-    toUsername: d.recipient?.displayName || d.recipient?.username,
-    fromUsername: d.sender?.displayName || d.sender?.username
-  }));
+  return raw.map(toDistributionDto);
 }
 
 /**
@@ -430,24 +498,26 @@ export async function getRoomItems(roomId: number) {
 /**
  * getDistributionHistory
  */
-export async function getDistributionHistory(roomId: number) {
+export async function getDistributionHistory(roomId: number): Promise<InventoryDistributionDto[]> {
   await checkRoomAccess(roomId, true);
 
   const raw = await db.query.inventoryDistributions.findMany({
     where: eq(inventoryDistributions.roomId, roomId),
     with: {
-        item: true,
-        sender: true,
-        recipient: true
+        item: {
+          columns: {
+            id: true, type: true, title: true, contentJson: true, imageUrl: true,
+            source: true, visibility: true, relation: true, category: true,
+            quantity: true, createdAt: true,
+          },
+        },
+        sender: { columns: distributionUserColumns },
+        recipient: { columns: distributionUserColumns },
     },
     orderBy: [desc(inventoryDistributions.createdAt)]
   });
 
-  return raw.map((d) => ({
-    ...d,
-    toUsername: d.recipient?.displayName || d.recipient?.username,
-    fromUsername: d.sender?.displayName || d.sender?.username
-  }));
+  return raw.map(toDistributionDto);
 }
 
 /**
