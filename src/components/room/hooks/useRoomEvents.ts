@@ -9,11 +9,8 @@ import type { StatusEntry } from "@/lib/rules";
 import type { CompletionSummary } from "@/lib/character/completion";
 import { invalidateCharacterCache } from "@/components/room/chat/message/character-cache";
 
-/** Bounded backfill: at 300 rows/page this covers ~1500 messages of downtime
- *  before the UI is allowed to keep only what it fetched. */
-const CATCH_UP_MAX_PAGES = 5;
-/** Bounded retries for a failed catch-up while the SSE link stays healthy. */
-const CATCH_UP_MAX_RETRIES = 4;
+const CATCH_UP_PAGES_PER_BATCH = 5;
+const CATCH_UP_MAX_RETRY_DELAY = 30_000;
 
 interface UseRoomEventsParams {
   roomId: number;
@@ -70,23 +67,13 @@ export function useRoomEvents({
     let retryCount = 0;
     const maxRetries = 5;
     let sse: EventSource | null = null;
-    // Set on the first error so the next successful open knows it must heal a
-    // gap; `connected` gates the online/visibility wake-up handlers below.
-    let hadDrop = false;
     let connected = false;
-
-    // The server emits no `id:` on SSE frames, so the browser's Last-Event-ID
-    // replay can't recover messages sent while the stream was down. Instead,
-    // after every reconnect we fetch everything visible past the newest loaded
-    // message and merge it in (dedup against both live-delivered rows and the
-    // optimistic placeholders, which keep negative ids and stay at the tail).
-    //
-    // The page is bounded, so a long gap comes back `truncated`: keep paging
-    // backwards from the oldest page until the server says the gap is fully
-    // covered. Without that loop the client would keep only the newest N rows
-    // and could never re-discover the hole (its catch-up cursor is the max id).
-    let catchUpInFlight = false;
-    let catchUpRetry: ReturnType<typeof setTimeout> | null = null;
+    let latestSeenId = messagesRef.current.reduce(
+      (max, m) => typeof m.id === "number" ? Math.max(max, m.id) : max, 0);
+    // Only completed recovery pages advance this cursor. Live messages can
+    // arrive ahead of the gap, and a second disconnect must preserve it.
+    let recoveryCursor: number | null = null;
+    let catchUpTimer: ReturnType<typeof setTimeout> | undefined;
 
     const mergeMissed = (missed: Message[]) => {
       if (missed.length === 0) return;
@@ -110,39 +97,31 @@ export function useRoomEvents({
       });
     };
 
-    const catchUpMissedMessages = async (attempt = 0): Promise<void> => {
-      if (catchUpInFlight || abortController.signal.aborted) return;
-      catchUpInFlight = true;
-      const sinceId = messagesRef.current.reduce(
-        (max, m) => (typeof m.id === "number" && m.id > max ? m.id : max), 0);
+    const catchUpMissedMessages = async (stream: EventSource, retryDelay = 1000) => {
+      const isCurrent = () => connected && sse === stream && !abortController.signal.aborted;
+      if (!isCurrent()) return;
       try {
-        // Walk backwards through bounded pages until the server reports no older
-        // visible message left in the gap. `before` (not `since`) carries the
-        // cursor: each page is strictly older than the previous one.
-        let before: number | null = null;
-        for (let page = 0; page < CATCH_UP_MAX_PAGES; page++) {
-          const res = await catchUpMessagesAction(roomId, sinceId, before);
-          if (abortController.signal.aborted) return;
-          const rows = res.messages as unknown as Message[];
-          if (rows.length === 0) break;
-          mergeMissed(rows);
-          if (!res.truncated) break;
-          before = res.gapBeforeMessageId;
-          if (before == null) break;
+        for (let page = 0; page < CATCH_UP_PAGES_PER_BATCH; page++) {
+          if (recoveryCursor == null) return;
+          const { messages: rows, truncated } = await catchUpMessagesAction(roomId, recoveryCursor);
+          if (!isCurrent()) return;
+          const lastId = rows.at(-1)?.id;
+          if (lastId != null) {
+            recoveryCursor = lastId;
+            latestSeenId = Math.max(latestSeenId, lastId);
+            mergeMissed(rows as Message[]);
+          }
+          if (!truncated) {
+            recoveryCursor = null;
+            return;
+          }
         }
+        // Yield between batches while retaining the unfinished gap.
+        catchUpTimer = setTimeout(() => void catchUpMissedMessages(stream), 0);
       } catch {
-        // A single transient failure must not silently drop the gap: retry with
-        // bounded backoff while the SSE link stays healthy.
-        if (!abortController.signal.aborted && attempt < CATCH_UP_MAX_RETRIES) {
-          const delay = Math.min(1000 * 2 ** attempt, 8000);
-          catchUpRetry = setTimeout(() => {
-            catchUpInFlight = false;
-            void catchUpMissedMessages(attempt + 1);
-          }, delay);
-          return;
-        }
-      } finally {
-        catchUpInFlight = false;
+        if (!isCurrent()) return;
+        const nextDelay = Math.min(retryDelay * 2, CATCH_UP_MAX_RETRY_DELAY);
+        catchUpTimer = setTimeout(() => void catchUpMissedMessages(stream, nextDelay), retryDelay);
       }
     };
 
@@ -154,20 +133,15 @@ export function useRoomEvents({
       sse = es;
 
       es.onopen = () => {
+        if (abortController.signal.aborted || sse !== es) return;
         setStatus("connected");
         retryCount = 0; // Reset retry count on successful connection
         connected = true;
-        if (hadDrop) {
-          // Do NOT clear the flag here: only a completed catch-up proves the
-          // gap is closed. The retry path above keeps it armed until it is.
-          catchUpMissedMessages().then(() => {
-            if (!abortController.signal.aborted) hadDrop = false;
-          });
-        }
+        if (recoveryCursor != null) void catchUpMissedMessages(es);
       };
 
       es.onmessage = (event) => {
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted || sse !== es || !connected) return;
         try {
           const data = JSON.parse(event.data);
           if (data.type === "room_settings_updated") {
@@ -328,6 +302,7 @@ export function useRoomEvents({
             // Defensive: the SSE route already filtered by audience, but re-check
             // so a mis-targeted row never leaks into this client's state.
             if (isAudience(data.audience) && !canSee(view, userId, isHost)) return;
+            if (typeof data.id === "number") latestSeenId = Math.max(latestSeenId, data.id);
 
             // Bump the DM unread badge only for genuine inbound 1:1 DM turns —
             // inline notices (self/directed/gm) have their own indicators.
@@ -374,11 +349,12 @@ export function useRoomEvents({
       };
 
       es.onerror = () => {
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted || sse !== es) return;
         setStatus("error");
         es.close();
         connected = false;
-        hadDrop = true;
+        recoveryCursor ??= latestSeenId;
+        clearTimeout(catchUpTimer);
 
         // Never give up for good: fast exponential backoff first, then keep
         // probing on a slow interval — a room left open overnight must come
@@ -411,7 +387,7 @@ export function useRoomEvents({
       abortController.abort();
       if (sse) sse.close();
       clearTimeout(reconnectTimeout);
-      if (catchUpRetry) clearTimeout(catchUpRetry);
+      clearTimeout(catchUpTimer);
       window.removeEventListener("online", wakeUp);
       document.removeEventListener("visibilitychange", wakeUp);
     };

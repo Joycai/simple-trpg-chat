@@ -746,6 +746,7 @@
     "errorFieldTooLong": "Username and nickname must be at most {max} characters",
     "errorMissingDisplayName": "Nickname is required",
     "errorUserNotFound": "User not found",
+    "errorUserChanged": "This user changed. Reload and try again.",
     "errorCannotDemoteDefaultAdmin": "Cannot change the default admin's role",
     "errorQuotaHostsOnly": "Invite quota only applies to hosts",
     "errorInvalidStatus": "Invalid room status",
@@ -760,7 +761,7 @@
     "imageCacheConfirmTitle": "Clean image cache",
     "confirmDeletePresetTitle": "Delete preset",
     "confirmDeletePreset": "Delete preset \"{name}\"? This cannot be undone.",
-    "passwordTooLong": "Password must be at most 72 characters"
+    "passwordTooLong": "Password must be at most 72 UTF-8 bytes"
   },
   "theme": {
     "switch": "Switch Theme",
@@ -1980,6 +1981,7 @@
     "errorEmpty": "Invite code, username and password are required",
     "errorPasswordMismatch": "Passwords do not match",
     "errorPasswordTooShort": "Password must be at least 8 characters",
+    "errorPasswordTooLong": "Password must be at most 72 UTF-8 bytes",
     "errorUsernameFormat": "Username must be 3–20 letters, digits, _ or -",
     "errorInvalidCode": "Invalid or expired invite code",
     "errorInvalidFields": "Please check your input",

@@ -14,7 +14,7 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
+import { passwordPolicyError } from "@/lib/auth/password-policy";
 import { getTranslations } from "next-intl/server";
 import {
   generateInviteCode,
@@ -161,8 +161,11 @@ const registerSchema = z.object({
     .max(20)
     .regex(/^[a-zA-Z0-9_-]+$/),
   displayName: z.string().max(30),
-  password: z.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH),
+  password: z.string().refine((password) => passwordPolicyError(password) === null),
 });
+
+// Throwing out of the transaction rolls back the invite claim.
+const usernameTaken = new Error("Username already taken");
 
 async function clientIp(): Promise<string> {
   const h = await headers();
@@ -200,14 +203,7 @@ export async function registerAction(formData: FormData) {
     const outcome = await db.transaction(async (tx) => {
       await sweepExpiredInvites(tx);
 
-      // Check the username BEFORE claiming the code. A normal `return` from this
-      // transaction callback COMMITS — the old code claimed the code (active→used)
-      // and then returned "username_taken", consuming a valid invite without
-      // creating an account. Keeping the row lock on the code matters too: the
-      // conditional UPDATE below is what makes one code one account.
-      const [existing] = await tx.select({ id: users.id }).from(users).where(eq(users.username, username));
-      if (existing) return "username_taken" as const;
-
+      // Validate and claim the invite before disclosing username availability.
       // One code, one account: only a single concurrent request can win this
       // `active → used` transition. Losers see 0 rows and fail cleanly.
       const [claimed] = await tx
@@ -217,12 +213,18 @@ export async function registerAction(formData: FormData) {
         .returning({ id: inviteCodes.id });
       if (!claimed) return "bad_code" as const;
 
+      const [existing] = await tx.select({ id: users.id }).from(users).where(eq(users.username, username));
+      if (existing) throw usernameTaken;
+
       const passwordHash = await bcrypt.hash(password, 10);
       const [created] = await tx
         .insert(users)
         // inviteQuota 0: players don't generate codes (promotion to host re-grants it).
         .values({ username, passwordHash, displayName, role: "player", inviteQuota: 0 })
+        .onConflictDoNothing({ target: users.username })
         .returning({ id: users.id });
+
+      if (!created) throw usernameTaken;
 
       await tx.update(inviteCodes).set({ usedByUserId: created.id }).where(eq(inviteCodes.id, claimed.id));
       return "ok" as const;
@@ -233,12 +235,9 @@ export async function registerAction(formData: FormData) {
       recordFailure(rateKey, 60 * 60 * 1000);
       return { success: false as const, error: t("errorInvalidCode") };
     }
-    if (outcome === "username_taken") return { success: false as const, error: t("errorUsernameTaken") };
     return { success: true as const };
   } catch (err: unknown) {
-    // Unique-index race on username lands here; report it as taken.
-    const msg = err instanceof Error ? err.message : "";
-    if (/unique|duplicate/i.test(msg)) return { success: false as const, error: t("errorUsernameTaken") };
+    if (err === usernameTaken) return { success: false as const, error: t("errorUsernameTaken") };
     return { success: false as const, error: t("errorUnknown") };
   }
 }

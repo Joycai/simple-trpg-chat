@@ -2,12 +2,11 @@
 
 import { db, sqlNow } from "@/db";
 import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getTranslations } from "next-intl/server";
 import { auth, signOut } from "@/auth";
-import { invalidateSessionCache } from "@/auth.config";
-import { revokeSessions } from "@/lib/auth/session-revocation";
 import { passwordPolicyError } from "@/lib/auth/password-policy";
 import type { Done } from "@/lib/actions/result";
 
@@ -19,7 +18,6 @@ export async function logoutAction() {
     const userId = (session?.user as { id?: string } | undefined)?.id;
     if (userId) {
       await db.update(users).set({ sessionToken: null, updatedAt: sqlNow() }).where(eq(users.id, parseInt(userId)));
-      invalidateSessionCache(userId);
     }
   } catch {
     // ignore — sign-out below is what matters
@@ -59,8 +57,10 @@ export async function changeOwnPassword(
   if (!valid) return { success: false, error: t("errorCurrentPassword") };
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
-  // Invalidate every JWT issued before this change (including the caller's).
-  await revokeSessions(userId);
+  const [updated] = await db.update(users)
+    .set({ passwordHash, sessionToken: randomUUID(), updatedAt: sqlNow() })
+    .where(and(eq(users.id, userId), eq(users.passwordHash, user.passwordHash)))
+    .returning({ id: users.id });
+  if (!updated) return { success: false, error: t("passwordResetFail") };
   return { success: true };
 }

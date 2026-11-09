@@ -1,5 +1,6 @@
 "use client";
 
+import { passwordPolicyError } from "@/lib/auth/password-policy";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -57,8 +58,9 @@ export function RegisterForm({ siteTitle, version, icp, icpUrl, policeIcon, poli
       setError(t("errorPasswordMismatch"));
       return;
     }
-    if (password.length < 8) {
-      setError(t("errorPasswordTooShort"));
+    const policy = passwordPolicyError(password);
+    if (policy) {
+      setError(t(policy === "tooShort" ? "errorPasswordTooShort" : "errorPasswordTooLong"));
       return;
     }
     if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) {

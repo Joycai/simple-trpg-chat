@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getSessionStatus } from "../auth.config";
+import { authConfig, getSessionStatus } from "../auth.config";
 
 // Setup mocks for database queries
-const mockSelect = vi.fn();
+const { mockSelect } = vi.hoisted(() => ({ mockSelect: vi.fn() }));
 
-vi.mock("../db", () => {
+vi.mock("../db/index", () => {
   return {
     db: {
       select: mockSelect,
@@ -47,32 +47,38 @@ describe("Account Banning & Single-Session Invalidation", () => {
       })),
     });
 
-    const { status, kickedFromIp } = await getSessionStatus("3", "token123");
-    expect(status).toBe("token_mismatch");
+    const check = await getSessionStatus("3", "token123");
+    expect(check.status).toBe("token_mismatch");
     // IP lookup uses orderBy/limit not present in this mock → resolves to undefined, not a throw
-    expect(kickedFromIp).toBeUndefined();
+    expect(check).toEqual({ status: "token_mismatch", kickedFromIp: undefined });
   });
 
-  it("should NOT kick on a stale cache entry — re-reads the DB before reporting mismatch", async () => {
-    // Prime the cache for this userId with an old token.
+  it("rejects a previously valid token as soon as the stored token rotates", async () => {
+    let sessionToken = "tok-old";
     mockSelect.mockReturnValue({
-      from: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve([{ sessionToken: "tok-old", isBanned: false }])),
-      })),
+      from: () => ({
+        where: async () => [{ sessionToken, isBanned: false }],
+      }),
     });
-    const primed = await getSessionStatus("99", "tok-old");
-    expect(primed.status).toBe("valid");
+    expect((await getSessionStatus("99", "tok-old")).status).toBe("valid");
 
-    // A re-login rotated the DB token to "tok-new" (cache still warm with "tok-old").
-    // The presented JWT now carries "tok-new"; without the re-read fix this would be
-    // a false "token_mismatch" from the stale cache.
+    sessionToken = "tok-new";
+    expect((await getSessionStatus("99", "tok-old")).status).toBe("token_mismatch");
+    expect((await getSessionStatus("99", "tok-new")).status).toBe("valid");
+  });
+
+  it("uses the current database role even when a legacy JWT claims admin", async () => {
     mockSelect.mockReturnValue({
-      from: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve([{ sessionToken: "tok-new", isBanned: false }])),
-      })),
+      from: () => ({ where: async () => [{ sessionToken: "tok", isBanned: false, role: "player" }] }),
     });
-    const { status } = await getSessionStatus("99", "tok-new");
-    expect(status).toBe("valid");
+    const user = { id: "2", name: "Player", role: "admin", username: "player", email: "", emailVerified: null };
+    // NextAuth types intersect database and JWT session shapes. Exercise the JWT shape.
+    const input = {
+      session: { user, expires: "" },
+      token: { sub: "2", sessionToken: "tok", role: "admin" },
+    } as unknown as Parameters<typeof authConfig.callbacks.session>[0];
+    const session = await authConfig.callbacks.session(input);
+    expect(session.user.role).toBe("player");
   });
 
   it("should fail closed with 'unavailable' on a DB error", async () => {

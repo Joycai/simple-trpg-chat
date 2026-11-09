@@ -1,15 +1,14 @@
 "use server";
 
-import { db } from "@/db";
+import { db, sqlNow } from "@/db";
 import { users, aiPointLogs, rooms } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { invalidateSessionCache } from "@/auth.config";
+import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { broadcastToRoom } from "@/lib/server/events";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { revokeSessions } from "@/lib/auth/session-revocation";
 import { passwordPolicyError } from "@/lib/auth/password-policy";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
 import type { Done, Fail } from "@/lib/actions/result";
@@ -119,33 +118,27 @@ export async function updateUser(id: number, displayName: string, role: string):
   // Never let the built-in admin be demoted out of the admin role (lockout guard).
   if (user.username === "admin" && role !== "admin") return { success: false, error: t("errorCannotDemoteDefaultAdmin") };
 
-  // Promotion to host grants the configured default invite quota; any other
-  // role change zeroes it (players/admins don't generate codes).
-  const patch: { displayName: string; role: string; updatedAt: string; inviteQuota?: number } = {
-    displayName: name,
-    role,
-    updatedAt: new Date().toISOString(),
-  };
+  // Apply role and session changes in the same write. Match the role we read
+  // so a concurrent admin edit cannot apply an obsolete transition.
+  let inviteQuota: number | undefined;
   if (role === "host" && user.role !== "host") {
     const { getInviteConfig } = await import("@/lib/auth/invites");
-    patch.inviteQuota = (await getInviteConfig()).defaultQuota;
+    inviteQuota = (await getInviteConfig()).defaultQuota;
   } else if (role !== "host" && user.role === "host") {
-    patch.inviteQuota = 0;
+    inviteQuota = 0;
   }
 
-  await db.update(users)
-    .set(patch)
-    .where(eq(users.id, id));
-
-  // A role change must revoke every JWT issued under the old role: the role is
-  // baked into the token at sign-in, so clearing a cache that does not hold the
-  // role would leave a demoted admin with working admin powers until re-login.
-  // Rotating the single-session token invalidates them immediately.
-  if (user.role !== role) {
-    await revokeSessions(id);
-  } else {
-    invalidateSessionCache(String(id));
-  }
+  const [updated] = await db.update(users)
+    .set({
+      displayName: name,
+      role,
+      updatedAt: sqlNow(),
+      inviteQuota,
+      ...(user.role !== role ? { sessionToken: randomUUID() } : {}),
+    })
+    .where(and(eq(users.id, id), eq(users.role, user.role)))
+    .returning({ id: users.id });
+  if (!updated) return { success: false, error: t("errorUserChanged") };
   revalidatePath("/admin");
   return { success: true };
 }
@@ -241,9 +234,9 @@ export async function resetPassword(id: number, newPassword: string): Promise<Do
   if (policy === "tooLong") return { success: false, error: t("passwordTooLong") };
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await db.update(users).set({ passwordHash }).where(eq(users.id, id));
-  // Reset password ⇒ every session signed in with the old one is compromised.
-  await revokeSessions(id);
+  await db.update(users)
+    .set({ passwordHash, sessionToken: randomUUID(), updatedAt: sqlNow() })
+    .where(eq(users.id, id));
   revalidatePath("/admin");
   return { success: true };
 }
@@ -264,9 +257,6 @@ export async function toggleBanUser(id: number): Promise<Done> {
       sessionToken: newBanStatus ? null : user.sessionToken,
     })
     .where(eq(users.id, id));
-
-  // Immediately invalidate the session cache so the ban takes effect without delay
-  invalidateSessionCache(String(id));
 
   revalidatePath("/admin");
   return { success: true };

@@ -5,7 +5,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const requireAdmin = vi.fn(() => Promise.resolve());
 vi.mock("@/lib/auth/require-admin", () => ({ requireAdmin: () => requireAdmin() }));
-vi.mock("@/auth.config", () => ({ invalidateSessionCache: vi.fn() }));
 vi.mock("@/lib/server/events", () => ({ broadcastToRoom: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const cleanupRoomBackgrounds = vi.fn(() => Promise.resolve());
@@ -26,7 +25,11 @@ function chain(rows: () => unknown) {
     Promise.resolve(rows()).then(resolve, reject);
   return c;
 }
-const update = vi.fn(() => chain(() => []));
+const setUserFields = vi.fn();
+const update = vi.fn(() => ({ ...chain(() => [{ id: 2 }]), set: (patch: unknown) => {
+  setUserFields(patch);
+  return chain(() => [{ id: 2 }]);
+} }));
 const insert = vi.fn(() => chain(() => []));
 const transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
   fn({ select: () => chain(() => selectQueue.shift() ?? []), update, insert }));
@@ -45,7 +48,6 @@ import {
   deleteRoom, adminSetRoomStatus, resetPassword,
 } from "../admin";
 import { USERNAME_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from "@/lib/auth/user-limits";
-import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 
 /** Minimal password that satisfies the shared policy. */
 const VALID_PW = "longenough";
@@ -188,14 +190,15 @@ describe("session revocation on privileged changes", () => {
   it("rotates the session token when a role changes", async () => {
     selectQueue = [[{ id: 2, username: "bob", role: "admin" }]];
     expect(await updateUser(2, "Bob", "player")).toEqual({ success: true });
-    // One update for the user row, one for the rotated session token.
-    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(setUserFields).toHaveBeenCalledWith(expect.objectContaining({ role: "player", sessionToken: expect.any(String) }));
   });
 
   it("does not rotate the token for a display-name-only change", async () => {
     selectQueue = [[{ id: 2, username: "bob", role: "player" }]];
     expect(await updateUser(2, "Bobby", "player")).toEqual({ success: true });
     expect(update).toHaveBeenCalledTimes(1);
+    expect(setUserFields.mock.calls[0][0]).not.toHaveProperty("sessionToken");
   });
 
   it("enforces the password policy on admin reset", async () => {
@@ -205,7 +208,7 @@ describe("session revocation on privileged changes", () => {
 
   it("rotates the session token after a password reset", async () => {
     expect(await resetPassword(2, VALID_PW)).toEqual({ success: true });
-    // passwordHash + rotated sessionToken
-    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(setUserFields).toHaveBeenCalledWith(expect.objectContaining({ passwordHash: "hash", sessionToken: expect.any(String) }));
   });
 });

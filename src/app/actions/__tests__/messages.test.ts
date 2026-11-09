@@ -223,7 +223,7 @@ describe("markDMReadAction", () => {
 describe("bounded history paging", () => {
   // Client-supplied paging values are raw JSON: a huge or malformed `limit`
   // must never reach the query unbounded, and catch-up must report truncation
-  // so the client can keep walking BACKWARDS instead of dropping a hole.
+  // so the client can keep advancing instead of dropping a hole.
   const msg = (id: number) => ({
     id, roomId: 5, userId: 2, targetUserId: null, nickname: "Ann", content: `m${id}`,
     type: "text", systemKind: null, diceDetail: null, audience: "everyone",
@@ -244,34 +244,17 @@ describe("bounded history paging", () => {
     expect(await loadMoreMessagesAction(5, 99, -5)).toEqual([]);
   });
 
-  it("reports a non-truncated catch-up when the page is partial", async () => {
-    selectQueue = [[msg(20), msg(19)]];
-    const res = await catchUpMessagesAction(5, 10);
-    expect(res.messages.map((m) => m.id)).toEqual([19, 20]);
-    expect(res.truncated).toBe(false);
-    expect(res.gapBeforeMessageId).toBeNull();
-  });
-
-  it("reports truncation and the older-page cursor when rows remain in the gap", async () => {
-    selectQueue = [
-      [msg(20), msg(19), msg(18)],
-      [{ id: 17 }], // the probe that proves an older visible row exists
-    ];
-    const res = await catchUpMessagesAction(5, 10, null, 3);
-    expect(res.messages.map((m) => m.id)).toEqual([18, 19, 20]);
+  it("returns the oldest unseen messages first and reserves one row to detect truncation", async () => {
+    selectQueue = [[msg(11), msg(12), msg(13), msg(14)]];
+    const res = await catchUpMessagesAction(5, 10, 3);
+    expect(res.messages.map((m) => m.id)).toEqual([11, 12, 13]);
     expect(res.truncated).toBe(true);
-    // The cursor is the OLDEST id of this page: the next call passes it as
-    // `beforeMessageId` to fetch strictly older rows. Reusing it as `since`
-    // would re-fetch this same page forever (the original bug).
-    expect(res.gapBeforeMessageId).toBe(18);
   });
 
-  it("accepts a beforeMessageId upper bound for the next (older) page", async () => {
-    // Second page of the same gap: window (since=10, before=18).
-    selectQueue = [[msg(17), msg(16)]];
-    const res = await catchUpMessagesAction(5, 10, 18, 3);
-    expect(res.messages.map((m) => m.id)).toEqual([16, 17]);
+  it("reports a complete catch-up when exactly one page remains", async () => {
+    selectQueue = [[msg(14), msg(15), msg(16)]];
+    const res = await catchUpMessagesAction(5, 13, 3);
+    expect(res.messages.map((m) => m.id)).toEqual([14, 15, 16]);
     expect(res.truncated).toBe(false);
-    expect(res.gapBeforeMessageId).toBeNull();
   });
 });

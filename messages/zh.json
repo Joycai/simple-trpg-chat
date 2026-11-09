@@ -746,6 +746,7 @@
     "errorFieldTooLong": "用户名和昵称不能超过 {max} 个字符",
     "errorMissingDisplayName": "昵称不能为空",
     "errorUserNotFound": "用户不存在",
+    "errorUserChanged": "用户信息已变更，请刷新后重试。",
     "errorCannotDemoteDefaultAdmin": "不能更改默认管理员的角色",
     "errorQuotaHostsOnly": "邀请额度仅适用于主持人",
     "errorInvalidStatus": "无效的房间状态",
@@ -760,7 +761,7 @@
     "imageCacheConfirmTitle": "清理图片缓存",
     "confirmDeletePresetTitle": "删除预设",
     "confirmDeletePreset": "确定删除预设「{name}」吗？此操作不可撤销。",
-    "passwordTooLong": "密码最多 72 位"
+    "passwordTooLong": "密码最多 72 个 UTF-8 字节"
   },
   "theme": {
     "switch": "切换主题",
@@ -1980,6 +1981,7 @@
     "errorEmpty": "请填写邀请码、用户名和密码",
     "errorPasswordMismatch": "两次输入的密码不一致",
     "errorPasswordTooShort": "密码至少 8 位",
+    "errorPasswordTooLong": "密码最多 72 个 UTF-8 字节",
     "errorUsernameFormat": "用户名须为 3–20 位字母、数字、_ 或 -",
     "errorInvalidCode": "邀请码无效或已过期",
     "errorInvalidFields": "请检查填写内容",

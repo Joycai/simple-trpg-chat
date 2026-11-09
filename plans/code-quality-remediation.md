@@ -83,15 +83,15 @@
 
 - [x] **QLT-005｜角色降级、密码修改 / 重置撤销旧权限与会话**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
-  - 改动：新增 `revokeSessions`（旋转 `sessionToken` + 失效缓存）；`updateUser` 仅在角色变化时旋转；`resetPassword`、`changeOwnPassword`、`createUser` 接入统一 `passwordPolicy`（8–72 位）。前端改密成功提示“需重新登录”。
+  - 改动：角色、密码哈希和对应令牌在同一条更新中写入。登录只在角色、密码哈希和封禁状态仍匹配时签发令牌。每次会话校验直接读 PostgreSQL，并以当前角色为准。注册、创建用户、改密及重置密码共用至少 8 位、最多 72 个 UTF-8 字节的校验。
   - 验收：降级后旧 JWT 立即失效；改密 / 重置后旧会话失效；同角色改名不无谓踢下线；三种建密入口共用同一长度策略。
-  - 完成证据：`admin.test.ts` 23 项通过（含角色变化旋转、改名不旋转、弱密码拒绝、重置后旋转）。整套复核：`tsc --noEmit` 0 错误、改动文件 ESLint 无诊断、`check-i18n` 通过。⚠️ 注意：原始 JWT 仍携带旧 role，本方案靠 token 校验把旧会话挡在 `authorized`，`getSessionStatus` 的 30s 缓存已同步失效；真实多 worker 下的缓存一致性尚未实测。
+  - 完成证据：管理员操作测试验证角色或密码与令牌同写。鉴权测试覆盖撤销后旧令牌失效、签发条件及条件更新失败。密码测试覆盖中文和 emoji 字节上限。
 
 - [x] **QLT-006｜用户名冲突不消耗邀请码**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
-  - 改动：把用户名重查移到 `active → used` 之前，冲突时事务尚未写入任何行；保留条件 UPDATE 的单码单账号语义。注释改为与实际提交语义一致。
+  - 改动：事务先校验并占用有效邀请码，再查询用户名。已存在的用户名和插入时的唯一键冲突都使事务回滚。
   - 验收：用户名已存在 → 邀请码保持 `active`；同码并发仍只有一个账号成功；注册流程其余分支不回归。
-  - 完成证据：逻辑顺序已改，代码已提交（`241dcfa`）。待补真实 PostgreSQL 并发用例——本机无 `DATABASE_URL`，该并发语义无法在 mock 下证明。
+  - 完成证据：PostgreSQL 回归用例覆盖无效邀请码、用户名冲突后的邀请码复用，以及同名并发注册。
 
 - [ ] **QLT-011｜物品持有具备数据库级并发不变量**
   - 状态 / 负责人 / 分支 / PR：TODO / 未指派 / 未创建 / 未创建
@@ -147,15 +147,15 @@
 
 - [x] **QLT-007｜消息 catch-up 可检测并补齐 300+ 缺口**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
-  - 改动：服务端 `CatchUpResult { messages, truncated, gapBeforeMessageId }`，并用完整页后的探测查询确认是否仍有更早消息；新增 `beforeMessageId` 上界参数，形成 `(since, before)` 的严格向更早期翻页。客户端最多 5 页（约 1500 条）循环至 `truncated=false`。
-  - 验收：满页 + 更早行 → `truncated=true` 且游标为当前页最旧 id；用该 id 作为 `before` 可拿到更早一页；部分页 -> `truncated=false`。
-  - 完成证据：`messages.test.ts` 39 项通过（含 5 个分页 / 缺口用例）。已随 `241dcfa` 提交。双浏览器长断线回归待补。
+  - 改动：补偿查询从最早缺失消息开始按 ID 升序分页，多取一行判断是否需要继续。客户端每五页让出一次执行机会，并保留游标继续补齐。
+  - 验收：单页结果按 ID 升序返回，游标取最后一条已补齐的消息。超过五页仍可补齐。
+  - 完成证据：消息查询与 SSE hook 回归测试覆盖游标、截断及 1,501 条消息的缺口。
 
 - [x] **QLT-008｜catch-up 失败后有界重试与可观察状态**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)
-  - 改动：`hadDrop` 仅在补偿 Promise 完成后清除（不再在请求发出前清零）；失败按 1s/2s/4s/8s 退避重试，最多 4 次；`catchUpInFlight` 防并发重入，组件卸载清理定时器与 abort。
-  - 验收：健康 SSE 下首次失败仍能自愈；防抖不重复合并；卸载后不再 setState。
-  - 完成证据：逻辑与单测覆盖到位，已随 `241dcfa` 提交。待补浏览器级失败注入（需可运行的 SSE 环境）。
+  - 改动：失败时保留游标并指数退避，重试间隔最长 30 秒。再次断线时取消定时器，旧连接的查询结果在返回后丢弃。
+  - 验收：中途失败时从最后成功的补偿页继续。实时消息和再次断线均不推进未补齐的游标。
+  - 完成证据：SSE hook 回归测试覆盖第二页失败、补偿期间收到实时消息、以及请求进行中再次断线。
 
 - [x] **QLT-009｜新成员实时进入 roster 与所有目标列表**
   - 状态 / 负责人 / 分支 / PR：IN REVIEW / 未指派 / `codex/code-quality-remediation` / [#261](https://github.com/Joycai/simple-trpg-chat/pull/261)

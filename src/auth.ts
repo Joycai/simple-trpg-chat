@@ -2,11 +2,11 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db, sqlNow } from "./db";
 import { users } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { recordLogin } from "@/lib/auth/login-history";
-import { authConfig, invalidateSessionCache } from "./auth.config";
+import { authConfig } from "./auth.config";
 import { headers } from "next/headers";
 
 import { isLocked, recordFailure, clearAttempts } from "@/lib/auth/rate-limit";
@@ -62,26 +62,22 @@ const { handlers, signIn, signOut, auth: nextAuthAuth } = NextAuth({
           return null;
         }
 
-        // Reset rate limit on success
+        // Only issue a session for the credentials and role we just verified.
+        // A password reset, role change or ban can commit during bcrypt.compare.
+        const sessionToken = crypto.randomUUID();
+        const [issued] = await db.update(users)
+          .set({ sessionToken, updatedAt: sqlNow() })
+          .where(and(
+            eq(users.id, user.id),
+            eq(users.passwordHash, user.passwordHash),
+            eq(users.role, user.role),
+            eq(users.isBanned, false),
+          ))
+          .returning({ id: users.id });
+        if (!issued) return null;
+
         clearAttempts(ipKey);
         clearAttempts(userKey);
-
-        // Single-session: generate new token to invalidate old sessions
-        // Try-catch: column may not exist if DB hasn't been migrated
-        let sessionToken: string | undefined;
-        try {
-          sessionToken = crypto.randomUUID();
-          await db.update(users)
-            .set({ sessionToken, updatedAt: sqlNow() })
-            .where(eq(users.id, user.id));
-          // Drop any stale cached token for this user so the freshly issued
-          // session validates immediately, instead of being wrongly kicked as
-          // "logged in elsewhere" until the 30s cache entry expires.
-          invalidateSessionCache(user.id.toString());
-        } catch {
-          // session_token column doesn't exist yet — non-blocking
-          sessionToken = undefined;
-        }
 
         // Record login history (fire-and-forget, non-blocking)
         recordLogin(user.id).catch(() => {});

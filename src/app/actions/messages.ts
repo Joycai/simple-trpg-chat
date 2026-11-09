@@ -2,7 +2,7 @@
 
 import { db, sqlNow } from "@/db";
 import { roomMembers, messages, users, roomDmReads } from "@/db/schema";
-import { eq, and, desc, lt, gt } from "drizzle-orm";
+import { asc, eq, and, desc, lt, gt } from "drizzle-orm";
 import { auth } from "@/auth";
 import { broadcastToRoom } from "@/lib/server/events";
 import { dispatchMessage, messageVisibilityWhere } from "@/lib/messaging/router";
@@ -363,70 +363,24 @@ export async function loadMoreMessagesAction(roomId: number, beforeMessageId: nu
   return results.reverse();
 }
 
-/**
- * Reconnect catch-up: everything visible to this user newer than the last
- * message the client saw before its SSE stream dropped.
- *
- * Paging contract (a bounded response must not hide the hole):
- * - Call 1: `sinceMessageId`, no upper bound → the NEWEST page of the gap.
- * - If `truncated`, call 2 passes the previous page's oldest id as
- *   `beforeMessageId`. The window becomes `(since, before)` — strictly OLDER —
- *   so each call walks backwards until `truncated` is false. The old code
- *   reused the oldest id as `since`, which re-fetched the same page forever.
- */
-export interface CatchUpResult {
-  messages: typeof messages.$inferSelect[];
-  /** True when older visible messages remain inside the gap window. */
-  truncated: boolean;
-  /** Oldest id in this page — pass as `beforeMessageId` on the next call. */
-  gapBeforeMessageId: number | null;
-}
-
+/** Read the oldest unseen page first so each completed page advances the recovery cursor. */
 export async function catchUpMessagesAction(
   roomId: number,
   sinceMessageId: number,
-  beforeMessageId?: number | null,
   limit = CATCH_UP_LIMIT,
-): Promise<CatchUpResult> {
+) {
   const { userId, isHost } = await checkRoomAccess(roomId, false);
   const take = Number.isSafeInteger(limit) && limit > 0
     ? Math.min(limit, CATCH_UP_LIMIT_MAX)
     : CATCH_UP_LIMIT;
-  const safeSince = Number.isSafeInteger(sinceMessageId) && sinceMessageId > 0 ? sinceMessageId : 0;
-  const before = Number.isSafeInteger(beforeMessageId) && (beforeMessageId as number) > 0
-    ? (beforeMessageId as number)
-    : null;
+  const since = Number.isSafeInteger(sinceMessageId) && sinceMessageId > 0 ? sinceMessageId : 0;
 
-  const window = before != null
-    ? and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, safeSince), lt(messages.id, before))
-    : and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, safeSince));
-
-  const results = await db
+  const rows = await db
     .select()
     .from(messages)
-    .where(window)
-    .orderBy(desc(messages.id))
-    .limit(take);
+    .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, since)))
+    .orderBy(asc(messages.id))
+    .limit(take + 1);
 
-  const ordered = results.reverse();
-  // A full page does not prove a gap by itself; probe for one more visible row
-  // inside the same window so `truncated` is a fact, not a guess.
-  let truncated = false;
-  if (results.length === take) {
-    const oldest = ordered[0]?.id;
-    if (oldest != null) {
-      const [older] = await db
-        .select({ id: messages.id })
-        .from(messages)
-        .where(and(messageVisibilityWhere(roomId, userId, isHost), gt(messages.id, safeSince), lt(messages.id, oldest)))
-        .limit(1);
-      truncated = !!older;
-    }
-  }
-
-  return {
-    messages: ordered,
-    truncated,
-    gapBeforeMessageId: truncated ? (ordered[0]?.id ?? null) : null,
-  };
+  return { messages: rows.slice(0, take), truncated: rows.length > take };
 }
