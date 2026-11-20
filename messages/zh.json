@@ -2127,8 +2127,9 @@
     "presetArkPlan": "Agent Plan（北京）：请使用 Agent Plan 专属 API 密钥；普通 API 与 Coding Plan 使用不同配置。"
   },
   "imageGeneration": {
-    "editTitle": "编辑图片服务",
-    "keyKeepHint": "API Key（留空保持不变，尾号 {hint}）",
+    "keyHintEnding": "当前密钥尾号：{hint}",
+    "manageShared": "共享与费率",
+    "sharedAdminHint": "管理员可调整此共享图片服务的共享状态、每张费率或删除服务，无法查看或修改原创建者的端点与密钥。",
     "showKey": "显示密钥",
     "hideKey": "隐藏密钥",
     "usageAdmin": "全站最近 30 次图片生成记录",

@@ -13,16 +13,20 @@ vi.mock('@/lib/ai/protocol/provider', () => ({ completeForProvider: (...a: unkno
 function chain(table: unknown) {
   const result = { where: () => result, for: () => result, limit: () => result, then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(table === aiVendors ? vendors : models).then(resolve) }; return result;
 }
+let deleteReturning: unknown[] = [{ id: 7 }];
 const transaction = { select: () => ({ from: (table: unknown) => chain(table) }),
   insert: () => ({ values: async (v: unknown) => { writes(v); } }),
   update: () => ({ set: (v: unknown) => ({ where: async () => { writes(v); } }) }),
-  delete: () => ({ where: async () => { writes('delete'); } }) };
+  delete: () => ({ where: () => ({
+    returning: async () => { writes('delete'); return deleteReturning; },
+    then: (resolve: (v: unknown) => unknown) => Promise.resolve(writes('delete')).then(resolve),
+  }) }) };
 vi.mock('@/db', () => ({ db: { transaction: async (fn: (tx: typeof transaction) => unknown) => fn(transaction), select: () => transaction.select() }, sqlNow: () => 'now' }));
 import { ProtocolError } from '@/lib/ai/protocol/errors';
 import { deleteAiModel, deleteAiVendor, saveAiModel, saveAiVendor, testAiModel, updateSharedModelAdmin } from '../ai-catalog';
 const route = { protocol: 'chat', endpoint: 'https://api.example/v1', endpointMode: 'base' };
 const input = { name: 'Model', model: 'm', protocol: 'chat', settings: {}, isShared: false, tokenRateInput: 0, tokenRateCached: 0, tokenRateOutput: 0 };
-beforeEach(() => { vi.clearAllMocks(); session = { user: { id: '2', role: 'host' } }; models = []; vendors = [{ id: 1, ownerId: 2, name: 'Vendor', platform: 'custom', routes: [route], apiKeyEncrypted: 'encrypted:secret', apiKeyHint: 'cret' }]; });
+beforeEach(() => { vi.clearAllMocks(); deleteReturning = [{ id: 7 }]; session = { user: { id: '2', role: 'host' } }; models = []; vendors = [{ id: 1, ownerId: 2, name: 'Vendor', platform: 'custom', routes: [route], apiKeyEncrypted: 'encrypted:secret', apiKeyHint: 'cret' }]; });
 describe('catalog mutations', () => {
   it.each([null, 'player'])('rejects unauthenticated/unauthorized role %s', async role => {
     session = role ? { user: { id: '2', role } } : null;
@@ -67,6 +71,8 @@ describe('catalog mutations', () => {
     expect(writes).toHaveBeenCalledWith(expect.objectContaining({ isShared: false, tokenRateInput: 3, tokenRateCached: 0.5, tokenRateOutput: 6 }));
     expect(await deleteAiModel(7)).toEqual({ success: true });
     expect(writes).toHaveBeenCalledWith('delete');
+    deleteReturning = [];
+    expect(await deleteAiModel(7)).toEqual({ success: false, error: 'forbidden' });
   });
   it('blocks non-admin from updateSharedModelAdmin or deleting foreign models', async () => {
     models = [{ ...input, id: 7, ownerId: 3, vendorId: 1, isShared: true }];

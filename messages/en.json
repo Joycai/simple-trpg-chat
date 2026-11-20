@@ -2127,8 +2127,9 @@
     "presetArkPlan": "Agent Plan (Beijing): use its dedicated API key. Pay-as-you-go and Coding Plan use different configurations."
   },
   "imageGeneration": {
-    "editTitle": "Edit image service",
-    "keyKeepHint": "API key (leave empty to keep, ending {hint})",
+    "keyHintEnding": "Current key ending: {hint}",
+    "manageShared": "Sharing & rates",
+    "sharedAdminHint": "Admins can adjust sharing, rate, or delete this shared image service without accessing or changing the owner's endpoint or API key.",
     "showKey": "Show key",
     "hideKey": "Hide key",
     "usageAdmin": "Last 30 site-wide image generation attempts",

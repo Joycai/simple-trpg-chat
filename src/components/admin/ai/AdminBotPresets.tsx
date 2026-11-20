@@ -163,6 +163,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       {editingId !== null && createPortal(
         <OverlayShell
           onClose={() => setEditingId(null)}
+          onDismiss={(close) => { if (!updating) close(); }}
           rootClassName="p-4"
           panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
         >
@@ -173,8 +174,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                 <Edit2 className="w-4 h-4 text-primary" />
                 {t("editPreset")}
               </h3>
-              <button type="button" onClick={close}
-                className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+              <button type="button" onClick={close} disabled={updating}
+                className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer disabled:opacity-50">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -239,6 +240,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       {showCreate && createPortal(
         <OverlayShell
           onClose={() => { setShowCreate(false); setCreateError(""); }}
+          onDismiss={(close) => { if (!creating) close(); }}
           rootClassName="p-4"
           panelClassName="bg-surface theme-border border border-border rounded-theme shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
         >
@@ -252,8 +254,8 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
                 </h3>
                 <p className="text-xs text-text-muted mt-1">{t("presetModalDesc")}</p>
               </div>
-              <button type="button" onClick={close}
-                className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer">
+              <button type="button" onClick={close} disabled={creating}
+                className="p-1 rounded-theme text-text-muted hover:text-text hover:bg-surface-alt transition cursor-pointer disabled:opacity-50">
                 <X className="w-5 h-5" />
               </button>
             </div>

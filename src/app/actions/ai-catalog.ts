@@ -169,7 +169,11 @@ export async function deleteAiModel(id: number): Promise<Done> {
       if (existing.vendorId !== null) {
         await tx.select({ id: aiVendors.id }).from(aiVendors).where(eq(aiVendors.id, existing.vendorId)).for('update');
       }
-      await tx.delete(aiProviders).where(eq(aiProviders.id, id));
+      const condition = admin
+        ? and(eq(aiProviders.id, id), or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true)))
+        : and(eq(aiProviders.id, id), eq(aiProviders.ownerId, userId));
+      const deleted = await tx.delete(aiProviders).where(condition).returning({ id: aiProviders.id });
+      if (!deleted.length) throw new Error('forbidden');
     });
     revalidatePath('/'); return { success: true };
   } catch (e) { return failure(e); }

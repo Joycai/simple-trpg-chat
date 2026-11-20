@@ -1,4 +1,5 @@
 'use server';
+import { z } from 'zod';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { imageProviders, imageGenerations, rooms, users } from '@/db/schema';
@@ -10,6 +11,11 @@ import { checkRoomAccess } from '@/lib/auth/room-access';
 import { revalidatePath } from 'next/cache';
 import { getTranslations } from 'next-intl/server';
 import type { Done } from '@/lib/actions/result';
+
+const sharedImageAdminSchema = z.object({
+  isShared: z.boolean(),
+  ratePerImage: z.number().finite().min(0).max(1000000),
+}).strict();
 
 export async function getImageProviders(roomId?: number): Promise<ImageProviderView[]> {
   const session = await auth();
@@ -41,30 +47,43 @@ export async function saveImageProvider(id: number | null, input: unknown): Prom
   if (!parsed.success || (id !== null && (!Number.isSafeInteger(id) || id <= 0))) return { success: false, error: t('invalid') };
   const data = parsed.data;
   const ownerId = Number(session.user.id);
-  const isAdmin = session.user.role === 'admin';
-  if (data.isShared && !isAdmin) return { success: false, error: t('unauthorized') };
+  if (data.isShared && session.user.role !== 'admin') return { success: false, error: t('unauthorized') };
   try {
-    const [existing] = id
-      ? await db.select().from(imageProviders).where(
-          isAdmin
-            ? and(eq(imageProviders.id, id), or(eq(imageProviders.ownerId, ownerId), eq(imageProviders.isShared, true)))
-            : and(eq(imageProviders.id, id), eq(imageProviders.ownerId, ownerId)),
-        )
-      : [];
+    // Strictly owner-only: prevents another admin from redirecting an owner's stored API key to a different endpoint.
+    const [existing] = id ? await db.select().from(imageProviders).where(and(eq(imageProviders.id, id), eq(imageProviders.ownerId, ownerId))) : [];
     if (id && !existing) return { success: false, error: t('unauthorized') };
     if (!data.apiKey && !existing) return { success: false, error: t('keyRequired') };
     if (!(await validateApiEndpoint(data.apiEndpoint)).valid) return { success: false, error: t('invalidEndpoint') };
     const values = {
-      ownerId: existing ? existing.ownerId : ownerId,
-      name: data.name, modelType: data.modelType, model: data.model, protocol: data.protocol,
+      ownerId, name: data.name, modelType: data.modelType, model: data.model, protocol: data.protocol,
       apiEndpoint: data.apiEndpoint.replace(/\/+$/, ''),
       apiKeyEncrypted: data.apiKey ? encrypt(data.apiKey) : existing!.apiKeyEncrypted,
       apiKeyHint: data.apiKey ? data.apiKey.slice(-4) : existing!.apiKeyHint,
       settings: { size: data.size, quality: data.quality, aspectRatio: data.aspectRatio, watermark: data.watermark },
       ratePerImage: data.ratePerImage, isShared: data.isShared,
     };
-    if (id) await db.update(imageProviders).set(values).where(eq(imageProviders.id, id));
+    if (id) await db.update(imageProviders).set(values).where(and(eq(imageProviders.id, id), eq(imageProviders.ownerId, ownerId)));
     else await db.insert(imageProviders).values(values);
+    revalidatePath('/admin/ai');
+    return { success: true };
+  } catch { return { success: false, error: t('failed') }; }
+}
+/** Allow any admin to adjust sharing/rate on a shared image service without touching its endpoint or credentials. */
+export async function updateSharedImageProviderAdmin(id: number, input: unknown): Promise<Done> {
+  const t = await getTranslations('imageGeneration');
+  const session = await auth();
+  if (!session || session.user.role !== 'admin') return { success: false, error: t('unauthorized') };
+  if (!Number.isSafeInteger(id) || id <= 0) return { success: false, error: t('invalid') };
+  const parsed = sharedImageAdminSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: t('invalid') };
+  const userId = Number(session.user.id);
+  try {
+    const rows = await db
+      .update(imageProviders)
+      .set({ isShared: parsed.data.isShared, ratePerImage: parsed.data.ratePerImage })
+      .where(and(eq(imageProviders.id, id), or(eq(imageProviders.ownerId, userId), eq(imageProviders.isShared, true))))
+      .returning({ id: imageProviders.id });
+    if (!rows.length) return { success: false, error: t('unauthorized') };
     revalidatePath('/admin/ai');
     return { success: true };
   } catch { return { success: false, error: t('failed') }; }
