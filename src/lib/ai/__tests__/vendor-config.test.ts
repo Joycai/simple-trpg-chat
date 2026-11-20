@@ -1,6 +1,6 @@
 import { AI_VENDORS, getVendor, vendorLabel, vendorOptions } from '../provider-presets';
 import { describe, expect, it } from 'vitest';
-import { selectReasoningEffort, setThinkingEnabled, modelConnection, modelSchema, presetRoutes, settingsForProtocol, validateVendorRoute, vendorSchema } from '../vendor-config';
+import { selectReasoningEffort, setThinkingEnabled, setEffortMapping, sanitizeModelSettings, modelConnection, modelSchema, presetRoutes, settingsForProtocol, validateVendorRoute, vendorSchema } from '../vendor-config';
 import { buildModelsRequest } from '../model-fetch';
 import { parseProtocolConfig, resolveConnection, reasoningBody } from '../protocol/config';
 const model = { name: 'Display', model: 'm', protocol: 'chat' as const, settings: {}, isShared: false, tokenRateInput: 0, tokenRateCached: 0, tokenRateOutput: 0 };
@@ -113,5 +113,24 @@ describe('reasoning editor transitions', () => {
     expect(reasoningBody(off, { model: 'm', messages: [] })).toEqual({ thinking: { type: 'disabled' } });
     const on = selectReasoningEffort(off, 'high');
     expect(reasoningBody(on, { model: 'm', messages: [] })).toEqual({ thinking: { type: 'enabled' }, reasoning_effort: 'high' });
+  });
+  it('clears empty wire effort mappings instead of trapping invalid empty strings', () => {
+    const withHigh = selectReasoningEffort(parseProtocolConfig({ version: 1, protocol: 'chat' }), 'high');
+    const cleared = setEffortMapping(withHigh, 'high', '');
+    expect(cleared.capabilities?.effortMap).toBeUndefined();
+    const disabled = selectReasoningEffort(cleared, undefined);
+    expect(modelSchema.safeParse({ ...model, settings: { chat: disabled } }).success).toBe(true);
+  });
+  it('drops unparseable inactive protocol drafts when sanitizing model settings', () => {
+    const validChat = parseProtocolConfig({ version: 1, protocol: 'chat' });
+    const brokenMessages = { version: 1, protocol: 'messages', capabilities: { effortMap: { high: '' } } } as unknown as ReturnType<typeof parseProtocolConfig>;
+    const sanitized = sanitizeModelSettings({ chat: validChat, messages: brokenMessages }, 'chat');
+    expect(modelSchema.safeParse({ ...model, settings: sanitized }).success).toBe(true);
+  });
+  it('throws specific errors when Messages budget >= maxOutput or maxOutput > contextWindow', () => {
+    const messages = parseProtocolConfig({ version: 1, protocol: 'messages', maxOutputTokens: 1024, reasoning: { effort: 'high' }, capabilities: { thinkingDialect: 'budget', effortMap: { high: 1024 } } });
+    expect(() => modelConnection(presetRoutes('anthropic'), { ...model, protocol: 'messages', settings: { messages } })).toThrow('budgetExceedsMaxOutput');
+    const chat = parseProtocolConfig({ version: 1, protocol: 'chat', contextWindow: 100, maxOutputTokens: 200 });
+    expect(() => modelConnection(presetRoutes('openai'), { ...model, protocol: 'chat', settings: { chat } })).toThrow('maxOutputExceedsContext');
   });
 });

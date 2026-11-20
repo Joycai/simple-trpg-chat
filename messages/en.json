@@ -761,6 +761,8 @@
     "imageCacheConfirmTitle": "Clean image cache",
     "confirmDeletePresetTitle": "Delete preset",
     "confirmDeletePreset": "Delete preset \"{name}\"? This cannot be undone.",
+    "presetNotFound": "Bot preset not found or already deleted",
+    "savingPreset": "Saving…",
     "passwordTooLong": "Password must be at most 72 UTF-8 bytes"
   },
   "theme": {
@@ -1331,6 +1333,7 @@
     "imageProviderHint": "Add an image service in personal AI settings or the admin panel first."
   },
   "aiImport": {
+    "errAiDisabled": "AI features are globally disabled by the administrator",
     "title": "AI Import",
     "stepInput": "Input",
     "stepPreview": "Preview",
@@ -2022,6 +2025,16 @@
     "errorUnknown": "Operation failed. Please try again later"
   },
   "aiCatalog": {
+    "keepKeyNoHint": "Leave blank to keep the existing key",
+    "budgetExceedsMaxOutput": "Thinking budget must be smaller than max output (Messages defaults to 4096)",
+    "maxOutputExceedsContext": "Max output cannot exceed context window",
+    "emptyResponse": "Model returned an empty or incomplete response.",
+    "testTimeout": "Connection test timed out. Check the endpoint URL and connectivity.",
+    "testNetwork": "Could not reach the vendor endpoint. Check the URL and network.",
+    "testUpstreamStatus": "Vendor returned HTTP {status}. Check the API key and model ID.",
+    "geminiDialectRequired": "Select a Gemini thinking dialect (level or budget) before setting reasoning effort.",
+    "manageShared": "Sharing & rates",
+    "sharedAdminHint": "Admins can adjust sharing, rates, or delete shared models without accessing another owner's Vendor credentials.",
     "title": "AI vendors and models",
     "intro": "Configure Vendor credentials and endpoints first, then add models.",
     "addVendor": "Add Vendor",
@@ -2114,6 +2127,14 @@
     "presetArkPlan": "Agent Plan (Beijing): use its dedicated API key. Pay-as-you-go and Coding Plan use different configurations."
   },
   "imageGeneration": {
+    "keyHintEnding": "Current key ending: {hint}",
+    "manageShared": "Sharing & rates",
+    "sharedAdminHint": "Admins can adjust sharing, rate, or delete this shared image service without accessing or changing the owner's endpoint or API key.",
+    "showKey": "Show key",
+    "hideKey": "Hide key",
+    "usageAdmin": "Last 30 site-wide image generation attempts",
+    "user": "User",
+    "service": "Service",
     "jobFailed": "Image task {id} could not complete. Check your image usage records. It will not retry automatically.",
     "jobPartial": "Image task {id} delivered only part of its output. Delivered images remain available. It will not retry automatically.",
     "title": "Image generation services",

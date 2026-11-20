@@ -22,7 +22,7 @@ export async function assetJobAllowed(job: Pick<AssetJob, 'roomId' | 'userId' | 
   const [user] = await db.select().from(users).where(eq(users.id, job.userId));
   const [room] = await db.select().from(rooms).where(eq(rooms.id, job.roomId));
   const [enabled] = await db.select().from(systemConfig).where(eq(systemConfig.key, 'ai_enabled'));
-  if (!user || user.isBot || !room || enabled?.value === 'false') return false;
+  if (!user || user.isBot || !room || enabled?.value !== 'true') return false;
   const host = user.role === 'admin' || room.hostId === user.id;
   if (job.kind !== 'portrait') return host;
   const [member] = await db.select({ id: roomMembers.id }).from(roomMembers).where(and(eq(roomMembers.roomId, room.id), eq(roomMembers.userId, user.id)));

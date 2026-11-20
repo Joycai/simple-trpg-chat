@@ -1,7 +1,7 @@
 "use server";
 
 import { db, sqlNow } from "@/db";
-import { users, aiPointLogs, rooms } from "@/db/schema";
+import { users, aiPointLogs, rooms, aiProviders, imageProviders } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { broadcastToRoom } from "@/lib/server/events";
@@ -128,16 +128,39 @@ export async function updateUser(id: number, displayName: string, role: string):
     inviteQuota = 0;
   }
 
-  const [updated] = await db.update(users)
-    .set({
-      displayName: name,
-      role,
-      updatedAt: sqlNow(),
-      inviteQuota,
-      ...(user.role !== role ? { sessionToken: randomUUID() } : {}),
-    })
-    .where(and(eq(users.id, id), eq(users.role, user.role)))
-    .returning({ id: users.id });
+  const demotingAdmin = user.role === "admin" && role !== "admin";
+  const userPatch = {
+    displayName: name,
+    role,
+    updatedAt: sqlNow(),
+    inviteQuota,
+    ...(user.role !== role ? { sessionToken: randomUUID() } : {}),
+  };
+
+  let updated: { id: number } | undefined;
+  if (demotingAdmin) {
+    // Demoted admins must not leave orphaned site-shared AI or image services.
+    updated = await db.transaction(async (tx) => {
+      const [row] = await tx.update(users)
+        .set(userPatch)
+        .where(and(eq(users.id, id), eq(users.role, user.role)))
+        .returning({ id: users.id });
+      if (!row) return undefined;
+      await tx.update(aiProviders)
+        .set({ isShared: false, updatedAt: sqlNow() })
+        .where(and(eq(aiProviders.ownerId, id), eq(aiProviders.isShared, true)));
+      await tx.update(imageProviders)
+        .set({ isShared: false })
+        .where(and(eq(imageProviders.ownerId, id), eq(imageProviders.isShared, true)));
+      return row;
+    });
+  } else {
+    const [row] = await db.update(users)
+      .set(userPatch)
+      .where(and(eq(users.id, id), eq(users.role, user.role)))
+      .returning({ id: users.id });
+    updated = row;
+  }
   if (!updated) return { success: false, error: t("errorUserChanged") };
   revalidatePath("/admin");
   return { success: true };

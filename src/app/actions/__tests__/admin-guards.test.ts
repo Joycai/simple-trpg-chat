@@ -53,6 +53,13 @@ describe("bot-presets write actions", () => {
     expect(await createBotPresetAction(preset)).toMatchObject({ success: true });
     expect(await deleteBotPresetAction(1)).toEqual({ success: true });
   });
+
+  it("reject blank or invalid preset payloads without writing", async () => {
+    expect(await createBotPresetAction({ ...preset, name: "   " })).toEqual({ success: false, error: "admin.errorMissingFields" });
+    expect(await updateBotPresetAction(0, preset)).toEqual({ success: false, error: "admin.presetNotFound" });
+    expect(await deleteBotPresetAction(-1)).toEqual({ success: false, error: "admin.presetNotFound" });
+    expect(write).not.toHaveBeenCalled();
+  });
 });
 
 describe("theme setters", () => {

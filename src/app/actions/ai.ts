@@ -15,8 +15,32 @@ import { decrypt } from "@/lib/security/encryption";
  * System Config (Admin Only)
  */
 
+const ALLOWED_SYSTEM_CONFIG_KEYS = new Set([
+  "ai_enabled",
+  "site_title",
+  "site_favicon",
+  "site_icp",
+  "site_icp_url",
+  "site_police_icon",
+  "site_police_html",
+  "sensitive_words",
+  "sensitive_words_enabled",
+  "invite_registration_enabled",
+  "invite_default_quota",
+]);
+
+function assertValidSystemConfig(key: string, value: string) {
+  if (!ALLOWED_SYSTEM_CONFIG_KEYS.has(key)) {
+    throw new Error(`Invalid system config key: ${key}`);
+  }
+  if (key === "ai_enabled" && value !== "true" && value !== "false") {
+    throw new Error("Invalid ai_enabled value");
+  }
+}
+
 export async function updateSystemConfig(key: string, value: string) {
   await requireAdmin();
+  assertValidSystemConfig(key, value);
 
   await db.insert(systemConfig).values({
     key,
@@ -43,7 +67,10 @@ export async function updateSystemConfig(key: string, value: string) {
 export async function updateSystemConfigBatch(entries: Record<string, string>) {
   await requireAdmin();
 
-  const rows = Object.entries(entries).map(([key, value]) => ({ key, value }));
+  const rows = Object.entries(entries).map(([key, value]) => {
+    assertValidSystemConfig(key, value);
+    return { key, value };
+  });
   if (rows.length === 0) return;
   // Single multi-row upsert — `excluded.value` pulls each row's incoming value.
   await db.insert(systemConfig).values(rows).onConflictDoUpdate({

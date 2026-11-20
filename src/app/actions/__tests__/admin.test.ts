@@ -187,11 +187,14 @@ describe("room actions", () => {
 describe("session revocation on privileged changes", () => {
   // Regression: the JWT bakes the role in at sign-in. Clearing a cache that
   // never held the role left a demoted admin with working admin rights.
-  it("rotates the session token when a role changes", async () => {
+  it("rotates the session token and unshares AI/image providers when demoting an admin", async () => {
     selectQueue = [[{ id: 2, username: "bob", role: "admin" }]];
     expect(await updateUser(2, "Bob", "player")).toEqual({ success: true });
-    expect(update).toHaveBeenCalledTimes(1);
-    expect(setUserFields).toHaveBeenCalledWith(expect.objectContaining({ role: "player", sessionToken: expect.any(String) }));
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledTimes(3);
+    expect(setUserFields).toHaveBeenNthCalledWith(1, expect.objectContaining({ role: "player", sessionToken: expect.any(String) }));
+    expect(setUserFields).toHaveBeenNthCalledWith(2, expect.objectContaining({ isShared: false }));
+    expect(setUserFields).toHaveBeenNthCalledWith(3, { isShared: false });
   });
 
   it("does not rotate the token for a display-name-only change", async () => {

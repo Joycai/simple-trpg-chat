@@ -6,11 +6,15 @@ import { Notice } from '@/components/shared/Notice';
 import { saveAiModel, fetchVendorModels, type getAiCatalog } from '@/app/actions/ai-catalog';
 import { useAsyncAction } from '@/lib/ui/useAsyncAction';
 import { parseProtocolConfig, type ProtocolConfig } from '@/lib/ai/protocol/config';
-import { EFFORTS, PROTOCOL_LABELS, settingsForProtocol, selectReasoningEffort, setThinkingEnabled } from '@/lib/ai/vendor-config';
+import { EFFORTS, PROTOCOL_LABELS, settingsForProtocol, selectReasoningEffort, setThinkingEnabled, setEffortMapping, sanitizeModelSettings } from '@/lib/ai/vendor-config';
 import type { Effort, Protocol } from '@/lib/ai/protocol/types';
 import { Field, Choice, Toggle, Action } from './ConfigControls';
 type Catalog = Awaited<ReturnType<typeof getAiCatalog>>;
 type Model = Catalog['models'][number];
+function parseOptionalInt(raw: string, prev: number | undefined): number | undefined {
+  if (raw === '') return undefined;
+  return /^\d+$/.test(raw) ? Number(raw) : prev;
+}
 export function ModelEditor({ vendor, model, admin, onClose, onSaved }: { vendor: Catalog['vendors'][number]; model?: Model; admin: boolean; onClose: () => void; onSaved: () => Promise<void> }) {
   const t = useTranslations('aiCatalog'); const c = useTranslations('common');
   const initial = model ? parseProtocolConfig(model.protocolConfig) : { version: 1 as const, protocol: vendor.routes[0].protocol, endpointMode: 'base' as const };
@@ -29,14 +33,14 @@ export function ModelEditor({ vendor, model, admin, onClose, onSaved }: { vendor
     setModels(result.models); return { success: true as const };
   }, { fallbackError: t('fetchFailed') });
   const save = useAsyncAction(async (close: () => void) => {
-    const result = await saveAiModel(vendor.id, model?.id ?? null, { name, model: modelId, protocol, settings,
+    const result = await saveAiModel(vendor.id, model?.id ?? null, { name, model: modelId, protocol, settings: sanitizeModelSettings(settings, protocol),
       isShared: admin && shared, tokenRateInput: admin ? Number(rates[0]) : 0, tokenRateCached: admin ? Number(rates[1]) : 0, tokenRateOutput: admin ? Number(rates[2]) : 0 });
     if (result.success) { await onSaved(); close(); } return result;
   }, { fallbackError: t('saveFailed'), keepPendingOnSuccess: true });
   const dialects = protocol === 'chat' ? ['auto', 'thinking', 'enable_thinking'] : protocol === 'responses' ? ['auto'] : protocol === 'messages' ? ['auto', 'adaptive', 'budget', 'thinking'] : ['auto', 'level', 'budget'];
   const dialect = config.capabilities?.thinkingDialect;
   const effort = config.reasoning?.effort;
-  const number = (v: string) => v === '' ? undefined : Number(v);
+  const geminiNeedsDialect = protocol === 'gemini' && !dialect;
   return <OverlayShell portal onClose={onClose} onDismiss={close => { if (!save.pending) close(); }} rootClassName="p-4" panelClassName="w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-theme border border-border bg-surface theme-border p-5 font-theme shadow-2xl">
     {close => <div className="space-y-5">
       <div className="flex items-center justify-between gap-3"><div><p className="text-xs text-accent">{vendor.name}</p><h3 className="text-lg font-bold font-theme-display text-text">{t(model ? 'editModel' : 'addModel')}</h3></div><Action onClick={close} disabled={save.pending}>{c('close')}</Action></div>
@@ -51,8 +55,8 @@ export function ModelEditor({ vendor, model, admin, onClose, onSaved }: { vendor
         <div className="grid gap-3 sm:grid-cols-2">
           <Choice label={t('stream')} value={config.stream === undefined ? 'auto' : String(config.stream)} options={['auto', 'true', 'false'].map(id => ({ id, label: t(id === 'auto' ? 'unspecified' : id === 'true' ? 'streamOn' : 'streamOff') }))} onChange={v => patch({ stream: v === 'auto' ? undefined : v === 'true' })} />
           <Choice label={t('multimodal')} value={config.multimodalInput === undefined ? 'auto' : String(config.multimodalInput)} options={['auto', 'true', 'false'].map(id => ({ id, label: t(id === 'auto' ? 'unspecified' : id === 'true' ? 'supported' : 'unsupported') }))} onChange={v => patch({ multimodalInput: v === 'auto' ? undefined : v === 'true' })} />
-          <Field label={t('contextWindow')} inputMode="numeric" value={config.contextWindow ?? ''} placeholder={t('optional')} onChange={e => patch({ contextWindow: number(e.target.value) })} />
-          <Field label={t('maxOutput')} inputMode="numeric" value={config.maxOutputTokens ?? ''} placeholder={t('optional')} onChange={e => patch({ maxOutputTokens: number(e.target.value) })} />
+          <Field label={t('contextWindow')} inputMode="numeric" value={config.contextWindow ?? ''} placeholder={t('optional')} onChange={e => patch({ contextWindow: parseOptionalInt(e.target.value, config.contextWindow) })} />
+          <Field label={t('maxOutput')} inputMode="numeric" value={config.maxOutputTokens ?? ''} placeholder={t('optional')} onChange={e => patch({ maxOutputTokens: parseOptionalInt(e.target.value, config.maxOutputTokens) })} />
         </div><p className="text-xs leading-5 text-text-dim">{t('capabilityHint')}</p>
         {protocol === 'chat' && <Choice label={t('outputField')} value={config.outputTokenField ?? 'max_tokens'} options={['max_tokens', 'max_completion_tokens'].map(id => ({ id, label: id }))} onChange={v => patch({ outputTokenField: v as ProtocolConfig['outputTokenField'] })} />}
       </div>
@@ -60,12 +64,23 @@ export function ModelEditor({ vendor, model, admin, onClose, onSaved }: { vendor
         <h4 className="font-bold text-text">{t('reasoning')}</h4>
         <p className="text-xs leading-5 text-text-dim">{t('effortHint')}</p>
         <Choice label={t('dialect')} value={dialect ?? 'auto'} options={dialects.map(id => ({ id, label: id === 'auto' ? t('unspecified') : id }))} onChange={v => patch({ reasoning: undefined, capabilities: { ...config.capabilities, thinkingDialect: v === 'auto' ? undefined : v as NonNullable<ProtocolConfig['capabilities']>['thinkingDialect'], effortMap: undefined } })} />
-        <Choice label={t('effort')} value={effort ?? 'auto'} options={[{ id: 'auto', label: t('unspecified') }, ...EFFORTS.filter(e => dialect !== 'enable_thinking' || e === 'off').map(id => ({ id, label: id }))]} onChange={v => patch(selectReasoningEffort(config, v === 'auto' ? undefined : v as Effort))} />
+        {geminiNeedsDialect ? (
+          <p className="text-xs leading-5 text-text-dim">{t('geminiDialectRequired')}</p>
+        ) : (
+          <Choice label={t('effort')} value={effort ?? 'auto'} options={[{ id: 'auto', label: t('unspecified') }, ...EFFORTS.filter(e => dialect !== 'enable_thinking' || e === 'off').map(id => ({ id, label: id }))]} onChange={v => patch(selectReasoningEffort(config, v === 'auto' ? undefined : v as Effort))} />
+        )}
         {dialect === 'budget' ? <Field label={t('budget')} inputMode="numeric" value={config.reasoning?.budgetTokens ?? (effort ? config.capabilities?.effortMap?.[effort] : undefined) ?? ''} onChange={e => {
-          const value = number(e.target.value);
-          if (effort) patch({ reasoning: { ...config.reasoning, budgetTokens: undefined }, capabilities: { ...config.capabilities, effortMap: { ...config.capabilities?.effortMap, [effort]: value } } });
-          else patch({ reasoning: { ...config.reasoning, budgetTokens: value } });
-        }} /> : effort && <Field label={t('wireEffort')} value={config.capabilities?.effortMap?.[effort] ?? ''} onChange={e => patch({ capabilities: { ...config.capabilities, effortMap: { ...config.capabilities?.effortMap, [effort]: e.target.value } } })} />}
+          const currentBudget = typeof config.reasoning?.budgetTokens === 'number'
+            ? config.reasoning.budgetTokens
+            : (effort && typeof config.capabilities?.effortMap?.[effort] === 'number' ? config.capabilities.effortMap[effort] as number : undefined);
+          const value = parseOptionalInt(e.target.value, currentBudget);
+          if (effort) {
+            const next = setEffortMapping(config, effort, value);
+            patch({ ...next, reasoning: { ...config.reasoning, budgetTokens: undefined } });
+          } else {
+            patch({ reasoning: value === undefined ? undefined : { ...config.reasoning, budgetTokens: value } });
+          }
+        }} /> : (!geminiNeedsDialect && effort) ? <Field label={t('wireEffort')} value={config.capabilities?.effortMap?.[effort] ?? ''} onChange={e => patch(setEffortMapping(config, effort, e.target.value))} /> : null}
         {dialect && dialect !== 'level' && protocol !== 'responses' && <Choice label={t('thinking')} value={config.reasoning?.enabled === undefined ? 'auto' : String(config.reasoning.enabled)} options={['auto', 'true', 'false'].map(id => ({ id, label: t(id === 'auto' ? 'unspecified' : id === 'true' ? 'enabled' : 'disabled') }))} onChange={v => patch(setThinkingEnabled(config, v === 'auto' ? undefined : v === 'true'))} />}
 
       </div>

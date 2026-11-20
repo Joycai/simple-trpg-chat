@@ -22,6 +22,11 @@ describe("reduceOutcome", () => {
       .toEqual({ pending: false, error: "no" });
   });
 
+  it("clearError clears error without altering pending", () => {
+    expect(reduceOutcome(failed, { type: "clearError" })).toEqual({ pending: false, error: null });
+    expect(reduceOutcome(IDLE, { type: "clearError" })).toBe(IDLE);
+  });
+
   it("a failure releases pending and records the error", () => {
     const running = reduceOutcome(IDLE, { type: "start" });
     expect(reduceOutcome(running, { type: "settle", outcome: { success: false, error: "denied" } }))

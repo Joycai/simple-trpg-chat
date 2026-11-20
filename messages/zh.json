@@ -761,6 +761,8 @@
     "imageCacheConfirmTitle": "清理图片缓存",
     "confirmDeletePresetTitle": "删除预设",
     "confirmDeletePreset": "确定删除预设「{name}」吗？此操作不可撤销。",
+    "presetNotFound": "预置设定不存在或已被删除",
+    "savingPreset": "保存中…",
     "passwordTooLong": "密码最多 72 个 UTF-8 字节"
   },
   "theme": {
@@ -1331,6 +1333,7 @@
     "imageProviderHint": "先在个人 AI 设置或管理后台添加图片服务。"
   },
   "aiImport": {
+    "errAiDisabled": "管理员已关闭全局 AI 功能",
     "title": "AI 导入",
     "stepInput": "输入",
     "stepPreview": "预览",
@@ -2022,6 +2025,16 @@
     "errorUnknown": "操作失败，请稍后再试"
   },
   "aiCatalog": {
+    "keepKeyNoHint": "留空保留现有密钥",
+    "budgetExceedsMaxOutput": "思考预算必须小于最大输出（Messages 默认最大输出为 4096）",
+    "maxOutputExceedsContext": "最大输出不能超过上下文长度",
+    "emptyResponse": "模型未返回有效文本内容，请检查模型配置或重试。",
+    "testTimeout": "连接测试超时，请检查端点地址与网络连通性。",
+    "testNetwork": "无法连接到服务商端点，请检查地址与网络。",
+    "testUpstreamStatus": "服务商返回错误（HTTP {status}），请检查密钥与模型 ID。",
+    "geminiDialectRequired": "Gemini 需先选择思考控制方式（level 或 budget），再配置推理强度。",
+    "manageShared": "共享与费率",
+    "sharedAdminHint": "管理员可调整共享状态、计费倍率或删除模型，无法查看或修改其他人的 Vendor 凭据。",
     "title": "AI 服务商与模型",
     "intro": "先配置 Vendor 的凭据与端点，再添加模型。",
     "addVendor": "添加 Vendor",
@@ -2114,6 +2127,14 @@
     "presetArkPlan": "Agent Plan（北京）：请使用 Agent Plan 专属 API 密钥；普通 API 与 Coding Plan 使用不同配置。"
   },
   "imageGeneration": {
+    "keyHintEnding": "当前密钥尾号：{hint}",
+    "manageShared": "共享与费率",
+    "sharedAdminHint": "管理员可调整此共享图片服务的共享状态、每张费率或删除服务，无法查看或修改原创建者的端点与密钥。",
+    "showKey": "显示密钥",
+    "hideKey": "隐藏密钥",
+    "usageAdmin": "全站最近 30 次图片生成记录",
+    "user": "用户",
+    "service": "服务",
     "jobFailed": "图片生成任务 {id} 未能完成，请查看图片用量记录。不会自动重试。",
     "jobPartial": "图片生成任务 {id} 仅完成部分交付，已发送的图片可以正常使用。不会自动重试。",
     "title": "图片生成服务",

@@ -1,10 +1,12 @@
 import 'server-only';
 import { db } from '@/db';
-import { rooms, roomMembers, users } from '@/db/schema';
+import { rooms, roomMembers, systemConfig, users } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 
-/** Recheck durable job recipients before generating and before exposing an artifact. */
+/** Recheck durable job recipients and global AI switch before generating and before exposing an artifact. */
 export async function imageJobAllowed(ctx: { roomId: number; botUserId: number; hostId: number; replyIsPrivate: boolean; targetUserId: number | null }) {
+  const [enabled] = await db.select({ value: systemConfig.value }).from(systemConfig).where(eq(systemConfig.key, 'ai_enabled'));
+  if (enabled?.value !== 'true') return false;
   const [bot] = await db.select({ id: users.id }).from(roomMembers)
     .innerJoin(users, eq(users.id, roomMembers.userId)).innerJoin(rooms, eq(rooms.id, roomMembers.roomId))
     .where(and(eq(rooms.id, ctx.roomId), eq(rooms.hostId, ctx.hostId), eq(users.id, ctx.botUserId), eq(users.isBot, true)));

@@ -6,8 +6,10 @@ import { aiVendors, aiProviders } from '@/db/schema';
 import { and, eq, or } from 'drizzle-orm';
 import { encrypt, decrypt } from '@/lib/security/encryption';
 import { validateApiEndpoint } from '@/lib/security/url-guard';
+import { z } from 'zod';
 import { vendorSchema, modelSchema, routeSchema, modelConnection, validateVendorRoute } from '@/lib/ai/vendor-config';
 import { parseProtocolConfig } from '@/lib/ai/protocol/config';
+import { ProtocolError } from '@/lib/ai/protocol/errors';
 import { completeForProvider } from '@/lib/ai/protocol/provider';
 import { buildModelsRequest, parseModelsResponse } from '@/lib/ai/model-fetch';
 import { requestHttp, readJson } from '@/lib/ai/protocol/transport';
@@ -22,7 +24,21 @@ async function identity() {
 }
 async function failure(error: unknown) {
   const t = await getTranslations('aiCatalog');
-  const known = ['forbidden', 'routeInUse', 'vendorNotEmpty', 'keyRequired', 'invalidEndpoint'];
+  if (error instanceof ProtocolError) {
+    if (error.code === 'timeout') return { success: false as const, error: t('testTimeout') };
+    if (error.code === 'network') return { success: false as const, error: t('testNetwork') };
+    if (error.code === 'upstream') {
+      return { success: false as const, error: error.httpStatus ? t('testUpstreamStatus', { status: error.httpStatus }) : t('testFailed') };
+    }
+    if (error.code === 'config' && /Blocked outbound/i.test(error.message)) {
+      return { success: false as const, error: t('invalidEndpoint') };
+    }
+    return { success: false as const, error: t('invalid') };
+  }
+  const known = [
+    'forbidden', 'routeInUse', 'vendorNotEmpty', 'keyRequired', 'invalidEndpoint',
+    'budgetExceedsMaxOutput', 'maxOutputExceedsContext', 'emptyResponse',
+  ];
   const key = error instanceof Error && known.includes(error.message) ? error.message : 'invalid';
   return { success: false as const, error: t(key) };
 }
@@ -113,6 +129,56 @@ export async function deleteAiVendor(id: number): Promise<Done> {
   } catch (e) { return failure(e); }
 }
 
+const sharedAdminSchema = z.object({
+  isShared: z.boolean(),
+  tokenRateInput: z.number().finite().min(0).max(1e6),
+  tokenRateCached: z.number().finite().min(0).max(1e6),
+  tokenRateOutput: z.number().finite().min(0).max(1e6),
+}).strict();
+
+/** Allow any admin to adjust sharing/rates on a shared model without touching another admin's vendor credentials. */
+export async function updateSharedModelAdmin(id: number, input: unknown): Promise<Done> {
+  try {
+    const { userId, admin } = await identity();
+    if (!admin || !Number.isSafeInteger(id) || id <= 0) throw new Error('forbidden');
+    const data = sharedAdminSchema.parse(input);
+    await db.transaction(async tx => {
+      const [existing] = await tx.select().from(aiProviders).where(eq(aiProviders.id, id)).for('update');
+      if (!existing || (existing.ownerId !== userId && !existing.isShared)) throw new Error('forbidden');
+      await tx.update(aiProviders).set({
+        isShared: data.isShared,
+        tokenRateInput: data.tokenRateInput,
+        tokenRateCached: data.tokenRateCached,
+        tokenRateOutput: data.tokenRateOutput,
+        updatedAt: sqlNow(),
+      }).where(eq(aiProviders.id, id));
+    });
+    revalidatePath('/'); return { success: true };
+  } catch (e) { return failure(e); }
+}
+
+/** Delete a model while locking its parent vendor so route/vendor mutations stay serialized. */
+export async function deleteAiModel(id: number): Promise<Done> {
+  try {
+    const { userId, admin } = await identity();
+    if (!Number.isSafeInteger(id) || id <= 0) throw new Error('invalid');
+    await db.transaction(async tx => {
+      const [existing] = await tx.select().from(aiProviders).where(eq(aiProviders.id, id));
+      if (!existing) throw new Error('forbidden');
+      if (existing.ownerId !== userId && !(admin && existing.isShared)) throw new Error('forbidden');
+      if (existing.vendorId !== null) {
+        await tx.select({ id: aiVendors.id }).from(aiVendors).where(eq(aiVendors.id, existing.vendorId)).for('update');
+      }
+      const condition = admin
+        ? and(eq(aiProviders.id, id), or(eq(aiProviders.ownerId, userId), eq(aiProviders.isShared, true)))
+        : and(eq(aiProviders.id, id), eq(aiProviders.ownerId, userId));
+      const deleted = await tx.delete(aiProviders).where(condition).returning({ id: aiProviders.id });
+      if (!deleted.length) throw new Error('forbidden');
+    });
+    revalidatePath('/'); return { success: true };
+  } catch (e) { return failure(e); }
+}
+
 /** Probe a saved model by ID; do not infer protocol or credentials from user text. */
 export async function testAiModel(id: number): Promise<Done> {
   try {
@@ -124,7 +190,7 @@ export async function testAiModel(id: number): Promise<Done> {
       model: model.model, messages: [{ role: 'user', content: 'ping' }], timeoutMs: 10000,
       ...(!config.reasoning && !config.maxOutputTokens ? { maxOutputTokens: 5 } : {}),
     });
-    if (result.status !== 'completed' || !result.message.content?.trim()) throw new Error('invalid');
+    if (result.status !== 'completed' || !result.message.content?.trim()) throw new Error('emptyResponse');
     return { success: true };
   } catch (e) { return failure(e); }
 }

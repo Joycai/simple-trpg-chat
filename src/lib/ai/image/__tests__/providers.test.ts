@@ -1,12 +1,20 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ rows: [] as unknown[], auth: vi.fn(), insert: vi.fn(), encrypt: vi.fn(), endpoint: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rows: [] as unknown[], auth: vi.fn(), insert: vi.fn(), update: vi.fn(), del: vi.fn(), encrypt: vi.fn(), endpoint: vi.fn() }));
 vi.mock('@/auth', () => ({ auth: mocks.auth }));
-vi.mock('@/db', () => ({ db: { select: () => ({ from: () => ({ where: () => ({ then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve(mocks.rows).then(resolve), orderBy: async () => mocks.rows }) }) }), insert: mocks.insert } }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('@/db', () => ({
+  db: {
+    select: () => ({ from: () => ({ where: () => ({ then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve(mocks.rows).then(resolve), orderBy: async () => mocks.rows }) }) }),
+    insert: mocks.insert,
+    update: mocks.update,
+    delete: mocks.del,
+  },
+}));
 vi.mock('@/lib/security/encryption', () => ({ encrypt: mocks.encrypt }));
 vi.mock('@/lib/security/url-guard', () => ({ validateApiEndpoint: mocks.endpoint }));
 vi.mock('@/lib/auth/room-access', () => ({ checkRoomAccess: vi.fn() }));
 vi.mock('next-intl/server', () => ({ getTranslations: async () => (key: string) => key }));
-import { saveImageProvider, getImageProviders } from '@/app/actions/image-providers';
+import { saveImageProvider, updateSharedImageProviderAdmin, deleteImageProvider, getImageProviders } from '@/app/actions/image-providers';
 import { resolveImageProvider, validImageAssignment } from '../providers';
 const config = { name: 'test', modelType: 'gpt-image-2', model: 'gpt-image-2', protocol: 'openai-images', apiEndpoint: 'https://api.example.com/v1', size: '1024x1024', ratePerImage: 1, apiKey: 'private-test-key', isShared: false };
 beforeEach(() => {
@@ -14,6 +22,8 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ user: { id: '1', role: 'host' } });
   mocks.endpoint.mockResolvedValue({ valid: true }); mocks.encrypt.mockReturnValue('encrypted');
   mocks.insert.mockReturnValue({ values: vi.fn(async () => {}) });
+  mocks.update.mockReturnValue({ set: vi.fn(() => ({ where: vi.fn(() => ({ returning: vi.fn(async () => [{ id: 5 }]) })) })) });
+  mocks.del.mockReturnValue({ where: vi.fn(() => ({ returning: vi.fn(async () => [{ id: 5 }]) })) });
 });
 it('rejects non-admin attempts to share a service', async () => {
   expect(await saveImageProvider(null, { ...config, isShared: true })).toEqual({ success: false, error: 'unauthorized' });
@@ -42,4 +52,22 @@ it('rejects another host’s private service at runtime, but accepts shared serv
 it('allows disabling imageGen after its service has been deleted', async () => {
   expect(await validImageAssignment(42, 5, false)).toBe(true);
   expect(await validImageAssignment(42, undefined, true)).toBe(false);
+});
+it('lets another admin adjust sharing/rate or delete a shared image service without altering endpoint/key', async () => {
+  mocks.auth.mockResolvedValue({ user: { id: '99', role: 'admin' } });
+  mocks.rows = [{ ...config, id: 5, ownerId: 2, isShared: true, apiKeyEncrypted: 'ciphertext', apiKeyHint: '-key', settings: { size: '1024x1024' } }];
+  const [listed] = await getImageProviders();
+  expect(listed).toMatchObject({ isOwner: false, canManage: true, apiKeyHint: '' });
+  // Non-owner admin cannot call saveImageProvider (which could redirect owner's stored API key to another endpoint).
+  mocks.rows = [];
+  expect(await saveImageProvider(5, { ...config, apiEndpoint: 'https://evil.example/v1', apiKey: '', isShared: true })).toEqual({ success: false, error: 'unauthorized' });
+  expect(mocks.update).not.toHaveBeenCalled();
+  // Dedicated admin action only updates isShared and ratePerImage.
+  expect(await updateSharedImageProviderAdmin(5, { isShared: false, ratePerImage: 3 })).toEqual({ success: true });
+  expect(mocks.update.mock.results[0].value.set).toHaveBeenCalledWith({ isShared: false, ratePerImage: 3 });
+  expect(await deleteImageProvider(5)).toEqual({ success: true });
+  expect(await deleteImageProvider(0)).toEqual({ success: false, error: 'invalid' });
+  // Non-admin cannot call updateSharedImageProviderAdmin.
+  mocks.auth.mockResolvedValue({ user: { id: '2', role: 'host' } });
+  expect(await updateSharedImageProviderAdmin(5, { isShared: false, ratePerImage: 0 })).toEqual({ success: false, error: 'unauthorized' });
 });

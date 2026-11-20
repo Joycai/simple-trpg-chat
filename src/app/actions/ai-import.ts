@@ -10,6 +10,7 @@ import { ProtocolError } from "@/lib/ai/protocol/errors";
 import { checkRoomAccess } from "@/lib/auth/room-access";
 import { getTranslations } from "next-intl/server";
 import { emitToUser } from "@/lib/server/events";
+import { isAiGloballyEnabled } from "@/lib/ai/ai-enabled";
 
 type Translator = Awaited<ReturnType<typeof getTranslations>>;
 type Provider = typeof aiProviders.$inferSelect;
@@ -46,6 +47,10 @@ export async function startTextImportAnalysisAction(
   const t = await getTranslations("aiImport");
   try {
     const { userId } = await checkRoomAccess(roomId, true);
+
+    if (!(await isAiGloballyEnabled())) {
+      return { success: false, error: t("errAiDisabled") };
+    }
 
     // Resolve the AI provider: use the explicitly selected one if given (and the
     // user is authorized to use it), otherwise fall back to the first available.

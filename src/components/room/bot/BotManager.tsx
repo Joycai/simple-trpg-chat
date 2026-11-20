@@ -137,6 +137,9 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     if (!botName || !botNickname || submitting) return;
     setSubmitting(true);
     setFormError(null);
+    const parsedPresetId = typeof selectedPresetId === "string" && /^\d+$/.test(selectedPresetId)
+      ? Number(selectedPresetId)
+      : typeof selectedPresetId === "number" ? selectedPresetId : undefined;
     const res = await createBotAction(roomId, {
       name: botName,
       nickname: botNickname,
@@ -147,6 +150,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
       providerId: providerId ?? undefined,
       imageProviderId: imageProviderId ?? undefined,
       avatarColor: botColor,
+      presetId: parsedPresetId,
     }).catch(() => ({ success: false as const, error: tCommon("error") }));
     setSubmitting(false);
     if (!res.success) {
@@ -225,7 +229,7 @@ export function BotManager({ roomId, isHost, onClose, aiEnabled, validProviderId
     }
     setBotColor(bot.avatarColor || getRandomColorForUser(bot.id));
     setSelectedPresetId("");
-    setAllowEditPrompt(true);
+    setAllowEditPrompt(cfg.allowEditPrompt ?? true);
   };
 
   const cancelEdit = () => {

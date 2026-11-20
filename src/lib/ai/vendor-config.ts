@@ -30,8 +30,8 @@ export function modelConnection(routes: VendorRoute[], data: ModelData): { apiEn
   const protocolConfig = parseProtocolConfig({ ...settings, model: data.model, endpointMode: route.endpointMode, auth: route.auth });
   resolveConnection(route.endpoint, 'validation-only', data.model, protocolConfig);
   const body = reasoningBody(protocolConfig, { model: data.model, messages: [] });
-  if (data.protocol === 'messages' && Number((body.thinking as { budget_tokens?: number } | undefined)?.budget_tokens) >= (protocolConfig.maxOutputTokens ?? 4096)) throw new Error('invalid');
-  if (protocolConfig.contextWindow && protocolConfig.maxOutputTokens && protocolConfig.maxOutputTokens > protocolConfig.contextWindow) throw new Error('invalid');
+  if (data.protocol === 'messages' && Number((body.thinking as { budget_tokens?: number } | undefined)?.budget_tokens) >= (protocolConfig.maxOutputTokens ?? 4096)) throw new Error('budgetExceedsMaxOutput');
+  if (protocolConfig.contextWindow && protocolConfig.maxOutputTokens && protocolConfig.maxOutputTokens > protocolConfig.contextWindow) throw new Error('maxOutputExceedsContext');
   return { apiEndpoint: route.endpoint, protocolConfig };
 }
 /** Switching never copies protocol-specific settings. Previously configured routes survive. */
@@ -60,16 +60,69 @@ export function validateVendorRoute(route: VendorRoute) {
   return resolveConnection(route.endpoint, 'validation-only', bound, { version: 1, protocol: route.protocol, endpointMode: route.endpointMode, auth: route.auth });
 }
 
+function cleanEffortMap(map?: Partial<Record<typeof EFFORTS[number], string | number>>) {
+  if (!map) return undefined;
+  const cleaned: Partial<Record<typeof EFFORTS[number], string | number>> = {};
+  for (const [k, v] of Object.entries(map) as [typeof EFFORTS[number], string | number | undefined][]) {
+    if (v === undefined) continue;
+    if (typeof v === 'string' && v.trim() === '') continue;
+    if (typeof v === 'number' && !Number.isFinite(v)) continue;
+    cleaned[k] = v;
+  }
+  return Object.keys(cleaned).length ? cleaned : undefined;
+}
+
+/** Update or clear a single effort mapping without leaving empty strings trapped in state. */
+export function setEffortMapping(config: ProtocolConfig, effort: typeof EFFORTS[number], value: string | number | undefined): ProtocolConfig {
+  const nextMap = { ...config.capabilities?.effortMap };
+  if (value === undefined || (typeof value === 'string' && value.trim() === '')) {
+    delete nextMap[effort];
+  } else {
+    nextMap[effort] = value;
+  }
+  const effortMap = cleanEffortMap(nextMap);
+  const capabilities = { ...config.capabilities, effortMap };
+  const hasCaps = Object.values(capabilities).some(v => v !== undefined);
+  return { ...config, capabilities: hasCaps ? capabilities : undefined };
+}
+
+/** Strip invalid empty effort entries and drop unparseable inactive protocol drafts before saving. */
+export function sanitizeModelSettings(
+  settings: Partial<Record<Protocol, ProtocolConfig>>,
+  activeProtocol: Protocol,
+): Partial<Record<Protocol, ProtocolConfig>> {
+  const out: Partial<Record<Protocol, ProtocolConfig>> = {};
+  for (const [proto, cfg] of Object.entries(settings) as [Protocol, ProtocolConfig | undefined][]) {
+    if (!cfg) continue;
+    const cleanedMap = cleanEffortMap(cfg.capabilities?.effortMap);
+    const caps = cfg.capabilities ? { ...cfg.capabilities, effortMap: cleanedMap } : undefined;
+    const hasCaps = caps && Object.values(caps).some(v => v !== undefined);
+    const normalized: ProtocolConfig = { ...cfg, capabilities: hasCaps ? caps : undefined };
+    if (proto === activeProtocol || protocolConfigSchema.safeParse(normalized).success) {
+      out[proto] = normalized;
+    }
+  }
+  return out;
+}
+
 /** Keep custom wire mappings when revisiting an effort; remove contradictory switches. */
 export function selectReasoningEffort(config: ProtocolConfig, effort?: typeof EFFORTS[number]): ProtocolConfig {
   const reasoning = { ...config.reasoning, effort, enabled: undefined, budgetTokens: undefined };
-  const effortMap = { ...config.capabilities?.effortMap };
+  const nextMap = { ...config.capabilities?.effortMap };
   const budget = config.capabilities?.thinkingDialect === 'budget';
   if (budget && config.reasoning?.effort && config.reasoning.budgetTokens !== undefined) {
-    effortMap[config.reasoning.effort] = config.reasoning.budgetTokens;
+    nextMap[config.reasoning.effort] = config.reasoning.budgetTokens;
   }
-  if (!effort) return { ...config, reasoning: undefined, capabilities: { ...config.capabilities, effortMap } };
-  if (effortMap[effort] === undefined) effortMap[effort] = budget ? 1024 : effort;
+  if (!effort) {
+    const effortMap = cleanEffortMap(nextMap);
+    const capabilities = { ...config.capabilities, effortMap };
+    const hasCaps = Object.values(capabilities).some(v => v !== undefined);
+    return { ...config, reasoning: undefined, capabilities: hasCaps ? capabilities : undefined };
+  }
+  if (nextMap[effort] === undefined || (typeof nextMap[effort] === 'string' && nextMap[effort].trim() === '')) {
+    nextMap[effort] = budget ? 1024 : effort;
+  }
+  const effortMap = cleanEffortMap(nextMap);
   // Empty reasoning must be absent: some adapters interpret its presence as enabled.
   const hasReasoning = Object.values(reasoning).some(v => v !== undefined);
   return { ...config, reasoning: hasReasoning ? reasoning : undefined,
