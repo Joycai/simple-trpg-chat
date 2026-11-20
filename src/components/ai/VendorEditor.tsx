@@ -32,7 +32,7 @@ export function VendorEditor({ vendor, used, onClose, onSaved }: { vendor?: Vend
       <Choice label={t('platform')} value={platform} options={vendorOptions(vendor?.platform).map(v => ({ id: v.id, label: vendorLabel(v, locale) }))} onChange={value => { setPlatform(value); if (!vendor) { setName(value === COMPAT_VENDOR_ID ? '' : vendorLabel(getVendor(value)!, locale)); setRoutes(presetRoutes(value)); } }} />
       {getVendor(platform)?.hintKey && <p className="text-xs leading-5 text-text-muted">{t(getVendor(platform)!.hintKey!)}</p>}
       <Field label={t('vendorName')} value={name} maxLength={120} onChange={e => setName(e.target.value)} />
-      <Field label={t('apiKey')} type={showKey ? 'text' : 'password'} autoComplete="new-password" value={key} onChange={e => setKey(e.target.value)} hint={vendor ? t('keepKey', { hint: vendor.keyHint ?? '' }) : undefined} trailing={
+      <Field label={t('apiKey')} type={showKey ? 'text' : 'password'} autoComplete="new-password" value={key} onChange={e => setKey(e.target.value)} hint={vendor ? (vendor.keyHint ? t('keepKey', { hint: vendor.keyHint }) : t('keepKeyNoHint')) : undefined} trailing={
         <button type="button" aria-label={t(showKey ? 'hideKey' : 'showKey')} title={t(showKey ? 'hideKey' : 'showKey')} onClick={() => setShowKey(value => !value)} className="flex h-9 w-9 items-center justify-center rounded-theme text-text-muted transition-colors hover:bg-surface-alt hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary">
           {showKey ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
         </button>

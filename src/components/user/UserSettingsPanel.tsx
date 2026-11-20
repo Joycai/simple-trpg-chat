@@ -125,7 +125,7 @@ export function UserSettingsPanel({ userName, userRole, onClose }: UserSettingsP
           <PaneTransition paneKey={tab} className="flex-1 overflow-y-auto p-5 md:p-6 bg-surface">
             {tab === "security" && <SecurityTab />}
             {tab === "history" && <LoginHistoryTab />}
-            {tab === "ai" && <AiProvidersTab />}
+            {tab === "ai" && <AiProvidersTab userRole={userRole} />}
             {tab === "ai-usage" && <AiUsageTab />}
             {tab === "ai-points" && <AiPointsTab userRole={userRole} />}
             {tab === "invites" && userRole === "host" && <InvitesTab />}

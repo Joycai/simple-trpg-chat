@@ -4,7 +4,7 @@ import { broadcastCharacterUpdate } from "@/lib/character/broadcast";
 import { emptySheet } from "@/lib/character/sheet-v2";
 import { validImageAssignment } from "@/lib/ai/image/providers";
 import { db } from "@/db";
-import { users, roomMembers, rooms } from "@/db/schema";
+import { users, roomMembers, rooms, botPresets } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -37,6 +37,7 @@ export async function createBotAction(
     enableTools?: string[];
     providerId?: number; imageProviderId?: number;
     avatarColor?: string;
+    presetId?: number;
   }
 ): Promise<{ success: true } | Fail> {
   // Only room hosts can create bots in the room
@@ -46,6 +47,16 @@ export async function createBotAction(
 
   if (!(await validImageAssignment(roomId, data.imageProviderId, data.enableTools?.includes("imageGen") ?? false))) {
     return { success: false, error: (await getTranslations("imageGeneration"))("invalidAssignment") };
+  }
+
+  let effectivePrompt = data.systemPrompt;
+  let presetMeta: { presetId: number; allowEditPrompt: false } | undefined;
+  if (data.presetId !== undefined && Number.isSafeInteger(data.presetId) && data.presetId > 0) {
+    const [preset] = await db.select().from(botPresets).where(eq(botPresets.id, data.presetId));
+    if (preset && !preset.allowEditPrompt) {
+      effectivePrompt = preset.systemPrompt;
+      presetMeta = { presetId: preset.id, allowEditPrompt: false };
+    }
   }
 
   // 1. Create a "Shadow User" for the bot (atomic transaction)
@@ -64,12 +75,13 @@ export async function createBotAction(
       isBot: true,
       botConfigJson: JSON.stringify({
         roomId,
-        systemPrompt: data.systemPrompt,
+        systemPrompt: effectivePrompt,
         model: data.model,
         activation: data.activation,
         enableTools: data.enableTools || ["roll_dice", "respond_check"],
         providerId: data.providerId,
         imageProviderId: data.imageProviderId,
+        ...presetMeta,
         historicalSummary: "",
         lastSummarizedMsgId: 0
       }),
@@ -155,10 +167,14 @@ export async function updateBotAction(
   if (!(await validImageAssignment(roomId, imageProviderId, (data.enableTools ?? existingConfig.enableTools ?? []).includes("imageGen")))) {
     return { success: false, error: (await getTranslations("imageGeneration"))("invalidAssignment") };
   }
+  const lockedPrompt = existingConfig.allowEditPrompt === false;
+  const effectivePrompt = lockedPrompt && typeof existingConfig.systemPrompt === "string"
+    ? existingConfig.systemPrompt
+    : data.systemPrompt;
 
   await db.update(users).set({
     displayName: data.name,
-    botConfigJson: sql`((coalesce(${users.botConfigJson}, '{}')::jsonb - 'providerId') || ${JSON.stringify({ systemPrompt: data.systemPrompt, model: data.model, activation: data.activation, enableTools: data.enableTools ?? existingConfig.enableTools, providerId: data.providerId, imageProviderId })}::jsonb)::text`,
+    botConfigJson: sql`((coalesce(${users.botConfigJson}, '{}')::jsonb - 'providerId') || ${JSON.stringify({ systemPrompt: effectivePrompt, model: data.model, activation: data.activation, enableTools: data.enableTools ?? existingConfig.enableTools, providerId: data.providerId, imageProviderId })}::jsonb)::text`,
   }).where(eq(users.id, botUserId));
 
   await db.update(roomMembers).set({

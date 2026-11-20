@@ -37,6 +37,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [allowEditPrompt, setAllowEditPrompt] = useState(true);
   const [createError, setCreateError] = useState("");
+  const [creating, setCreating] = useState(false);
 
   // Edit State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -45,6 +46,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
   const [editSystemPrompt, setEditSystemPrompt] = useState("");
   const [editAllowEditPrompt, setEditAllowEditPrompt] = useState(true);
   const [editError, setEditError] = useState("");
+  const [updating, setUpdating] = useState(false);
   /** A failed delete, keyed to its preset so it never shows in another preset's editor. */
   const [deleteError, setDeleteError] = useState<{ id: number; text: string } | null>(null);
   /** Preset waiting on the delete confirmation. */
@@ -54,6 +56,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
 
   const handleCreate = async (e: React.FormEvent, close: () => void) => {
     e.preventDefault();
+    if (creating) return;
     setCreateError("");
 
     if (!name.trim() || !defaultNickname.trim() || !systemPrompt.trim()) {
@@ -61,12 +64,14 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       return;
     }
 
+    setCreating(true);
     const res = await createBotPresetAction({
       name: name.trim(),
       defaultNickname: defaultNickname.trim(),
       systemPrompt: systemPrompt.trim(),
       allowEditPrompt,
     }).catch(() => ({ success: false as const, error: t("operationFailed") }));
+    setCreating(false);
     if (!res.success) {
       setCreateError(res.error);
       return;
@@ -81,6 +86,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
 
   const handleUpdateSubmit = async (e: React.FormEvent, close: () => void) => {
     e.preventDefault();
+    if (updating) return;
     setEditError("");
 
     if (!editingId) return;
@@ -89,12 +95,14 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
       return;
     }
 
+    setUpdating(true);
     const res = await updateBotPresetAction(editingId, {
       name: editName.trim(),
       defaultNickname: editDefaultNickname.trim(),
       systemPrompt: editSystemPrompt.trim(),
       allowEditPrompt: editAllowEditPrompt,
     }).catch(() => ({ success: false as const, error: t("operationFailed") }));
+    setUpdating(false);
     if (!res.success) {
       setEditError(res.error);
       return;
@@ -206,17 +214,17 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
               )}
 
               <div className="flex items-center gap-3 pt-1">
-                <button type="button"
+                <button type="button" disabled={updating}
                   onClick={() => editingId !== null && handleDelete(editingId, editName)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-theme text-sm font-medium border border-danger/40 text-danger hover:bg-danger/10 transition cursor-pointer">
+                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-theme text-sm font-medium border border-danger/40 text-danger hover:bg-danger/10 transition cursor-pointer disabled:opacity-50">
                   <Trash2 className="w-4 h-4" /> {t("delete")}
                 </button>
                 <div className="flex items-center gap-3 ml-auto">
-                  <button type="button" onClick={close}
-                    className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">{tCommon("cancel")}</button>
-                  <button type="submit"
-                    className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
-                    {t("savePreset")}
+                  <button type="button" onClick={close} disabled={updating}
+                    className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer disabled:opacity-50">{tCommon("cancel")}</button>
+                  <button type="submit" disabled={updating}
+                    className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)] disabled:opacity-50">
+                    {updating ? t("savingPreset") : t("savePreset")}
                   </button>
                 </div>
               </div>
@@ -240,7 +248,7 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
               <div>
                 <h3 className="font-bold text-text text-lg font-theme-display flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-primary" />
-                  {t("botPresetsTitle")}
+                  {t("addPreset")}
                 </h3>
                 <p className="text-xs text-text-muted mt-1">{t("presetModalDesc")}</p>
               </div>
@@ -283,11 +291,11 @@ export function AdminBotPresets({ presets }: AdminBotPresetsProps) {
               {createError && <p className="text-xs text-danger">{createError}</p>}
 
               <div className="flex items-center justify-end gap-3 pt-1">
-                <button type="button" onClick={close}
-                  className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer">{tCommon("cancel")}</button>
-                <button type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)]">
-                  {t("createPreset")}
+                <button type="button" onClick={close} disabled={creating}
+                  className="px-4 py-2 text-sm text-text-muted hover:text-text transition cursor-pointer disabled:opacity-50">{tCommon("cancel")}</button>
+                <button type="submit" disabled={creating}
+                  className="px-6 py-2.5 bg-gradient-to-b from-primary to-primary/85 hover:brightness-110 text-primary-foreground rounded-theme font-bold text-sm transition cursor-pointer shadow-[var(--theme-glow)] disabled:opacity-50">
+                  {creating ? t("savingPreset") : t("createPreset")}
                 </button>
               </div>
             </form>

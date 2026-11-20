@@ -46,5 +46,5 @@ export const ImageProviderInput = z.object({
   if (!imageSizes(value.modelType, value.protocol).includes(value.size)) ctx.addIssue({ code: 'custom', path: ['size'], message: 'Unsupported size' });
 });
 export type ImageProviderData = z.infer<typeof ImageProviderInput>;
-export type ImageProviderView = Omit<ImageProviderData, 'apiKey'> & { id: number; isOwner: boolean; apiKeyHint: string };
+export type ImageProviderView = Omit<ImageProviderData, 'apiKey'> & { id: number; isOwner: boolean; canManage?: boolean; apiKeyHint: string };
 export const ImagePromptInput = z.object({ prompt: z.string().trim().min(1).max(8000) });

@@ -13,15 +13,18 @@ export interface AsyncActionState {
 
 export type AsyncActionEvent =
   | { type: "start" }
+  | { type: "clearError" }
   | { type: "settle"; outcome: Outcome; keepPendingOnSuccess?: boolean };
 
 export const IDLE: AsyncActionState = { pending: false, error: null };
 
 /** The hook's state machine, kept pure so it can be tested without a DOM. */
-export function reduceOutcome(_prev: AsyncActionState, event: AsyncActionEvent): AsyncActionState {
+export function reduceOutcome(prev: AsyncActionState, event: AsyncActionEvent): AsyncActionState {
   switch (event.type) {
     case "start":
       return { pending: true, error: null };
+    case "clearError":
+      return prev.error === null ? prev : { ...prev, error: null };
     case "settle":
       return event.outcome.success
         ? { pending: !!event.keepPendingOnSuccess, error: null }
@@ -95,5 +98,9 @@ export function useAsyncAction<Args extends unknown[]>(
     return outcome.success;
   }, []);
 
-  return { ...state, run };
+  const clearError = useCallback(() => {
+    dispatch({ type: "clearError" });
+  }, []);
+
+  return { ...state, run, clearError };
 }

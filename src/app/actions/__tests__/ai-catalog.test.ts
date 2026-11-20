@@ -8,7 +8,8 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next-intl/server', () => ({ getTranslations: async () => (k: string) => k }));
 vi.mock('@/lib/security/encryption', () => ({ encrypt: (s: string) => `encrypted:${s}`, decrypt: (s: string) => s.replace('encrypted:', '') }));
 vi.mock('@/lib/security/url-guard', () => ({ validateApiEndpoint: async () => ({ valid: true }) }));
-vi.mock('@/lib/ai/protocol/provider', () => ({ completeForProvider: vi.fn() }));
+const completeForProvider = vi.fn();
+vi.mock('@/lib/ai/protocol/provider', () => ({ completeForProvider: (...a: unknown[]) => completeForProvider(...a) }));
 function chain(table: unknown) {
   const result = { where: () => result, for: () => result, limit: () => result, then: (resolve: (v: unknown[]) => unknown) => Promise.resolve(table === aiVendors ? vendors : models).then(resolve) }; return result;
 }
@@ -17,7 +18,8 @@ const transaction = { select: () => ({ from: (table: unknown) => chain(table) })
   update: () => ({ set: (v: unknown) => ({ where: async () => { writes(v); } }) }),
   delete: () => ({ where: async () => { writes('delete'); } }) };
 vi.mock('@/db', () => ({ db: { transaction: async (fn: (tx: typeof transaction) => unknown) => fn(transaction), select: () => transaction.select() }, sqlNow: () => 'now' }));
-import { deleteAiVendor, saveAiModel, saveAiVendor } from '../ai-catalog';
+import { ProtocolError } from '@/lib/ai/protocol/errors';
+import { deleteAiModel, deleteAiVendor, saveAiModel, saveAiVendor, testAiModel, updateSharedModelAdmin } from '../ai-catalog';
 const route = { protocol: 'chat', endpoint: 'https://api.example/v1', endpointMode: 'base' };
 const input = { name: 'Model', model: 'm', protocol: 'chat', settings: {}, isShared: false, tokenRateInput: 0, tokenRateCached: 0, tokenRateOutput: 0 };
 beforeEach(() => { vi.clearAllMocks(); session = { user: { id: '2', role: 'host' } }; models = []; vendors = [{ id: 1, ownerId: 2, name: 'Vendor', platform: 'custom', routes: [route], apiKeyEncrypted: 'encrypted:secret', apiKeyHint: 'cret' }]; });
@@ -57,5 +59,28 @@ describe('catalog mutations', () => {
   });
   it('requires a credential for a new authenticated vendor', async () => {
     expect(await saveAiVendor(null, { name: 'Vendor', platform: 'custom', routes: [route] })).toMatchObject({ success: false, error: 'keyRequired' });
+  });
+  it('lets another admin adjust rates/sharing or delete a shared model', async () => {
+    session = { user: { id: '99', role: 'admin' } };
+    models = [{ ...input, id: 7, ownerId: 2, vendorId: 1, isShared: true }];
+    expect(await updateSharedModelAdmin(7, { isShared: false, tokenRateInput: 3, tokenRateCached: 0.5, tokenRateOutput: 6 })).toEqual({ success: true });
+    expect(writes).toHaveBeenCalledWith(expect.objectContaining({ isShared: false, tokenRateInput: 3, tokenRateCached: 0.5, tokenRateOutput: 6 }));
+    expect(await deleteAiModel(7)).toEqual({ success: true });
+    expect(writes).toHaveBeenCalledWith('delete');
+  });
+  it('blocks non-admin from updateSharedModelAdmin or deleting foreign models', async () => {
+    models = [{ ...input, id: 7, ownerId: 3, vendorId: 1, isShared: true }];
+    expect(await updateSharedModelAdmin(7, { isShared: false, tokenRateInput: 0, tokenRateCached: 0, tokenRateOutput: 0 })).toMatchObject({ success: false, error: 'forbidden' });
+    expect(await deleteAiModel(7)).toMatchObject({ success: false, error: 'forbidden' });
+    expect(writes).not.toHaveBeenCalled();
+  });
+  it('maps protocol test failures to specific diagnostic keys', async () => {
+    models = [{ ...input, id: 7, ownerId: 2, apiKeyEncrypted: 'encrypted:secret', apiEndpoint: route.endpoint, protocolConfig: null }];
+    completeForProvider.mockRejectedValueOnce(new ProtocolError('timeout', 'timed out'));
+    expect(await testAiModel(7)).toEqual({ success: false, error: 'testTimeout' });
+    completeForProvider.mockRejectedValueOnce(new ProtocolError('upstream', 'AI API error (401)', undefined, 401));
+    expect(await testAiModel(7)).toEqual({ success: false, error: 'testUpstreamStatus' });
+    completeForProvider.mockResolvedValueOnce({ status: 'completed', message: { content: '   ' } });
+    expect(await testAiModel(7)).toEqual({ success: false, error: 'emptyResponse' });
   });
 });

@@ -25,6 +25,8 @@ export function botConfigForEditor(botConfigJson: string | null | undefined): {
   enableTools?: string[];
   providerId?: number;
   imageProviderId?: number;
+  allowEditPrompt?: boolean;
+  presetId?: number;
 } {
   if (!botConfigJson) return {};
   try {
@@ -38,6 +40,8 @@ export function botConfigForEditor(botConfigJson: string | null | undefined): {
     }
     if (typeof cfg.providerId === "number") out.providerId = cfg.providerId;
     if (typeof cfg.imageProviderId === "number") out.imageProviderId = cfg.imageProviderId;
+    if (typeof cfg.allowEditPrompt === "boolean") out.allowEditPrompt = cfg.allowEditPrompt;
+    if (typeof cfg.presetId === "number") out.presetId = cfg.presetId;
     return out;
   } catch {
     return {};

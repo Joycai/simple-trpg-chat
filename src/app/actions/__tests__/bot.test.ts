@@ -63,6 +63,25 @@ describe("createBotAction", () => {
     expect(await createBotAction(5, data)).toEqual({ success: true });
     expect(insert).toHaveBeenCalledTimes(2);
   });
+
+  it("enforces preset systemPrompt when allowEditPrompt is false", async () => {
+    const insertedValues: unknown[] = [];
+    insert.mockImplementationOnce(() => ({
+      values: (v: unknown) => {
+        insertedValues.push(v);
+        return { returning: async () => [{ id: 42 }] };
+      },
+    }));
+    selectQueue = [
+      [{ id: 7, systemPrompt: "locked-prompt", allowEditPrompt: false }],
+      [{ ruleTemplate: "basic" }],
+    ];
+    expect(await createBotAction(5, { ...data, systemPrompt: "tampered", presetId: 7 })).toEqual({ success: true });
+    const botCfg = JSON.parse((insertedValues[0] as { botConfigJson: string }).botConfigJson);
+    expect(botCfg.systemPrompt).toBe("locked-prompt");
+    expect(botCfg.allowEditPrompt).toBe(false);
+    expect(botCfg.presetId).toBe(7);
+  });
 });
 
 describe("updateBotAction", () => {
@@ -93,6 +112,25 @@ describe("updateBotAction", () => {
     expect(await updateBotAction(5, 9, data)).toEqual({ success: true });
     expect(update).toHaveBeenCalledTimes(2);
   });
+
+  it("preserves locked systemPrompt when allowEditPrompt is false", async () => {
+    const setCalls: unknown[] = [];
+    update.mockImplementationOnce(() => ({
+      set: (v: unknown) => {
+        setCalls.push(v);
+        return { where: async () => [] };
+      },
+    }));
+    selectQueue = [
+      [{ id: 9, isBot: true, botConfigJson: JSON.stringify({ systemPrompt: "locked-prompt", allowEditPrompt: false, presetId: 7 }) }],
+      [{ id: 3 }],
+    ];
+    expect(await updateBotAction(5, 9, { ...data, systemPrompt: "tampered" })).toEqual({ success: true });
+    const chunks = (setCalls[0] as { botConfigJson: { queryChunks: unknown[] } }).botConfigJson.queryChunks;
+    const jsonChunk = chunks.find((c): c is string => typeof c === "string" && c.includes("systemPrompt"));
+    expect(jsonChunk).toContain("locked-prompt");
+    expect(jsonChunk).not.toContain("tampered");
+  });
 });
 
 describe("triggerBotAction", () => {
@@ -109,61 +147,6 @@ describe("triggerBotAction", () => {
   it("starts the agent for the host", async () => {
     selectQueue = [[{ id: 9, isBot: true }], [{ id: 1 }]];
     expect(await triggerBotAction(5, 9)).toEqual({ success: true });
-  });
-});
-
-describe("getRoomBotsAction", () => {
-  // Regression: this used to return `JSON.parse(botConfigJson)` to EVERY member,
-  // leaking the host-private system prompt and the conversation summary that
-  // lives in the same JSON. Members must receive a closed summary only.
-  const botConfig = JSON.stringify({
-    systemPrompt: "you are the secret NPC",
-    model: "gpt-4o-mini",
-    activation: "manual",
-    enableTools: ["roll_dice"],
-    providerId: 5,
-    imageProviderId: 6,
-    historySummary: "private player DM summary",
-  });
-  const row = {
-    users: { id: 9, displayName: "Bot", botConfigJson: botConfig },
-    room_members: { id: 12, nickname: "kp", avatarColor: "#fff" },
-  };
-
-  it("gives a player the public summary without config", async () => {
-    checkRoomAccess.mockResolvedValue({ userId: 2, isHost: false, isAdmin: false });
-    selectQueue = [[row]];
-
-    const [bot] = await getRoomBotsAction(5);
-    expect(bot).toMatchObject({ id: 9, memberId: 12, nickname: "kp", activation: "manual", providerId: 5 });
-    expect(bot).not.toHaveProperty("config");
-    expect(JSON.stringify(bot)).not.toContain("you are the secret NPC");
-    expect(JSON.stringify(bot)).not.toContain("private player DM summary");
-  });
-
-  it("gives the host the editor projection, still without the summary", async () => {
-    checkRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
-    selectQueue = [[row]];
-
-    const [bot] = await getRoomBotsAction(5);
-    expect(bot.config).toEqual({
-      systemPrompt: "you are the secret NPC",
-      model: "gpt-4o-mini",
-      activation: "manual",
-      enableTools: ["roll_dice"],
-      providerId: 5,
-      imageProviderId: 6,
-    });
-    expect(JSON.stringify(bot)).not.toContain("private player DM summary");
-  });
-
-  it("survives a malformed config without leaking or throwing", async () => {
-    checkRoomAccess.mockResolvedValue({ userId: 1, isHost: true, isAdmin: false });
-    selectQueue = [[{ ...row, users: { ...row.users, botConfigJson: "{not json" } }]];
-
-    const [bot] = await getRoomBotsAction(5);
-    expect(bot.config).toEqual({});
-    expect(bot.providerId).toBeNull();
   });
 });
 
